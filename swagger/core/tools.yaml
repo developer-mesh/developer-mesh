@@ -1,0 +1,500 @@
+paths:
+  /tools:
+    get:
+      tags:
+        - Tools
+      summary: List available tools
+      description: |
+        Returns a list of all available DevOps tools with their descriptions, available actions,
+        and safety restrictions. This endpoint helps discover what tools are integrated and
+        what capabilities they provide.
+      operationId: listTools
+      parameters:
+        - name: category
+          in: query
+          description: Filter tools by category
+          schema:
+            type: string
+            enum: [scm, ci_cd, security, artifacts, monitoring]
+          example: "ci_cd"
+        - name: capability
+          in: query
+          description: Filter by capability (e.g., "create", "read", "update")
+          schema:
+            type: string
+          example: "create"
+      responses:
+        '200':
+          description: List of available tools
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListToolsResponse'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /tools/{tool}:
+    parameters:
+      - $ref: '../common/parameters.yaml#/components/parameters/ToolName'
+    
+    get:
+      tags:
+        - Tools
+      summary: Get tool details
+      description: |
+        Returns detailed information about a specific tool including its capabilities,
+        version, configuration requirements, and safety restrictions.
+      operationId: getToolDetails
+      responses:
+        '200':
+          description: Tool details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolDetails'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /tools/{tool}/actions:
+    parameters:
+      - $ref: '../common/parameters.yaml#/components/parameters/ToolName'
+    
+    get:
+      tags:
+        - Tools
+      summary: List tool actions
+      description: |
+        Returns all available actions for a specific tool, including allowed and
+        disallowed actions based on safety restrictions.
+      operationId: listToolActions
+      parameters:
+        - name: safety_level
+          in: query
+          description: Filter by safety level
+          schema:
+            type: string
+            enum: [safe, moderate, restricted, all]
+            default: all
+          example: "safe"
+      responses:
+        '200':
+          description: Tool actions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolActionsResponse'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /tools/{tool}/actions/{action}:
+    parameters:
+      - $ref: '../common/parameters.yaml#/components/parameters/ToolName'
+      - $ref: '../common/parameters.yaml#/components/parameters/ActionName'
+    
+    get:
+      tags:
+        - Tools
+      summary: Get action details
+      description: |
+        Returns detailed information about a specific action including parameters,
+        validation rules, and examples.
+      operationId: getActionDetails
+      responses:
+        '200':
+          description: Action details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionDetails'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+    
+    post:
+      tags:
+        - Tools
+      summary: Execute tool action
+      description: |
+        Executes a specific action on a tool. All executions are tracked with the provided
+        context_id for audit and conversation history purposes.
+      operationId: executeToolAction
+      parameters:
+        - $ref: '../common/parameters.yaml#/components/parameters/ContextIDQuery'
+        - name: async
+          in: query
+          description: Execute action asynchronously
+          schema:
+            type: boolean
+            default: false
+          example: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              description: Action-specific parameters
+            examples:
+              github_create_issue:
+                summary: Create GitHub issue
+                value:
+                  owner: "octocat"
+                  repo: "hello-world"
+                  title: "Bug in login form"
+                  body: "The login form doesn't submit when using Safari"
+                  labels: ["bug", "frontend"]
+      responses:
+        '200':
+          description: Action executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionExecutionResponse'
+        '202':
+          description: Action accepted for async execution
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsyncExecutionResponse'
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: '../common/responses.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '422':
+          $ref: '../common/responses.yaml#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /tools/{tool}/queries:
+    parameters:
+      - $ref: '../common/parameters.yaml#/components/parameters/ToolName'
+    
+    post:
+      tags:
+        - Tools
+      summary: Query tool data
+      description: |
+        Performs a query operation on a tool to retrieve data without making changes.
+        This is used for read-only operations like listing resources or getting status.
+      operationId: queryToolData
+      parameters:
+        - $ref: '../common/parameters.yaml#/components/parameters/ContextIDQuery'
+        - $ref: '../common/parameters.yaml#/components/parameters/Page'
+        - $ref: '../common/parameters.yaml#/components/parameters/Limit'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ToolQueryRequest'
+            examples:
+              list_repositories:
+                summary: List GitHub repositories
+                value:
+                  query_type: "list_repositories"
+                  filters:
+                    organization: "octocat"
+                    visibility: "public"
+                    sort: "updated"
+      responses:
+        '200':
+          description: Query results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolQueryResponse'
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    ListToolsResponse:
+      type: object
+      required:
+        - tools
+      properties:
+        tools:
+          type: array
+          items:
+            $ref: '../common/schemas.yaml#/components/schemas/ToolCapability'
+        categories:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Tools grouped by category
+          example:
+            scm: ["github"]
+            ci_cd: ["github_actions"]
+        _links:
+          $ref: '../common/schemas.yaml#/components/schemas/Links'
+
+    ToolDetails:
+      allOf:
+        - $ref: '../common/schemas.yaml#/components/schemas/ToolCapability'
+        - type: object
+          properties:
+            category:
+              type: string
+              enum: [scm, ci_cd, security, artifacts, monitoring]
+              description: Tool category
+            authentication:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum: [api_key, oauth2, basic, token]
+                required_scopes:
+                  type: array
+                  items:
+                    type: string
+              description: Authentication requirements
+            configuration:
+              type: object
+              properties:
+                required:
+                  type: array
+                  items:
+                    type: string
+                optional:
+                  type: array
+                  items:
+                    type: string
+              description: Configuration parameters
+            rate_limits:
+              type: object
+              properties:
+                requests_per_hour:
+                  type: integer
+                concurrent_requests:
+                  type: integer
+              description: Tool-specific rate limits
+            health_status:
+              type: string
+              enum: [healthy, degraded, unavailable]
+              description: Current tool health status
+
+    ToolActionsResponse:
+      type: object
+      required:
+        - tool
+        - allowed_actions
+      properties:
+        tool:
+          type: string
+          example: "github"
+        allowed_actions:
+          type: array
+          items:
+            type: string
+          description: Actions permitted by safety policy
+        disallowed_actions:
+          type: array
+          items:
+            type: string
+          description: Actions blocked by safety policy
+        safety_notes:
+          type: string
+          description: Explanation of safety restrictions
+        action_groups:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Actions grouped by type
+          example:
+            read: ["get_issue", "list_issues", "get_repository"]
+            write: ["create_issue", "update_issue", "create_pull_request"]
+            admin: ["archive_repository", "update_settings"]
+
+    ActionDetails:
+      allOf:
+        - $ref: '../common/schemas.yaml#/components/schemas/ToolAction'
+        - type: object
+          properties:
+            input_schema:
+              type: object
+              description: JSON Schema for action parameters
+            output_schema:
+              type: object
+              description: JSON Schema for action response
+            examples:
+              type: array
+              items:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  description:
+                    type: string
+                  input:
+                    type: object
+                  output:
+                    type: object
+              description: Example requests and responses
+            error_codes:
+              type: array
+              items:
+                type: object
+                properties:
+                  code:
+                    type: string
+                  description:
+                    type: string
+                  recovery:
+                    type: string
+              description: Possible error codes and recovery suggestions
+            rate_limit:
+              type: object
+              properties:
+                requests_per_hour:
+                  type: integer
+                burst:
+                  type: integer
+              description: Action-specific rate limits
+            _links:
+              $ref: '../common/schemas.yaml#/components/schemas/Links'
+
+    ActionExecutionResponse:
+      type: object
+      required:
+        - status
+        - tool
+        - action
+      properties:
+        status:
+          type: string
+          enum: [success, failure]
+        message:
+          type: string
+          description: Human-readable status message
+        tool:
+          type: string
+          example: "github"
+        action:
+          type: string
+          example: "create_issue"
+        params:
+          type: object
+          description: Parameters used for execution
+        result:
+          type: object
+          additionalProperties: true
+          description: Action-specific result data
+        execution_time:
+          type: number
+          format: float
+          description: Execution time in seconds
+        _links:
+          $ref: '../common/schemas.yaml#/components/schemas/Links'
+
+    AsyncExecutionResponse:
+      type: object
+      required:
+        - execution_id
+        - status
+      properties:
+        execution_id:
+          $ref: '../common/schemas.yaml#/components/schemas/UUID'
+        status:
+          type: string
+          enum: [accepted, queued]
+        estimated_completion:
+          type: integer
+          description: Estimated seconds until completion
+        _links:
+          type: object
+          properties:
+            self:
+              type: string
+              format: uri
+            status:
+              type: string
+              format: uri
+            cancel:
+              type: string
+              format: uri
+
+    ToolQueryRequest:
+      type: object
+      required:
+        - query_type
+      properties:
+        query_type:
+          type: string
+          description: Type of query to perform
+          example: "list_repositories"
+        filters:
+          type: object
+          additionalProperties: true
+          description: Query-specific filters
+        fields:
+          type: array
+          items:
+            type: string
+          description: Fields to include in response
+        sort:
+          type: object
+          properties:
+            field:
+              type: string
+            direction:
+              type: string
+              enum: [asc, desc]
+          description: Sort configuration
+
+    ToolQueryResponse:
+      type: object
+      required:
+        - status
+        - tool
+        - data
+      properties:
+        status:
+          type: string
+          enum: [success, partial, failure]
+        message:
+          type: string
+        tool:
+          type: string
+        query_params:
+          type: object
+          description: Query parameters used
+        data:
+          type: array
+          items:
+            type: object
+          description: Query results
+        total:
+          type: integer
+          description: Total number of results
+        meta:
+          $ref: '../common/schemas.yaml#/components/schemas/PaginationMeta'
+        _links:
+          $ref: '../common/schemas.yaml#/components/schemas/Links'

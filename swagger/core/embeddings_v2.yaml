@@ -1,0 +1,676 @@
+openapi: 3.0.0
+info:
+  title: Multi-Agent Embedding API v2
+  version: 2.0.0
+  description: API for multi-agent embedding generation with cross-model search capabilities
+
+paths:
+  /api/v2/embeddings:
+    post:
+      summary: Generate embedding for agent
+      description: Generate an embedding for the specified text using agent-specific configuration
+      operationId: generateEmbedding
+      tags:
+        - embeddings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateEmbeddingRequest'
+      responses:
+        '200':
+          description: Embedding generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateEmbeddingResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v2/embeddings/batch:
+    post:
+      summary: Generate multiple embeddings
+      description: Generate embeddings for multiple texts in a single request
+      operationId: batchGenerateEmbeddings
+      tags:
+        - embeddings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/GenerateEmbeddingRequest'
+      responses:
+        '200':
+          description: Embeddings generated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  embeddings:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GenerateEmbeddingResponse'
+                  count:
+                    type: integer
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v2/embeddings/providers/health:
+    get:
+      summary: Get provider health status
+      description: Get the health status of all configured embedding providers
+      operationId: getProviderHealth
+      tags:
+        - embeddings
+      responses:
+        '200':
+          description: Provider health status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  providers:
+                    type: object
+                    additionalProperties:
+                      $ref: '#/components/schemas/ProviderHealth'
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /api/v2/embeddings/agents:
+    post:
+      summary: Create agent configuration
+      description: Create a new embedding configuration for an agent
+      operationId: createAgentConfig
+      tags:
+        - agent-config
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentConfig'
+      responses:
+        '201':
+          description: Agent configuration created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentConfig'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Agent configuration already exists
+
+  /api/v2/embeddings/agents/{agentId}:
+    get:
+      summary: Get agent configuration
+      description: Get the embedding configuration for a specific agent
+      operationId: getAgentConfig
+      tags:
+        - agent-config
+      parameters:
+        - $ref: '#/components/parameters/agentId'
+      responses:
+        '200':
+          description: Agent configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentConfig'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    
+    put:
+      summary: Update agent configuration
+      description: Update the embedding configuration for a specific agent
+      operationId: updateAgentConfig
+      tags:
+        - agent-config
+      parameters:
+        - $ref: '#/components/parameters/agentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentConfigUpdate'
+      responses:
+        '200':
+          description: Agent configuration updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentConfig'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v2/embeddings/agents/{agentId}/models:
+    get:
+      summary: Get agent models
+      description: Get the models configured for an agent for a specific task type
+      operationId: getAgentModels
+      tags:
+        - agent-config
+      parameters:
+        - $ref: '#/components/parameters/agentId'
+        - name: task_type
+          in: query
+          description: Task type to get models for
+          schema:
+            $ref: '#/components/schemas/TaskType'
+      responses:
+        '200':
+          description: Agent models
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agent_id:
+                    type: string
+                  task_type:
+                    $ref: '#/components/schemas/TaskType'
+                  primary_models:
+                    type: array
+                    items:
+                      type: string
+                  fallback_models:
+                    type: array
+                    items:
+                      type: string
+
+  /api/v2/embeddings/agents/{agentId}/costs:
+    get:
+      summary: Get agent costs
+      description: Get the embedding generation costs for a specific agent
+      operationId: getAgentCosts
+      tags:
+        - agent-config
+      parameters:
+        - $ref: '#/components/parameters/agentId'
+        - name: period_days
+          in: query
+          description: Number of days to calculate costs for
+          schema:
+            type: integer
+            default: 30
+            minimum: 1
+            maximum: 365
+      responses:
+        '200':
+          description: Agent cost summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CostSummary'
+
+  /api/v2/embeddings/search:
+    post:
+      summary: Search embeddings
+      description: Search for similar embeddings using agent-specific models
+      operationId: searchEmbeddings
+      tags:
+        - search
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchRequest'
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SearchResult'
+                  count:
+                    type: integer
+                  query:
+                    type: object
+
+  /api/v2/embeddings/search/cross-model:
+    post:
+      summary: Cross-model search
+      description: Search across embeddings from different models using dimension normalization
+      operationId: crossModelSearch
+      tags:
+        - search
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrossModelSearchRequest'
+      responses:
+        '200':
+          description: Cross-model search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CrossModelSearchResult'
+                  count:
+                    type: integer
+                  search_model:
+                    type: string
+                  included_models:
+                    type: array
+                    items:
+                      type: string
+
+components:
+  parameters:
+    agentId:
+      name: agentId
+      in: path
+      required: true
+      description: The unique identifier of the agent
+      schema:
+        type: string
+
+  schemas:
+    GenerateEmbeddingRequest:
+      type: object
+      required:
+        - agent_id
+        - text
+      properties:
+        agent_id:
+          type: string
+          description: The agent ID to use for embedding generation
+        text:
+          type: string
+          description: The text to generate an embedding for
+          maxLength: 50000
+        task_type:
+          $ref: '#/components/schemas/TaskType'
+        metadata:
+          type: object
+          additionalProperties: true
+        request_id:
+          type: string
+          description: Optional request ID for tracking
+        context_id:
+          type: string
+          format: uuid
+          description: Optional context ID to associate the embedding with
+
+    GenerateEmbeddingResponse:
+      type: object
+      properties:
+        embedding_id:
+          type: string
+          format: uuid
+        request_id:
+          type: string
+        model_used:
+          type: string
+        provider:
+          type: string
+        dimensions:
+          type: integer
+        normalized_dimensions:
+          type: integer
+        cost_usd:
+          type: number
+          format: double
+        tokens_used:
+          type: integer
+        generation_time_ms:
+          type: integer
+        cached:
+          type: boolean
+        metadata:
+          type: object
+          additionalProperties: true
+
+    ProviderHealth:
+      type: object
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+        error:
+          type: string
+        circuit_breaker_state:
+          type: string
+          enum: [closed, open, half_open]
+        failure_count:
+          type: integer
+
+    AgentConfig:
+      type: object
+      required:
+        - agent_id
+        - embedding_strategy
+        - model_preferences
+      properties:
+        id:
+          type: string
+          format: uuid
+        agent_id:
+          type: string
+        version:
+          type: integer
+        embedding_strategy:
+          $ref: '#/components/schemas/EmbeddingStrategy'
+        model_preferences:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModelPreference'
+        constraints:
+          $ref: '#/components/schemas/AgentConstraints'
+        fallback_behavior:
+          $ref: '#/components/schemas/FallbackConfig'
+        metadata:
+          type: object
+          additionalProperties: true
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+
+    AgentConfigUpdate:
+      type: object
+      properties:
+        embedding_strategy:
+          $ref: '#/components/schemas/EmbeddingStrategy'
+        model_preferences:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModelPreference'
+        constraints:
+          $ref: '#/components/schemas/AgentConstraints'
+        fallback_behavior:
+          $ref: '#/components/schemas/FallbackConfig'
+        metadata:
+          type: object
+          additionalProperties: true
+
+    EmbeddingStrategy:
+      type: string
+      enum:
+        - balanced
+        - quality
+        - speed
+        - cost
+
+    TaskType:
+      type: string
+      enum:
+        - general_qa
+        - code_analysis
+        - multilingual
+        - research
+        - structured_data
+
+    ModelPreference:
+      type: object
+      required:
+        - task_type
+        - primary_models
+      properties:
+        task_type:
+          $ref: '#/components/schemas/TaskType'
+        primary_models:
+          type: array
+          items:
+            type: string
+        fallback_models:
+          type: array
+          items:
+            type: string
+
+    AgentConstraints:
+      type: object
+      properties:
+        max_cost_per_month_usd:
+          type: number
+          format: double
+          minimum: 0
+        max_latency_p99_ms:
+          type: integer
+          minimum: 0
+        min_availability_sla:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
+        rate_limits:
+          $ref: '#/components/schemas/RateLimitConfig'
+
+    RateLimitConfig:
+      type: object
+      properties:
+        requests_per_minute:
+          type: integer
+          minimum: 0
+        requests_per_hour:
+          type: integer
+          minimum: 0
+        tokens_per_minute:
+          type: integer
+          minimum: 0
+        tokens_per_hour:
+          type: integer
+          minimum: 0
+
+    FallbackConfig:
+      type: object
+      properties:
+        max_retries:
+          type: integer
+          minimum: 0
+          default: 3
+        initial_delay_ms:
+          type: integer
+          minimum: 0
+          default: 100
+        exponential_base:
+          type: number
+          format: double
+          minimum: 1
+          default: 2.0
+        max_delay_ms:
+          type: integer
+          minimum: 0
+          default: 10000
+
+    CostSummary:
+      type: object
+      properties:
+        agent_id:
+          type: string
+        period_days:
+          type: integer
+        total_cost_usd:
+          type: number
+          format: double
+        by_provider:
+          type: object
+          additionalProperties:
+            type: number
+            format: double
+        by_model:
+          type: object
+          additionalProperties:
+            type: number
+            format: double
+        request_count:
+          type: integer
+        tokens_used:
+          type: integer
+
+    SearchRequest:
+      type: object
+      required:
+        - agent_id
+        - query
+      properties:
+        agent_id:
+          type: string
+        query:
+          type: string
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 10
+        threshold:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
+          default: 0.7
+        metadata:
+          type: object
+          additionalProperties: true
+
+    SearchResult:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        content:
+          type: string
+        similarity:
+          type: number
+          format: double
+        metadata:
+          type: object
+          additionalProperties: true
+
+    CrossModelSearchRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+        search_model:
+          type: string
+          description: Model to use for generating query embedding
+        include_models:
+          type: array
+          items:
+            type: string
+          description: Models to include in search
+        exclude_models:
+          type: array
+          items:
+            type: string
+          description: Models to exclude from search
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 10
+        min_similarity:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
+          default: 0.7
+        metadata_filter:
+          type: object
+          additionalProperties: true
+
+    CrossModelSearchResult:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        content:
+          type: string
+        original_model:
+          type: string
+        original_dimension:
+          type: integer
+        normalized_score:
+          type: number
+          format: double
+        metadata:
+          type: object
+          additionalProperties: true
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              details:
+                type: string
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              details:
+                type: string

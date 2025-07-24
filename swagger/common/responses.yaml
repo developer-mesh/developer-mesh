@@ -1,0 +1,250 @@
+components:
+  responses:
+    # Success responses
+    
+    OK:
+      description: Successful operation
+      content:
+        application/json:
+          schema:
+            $ref: './schemas.yaml#/components/schemas/SuccessResponse'
+    
+    Created:
+      description: Resource created successfully
+      headers:
+        Location:
+          description: URL of the created resource
+          schema:
+            type: string
+            format: uri
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              id:
+                type: string
+                description: ID of created resource
+              message:
+                type: string
+                description: Success message
+              _links:
+                $ref: './schemas.yaml#/components/schemas/Links'
+    
+    NoContent:
+      description: Operation successful, no content returned
+    
+    # Client error responses
+    
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: './schemas.yaml#/components/schemas/Error'
+          examples:
+            validation_error:
+              value:
+                error: "Validation failed"
+                code: "VALIDATION_ERROR"
+                details:
+                  field: "title"
+                  reason: "Required field missing"
+            invalid_format:
+              value:
+                error: "Invalid format"
+                code: "INVALID_FORMAT"
+                details:
+                  field: "created_at"
+                  reason: "Must be ISO 8601 date-time"
+    
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: './schemas.yaml#/components/schemas/Error'
+          example:
+            error: "Authentication required"
+            code: "UNAUTHORIZED"
+    
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: './schemas.yaml#/components/schemas/Error'
+          example:
+            error: "Insufficient permissions"
+            code: "FORBIDDEN"
+            details:
+              required_role: "admin"
+              current_role: "user"
+    
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: './schemas.yaml#/components/schemas/Error'
+          example:
+            error: "Resource not found"
+            code: "NOT_FOUND"
+            details:
+              resource_type: "context"
+              resource_id: "ctx-789"
+    
+    Conflict:
+      description: Resource conflict
+      content:
+        application/json:
+          schema:
+            $ref: './schemas.yaml#/components/schemas/Error'
+          example:
+            error: "Resource already exists"
+            code: "CONFLICT"
+            details:
+              conflicting_field: "name"
+              existing_value: "my-agent"
+    
+    UnprocessableEntity:
+      description: Request understood but cannot be processed
+      content:
+        application/json:
+          schema:
+            $ref: './schemas.yaml#/components/schemas/Error'
+          example:
+            error: "Cannot process request"
+            code: "UNPROCESSABLE_ENTITY"
+            details:
+              reason: "Repository is archived"
+    
+    TooManyRequests:
+      description: Rate limit exceeded
+      headers:
+        X-RateLimit-Limit:
+          description: Request limit per window
+          schema:
+            type: integer
+        X-RateLimit-Remaining:
+          description: Remaining requests in window
+          schema:
+            type: integer
+        X-RateLimit-Reset:
+          description: Unix timestamp when limit resets
+          schema:
+            type: integer
+        Retry-After:
+          description: Seconds until next request allowed
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: './schemas.yaml#/components/schemas/Error'
+          example:
+            error: "Rate limit exceeded"
+            code: "RATE_LIMIT_EXCEEDED"
+            details:
+              limit: 1000
+              window: "1h"
+              retry_after: 3600
+    
+    # Server error responses
+    
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: './schemas.yaml#/components/schemas/Error'
+          example:
+            error: "Internal server error"
+            code: "INTERNAL_ERROR"
+            details:
+              request_id: "550e8400-e29b-41d4-a716-446655440000"
+    
+    BadGateway:
+      description: Bad gateway - upstream service error
+      content:
+        application/json:
+          schema:
+            $ref: './schemas.yaml#/components/schemas/Error'
+          example:
+            error: "Upstream service error"
+            code: "BAD_GATEWAY"
+            details:
+              service: "github"
+              status: 503
+    
+    ServiceUnavailable:
+      description: Service temporarily unavailable
+      headers:
+        Retry-After:
+          description: Seconds until service available
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: './schemas.yaml#/components/schemas/Error'
+          example:
+            error: "Service temporarily unavailable"
+            code: "SERVICE_UNAVAILABLE"
+            details:
+              reason: "Maintenance window"
+              retry_after: 300
+    
+    GatewayTimeout:
+      description: Gateway timeout - upstream service timeout
+      content:
+        application/json:
+          schema:
+            $ref: './schemas.yaml#/components/schemas/Error'
+          example:
+            error: "Gateway timeout"
+            code: "GATEWAY_TIMEOUT"
+            details:
+              service: "github"
+              timeout: "30s"
+    
+    # Generic responses
+    
+    ErrorResponse:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            $ref: './schemas.yaml#/components/schemas/Error'
+    
+    PaginatedResponse:
+      description: Paginated list response
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  type: object
+              meta:
+                $ref: './schemas.yaml#/components/schemas/PaginationMeta'
+              _links:
+                type: object
+                properties:
+                  self:
+                    type: string
+                    format: uri
+                  first:
+                    type: string
+                    format: uri
+                  last:
+                    type: string
+                    format: uri
+                  prev:
+                    type: string
+                    format: uri
+                  next:
+                    type: string
+                    format: uri

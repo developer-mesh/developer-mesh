@@ -1,0 +1,315 @@
+openapi: 3.0.3
+info:
+  title: Developer Mesh Platform API
+  description: |
+    The Developer Mesh (Model Context Protocol) Platform is an AI Agent Orchestration Platform that enables intelligent routing and coordination of multiple AI agents for DevOps workflows.
+    
+    ## Overview
+    This API enables:
+    - **AI Agent Orchestration**: Register, manage, and coordinate multiple AI agents
+    - **Context Management**: Store and retrieve conversation contexts with S3 persistence
+    - **Tool Integration**: Execute actions across GitHub, Harness, SonarQube, and more
+    - **Multi-Agent Embeddings**: Agent-specific embedding generation with smart provider routing
+    - **Cross-Model Search**: Semantic search across embeddings from different models
+    - **Binary WebSocket Protocol**: High-performance real-time communication
+    - **CRDT Collaboration**: Real-time collaborative features with conflict resolution
+    - **Workflow Orchestration**: Multi-step workflows with agent task assignment
+    - **Webhook Processing**: Real-time event processing from external services
+    
+    ## Authentication
+    All API requests require authentication using one of the following methods:
+    - **API Key**: Pass in `Authorization` header as `Bearer <key>` or in `X-API-Key` header
+    - **JWT Bearer Token**: Pass as `Bearer <token>` in `Authorization` header
+    - **OAuth2**: Use client credentials flow via `/auth/login` endpoint
+    
+    ### Enhanced Security Features
+    - Minimum 16-character API keys
+    - Configurable failed attempt limits with lockout
+    - Scope-based authorization
+    - Audit logging for all authentication events
+    
+    ## Rate Limiting
+    - **Default**: 100 requests/minute per identifier
+    - **Authentication endpoints**: 5 attempts before 15-minute lockout
+    - **Per-tenant limits**: Configurable based on subscription tier
+    - **Headers**: X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset
+    
+  version: 1.0.0
+  contact:
+    name: Developer Mesh Support
+    email: support@developer-mesh.com
+    url: https://github.com/developer-mesh/developer-mesh
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.developer-mesh.com/api/v1
+    description: Production API Server
+  - url: https://staging-api.developer-mesh.com/api/v1
+    description: Staging API Server
+  - url: http://localhost:8080/api/v1
+    description: Local MCP Server (WebSocket)
+  - url: http://localhost:8081/api/v1
+    description: Local REST API Server
+
+security:
+  - ApiKeyAuth: []
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: API key authentication (with or without 'Bearer' prefix)
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT bearer token authentication
+
+tags:
+  - name: Authentication
+    description: Authentication and authorization endpoints
+  - name: Health
+    description: Health check and monitoring endpoints
+  - name: Contexts
+    description: MCP context management operations
+  - name: Tools
+    description: DevOps tool integration endpoints
+  - name: Agents
+    description: AI agent management and orchestration
+  - name: Models
+    description: AI model configuration and comparison
+  - name: Embeddings
+    description: Multi-agent embedding generation and search operations
+  - name: Vectors
+    description: Vector storage and similarity search
+  - name: Search
+    description: Semantic and hybrid search endpoints
+  - name: Webhooks
+    description: Webhook endpoints for external integrations
+  - name: GitHub
+    description: GitHub-specific tool operations
+  - name: Relationships
+    description: Entity relationship management
+  - name: Workflows
+    description: Multi-step workflow orchestration
+  - name: Tasks
+    description: Task creation and assignment
+  - name: Collaboration
+    description: Multi-agent collaboration features
+  - name: Monitoring
+    description: System monitoring and metrics
+
+paths:
+  # Authentication endpoints
+  /auth/login:
+    $ref: './core/auth.yaml#/paths/~1auth~1login'
+  
+  /auth/token:
+    $ref: './core/auth.yaml#/paths/~1auth~1token'
+  
+  /auth/refresh:
+    $ref: './core/auth.yaml#/paths/~1auth~1refresh'
+  
+  /auth/revoke:
+    $ref: './core/auth.yaml#/paths/~1auth~1revoke'
+  
+  /auth/validate:
+    $ref: './core/auth.yaml#/paths/~1auth~1validate'
+  
+  /auth/api-keys:
+    $ref: './core/auth.yaml#/paths/~1auth~1api-keys'
+  
+  /auth/api-keys/{key_id}:
+    $ref: './core/auth.yaml#/paths/~1auth~1api-keys~1{key_id}'
+  
+  # Health endpoints
+  /health:
+    $ref: './core/health.yaml#/paths/~1health'
+  
+  /:
+    $ref: './core/health.yaml#/paths/~1api-info'
+  
+  # Context Management
+  /mcp/context:
+    $ref: './core/contexts.yaml#/paths/~1mcp~1context'
+  
+  /mcp/context/{id}:
+    $ref: './core/contexts.yaml#/paths/~1mcp~1context~1{id}'
+  
+  /mcp/contexts:
+    $ref: './core/contexts.yaml#/paths/~1mcp~1contexts'
+  
+  /mcp/context/{id}/search:
+    $ref: './core/contexts.yaml#/paths/~1mcp~1context~1{id}~1search'
+  
+  /mcp/context/{id}/summary:
+    $ref: './core/contexts.yaml#/paths/~1mcp~1context~1{id}~1summary'
+  
+  # Tool Management
+  /tools:
+    $ref: './core/tools.yaml#/paths/~1tools'
+  
+  /tools/{tool}:
+    $ref: './core/tools.yaml#/paths/~1tools~1{tool}'
+  
+  /tools/{tool}/actions:
+    $ref: './core/tools.yaml#/paths/~1tools~1{tool}~1actions'
+  
+  /tools/{tool}/actions/{action}:
+    $ref: './core/tools.yaml#/paths/~1tools~1{tool}~1actions~1{action}'
+  
+  /tools/{tool}/queries:
+    $ref: './core/tools.yaml#/paths/~1tools~1{tool}~1queries'
+  
+  # GitHub Tool Operations
+  /tools/github:
+    $ref: './tools/github/api.yaml#/paths/~1tools~1github'
+  
+  /tools/github/{tool_name}:
+    $ref: './tools/github/api.yaml#/paths/~1tools~1github~1{tool_name}'
+  
+  
+  # Agent Management
+  /agents:
+    $ref: './core/agents.yaml#/paths/~1agents'
+  
+  /agents/{id}:
+    $ref: './core/agents.yaml#/paths/~1agents~1{id}'
+  
+  # Model Management
+  /models:
+    $ref: './core/models.yaml#/paths/~1models'
+  
+  /models/{id}:
+    $ref: './core/models.yaml#/paths/~1models~1{id}'
+  
+  # Embedding Operations
+  /embeddings:
+    $ref: './core/embeddings_v2.yaml#/paths/~1embeddings'
+  
+  /embeddings/batch:
+    $ref: './core/embeddings_v2.yaml#/paths/~1embeddings~1batch'
+  
+  /embeddings/search:
+    $ref: './core/embeddings_v2.yaml#/paths/~1embeddings~1search'
+  
+  /embeddings/search/cross-model:
+    $ref: './core/embeddings_v2.yaml#/paths/~1embeddings~1search~1cross-model'
+  
+  /embeddings/providers/health:
+    $ref: './core/embeddings_v2.yaml#/paths/~1embeddings~1providers~1health'
+  
+  /embeddings/agents:
+    $ref: './core/embeddings_v2.yaml#/paths/~1embeddings~1agents'
+  
+  /embeddings/agents/{agentId}:
+    $ref: './core/embeddings_v2.yaml#/paths/~1embeddings~1agents~1{agentId}'
+  
+  /embeddings/agents/{agentId}/models:
+    $ref: './core/embeddings_v2.yaml#/paths/~1embeddings~1agents~1{agentId}~1models'
+  
+  /embeddings/agents/{agentId}/costs:
+    $ref: './core/embeddings_v2.yaml#/paths/~1embeddings~1agents~1{agentId}~1costs'
+  
+  # Search Operations
+  /search:
+    $ref: './core/search.yaml#/paths/~1search'
+  
+  /search/vector:
+    $ref: './core/search.yaml#/paths/~1search~1vector'
+  
+  /search/similar:
+    $ref: './core/search.yaml#/paths/~1search~1similar'
+  
+  /search/hybrid:
+    $ref: './core/search.yaml#/paths/~1search~1hybrid'
+  
+  # Vector Operations
+  /vectors:
+    $ref: './core/vectors.yaml#/paths/~1vectors'
+  
+  /vectors/search:
+    $ref: './core/vectors.yaml#/paths/~1vectors~1search'
+  
+  # Webhook Operations
+  /webhooks/github:
+    $ref: './core/webhooks.yaml#/paths/~1webhooks~1github'
+  
+  /webhooks/github/config:
+    $ref: './core/webhooks.yaml#/paths/~1webhooks~1github~1config'
+  
+  /webhooks/events:
+    $ref: './core/webhooks.yaml#/paths/~1webhooks~1events'
+  
+  /webhooks/events/{id}:
+    $ref: './core/webhooks.yaml#/paths/~1webhooks~1events~1{id}'
+  
+  /webhooks/events/{id}/retry:
+    $ref: './core/webhooks.yaml#/paths/~1webhooks~1events~1{id}~1retry'
+  
+  /webhooks/secrets/rotate:
+    $ref: './core/webhooks.yaml#/paths/~1webhooks~1secrets~1rotate'
+  
+  # Relationship Operations
+  /relationships:
+    $ref: './core/relationships.yaml#/paths/~1relationships'
+  
+  /relationships/{id}:
+    $ref: './core/relationships.yaml#/paths/~1relationships~1{id}'
+  
+  /entities/{type}/{owner}/{repo}/{id}/relationships:
+    $ref: './core/relationships.yaml#/paths/~1entities~1{type}~1{owner}~1{repo}~1{id}~1relationships'
+  
+  /entities/{type}/{owner}/{repo}/{id}/graph:
+    $ref: './core/relationships.yaml#/paths/~1entities~1{type}~1{owner}~1{repo}~1{id}~1graph'
+  
+  # Workflow & Task Operations
+  /workflows:
+    $ref: './core/workflows.yaml#/paths/~1workflows'
+  
+  /workflows/{id}:
+    $ref: './core/workflows.yaml#/paths/~1workflows~1{id}'
+  
+  /workflows/{id}/executions:
+    $ref: './core/workflows.yaml#/paths/~1workflows~1{id}~1executions'
+  
+  /tasks:
+    $ref: './core/tasks.yaml#/paths/~1tasks'
+  
+  /tasks/{id}:
+    $ref: './core/tasks.yaml#/paths/~1tasks~1{id}'
+  
+  /tasks/assign:
+    $ref: './core/tasks.yaml#/paths/~1tasks~1assign'
+  
+  # Agent Extended Operations
+  /agents/{id}/workload:
+    $ref: './core/agents.yaml#/paths/~1agents~1{id}~1workload'
+  
+  /agents/{id}/heartbeat:
+    $ref: './core/agents.yaml#/paths/~1agents~1{id}~1heartbeat'
+  
+  # Model Extended Operations
+  /models/compare:
+    $ref: './core/models.yaml#/paths/~1models~1compare'
+  
+  # Embedding Extended Operations
+  /embeddings/usage:
+    $ref: './core/embeddings_v2.yaml#/paths/~1embeddings~1usage'
+  
+  # Collaboration Operations
+  /collaborations:
+    $ref: './core/collaborations.yaml#/paths/~1collaborations'
+  
+  # Monitoring Operations
+  /monitoring/dashboard:
+    $ref: './core/monitoring.yaml#/paths/~1monitoring~1dashboard'
+  
+  # Metrics
+  /metrics:
+    $ref: './core/metrics.yaml#/paths/~1metrics'

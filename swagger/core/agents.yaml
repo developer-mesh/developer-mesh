@@ -1,0 +1,404 @@
+paths:
+  /agents:
+    get:
+      tags:
+        - Agents
+      summary: List agents
+      description: |
+        Returns a list of all AI agents configured for the current tenant. Agents define
+        the AI models, capabilities, and configurations used for DevOps automation.
+      operationId: listAgents
+      parameters:
+        - $ref: '../common/parameters.yaml#/components/parameters/Page'
+        - $ref: '../common/parameters.yaml#/components/parameters/Limit'
+        - $ref: '../common/parameters.yaml#/components/parameters/Sort'
+        - name: status
+          in: query
+          description: Filter by agent status
+          schema:
+            type: string
+            enum: [active, inactive, pending]
+          example: "active"
+        - name: model
+          in: query
+          description: Filter by AI model
+          schema:
+            type: string
+          example: "gpt-4"
+      responses:
+        '200':
+          description: List of agents
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListAgentsResponse'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+    
+    post:
+      tags:
+        - Agents
+      summary: Create agent
+      description: |
+        Creates a new AI agent configuration. The agent can be customized with specific
+        models, tools, and behavioral parameters.
+      operationId: createAgent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAgentRequest'
+            examples:
+              basic_agent:
+                summary: Basic agent
+                value:
+                  name: "DevOps Assistant"
+                  description: "General purpose DevOps automation agent"
+                  model: "gpt-4"
+                  capabilities: ["github"]
+              advanced_agent:
+                summary: Advanced agent with custom config
+                value:
+                  name: "Production Deploy Agent"
+                  description: "Specialized agent for production deployments"
+                  model: "gpt-4-turbo"
+                  capabilities: ["github"]
+                  configuration:
+                    temperature: 0.3
+                    max_tokens: 4000
+                    system_prompt: "You are a careful DevOps engineer focused on production stability"
+                    safety_mode: "strict"
+      responses:
+        '201':
+          description: Agent created successfully
+          headers:
+            Location:
+              description: URL of the created agent
+              schema:
+                type: string
+                format: uri
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '409':
+          $ref: '../common/responses.yaml#/components/responses/Conflict'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /agents/{id}:
+    parameters:
+      - $ref: '../common/parameters.yaml#/components/parameters/ID'
+    
+    get:
+      tags:
+        - Agents
+      summary: Get agent
+      description: Returns detailed information about a specific agent
+      operationId: getAgent
+      parameters:
+        - name: include_stats
+          in: query
+          description: Include usage statistics
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Agent details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+    
+    put:
+      tags:
+        - Agents
+      summary: Update agent
+      description: |
+        Updates an existing agent configuration. Only provided fields are updated,
+        others remain unchanged.
+      operationId: updateAgent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAgentRequest'
+            example:
+              name: "Production Deploy Agent v2"
+              configuration:
+                temperature: 0.2
+                safety_mode: "paranoid"
+      responses:
+        '200':
+          description: Agent updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '409':
+          $ref: '../common/responses.yaml#/components/responses/Conflict'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+    
+    delete:
+      tags:
+        - Agents
+      summary: Delete agent
+      description: |
+        Deletes an agent. This operation is irreversible. All contexts associated
+        with the agent will be preserved but marked as orphaned.
+      operationId: deleteAgent
+      responses:
+        '204':
+          description: Agent deleted successfully
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '409':
+          description: Cannot delete agent with active contexts
+          content:
+            application/json:
+              schema:
+                $ref: '../common/schemas.yaml#/components/schemas/Error'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    Agent:
+      type: object
+      required:
+        - id
+        - name
+        - model
+        - capabilities
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          description: Unique agent identifier
+          example: "agent-123"
+        name:
+          type: string
+          description: Human-readable agent name
+          example: "DevOps Assistant"
+        description:
+          type: string
+          description: Agent description and purpose
+          example: "General purpose DevOps automation agent"
+        model:
+          type: string
+          description: AI model identifier
+          example: "gpt-4"
+        capabilities:
+          type: array
+          items:
+            type: string
+          description: Enabled tool capabilities
+          example: ["github"]
+        configuration:
+          $ref: '#/components/schemas/AgentConfiguration'
+        status:
+          type: string
+          enum: [active, inactive, pending]
+          description: Agent status
+          example: "active"
+        tenant_id:
+          type: string
+          description: Tenant identifier
+          example: "tenant-123"
+        created_at:
+          $ref: '../common/schemas.yaml#/components/schemas/Timestamp'
+        updated_at:
+          $ref: '../common/schemas.yaml#/components/schemas/Timestamp'
+        statistics:
+          $ref: '#/components/schemas/AgentStatistics'
+        _links:
+          $ref: '../common/schemas.yaml#/components/schemas/Links'
+
+    CreateAgentRequest:
+      type: object
+      required:
+        - name
+        - model
+        - capabilities
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Agent name
+          example: "DevOps Assistant"
+        description:
+          type: string
+          maxLength: 500
+          description: Agent description
+          example: "General purpose DevOps automation agent"
+        model:
+          type: string
+          description: AI model to use
+          example: "gpt-4"
+        capabilities:
+          type: array
+          items:
+            type: string
+          minItems: 1
+          description: Tool capabilities to enable
+          example: ["github"]
+        configuration:
+          $ref: '#/components/schemas/AgentConfiguration'
+
+    UpdateAgentRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: New agent name
+        description:
+          type: string
+          maxLength: 500
+          description: New description
+        model:
+          type: string
+          description: New AI model
+        capabilities:
+          type: array
+          items:
+            type: string
+          description: New capabilities list
+        configuration:
+          $ref: '#/components/schemas/AgentConfiguration'
+        status:
+          type: string
+          enum: [active, inactive]
+          description: New status
+
+    AgentConfiguration:
+      type: object
+      properties:
+        temperature:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 2
+          default: 0.7
+          description: Model temperature for response generation
+        max_tokens:
+          type: integer
+          minimum: 100
+          maximum: 128000
+          default: 2000
+          description: Maximum tokens per response
+        system_prompt:
+          type: string
+          description: System prompt to guide agent behavior
+        safety_mode:
+          type: string
+          enum: [permissive, balanced, strict, paranoid]
+          default: balanced
+          description: Safety level for tool operations
+        response_format:
+          type: string
+          enum: [text, json, markdown]
+          default: text
+          description: Preferred response format
+        timeout:
+          type: integer
+          minimum: 5
+          maximum: 300
+          default: 30
+          description: Operation timeout in seconds
+        retry_policy:
+          type: object
+          properties:
+            max_retries:
+              type: integer
+              minimum: 0
+              maximum: 5
+              default: 3
+            backoff_multiplier:
+              type: number
+              format: float
+              minimum: 1
+              maximum: 3
+              default: 1.5
+        custom_headers:
+          type: object
+          additionalProperties:
+            type: string
+          description: Custom headers for tool requests
+
+    AgentStatistics:
+      type: object
+      properties:
+        total_contexts:
+          type: integer
+          description: Total contexts created
+          example: 150
+        active_contexts:
+          type: integer
+          description: Currently active contexts
+          example: 5
+        total_tool_executions:
+          type: integer
+          description: Total tool executions
+          example: 1250
+        success_rate:
+          type: number
+          format: float
+          description: Tool execution success rate (0-1)
+          example: 0.95
+        average_response_time:
+          type: number
+          format: float
+          description: Average response time in seconds
+          example: 2.5
+        last_used:
+          $ref: '../common/schemas.yaml#/components/schemas/Timestamp'
+        usage_by_tool:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Tool execution count by tool
+          example:
+            github: 500
+
+    ListAgentsResponse:
+      type: object
+      required:
+        - agents
+      properties:
+        agents:
+          type: array
+          items:
+            $ref: '#/components/schemas/Agent'
+        meta:
+          $ref: '../common/schemas.yaml#/components/schemas/PaginationMeta'
+        _links:
+          $ref: '../common/schemas.yaml#/components/schemas/Links'

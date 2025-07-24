@@ -1,0 +1,280 @@
+components:
+  parameters:
+    # Path parameters
+    
+    ID:
+      name: id
+      in: path
+      required: true
+      description: Resource identifier
+      schema:
+        type: string
+      example: "123e4567-e89b-12d3-a456-426614174000"
+    
+    ContextID:
+      name: id
+      in: path
+      required: true
+      description: Context identifier
+      schema:
+        type: string
+      example: "ctx-789"
+    
+    ToolName:
+      name: tool
+      in: path
+      required: true
+      description: Tool name
+      schema:
+        type: string
+        enum: [github]
+      example: "github"
+    
+    ActionName:
+      name: action
+      in: path
+      required: true
+      description: Action name
+      schema:
+        type: string
+      example: "create_issue"
+    
+    # Query parameters
+    
+    AgentID:
+      name: agent_id
+      in: query
+      description: Filter by agent ID
+      schema:
+        type: string
+      example: "agent-123"
+    
+    SessionID:
+      name: session_id
+      in: query
+      description: Filter by session ID
+      schema:
+        type: string
+      example: "session-456"
+    
+    ContextIDQuery:
+      name: context_id
+      in: query
+      required: true
+      description: Context ID for tracking the operation
+      schema:
+        type: string
+      example: "ctx-789"
+    
+    Page:
+      name: page
+      in: query
+      description: Page number for pagination
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      example: 1
+    
+    PageParam:
+      name: page
+      in: query
+      description: Page number for pagination
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      example: 1
+    
+    Limit:
+      name: limit
+      in: query
+      description: Number of items per page
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+      example: 20
+    
+    LimitParam:
+      name: limit
+      in: query
+      description: Number of items per page
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+      example: 20
+    
+    Sort:
+      name: sort
+      in: query
+      description: Sort field and direction (field:direction)
+      schema:
+        type: string
+        pattern: '^[a-zA-Z_]+:(asc|desc)$'
+      example: "created_at:desc"
+    
+    Query:
+      name: query
+      in: query
+      description: Search query string
+      schema:
+        type: string
+      example: "deployment pipeline"
+    
+    Threshold:
+      name: threshold
+      in: query
+      description: Similarity threshold for vector search (0.0-1.0)
+      schema:
+        type: number
+        format: float
+        minimum: 0
+        maximum: 1
+        default: 0.7
+      example: 0.8
+    
+    IncludeMetadata:
+      name: include_metadata
+      in: query
+      description: Include metadata in response
+      schema:
+        type: boolean
+        default: false
+      example: true
+    
+    # Header parameters
+    
+    TenantID:
+      name: X-Tenant-ID
+      in: header
+      description: Tenant identifier for multi-tenant isolation
+      schema:
+        type: string
+      example: "tenant-123"
+    
+    RequestID:
+      name: X-Request-ID
+      in: header
+      description: Unique request identifier for tracing
+      schema:
+        type: string
+        format: uuid
+      example: "550e8400-e29b-41d4-a716-446655440000"
+    
+    APIVersion:
+      name: X-API-Version
+      in: header
+      description: API version override
+      schema:
+        type: string
+        default: "1"
+      example: "1"
+    
+    AcceptLanguage:
+      name: Accept-Language
+      in: header
+      description: Preferred language for responses
+      schema:
+        type: string
+        default: "en-US"
+      example: "en-US"
+    
+    # Common filter parameters
+    
+    CreatedAfter:
+      name: created_after
+      in: query
+      description: Filter resources created after this timestamp
+      schema:
+        type: string
+        format: date-time
+      example: "2024-01-01T00:00:00Z"
+    
+    CreatedBefore:
+      name: created_before
+      in: query
+      description: Filter resources created before this timestamp
+      schema:
+        type: string
+        format: date-time
+      example: "2024-12-31T23:59:59Z"
+    
+    UpdatedAfter:
+      name: updated_after
+      in: query
+      description: Filter resources updated after this timestamp
+      schema:
+        type: string
+        format: date-time
+      example: "2024-01-01T00:00:00Z"
+    
+    UpdatedBefore:
+      name: updated_before
+      in: query
+      description: Filter resources updated before this timestamp
+      schema:
+        type: string
+        format: date-time
+      example: "2024-12-31T23:59:59Z"
+    
+    Status:
+      name: status
+      in: query
+      description: Filter by status
+      schema:
+        type: string
+        enum: [active, inactive, pending, archived]
+      example: "active"
+    
+    Tags:
+      name: tags
+      in: query
+      description: Filter by tags (comma-separated)
+      schema:
+        type: string
+      example: "production,critical"
+    
+    Fields:
+      name: fields
+      in: query
+      description: Specify fields to include in response (comma-separated)
+      schema:
+        type: string
+      example: "id,name,created_at"
+    
+    Expand:
+      name: expand
+      in: query
+      description: Expand related resources (comma-separated)
+      schema:
+        type: string
+      example: "agent,context"
+  
+  headers:
+    RateLimitLimit:
+      description: Request limit per window
+      schema:
+        type: integer
+      example: 100
+    
+    RateLimitRemaining:
+      description: Remaining requests in window
+      schema:
+        type: integer
+      example: 99
+    
+    RateLimitReset:
+      description: Unix timestamp when limit resets
+      schema:
+        type: integer
+      example: 1704067200
+    
+    RetryAfter:
+      description: Seconds until next request allowed
+      schema:
+        type: integer
+      example: 300

@@ -1,0 +1,573 @@
+paths:
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Authenticate with API key or credentials
+      description: |
+        Authenticate using various methods:
+        - API Key in Authorization header
+        - API Key in X-API-Key header
+        - OAuth2 client credentials
+      operationId: authLogin
+      security: []  # No auth required for login endpoint
+      requestBody:
+        description: OAuth2 client credentials (optional for API key auth)
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+          headers:
+            X-RateLimit-Limit:
+              $ref: '../common/parameters.yaml#/components/headers/RateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '../common/parameters.yaml#/components/headers/RateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '../common/parameters.yaml#/components/headers/RateLimitReset'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '429':
+          $ref: '../common/responses.yaml#/components/responses/TooManyRequests'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /auth/token:
+    post:
+      tags:
+        - Authentication
+      summary: Generate JWT token from API key
+      description: Exchange a valid API key for a JWT access token
+      operationId: authGenerateToken
+      responses:
+        '200':
+          description: Token generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '429':
+          $ref: '../common/responses.yaml#/components/responses/TooManyRequests'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh JWT token
+      description: Use a refresh token to obtain a new access token
+      operationId: authRefreshToken
+      security: []  # Uses refresh token in body
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefreshResponse'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '429':
+          $ref: '../common/responses.yaml#/components/responses/TooManyRequests'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /auth/revoke:
+    post:
+      tags:
+        - Authentication
+      summary: Revoke API key or token
+      description: Revoke an API key or JWT token to prevent further use
+      operationId: authRevoke
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RevokeRequest'
+      responses:
+        '200':
+          description: Token revoked successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevokeResponse'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /auth/validate:
+    post:
+      tags:
+        - Authentication
+      summary: Validate token
+      description: Validate a JWT token and return user information
+      operationId: authValidate
+      security: []  # Token in body
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+              properties:
+                token:
+                  type: string
+                  description: JWT token to validate
+      responses:
+        '200':
+          description: Token is valid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidateResponse'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /auth/api-keys:
+    get:
+      tags:
+        - Authentication
+      summary: List API keys
+      description: List all API keys for the authenticated tenant
+      operationId: listApiKeys
+      parameters:
+        - $ref: '../common/parameters.yaml#/components/parameters/PageParam'
+        - $ref: '../common/parameters.yaml#/components/parameters/LimitParam'
+        - name: active
+          in: query
+          description: Filter by active status
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: API keys retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ApiKey'
+                  meta:
+                    $ref: '../common/schemas.yaml#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: '../common/responses.yaml#/components/responses/Forbidden'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - Authentication
+      summary: Create API key
+      description: Create a new API key with specified permissions
+      operationId: createApiKey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateApiKeyRequest'
+      responses:
+        '201':
+          description: API key created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateApiKeyResponse'
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: '../common/responses.yaml#/components/responses/Forbidden'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /auth/api-keys/{key_id}:
+    parameters:
+      - name: key_id
+        in: path
+        required: true
+        description: API key ID
+        schema:
+          type: string
+    
+    get:
+      tags:
+        - Authentication
+      summary: Get API key details
+      description: Retrieve details of a specific API key
+      operationId: getApiKey
+      responses:
+        '200':
+          description: API key details retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKey'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: '../common/responses.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+    delete:
+      tags:
+        - Authentication
+      summary: Delete API key
+      description: Delete (revoke) an API key
+      operationId: deleteApiKey
+      responses:
+        '204':
+          $ref: '../common/responses.yaml#/components/responses/NoContent'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: '../common/responses.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    LoginRequest:
+      type: object
+      properties:
+        client_id:
+          type: string
+          description: OAuth2 client ID
+        client_secret:
+          type: string
+          description: OAuth2 client secret
+        grant_type:
+          type: string
+          enum: [client_credentials]
+          description: OAuth2 grant type
+      example:
+        client_id: "my-client-id"
+        client_secret: "my-client-secret"
+        grant_type: "client_credentials"
+
+    LoginResponse:
+      type: object
+      required:
+        - token
+        - expires_at
+        - user
+      properties:
+        token:
+          type: string
+          description: JWT access token
+        refresh_token:
+          type: string
+          description: Refresh token (if enabled)
+        expires_at:
+          type: string
+          format: date-time
+          description: Token expiration time
+        user:
+          $ref: '#/components/schemas/AuthUser'
+      example:
+        token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        refresh_token: "refresh_token_string"
+        expires_at: "2024-01-16T10:00:00Z"
+        user:
+          id: "user-123"
+          tenant_id: "tenant-456"
+          scopes: ["read", "write"]
+
+    TokenResponse:
+      type: object
+      required:
+        - access_token
+        - token_type
+        - expires_in
+      properties:
+        access_token:
+          type: string
+          description: JWT access token
+        token_type:
+          type: string
+          enum: [Bearer]
+          description: Token type
+        expires_in:
+          type: integer
+          description: Token lifetime in seconds
+        refresh_token:
+          type: string
+          description: Refresh token (if enabled)
+      example:
+        access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        token_type: "Bearer"
+        expires_in: 3600
+        refresh_token: "refresh_token_string"
+
+    RefreshRequest:
+      type: object
+      required:
+        - refresh_token
+      properties:
+        refresh_token:
+          type: string
+          description: Refresh token
+
+    RefreshResponse:
+      type: object
+      required:
+        - access_token
+        - expires_in
+      properties:
+        access_token:
+          type: string
+          description: New JWT access token
+        refresh_token:
+          type: string
+          description: New refresh token
+        expires_in:
+          type: integer
+          description: Token lifetime in seconds
+      example:
+        access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        refresh_token: "new_refresh_token_string"
+        expires_in: 3600
+
+    RevokeRequest:
+      type: object
+      required:
+        - token
+        - token_type
+      properties:
+        token:
+          type: string
+          description: Token to revoke
+        token_type:
+          type: string
+          enum: [api_key, jwt]
+          description: Type of token to revoke
+
+    RevokeResponse:
+      type: object
+      required:
+        - revoked
+        - revoked_at
+      properties:
+        revoked:
+          type: boolean
+          description: Whether revocation was successful
+        revoked_at:
+          type: string
+          format: date-time
+          description: Time of revocation
+
+    ValidateResponse:
+      type: object
+      required:
+        - valid
+      properties:
+        valid:
+          type: boolean
+          description: Whether token is valid
+        user:
+          $ref: '#/components/schemas/AuthUser'
+        expires_at:
+          type: string
+          format: date-time
+          description: Token expiration time
+
+    AuthUser:
+      type: object
+      required:
+        - id
+        - tenant_id
+      properties:
+        id:
+          type: string
+          description: User ID
+        tenant_id:
+          type: string
+          description: Tenant ID
+        email:
+          type: string
+          format: email
+          description: User email
+        scopes:
+          type: array
+          items:
+            type: string
+          description: User permission scopes
+        auth_type:
+          type: string
+          enum: [api_key, jwt, oauth]
+          description: Authentication method used
+      example:
+        id: "user-123"
+        tenant_id: "tenant-456"
+        email: "user@example.com"
+        scopes: ["read", "write", "admin"]
+        auth_type: "api_key"
+
+    ApiKey:
+      type: object
+      required:
+        - id
+        - name
+        - tenant_id
+        - created_at
+        - active
+      properties:
+        id:
+          type: string
+          description: API key ID
+        name:
+          type: string
+          description: Human-readable name
+        tenant_id:
+          type: string
+          description: Associated tenant
+        user_id:
+          type: string
+          description: Associated user
+        scopes:
+          type: array
+          items:
+            type: string
+          description: Permission scopes
+        expires_at:
+          type: string
+          format: date-time
+          description: Expiration time
+        created_at:
+          type: string
+          format: date-time
+          description: Creation time
+        last_used:
+          type: string
+          format: date-time
+          description: Last usage time
+        active:
+          type: boolean
+          description: Whether key is active
+      example:
+        id: "key-123"
+        name: "Production API Key"
+        tenant_id: "tenant-456"
+        user_id: "user-789"
+        scopes: ["read", "write"]
+        expires_at: "2024-12-31T23:59:59Z"
+        created_at: "2024-01-01T00:00:00Z"
+        last_used: "2024-01-15T10:00:00Z"
+        active: true
+
+    CreateApiKeyRequest:
+      type: object
+      required:
+        - name
+        - scopes
+      properties:
+        name:
+          type: string
+          description: Human-readable name for the key
+          minLength: 1
+          maxLength: 255
+        scopes:
+          type: array
+          items:
+            type: string
+          description: Permission scopes
+          minItems: 1
+        expires_in:
+          type: string
+          pattern: '^\d+[dhms]$'
+          description: Expiration duration (e.g., "30d", "24h")
+        user_id:
+          type: string
+          description: Associated user ID
+      example:
+        name: "CI/CD Pipeline Key"
+        scopes: ["read", "write"]
+        expires_in: "90d"
+        user_id: "user-123"
+
+    CreateApiKeyResponse:
+      type: object
+      required:
+        - id
+        - key
+        - name
+        - expires_at
+      properties:
+        id:
+          type: string
+          description: API key ID
+        key:
+          type: string
+          description: The actual API key (only shown once)
+        name:
+          type: string
+          description: Human-readable name
+        expires_at:
+          type: string
+          format: date-time
+          description: Expiration time
+      example:
+        id: "key-789"
+        key: "mcp_live_1234567890abcdef1234567890abcdef"
+        name: "CI/CD Pipeline Key"
+        expires_at: "2024-04-15T10:00:00Z"
+
+  headers:
+    RateLimitLimit:
+      description: Request limit per window
+      schema:
+        type: integer
+      example: 100
+    
+    RateLimitRemaining:
+      description: Remaining requests in window
+      schema:
+        type: integer
+      example: 99
+    
+    RateLimitReset:
+      description: Unix timestamp when limit resets
+      schema:
+        type: integer
+      example: 1704067200
+    
+    RetryAfter:
+      description: Seconds until next request allowed
+      schema:
+        type: integer
+      example: 300

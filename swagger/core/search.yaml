@@ -1,0 +1,414 @@
+paths:
+  /search:
+    post:
+      tags:
+        - Search
+      summary: Semantic search with text
+      description: |
+        Performs semantic search using natural language text. The text is converted to
+        embeddings and matched against stored vectors using similarity search.
+      operationId: searchText
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TextSearchRequest'
+            examples:
+              simple_search:
+                summary: Simple text search
+                value:
+                  query: "How to configure GitHub Actions for Python projects"
+                  limit: 10
+              filtered_search:
+                summary: Search with filters
+                value:
+                  query: "CI/CD pipeline best practices"
+                  limit: 20
+                  threshold: 0.8
+                  filters:
+                    tool: "github"
+                    type: "documentation"
+                  options:
+                    include_highlights: true
+                    max_content_length: 500
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+    
+    get:
+      tags:
+        - Search
+      summary: Semantic search with query parameters
+      description: |
+        Alternative GET endpoint for semantic search. Useful for simple searches
+        that can be expressed as URL parameters.
+      operationId: searchTextGet
+      parameters:
+        - $ref: '../common/parameters.yaml#/components/parameters/Query'
+        - $ref: '../common/parameters.yaml#/components/parameters/Limit'
+        - $ref: '../common/parameters.yaml#/components/parameters/Threshold'
+        - name: tool
+          in: query
+          description: Filter by tool
+          schema:
+            type: string
+          example: "github"
+        - name: type
+          in: query
+          description: Filter by content type
+          schema:
+            type: string
+            enum: [documentation, code, issue, discussion]
+          example: "documentation"
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /search/vector:
+    post:
+      tags:
+        - Search
+      summary: Search with vector
+      description: |
+        Performs similarity search using a pre-computed embedding vector. This is useful
+        when you already have embeddings from the same model and want to find similar content.
+      operationId: searchVector
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VectorSearchRequest'
+            example:
+              vector: [0.1, 0.2, 0.3, 0.4, 0.5]
+              limit: 10
+              threshold: 0.75
+              model: "text-embedding-ada-002"
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /search/similar:
+    post:
+      tags:
+        - Search
+      summary: Find similar content
+      description: |
+        Finds content similar to a reference item. This uses the stored vector of the
+        reference item to find related content.
+      operationId: findSimilar
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimilaritySearchRequest'
+            example:
+              reference_id: "vec-123"
+              limit: 5
+              threshold: 0.85
+      responses:
+        '200':
+          description: Similar content found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimilaritySearchResponse'
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+    
+    get:
+      tags:
+        - Search
+      summary: Find similar content (GET)
+      description: Alternative GET endpoint for similarity search
+      operationId: findSimilarGet
+      parameters:
+        - name: reference_id
+          in: query
+          required: true
+          description: Reference vector ID
+          schema:
+            type: string
+          example: "vec-123"
+        - $ref: '../common/parameters.yaml#/components/parameters/Limit'
+        - $ref: '../common/parameters.yaml#/components/parameters/Threshold'
+      responses:
+        '200':
+          description: Similar content found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimilaritySearchResponse'
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    TextSearchRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          description: Natural language search query
+          minLength: 1
+          maxLength: 1000
+          example: "How to configure GitHub Actions for Python projects"
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 10
+          description: Maximum results to return
+        threshold:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          default: 0.7
+          description: Minimum similarity threshold
+        filters:
+          type: object
+          additionalProperties: true
+          description: Metadata filters
+          example:
+            tool: "github"
+            type: "documentation"
+            language: "python"
+        options:
+          $ref: '#/components/schemas/SearchOptions'
+
+    VectorSearchRequest:
+      type: object
+      required:
+        - vector
+      properties:
+        vector:
+          type: array
+          items:
+            type: number
+            format: float
+          description: Query vector
+          minItems: 1
+          maxItems: 4096
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 10
+        threshold:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          default: 0.7
+        filters:
+          type: object
+          additionalProperties: true
+        model:
+          type: string
+          description: Embedding model (must match indexed vectors)
+          example: "text-embedding-ada-002"
+
+    SimilaritySearchRequest:
+      type: object
+      required:
+        - reference_id
+      properties:
+        reference_id:
+          type: string
+          description: ID of reference vector
+          example: "vec-123"
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 10
+        threshold:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          default: 0.8
+        exclude_reference:
+          type: boolean
+          default: true
+          description: Exclude the reference item from results
+        filters:
+          type: object
+          additionalProperties: true
+
+    SearchOptions:
+      type: object
+      properties:
+        include_highlights:
+          type: boolean
+          default: false
+          description: Include highlighted snippets
+        highlight_pre_tag:
+          type: string
+          default: "<mark>"
+          description: Tag to insert before highlighted text
+        highlight_post_tag:
+          type: string
+          default: "</mark>"
+          description: Tag to insert after highlighted text
+        max_content_length:
+          type: integer
+          default: 1000
+          description: Maximum content length in response
+        include_embeddings:
+          type: boolean
+          default: false
+          description: Include vector embeddings in response
+        fuzzy_matching:
+          type: boolean
+          default: false
+          description: Enable fuzzy text matching
+        boost_recent:
+          type: boolean
+          default: false
+          description: Boost recently updated content
+
+    SearchResponse:
+      type: object
+      required:
+        - results
+        - total
+        - query
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchResult'
+        total:
+          type: integer
+          description: Total number of matches
+          example: 42
+        query:
+          type: string
+          description: The original query
+        took_ms:
+          type: integer
+          description: Search execution time in milliseconds
+          example: 125
+        model_used:
+          type: string
+          description: Embedding model used for search
+          example: "text-embedding-ada-002"
+        _links:
+          $ref: '../common/schemas.yaml#/components/schemas/Links'
+
+    SearchResult:
+      type: object
+      required:
+        - id
+        - content
+        - score
+        - metadata
+      properties:
+        id:
+          type: string
+          description: Result ID
+          example: "vec-123"
+        content:
+          type: string
+          description: Matched content
+          example: "GitHub Actions is a continuous integration and continuous deployment (CI/CD) platform..."
+        score:
+          type: number
+          format: float
+          description: Relevance score (0-1)
+          example: 0.92
+        highlights:
+          type: array
+          items:
+            type: string
+          description: Highlighted text snippets
+          example:
+            - "GitHub Actions is a <mark>CI/CD platform</mark> that automates"
+            - "configure <mark>GitHub Actions for Python</mark> projects"
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Result metadata
+          example:
+            source: "github-docs"
+            url: "https://docs.github.com/actions/python"
+            type: "documentation"
+            last_updated: "2024-01-10T08:00:00Z"
+        embedding:
+          type: array
+          items:
+            type: number
+            format: float
+          description: Vector embedding (if requested)
+
+    SimilaritySearchResponse:
+      type: object
+      required:
+        - results
+        - reference
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchResult'
+        reference:
+          type: object
+          properties:
+            id:
+              type: string
+            content:
+              type: string
+            metadata:
+              type: object
+          description: Reference item details
+        total:
+          type: integer
+          description: Total similar items found

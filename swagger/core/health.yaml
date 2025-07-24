@@ -1,0 +1,301 @@
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: |
+        Returns the health status of all system components. This endpoint is used for
+        monitoring and load balancer health checks. It does not require authentication.
+      operationId: healthCheck
+      security: []  # No authentication required
+      parameters:
+        - name: verbose
+          in: query
+          description: Include detailed component information
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: System is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              examples:
+                healthy:
+                  summary: All components healthy
+                  value:
+                    status: "healthy"
+                    timestamp: "2024-01-15T10:00:00Z"
+                    components:
+                      database: "healthy"
+                      cache: "healthy"
+                      context_manager: "healthy"
+                      rest_api_client: "healthy"
+                      vector_database: "healthy"
+                    version: "1.0.0"
+                    uptime: 3600
+        '503':
+          description: System is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              examples:
+                unhealthy:
+                  summary: Some components unhealthy
+                  value:
+                    status: "unhealthy"
+                    timestamp: "2024-01-15T10:00:00Z"
+                    components:
+                      database: "healthy"
+                      cache: "unhealthy"
+                      context_manager: "healthy"
+                      rest_api_client: "healthy"
+                      vector_database: "degraded"
+                    errors:
+                      - component: "cache"
+                        error: "Connection timeout"
+                      - component: "vector_database"
+                        error: "High latency detected"
+
+  /api-info:
+    get:
+      tags:
+        - Health
+      summary: API information
+      description: |
+        Returns general information about the API including version, available endpoints,
+        and HATEOAS links for API discovery. This is the root endpoint for API navigation.
+      operationId: getApiInfo
+      responses:
+        '200':
+          description: API information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiInfoResponse'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+
+  /metrics:
+    get:
+      tags:
+        - Health
+      summary: Prometheus metrics
+      description: |
+        Returns metrics in Prometheus exposition format. This endpoint is used by
+        Prometheus scrapers and does not require authentication.
+      operationId: getMetrics
+      security: []  # No authentication required
+      produces:
+        - text/plain
+      responses:
+        '200':
+          description: Metrics in Prometheus format
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: |
+                # HELP http_requests_total Total HTTP requests
+                # TYPE http_requests_total counter
+                http_requests_total{method="GET",path="/api/v1/health",status="200"} 1234
+                http_requests_total{method="POST",path="/api/v1/tools/github/actions/create_issue",status="200"} 456
+                
+                # HELP http_request_duration_seconds HTTP request latency
+                # TYPE http_request_duration_seconds histogram
+                http_request_duration_seconds_bucket{le="0.1"} 1000
+                http_request_duration_seconds_bucket{le="0.5"} 1200
+                http_request_duration_seconds_bucket{le="1.0"} 1300
+                http_request_duration_seconds_sum 567.89
+                http_request_duration_seconds_count 1300
+
+  /ready:
+    get:
+      tags:
+        - Health
+      summary: Readiness check
+      description: |
+        Indicates if the service is ready to accept requests. Used by Kubernetes
+        for readiness probes. Returns 503 during startup or maintenance.
+      operationId: readinessCheck
+      security: []  # No authentication required
+      responses:
+        '200':
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ready:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Service is ready to accept requests"
+        '503':
+          description: Service not ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ready:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Service is starting up"
+                  retry_after:
+                    type: integer
+                    description: Seconds to wait before retry
+                    example: 5
+
+  /live:
+    get:
+      tags:
+        - Health
+      summary: Liveness check
+      description: |
+        Indicates if the service is alive and functioning. Used by Kubernetes
+        for liveness probes. Returns 503 if the service is in a broken state.
+      operationId: livenessCheck
+      security: []  # No authentication required
+      responses:
+        '200':
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  alive:
+                    type: boolean
+                    example: true
+                  timestamp:
+                    $ref: '../common/schemas.yaml#/components/schemas/Timestamp'
+        '503':
+          description: Service is not functioning properly
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  alive:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "Deadlock detected"
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+        - components
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy, degraded]
+          description: Overall system health
+          example: "healthy"
+        timestamp:
+          $ref: '../common/schemas.yaml#/components/schemas/Timestamp'
+        components:
+          type: object
+          additionalProperties:
+            type: string
+          description: Individual component health status
+          example:
+            database: "healthy"
+            cache: "healthy"
+            context_manager: "healthy"
+        version:
+          type: string
+          description: API version
+          example: "1.0.0"
+        uptime:
+          type: integer
+          description: Service uptime in seconds
+          example: 3600
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              component:
+                type: string
+              error:
+                type: string
+          description: Error details for unhealthy components
+        metrics:
+          type: object
+          properties:
+            requests_per_second:
+              type: number
+              format: float
+            average_latency_ms:
+              type: number
+              format: float
+            active_connections:
+              type: integer
+            memory_usage_mb:
+              type: number
+              format: float
+            cpu_usage_percent:
+              type: number
+              format: float
+          description: Basic performance metrics (if verbose=true)
+
+    ApiInfoResponse:
+      type: object
+      required:
+        - api_version
+        - description
+        - links
+      properties:
+        api_version:
+          type: string
+          description: API version
+          example: "1.0"
+        description:
+          type: string
+          description: API description
+          example: "MCP Server API for DevOps tool integration following Model Context Protocol"
+        server_time:
+          $ref: '../common/schemas.yaml#/components/schemas/Timestamp'
+        capabilities:
+          type: array
+          items:
+            type: string
+          description: Available API capabilities
+          example: ["contexts", "tools", "agents", "embeddings", "search"]
+        rate_limits:
+          type: object
+          properties:
+            requests_per_hour:
+              type: integer
+              example: 1000
+            burst:
+              type: integer
+              example: 50
+          description: Rate limit information
+        links:
+          type: object
+          additionalProperties:
+            type: string
+            format: uri
+          description: HATEOAS links for API navigation
+          example:
+            tools: "https://api.example.com/api/v1/tools"
+            contexts: "https://api.example.com/api/v1/contexts"
+            embeddings: "https://api.example.com/api/embeddings"
+            health: "https://api.example.com/health"
+            documentation: "https://api.example.com/swagger/index.html"

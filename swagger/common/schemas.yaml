@@ -1,0 +1,333 @@
+components:
+  schemas:
+    # Base schemas used across the API
+    
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message
+        code:
+          type: string
+          description: Error code for programmatic handling
+          example: "VALIDATION_ERROR"
+        details:
+          type: object
+          additionalProperties: true
+          description: Additional error context
+      example:
+        error: "Invalid request parameters"
+        code: "VALIDATION_ERROR"
+        details:
+          field: "agent_id"
+          reason: "Required field missing"
+    
+    SuccessResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [success]
+        message:
+          type: string
+          description: Success message
+      example:
+        status: "success"
+        message: "Operation completed successfully"
+    
+    Links:
+      type: object
+      additionalProperties:
+        type: string
+        format: uri
+      description: HATEOAS links for resource navigation
+      example:
+        self: "https://api.example.com/api/v1/resource/123"
+        next: "https://api.example.com/api/v1/resource/123/next"
+    
+    Metadata:
+      type: object
+      additionalProperties: true
+      description: Flexible metadata object for additional information
+      example:
+        source: "web-ui"
+        version: "1.2.3"
+        custom_field: "custom_value"
+    
+    Timestamp:
+      type: string
+      format: date-time
+      description: ISO 8601 timestamp
+      example: "2024-01-15T10:00:00Z"
+    
+    UUID:
+      type: string
+      format: uuid
+      description: Unique identifier
+      example: "550e8400-e29b-41d4-a716-446655440000"
+    
+    TenantID:
+      type: string
+      description: Tenant identifier for multi-tenancy
+      example: "tenant-123"
+    
+    # Pagination schemas
+    
+    PaginationParams:
+      type: object
+      properties:
+        page:
+          type: integer
+          minimum: 1
+          default: 1
+          description: Page number
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+          description: Items per page
+        sort:
+          type: string
+          description: Sort field and direction
+          example: "created_at:desc"
+    
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+          description: Current page
+        limit:
+          type: integer
+          description: Items per page
+        total:
+          type: integer
+          description: Total number of items
+        pages:
+          type: integer
+          description: Total number of pages
+      example:
+        page: 1
+        limit: 20
+        total: 100
+        pages: 5
+    
+    # Context-related schemas
+    
+    ContextRole:
+      type: string
+      enum: [user, assistant, system, tool]
+      description: Role of the context message author
+    
+    ContextItem:
+      type: object
+      required:
+        - role
+        - content
+      properties:
+        role:
+          $ref: '#/components/schemas/ContextRole'
+        content:
+          type: string
+          description: Message content
+        name:
+          type: string
+          description: Optional name for tool messages
+        tool_calls:
+          type: array
+          items:
+            $ref: '#/components/schemas/ToolCall'
+          description: Tool calls made in this message
+        timestamp:
+          $ref: '#/components/schemas/Timestamp'
+      example:
+        role: "user"
+        content: "Create a new issue in the hello-world repository"
+        timestamp: "2024-01-15T10:00:00Z"
+    
+    ToolCall:
+      type: object
+      required:
+        - id
+        - type
+        - function
+      properties:
+        id:
+          type: string
+          description: Unique tool call identifier
+        type:
+          type: string
+          enum: [function]
+        function:
+          type: object
+          required:
+            - name
+            - arguments
+          properties:
+            name:
+              type: string
+              description: Tool function name
+            arguments:
+              type: string
+              description: JSON-encoded arguments
+      example:
+        id: "call_123"
+        type: "function"
+        function:
+          name: "github_create_issue"
+          arguments: '{"owner":"octocat","repo":"hello-world","title":"Bug report"}'
+    
+    # Tool-related schemas
+    
+    ToolAction:
+      type: object
+      required:
+        - name
+        - description
+      properties:
+        name:
+          type: string
+          description: Action identifier
+        description:
+          type: string
+          description: Human-readable description
+        parameters:
+          type: object
+          additionalProperties:
+            type: string
+          description: Parameter descriptions
+        required_parameters:
+          type: array
+          items:
+            type: string
+          description: Required parameter names
+        safety_level:
+          type: string
+          enum: [safe, moderate, restricted]
+          default: safe
+          description: Safety classification of the action
+      example:
+        name: "create_issue"
+        description: "Create a new issue in a repository"
+        parameters:
+          owner: "Repository owner"
+          repo: "Repository name"
+          title: "Issue title"
+        required_parameters: ["owner", "repo", "title"]
+        safety_level: "safe"
+    
+    ToolCapability:
+      type: object
+      required:
+        - name
+        - description
+        - actions
+      properties:
+        name:
+          type: string
+          description: Tool identifier
+        description:
+          type: string
+          description: Tool description
+        version:
+          type: string
+          description: Tool version
+        actions:
+          type: array
+          items:
+            type: string
+          description: Available action names
+        safety_notes:
+          type: string
+          description: Safety restrictions and notes
+        _links:
+          $ref: '#/components/schemas/Links'
+      example:
+        name: "github"
+        description: "GitHub integration for repository management"
+        version: "1.0.0"
+        actions: ["create_issue", "create_pull_request"]
+        safety_notes: "Cannot delete repositories"
+    
+    # Execution-related schemas
+    
+    ExecutionStatus:
+      type: string
+      enum: [pending, running, success, failure, cancelled]
+      description: Status of an execution
+    
+    ExecutionResult:
+      type: object
+      required:
+        - status
+        - tool
+        - action
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        status:
+          $ref: '#/components/schemas/ExecutionStatus'
+        tool:
+          type: string
+          description: Tool that was executed
+        action:
+          type: string
+          description: Action that was executed
+        result:
+          type: object
+          additionalProperties: true
+          description: Execution result data
+        error:
+          type: string
+          description: Error message if execution failed
+        started_at:
+          $ref: '#/components/schemas/Timestamp'
+        completed_at:
+          $ref: '#/components/schemas/Timestamp'
+        context_id:
+          type: string
+          description: Associated context ID
+        _links:
+          $ref: '#/components/schemas/Links'
+      example:
+        id: "550e8400-e29b-41d4-a716-446655440000"
+        status: "success"
+        tool: "github"
+        action: "create_issue"
+        result:
+          issue_number: 42
+          html_url: "https://github.com/octocat/hello-world/issues/42"
+        started_at: "2024-01-15T10:00:00Z"
+        completed_at: "2024-01-15T10:00:05Z"
+    
+    # Request/Response wrappers
+    
+    RequestEnvelope:
+      type: object
+      properties:
+        request_id:
+          $ref: '#/components/schemas/UUID'
+        tenant_id:
+          $ref: '#/components/schemas/TenantID'
+        timestamp:
+          $ref: '#/components/schemas/Timestamp'
+        data:
+          type: object
+          description: Request payload
+    
+    ResponseEnvelope:
+      type: object
+      properties:
+        request_id:
+          $ref: '#/components/schemas/UUID'
+        timestamp:
+          $ref: '#/components/schemas/Timestamp'
+        data:
+          type: object
+          description: Response payload
+        _links:
+          $ref: '#/components/schemas/Links'

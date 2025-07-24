@@ -1,0 +1,448 @@
+paths:
+  /mcp/context:
+    post:
+      tags:
+        - Contexts
+      summary: Create a new context
+      description: |
+        Creates a new conversation context for an AI agent. The context stores the conversation history
+        and metadata that can be retrieved and updated throughout the agent's lifecycle.
+      operationId: createContext
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateContextRequest'
+            examples:
+              simple:
+                summary: Simple context creation
+                value:
+                  agent_id: "agent-123"
+                  session_id: "session-456"
+                  content:
+                    - role: "user"
+                      content: "Hello, I need help with my CI/CD pipeline"
+              with_metadata:
+                summary: Context with metadata
+                value:
+                  agent_id: "agent-123"
+                  session_id: "session-456"
+                  content:
+                    - role: "user"
+                      content: "Help me deploy to production"
+                  metadata:
+                    source: "web-ui"
+                    tool_context: ["github"]
+                    priority: "high"
+      responses:
+        '201':
+          description: Context created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateContextResponse'
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /mcp/context/{id}:
+    parameters:
+      - $ref: '../common/parameters.yaml#/components/parameters/ContextID'
+    
+    get:
+      tags:
+        - Contexts
+      summary: Get context by ID
+      description: Retrieves a specific context including all conversation history and metadata
+      operationId: getContext
+      responses:
+        '200':
+          description: Context retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Context'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+    
+    put:
+      tags:
+        - Contexts
+      summary: Update context
+      description: |
+        Updates an existing context with new messages. By default, new content is appended
+        to the existing conversation. Use the `replace_content` option to replace all content.
+      operationId: updateContext
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateContextRequest'
+            examples:
+              append_message:
+                summary: Append new message
+                value:
+                  content:
+                    - role: "assistant"
+                      content: "I've analyzed your pipeline configuration..."
+              replace_all:
+                summary: Replace all content
+                value:
+                  content:
+                    - role: "user"
+                      content: "New conversation"
+                  options:
+                    replace_content: true
+      responses:
+        '200':
+          description: Context updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Context'
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+    
+    delete:
+      tags:
+        - Contexts
+      summary: Delete context
+      description: Permanently deletes a context and all associated data
+      operationId: deleteContext
+      responses:
+        '200':
+          description: Context deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [deleted]
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /mcp/contexts:
+    get:
+      tags:
+        - Contexts
+      summary: List contexts
+      description: |
+        Lists contexts filtered by agent and/or session. Returns a summary of each context
+        without the full conversation history.
+      operationId: listContexts
+      parameters:
+        - $ref: '../common/parameters.yaml#/components/parameters/AgentID'
+        - $ref: '../common/parameters.yaml#/components/parameters/SessionID'
+        - $ref: '../common/parameters.yaml#/components/parameters/Page'
+        - $ref: '../common/parameters.yaml#/components/parameters/Limit'
+        - $ref: '../common/parameters.yaml#/components/parameters/Sort'
+      responses:
+        '200':
+          description: Contexts retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListContextsResponse'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /mcp/context/{id}/search:
+    parameters:
+      - $ref: '../common/parameters.yaml#/components/parameters/ContextID'
+    
+    post:
+      tags:
+        - Contexts
+      summary: Search within context
+      description: Searches for specific content within a context's conversation history
+      operationId: searchContext
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchContextRequest'
+            example:
+              query: "pipeline configuration"
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchContextResponse'
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /mcp/context/{id}/summary:
+    parameters:
+      - $ref: '../common/parameters.yaml#/components/parameters/ContextID'
+    
+    get:
+      tags:
+        - Contexts
+      summary: Get context summary
+      description: |
+        Generates an AI-powered summary of the context conversation. This is useful for
+        understanding long conversations or getting key points from a discussion.
+      operationId: summarizeContext
+      responses:
+        '200':
+          description: Context summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContextSummaryResponse'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    Context:
+      type: object
+      required:
+        - id
+        - agent_id
+        - content
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          description: Unique context identifier
+          example: "ctx-789"
+        agent_id:
+          type: string
+          description: Associated agent ID
+          example: "agent-123"
+        session_id:
+          type: string
+          description: Session identifier
+          example: "session-456"
+        content:
+          type: array
+          items:
+            $ref: '../common/schemas.yaml#/components/schemas/ContextItem'
+          description: Conversation history
+        metadata:
+          $ref: '../common/schemas.yaml#/components/schemas/Metadata'
+        created_at:
+          $ref: '../common/schemas.yaml#/components/schemas/Timestamp'
+        updated_at:
+          $ref: '../common/schemas.yaml#/components/schemas/Timestamp'
+        message_count:
+          type: integer
+          description: Total number of messages
+          example: 10
+        token_count:
+          type: integer
+          description: Approximate token count
+          example: 2500
+
+    CreateContextRequest:
+      type: object
+      required:
+        - agent_id
+        - content
+      properties:
+        agent_id:
+          type: string
+          description: Agent ID that owns this context
+        session_id:
+          type: string
+          description: Optional session identifier
+        content:
+          type: array
+          items:
+            $ref: '../common/schemas.yaml#/components/schemas/ContextItem'
+          minItems: 1
+          description: Initial conversation content
+        metadata:
+          $ref: '../common/schemas.yaml#/components/schemas/Metadata'
+
+    CreateContextResponse:
+      type: object
+      required:
+        - message
+        - id
+        - context
+      properties:
+        message:
+          type: string
+          example: "context created"
+        id:
+          type: string
+          example: "ctx-789"
+        context:
+          $ref: '#/components/schemas/Context'
+
+    UpdateContextRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '../common/schemas.yaml#/components/schemas/ContextItem'
+          description: New messages to add
+        options:
+          $ref: '#/components/schemas/ContextUpdateOptions'
+
+    ContextUpdateOptions:
+      type: object
+      properties:
+        replace_content:
+          type: boolean
+          default: false
+          description: Replace all content instead of appending
+        truncate_to_size:
+          type: integer
+          description: Maximum size in bytes after update
+          example: 100000
+        preserve_system_messages:
+          type: boolean
+          default: true
+          description: Keep system messages when replacing content
+
+    ListContextsResponse:
+      type: object
+      required:
+        - contexts
+      properties:
+        contexts:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContextSummary'
+        meta:
+          $ref: '../common/schemas.yaml#/components/schemas/PaginationMeta'
+        _links:
+          $ref: '../common/schemas.yaml#/components/schemas/Links'
+
+    ContextSummary:
+      type: object
+      required:
+        - id
+        - agent_id
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          example: "ctx-789"
+        agent_id:
+          type: string
+          example: "agent-123"
+        session_id:
+          type: string
+          example: "session-456"
+        created_at:
+          $ref: '../common/schemas.yaml#/components/schemas/Timestamp'
+        updated_at:
+          $ref: '../common/schemas.yaml#/components/schemas/Timestamp'
+        message_count:
+          type: integer
+          example: 10
+        last_message:
+          type: string
+          description: Preview of last message
+          example: "I've updated the pipeline configuration..."
+
+    SearchContextRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          description: Search query
+          minLength: 1
+          example: "pipeline configuration"
+        options:
+          type: object
+          properties:
+            case_sensitive:
+              type: boolean
+              default: false
+            whole_word:
+              type: boolean
+              default: false
+            limit:
+              type: integer
+              default: 10
+              minimum: 1
+              maximum: 100
+
+    SearchContextResponse:
+      type: object
+      required:
+        - results
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '../common/schemas.yaml#/components/schemas/ContextItem'
+        total:
+          type: integer
+          description: Total matches found
+        query:
+          type: string
+          description: The search query used
+
+    ContextSummaryResponse:
+      type: object
+      required:
+        - summary
+      properties:
+        summary:
+          type: string
+          description: AI-generated summary of the conversation
+          example: "The conversation focused on troubleshooting a CI/CD pipeline issue..."
+        key_points:
+          type: array
+          items:
+            type: string
+          description: Key points extracted from the conversation
+        topics:
+          type: array
+          items:
+            type: string
+          description: Main topics discussed
+        action_items:
+          type: array
+          items:
+            type: string
+          description: Identified action items
