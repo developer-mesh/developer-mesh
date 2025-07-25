@@ -1,0 +1,324 @@
+# MCP Server Configuration - Dynamic Tools Version
+
+# Environment (dev, staging, prod)
+environment: "${ENVIRONMENT:-dev}"
+
+# AWS Service Configurations
+aws:
+  # RDS Aurora PostgreSQL Configuration
+  rds:
+    role_arn: "${AWS_RDS_ROLE_ARN}"
+    auth:
+      region: "${AWS_REGION:-us-west-2}"
+    host: "${RDS_HOST}"
+    port: ${RDS_PORT:-5432}
+    database: "${RDS_DATABASE:-mcp}"
+    username: "${RDS_USERNAME:-mcp_admin}"
+    password: "" # Leave empty when using IAM authentication
+    use_iam_auth: ${USE_IAM_AUTH:-true}
+    token_expiration: ${TOKEN_EXPIRATION:-900}
+    max_open_conns: ${MAX_OPEN_CONNS:-25}
+    max_idle_conns: ${MAX_IDLE_CONNS:-5}
+    conn_max_lifetime: ${CONN_MAX_LIFETIME:-5m}
+    enable_pooling: ${ENABLE_POOLING:-true}
+    min_pool_size: ${MIN_POOL_SIZE:-2}
+    max_pool_size: ${MAX_POOL_SIZE:-10}
+    connection_timeout: ${CONNECTION_TIMEOUT:-30}
+  
+  # ElastiCache Redis Configuration
+  elasticache:
+    role_arn: "${AWS_ELASTICACHE_ROLE_ARN}"
+    auth:
+      region: "${AWS_REGION:-us-west-2}"
+    primary_endpoint: "${REDIS_PRIMARY_ENDPOINT}"
+    port: ${REDIS_PORT:-6379}
+    username: "${REDIS_USERNAME:-mcp_cache_user}"
+    password: "" # Leave empty when using IAM authentication
+    use_iam_auth: ${USE_IAM_AUTH:-true}
+    cluster_mode: ${REDIS_CLUSTER_MODE:-true}
+    cluster_name: "${REDIS_CLUSTER_NAME:-mcp-cache}"
+    cluster_discovery: ${REDIS_CLUSTER_DISCOVERY:-true}
+    use_tls: ${REDIS_USE_TLS:-true}
+    insecure_skip_verify: ${REDIS_INSECURE_SKIP_VERIFY:-false}
+    max_retries: ${REDIS_MAX_RETRIES:-3}
+    min_idle_connections: ${REDIS_MIN_IDLE_CONNECTIONS:-2}
+    pool_size: ${REDIS_POOL_SIZE:-10}
+    dial_timeout: ${REDIS_DIAL_TIMEOUT:-5}
+    read_timeout: ${REDIS_READ_TIMEOUT:-3}
+    write_timeout: ${REDIS_WRITE_TIMEOUT:-3}
+    pool_timeout: ${REDIS_POOL_TIMEOUT:-4}
+    token_expiration: ${TOKEN_EXPIRATION:-900}
+  
+  s3:
+    role_arn: "${AWS_S3_ROLE_ARN}"
+    bucket: "${S3_BUCKET:-mcp-contexts}"
+    use_iam_auth: ${USE_IAM_AUTH:-true}
+    region: "${AWS_REGION:-us-west-2}"
+    endpoint: "${S3_ENDPOINT}"
+    force_path_style: ${S3_FORCE_PATH_STYLE:-false}
+    upload_part_size: ${S3_UPLOAD_PART_SIZE:-10485760}
+    download_part_size: ${S3_DOWNLOAD_PART_SIZE:-10485760}
+    concurrency: ${S3_CONCURRENCY:-10}
+    request_timeout: ${S3_REQUEST_TIMEOUT:-60s}
+    server_side_encryption: "${S3_SERVER_SIDE_ENCRYPTION:-AES256}"
+
+# API Server Configuration
+api:
+  listen_address: "${API_LISTEN_ADDRESS:-:8080}"
+  read_timeout: ${API_READ_TIMEOUT:-30s}
+  write_timeout: ${API_WRITE_TIMEOUT:-30s}
+  idle_timeout: ${API_IDLE_TIMEOUT:-60s}
+  enable_cors: ${API_ENABLE_CORS:-true}
+  
+  # TLS Configuration (required for production)
+  tls_cert_file: "${TLS_CERT_FILE}"
+  tls_key_file: "${TLS_KEY_FILE}"
+  
+  # Authentication
+  auth:
+    jwt_secret: "${JWT_SECRET}"
+    api_keys:
+      admin: "${API_KEY_ADMIN}"
+      reader: "${API_KEY_READER}"
+  
+  # Rate Limiting
+  rate_limit:
+    enabled: ${RATE_LIMIT_ENABLED:-true}
+    limit: ${RATE_LIMIT:-100}
+    period: ${RATE_LIMIT_PERIOD:-1m}
+    burst_factor: ${RATE_LIMIT_BURST_FACTOR:-3}
+  
+  # Dynamic Webhook Configuration
+  webhooks:
+    base_path: "${WEBHOOK_BASE_PATH:-/webhooks}"
+    signature_header: "${WEBHOOK_SIGNATURE_HEADER:-X-Webhook-Signature}"
+    max_body_size: ${WEBHOOK_MAX_BODY_SIZE:-1048576}
+    timeout: ${WEBHOOK_TIMEOUT:-30s}
+
+# Database Configuration
+database:
+  driver: "${DB_DRIVER:-postgres}"
+  dsn: "${DATABASE_URL}" # Used only if not using AWS RDS with IAM auth
+  max_open_conns: ${DB_MAX_OPEN_CONNS:-25}
+  max_idle_conns: ${DB_MAX_IDLE_CONNS:-5}
+  conn_max_lifetime: ${DB_CONN_MAX_LIFETIME:-30m}
+
+# Cache Configuration
+cache:
+  type: "${CACHE_TYPE:-redis}"
+  address: "${CACHE_ADDRESS:-localhost:6379}" # Used only if not using AWS ElastiCache
+  password: "${CACHE_PASSWORD}"
+  db: ${CACHE_DB:-0}
+  pool_size: ${CACHE_POOL_SIZE:-10}
+  min_idle_conns: ${CACHE_MIN_IDLE_CONNS:-2}
+  dial_timeout: ${CACHE_DIAL_TIMEOUT:-5s}
+  read_timeout: ${CACHE_READ_TIMEOUT:-3s}
+  write_timeout: ${CACHE_WRITE_TIMEOUT:-3s}
+
+# Core Engine Configuration
+engine:
+  event_buffer_size: ${ENGINE_EVENT_BUFFER_SIZE:-10000}
+  concurrency_limit: ${ENGINE_CONCURRENCY_LIMIT:-10}
+  event_timeout: ${ENGINE_EVENT_TIMEOUT:-30s}
+  
+  # Security Settings
+  security:
+    safe_mode: ${ENGINE_SAFE_MODE:-true}
+    audit_logging: ${ENGINE_AUDIT_LOGGING:-true}
+
+# Dynamic Tool Configuration
+dynamic_tools:
+  # Default configuration for all tools
+  defaults:
+    request_timeout: ${TOOL_REQUEST_TIMEOUT:-30s}
+    retry_max: ${TOOL_RETRY_MAX:-3}
+    retry_delay: ${TOOL_RETRY_DELAY:-1s}
+    health_check_interval: ${TOOL_HEALTH_CHECK_INTERVAL:-5m}
+    cache_duration: ${TOOL_CACHE_DURATION:-5m}
+    rate_limit:
+      requests_per_hour: ${TOOL_RATE_LIMIT:-1000}
+      burst_size: ${TOOL_RATE_LIMIT_BURST:-50}
+  
+  # OpenAPI discovery configuration
+  discovery:
+    timeout: ${DISCOVERY_TIMEOUT:-30s}
+    allowed_schemes: ["https"]
+    max_redirects: ${DISCOVERY_MAX_REDIRECTS:-3}
+    user_agent: "${DISCOVERY_USER_AGENT:-MCP-DevOps/1.0}"
+    cache_duration: ${DISCOVERY_CACHE_DURATION:-1h}
+    max_spec_size: ${DISCOVERY_MAX_SPEC_SIZE:-10485760}
+  
+  # Security configuration
+  security:
+    encryption_key: "${TOOL_ENCRYPTION_KEY}" # Used for credential encryption
+    allowed_auth_types: ["bearer", "api_key", "basic", "oauth2"]
+    require_https: ${TOOL_REQUIRE_HTTPS:-true}
+    validate_certs: ${TOOL_VALIDATE_CERTS:-true}
+  
+  # Health check configuration
+  health:
+    enabled: ${HEALTH_CHECK_ENABLED:-true}
+    interval: ${HEALTH_CHECK_INTERVAL:-5m}
+    timeout: ${HEALTH_CHECK_TIMEOUT:-10s}
+    failure_threshold: ${HEALTH_CHECK_FAILURE_THRESHOLD:-3}
+    success_threshold: ${HEALTH_CHECK_SUCCESS_THRESHOLD:-1}
+    cache_ttl: ${HEALTH_CHECK_CACHE_TTL:-5m}
+  
+  # Mock server configuration (for testing)
+  mock:
+    enabled: ${MOCK_ENABLED:-false}
+    base_url: "${MOCK_BASE_URL:-http://mockserver:8081}"
+    response_delay: ${MOCK_RESPONSE_DELAY:-0}
+    failure_rate: ${MOCK_FAILURE_RATE:-0}
+
+# ================================================================================
+# DYNAMIC TOOL EXAMPLES
+# These are examples of how tools are configured via the API, NOT in this config
+# ================================================================================
+# 
+# Tools are now added dynamically via API calls. Here are examples:
+#
+# 1. GitHub Enterprise:
+#    POST /api/v1/tools
+#    {
+#      "name": "github-enterprise",
+#      "display_name": "GitHub Enterprise",
+#      "base_url": "https://github.yourcompany.com",
+#      "auth_type": "token",
+#      "credentials": {
+#        "token": "ghp_xxxxxxxxxxxx"
+#      },
+#      "config": {
+#        "api_version": "v3",
+#        "verify_ssl": true
+#      }
+#    }
+#
+# 2. GitLab Self-Hosted:
+#    POST /api/v1/tools
+#    {
+#      "name": "gitlab-self-hosted",
+#      "display_name": "GitLab",
+#      "base_url": "https://gitlab.yourcompany.com",
+#      "auth_type": "token",
+#      "credentials": {
+#        "token": "glpat-xxxxxxxxxxxx"
+#      }
+#    }
+#
+# 3. Harness.io (with OpenAPI discovery):
+#    POST /api/v1/tools/discover
+#    {
+#      "base_url": "https://app.harness.io",
+#      "hints": {
+#        "openapi_path": "/gateway/api/openapi.json",
+#        "account_id": "your-account-id"
+#      }
+#    }
+#
+# 4. SonarQube:
+#    POST /api/v1/tools
+#    {
+#      "name": "sonarqube",
+#      "display_name": "SonarQube",
+#      "base_url": "https://sonar.yourcompany.com",
+#      "auth_type": "token",
+#      "credentials": {
+#        "token": "squ_xxxxxxxxxxxx"
+#      },
+#      "config": {
+#        "api_prefix": "/api"
+#      }
+#    }
+#
+# 5. JFrog Artifactory:
+#    POST /api/v1/tools/discover
+#    {
+#      "base_url": "https://artifactory.yourcompany.com",
+#      "auth_type": "api_key",
+#      "credentials": {
+#        "token": "AKCxxxxxxxxxx",
+#        "header_name": "X-JFrog-Art-Api"
+#      }
+#    }
+#
+# 6. Custom API with OpenAPI spec:
+#    POST /api/v1/tools
+#    {
+#      "name": "custom-devops-tool",
+#      "display_name": "Custom DevOps Tool",
+#      "base_url": "https://api.customtool.com",
+#      "openapi_url": "https://api.customtool.com/swagger.json",
+#      "auth_type": "bearer",
+#      "credentials": {
+#        "token": "your-api-token"
+#      }
+#    }
+#
+# 7. Dynatrace:
+#    POST /api/v1/tools/discover
+#    {
+#      "base_url": "https://your-tenant.live.dynatrace.com",
+#      "auth_type": "api_key", 
+#      "credentials": {
+#        "token": "dt0c01.xxxxxxxxxxxx",
+#        "header_name": "Authorization",
+#        "header_prefix": "Api-Token"
+#      }
+#    }
+#
+# Auto-discovery will attempt to find OpenAPI specs at common locations:
+# - /openapi.json, /openapi.yaml
+# - /swagger.json, /swagger.yaml
+# - /api/swagger.json, /api/openapi.json
+# - /v1/swagger.json, /v2/swagger.json
+# - /api-docs, /api-docs.json
+# - /.well-known/openapi.json
+#
+# For tools that don't have OpenAPI specs at standard locations,
+# you can provide hints in the discovery request.
+# ================================================================================
+
+# Logging Configuration
+logging:
+  level: "${LOG_LEVEL:-info}"
+  format: "${LOG_FORMAT:-json}"
+  output: "${LOG_OUTPUT:-stdout}"
+  enable_source: ${LOG_ENABLE_SOURCE:-false}
+  enable_stacktrace: ${LOG_ENABLE_STACKTRACE:-false}
+
+# Telemetry Configuration
+telemetry:
+  provider: "${TELEMETRY_PROVIDER:-otel}"
+  endpoint: "${TELEMETRY_ENDPOINT}"
+  api_key: "${TELEMETRY_API_KEY}"
+  service_name: "${TELEMETRY_SERVICE_NAME:-mcp-server}"
+  enabled: ${TELEMETRY_ENABLED:-true}
+  sampling_rate: ${TELEMETRY_SAMPLING_RATE:-0.1}
+  
+  # Metrics
+  metrics:
+    enabled: ${METRICS_ENABLED:-true}
+    interval: ${METRICS_INTERVAL:-30s}
+    include_runtime: ${METRICS_INCLUDE_RUNTIME:-true}
+  
+  # Tracing
+  tracing:
+    enabled: ${TRACING_ENABLED:-true}
+    propagation: "${TRACING_PROPAGATION:-w3c}"
+
+# Feature Flags
+features:
+  enable_dynamic_tools: ${FEATURE_DYNAMIC_TOOLS:-true}
+  enable_tool_discovery: ${FEATURE_TOOL_DISCOVERY:-true}
+  enable_health_checks: ${FEATURE_HEALTH_CHECKS:-true}
+  enable_webhook_validation: ${FEATURE_WEBHOOK_VALIDATION:-true}
+  enable_audit_logging: ${FEATURE_AUDIT_LOGGING:-true}
+  enable_metrics: ${FEATURE_METRICS:-true}
+  enable_tracing: ${FEATURE_TRACING:-true}
+
+# Migration Settings (temporary during cutover)
+migration:
+  enable_legacy_endpoints: ${MIGRATION_ENABLE_LEGACY:-false}
+  legacy_deprecation_warnings: ${MIGRATION_WARNINGS:-true}
+  legacy_timeout: ${MIGRATION_LEGACY_TIMEOUT:-30d}

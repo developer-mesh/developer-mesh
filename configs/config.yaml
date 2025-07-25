@@ -95,12 +95,15 @@ api:
   
   # Note: Agent Webhook has been removed as it is no longer supported
   
-  # DevOps Tool Webhooks
+  # Dynamic Webhook Configuration
+  # Webhooks are now configured per tool via the API
   webhooks:
+    base_path: "/webhooks"
+    # Legacy github webhook (to be removed)
     github:
-      enabled: true
+      enabled: false
       path: "/github"
-      secret: "change-this-to-a-secure-webhook-secret"
+      secret: "deprecated-use-dynamic-tools"
     
     # Note: Harness, SonarQube, Artifactory, and JFrog Xray webhook support has been removed
 
@@ -135,18 +138,29 @@ engine:
     safe_mode: true  # Enable safety checks for all operations
     audit_logging: true  # Log all adapter operations for audit purposes
 
-# DevOps Tool Adapters
-adapters:
-  github:
-    api_token: "your-github-api-token"
-    webhook_secret: "your-github-webhook-secret"
-    # enterprise_url: "https://github.yourdomain.com/api/v3" # For GitHub Enterprise
+# Dynamic Tool Configuration
+# Tools are now configured via the API, not in static config files
+# This section only contains system-wide defaults
+dynamic_tools:
+  defaults:
     request_timeout: 30s
     retry_max: 3
     retry_delay: 1s
-    mock_responses: true
-    mock_url: "http://mockserver:8081/mock-github"
+    health_check_interval: 5m
+    cache_duration: 5m
+  discovery:
+    timeout: 30s
+    allowed_schemes: ["https"]
+    max_redirects: 3
   
+  # Mock server configuration for testing
+  mock:
+    enabled: true
+    base_url: "http://mockserver:8081"
+
+# Legacy adapter configuration (to be removed)
+# TODO: Remove this section after cutover
+adapters:
   harness:
     api_token: "your-harness-api-token"
     account_id: "your-harness-account-id"
@@ -166,17 +180,8 @@ adapters:
     mock_responses: true
     mock_url: "http://mockserver:8081/mock-harness"
   
-  sonarqube:
-    base_url: "https://sonarqube.example.com/api"
-    token: "your-sonarqube-token"
-    # Or use username/password authentication
-    # username: "your-sonarqube-username"
-    # password: "your-sonarqube-password"
-    request_timeout: 30s
-    retry_max: 3
-    retry_delay: 1s
-    mock_responses: true
-    mock_url: "http://mockserver:8081/mock-sonarqube"
+  # TODO: Remove all tool-specific configurations below
+  # These are deprecated - use dynamic tool API instead
   
   artifactory:
     base_url: "https://artifactory.example.com/artifactory/api"
