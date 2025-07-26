@@ -242,14 +242,52 @@ var _ = Describe("Single Agent E2E Tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 			defer func() { _ = devopsAgent.Close() }()
 
-			// Execute GitHub tool
+			// First check if GitHub tool is available in dynamic tools
+			listResp, err := devopsAgent.ExecuteMethod(ctx, "tool.list", nil)
+			Expect(err).NotTo(HaveOccurred())
+
+			githubAvailable := false
+			if listResp.Error == nil {
+				if result, ok := listResp.Result.(map[string]interface{}); ok {
+					if tools, ok := result["tools"].([]interface{}); ok {
+						for _, tool := range tools {
+							if toolMap, ok := tool.(map[string]interface{}); ok {
+								if name, ok := toolMap["name"].(string); ok && name == "github" {
+									githubAvailable = true
+									break
+								}
+							}
+						}
+					}
+				}
+			}
+
+			if !githubAvailable {
+				// If GitHub tool is not available, try to register it dynamically
+				// This assumes GitHub API is available with OpenAPI spec
+				regResp, err := devopsAgent.ExecuteMethod(ctx, "tool.register_dynamic", map[string]interface{}{
+					"name":        "github",
+					"base_url":    "https://api.github.com",
+					"openapi_url": "https://api.github.com/openapi.json", // This might not exist
+					"auth_type":   "token",
+					"credentials": map[string]interface{}{
+						"token": config.GitHubToken, // Assuming config has GitHub token
+					},
+				})
+
+				if err != nil || regResp.Error != nil {
+					logger.Info("Could not register GitHub tool dynamically")
+				}
+			}
+
+			// Execute GitHub tool using dynamic API
 			resp, err := devopsAgent.ExecuteMethod(ctx, "tool.execute", map[string]interface{}{
-				"tool": "github",
+				"tool":      "github",
+				"operation": "listRepositories", // Using OpenAPI operation ID format
 				"args": map[string]interface{}{
-					"action": "list_repositories",
-					"org":    "test-org",
-					"limit":  5,
-					"sort":   "updated",
+					"org":   "test-org",
+					"limit": 5,
+					"sort":  "updated",
 				},
 			})
 

@@ -95,17 +95,11 @@ api:
   
   # Note: Agent Webhook has been removed as it is no longer supported
   
-  # Dynamic Webhook Configuration
-  # Webhooks are now configured per tool via the API
+  # Webhook Configuration
+  # All webhooks are now configured per tool via the dynamic tools API
   webhooks:
     base_path: "/webhooks"
-    # Legacy github webhook (to be removed)
-    github:
-      enabled: false
-      path: "/github"
-      secret: "deprecated-use-dynamic-tools"
-    
-    # Note: Harness, SonarQube, Artifactory, and JFrog Xray webhook support has been removed
+    # Webhooks are dynamically registered when tools are added
 
 # Database Configuration
 database:
@@ -158,54 +152,9 @@ dynamic_tools:
     enabled: true
     base_url: "http://mockserver:8081"
 
-# Legacy adapter configuration (to be removed)
-# TODO: Remove this section after cutover
-adapters:
-  harness:
-    api_token: "your-harness-api-token"
-    account_id: "your-harness-account-id"
-    org_identifier: "default"
-    project_identifier: "your-project-id"
-    base_url: "https://app.harness.io"
-    api_url: "https://app.harness.io/ng/api"
-    graphql_url: "https://app.harness.io/gateway/api/graphql"
-    # CCM specific configurations
-    ccm_api_url: "https://app.harness.io/ccm/api"
-    ccm_graphql_url: "https://app.harness.io/ccm/graphql"
-    # Request configuration
-    request_timeout: 30s
-    retry_max: 3
-    retry_delay: 1s
-    # Mock server settings for testing
-    mock_responses: true
-    mock_url: "http://mockserver:8081/mock-harness"
-  
-  # TODO: Remove all tool-specific configurations below
-  # These are deprecated - use dynamic tool API instead
-  
-  artifactory:
-    base_url: "https://artifactory.example.com/artifactory/api"
-    token: "your-artifactory-token"
-    # Or use username/password authentication
-    # username: "your-artifactory-username"
-    # password: "your-artifactory-password"
-    request_timeout: 30s
-    retry_max: 3
-    retry_delay: 1s
-    mock_responses: true
-    mock_url: "http://mockserver:8081/mock-artifactory"
-  
-  xray:
-    base_url: "https://xray.example.com/api/v1"
-    token: "your-xray-token"
-    # Or use username/password authentication
-    # username: "your-xray-username"
-    # password: "your-xray-password"
-    request_timeout: 30s
-    retry_max: 3
-    retry_delay: 1s
-    mock_responses: true
-    mock_url: "http://mockserver:8081/mock-xray"
+# Legacy adapter configuration has been removed
+# All tools are now configured dynamically via the API
+# See /api/v1/tools endpoints for managing tools
 
 # Monitoring Configuration
 monitoring:

@@ -3,7 +3,6 @@ package tools
 import (
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/getkin/kin-openapi/openapi3"
@@ -22,12 +21,12 @@ func (a *DynamicAuthenticator) ApplyAuthentication(req *http.Request, creds *mod
 	if creds == nil {
 		return fmt.Errorf("no credentials provided")
 	}
-	
+
 	// Apply based on credential type and configuration
 	switch creds.Type {
 	case "bearer":
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", creds.Token))
-		
+
 	case "api_key":
 		// API key can be in header or query
 		if creds.HeaderName != "" {
@@ -40,10 +39,10 @@ func (a *DynamicAuthenticator) ApplyAuthentication(req *http.Request, creds *mod
 			// Default to X-API-Key header
 			req.Header.Set("X-API-Key", creds.Token)
 		}
-		
+
 	case "basic":
 		req.SetBasicAuth(creds.Username, creds.Password)
-		
+
 	case "custom_header":
 		if creds.HeaderName == "" {
 			return fmt.Errorf("header name required for custom header auth")
@@ -53,74 +52,74 @@ func (a *DynamicAuthenticator) ApplyAuthentication(req *http.Request, creds *mod
 			value = creds.HeaderPrefix + " " + value
 		}
 		req.Header.Set(creds.HeaderName, value)
-		
+
 	case "oauth2":
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", creds.Token))
-		
+
 	default:
 		return fmt.Errorf("unsupported authentication type: %s", creds.Type)
 	}
-	
+
 	return nil
 }
 
 // ExtractSecuritySchemes extracts security schemes from OpenAPI spec
 func (a *DynamicAuthenticator) ExtractSecuritySchemes(spec *openapi3.T) map[string]SecurityScheme {
 	schemes := make(map[string]SecurityScheme)
-	
+
 	if spec == nil || spec.Components == nil {
 		return schemes
 	}
-	
+
 	// Extract security schemes from components
 	for name, schemeRef := range spec.Components.SecuritySchemes {
 		if schemeRef == nil || schemeRef.Value == nil {
 			continue
 		}
-		
+
 		scheme := schemeRef.Value
 		secScheme := SecurityScheme{
 			Name:        name,
 			Type:        scheme.Type,
 			Description: scheme.Description,
 		}
-		
+
 		// Handle different security scheme types
 		switch scheme.Type {
 		case "apiKey":
 			secScheme.In = scheme.In
 			secScheme.ParamName = scheme.Name
-			
+
 		case "http":
 			secScheme.Scheme = scheme.Scheme
 			secScheme.BearerFormat = scheme.BearerFormat
-			
+
 		case "oauth2":
 			if scheme.Flows != nil {
 				secScheme.OAuth2Flows = extractOAuth2Flows(scheme.Flows)
 			}
-			
+
 		case "openIdConnect":
 			secScheme.OpenIDConnectURL = scheme.OpenIdConnectUrl
 		}
-		
+
 		schemes[name] = secScheme
 	}
-	
+
 	return schemes
 }
 
 // SecurityScheme represents an OpenAPI security scheme
 type SecurityScheme struct {
-	Type             string                 `json:"type"`
-	Name             string                 `json:"name"`
-	Description      string                 `json:"description,omitempty"`
-	In               string                 `json:"in,omitempty"`           // For apiKey
-	ParamName        string                 `json:"paramName,omitempty"`    // For apiKey
-	Scheme           string                 `json:"scheme,omitempty"`       // For http
-	BearerFormat     string                 `json:"bearerFormat,omitempty"` // For http bearer
-	OAuth2Flows      map[string]OAuth2Flow  `json:"flows,omitempty"`        // For oauth2
-	OpenIDConnectURL string                 `json:"openIdConnectUrl,omitempty"` // For openIdConnect
+	Type             string                `json:"type"`
+	Name             string                `json:"name"`
+	Description      string                `json:"description,omitempty"`
+	In               string                `json:"in,omitempty"`               // For apiKey
+	ParamName        string                `json:"paramName,omitempty"`        // For apiKey
+	Scheme           string                `json:"scheme,omitempty"`           // For http
+	BearerFormat     string                `json:"bearerFormat,omitempty"`     // For http bearer
+	OAuth2Flows      map[string]OAuth2Flow `json:"flows,omitempty"`            // For oauth2
+	OpenIDConnectURL string                `json:"openIdConnectUrl,omitempty"` // For openIdConnect
 }
 
 // OAuth2Flow represents an OAuth2 flow
@@ -134,28 +133,28 @@ type OAuth2Flow struct {
 // extractOAuth2Flows extracts OAuth2 flows from OpenAPI spec
 func extractOAuth2Flows(flows *openapi3.OAuthFlows) map[string]OAuth2Flow {
 	result := make(map[string]OAuth2Flow)
-	
+
 	if flows.Implicit != nil {
 		result["implicit"] = OAuth2Flow{
 			AuthorizationURL: flows.Implicit.AuthorizationURL,
-			Scopes:          flows.Implicit.Scopes,
+			Scopes:           flows.Implicit.Scopes,
 		}
 	}
-	
+
 	if flows.Password != nil {
 		result["password"] = OAuth2Flow{
 			TokenURL: flows.Password.TokenURL,
 			Scopes:   flows.Password.Scopes,
 		}
 	}
-	
+
 	if flows.ClientCredentials != nil {
 		result["clientCredentials"] = OAuth2Flow{
 			TokenURL: flows.ClientCredentials.TokenURL,
 			Scopes:   flows.ClientCredentials.Scopes,
 		}
 	}
-	
+
 	if flows.AuthorizationCode != nil {
 		result["authorizationCode"] = OAuth2Flow{
 			AuthorizationURL: flows.AuthorizationCode.AuthorizationURL,
@@ -164,7 +163,7 @@ func extractOAuth2Flows(flows *openapi3.OAuthFlows) map[string]OAuth2Flow {
 			Scopes:           flows.AuthorizationCode.Scopes,
 		}
 	}
-	
+
 	return result
 }
 
@@ -185,7 +184,7 @@ func (a *DynamicAuthenticator) DetermineAuthType(schemes map[string]SecuritySche
 			return "oauth2"
 		}
 	}
-	
+
 	// Default to bearer token
 	return "bearer"
 }
@@ -196,7 +195,7 @@ func (a *DynamicAuthenticator) BuildCredentialTemplate(schemes map[string]Securi
 		SupportedTypes: []string{},
 		Fields:         []CredentialField{},
 	}
-	
+
 	// Analyze schemes to determine supported types and required fields
 	for _, scheme := range schemes {
 		switch scheme.Type {
@@ -211,7 +210,7 @@ func (a *DynamicAuthenticator) BuildCredentialTemplate(schemes map[string]Securi
 				})
 			} else if scheme.Scheme == "basic" {
 				template.SupportedTypes = append(template.SupportedTypes, "basic")
-				template.Fields = append(template.Fields, 
+				template.Fields = append(template.Fields,
 					CredentialField{
 						Name:        "username",
 						Type:        "string",
@@ -227,17 +226,17 @@ func (a *DynamicAuthenticator) BuildCredentialTemplate(schemes map[string]Securi
 					},
 				)
 			}
-			
+
 		case "apiKey":
 			template.SupportedTypes = append(template.SupportedTypes, "api_key")
-			
+
 			field := CredentialField{
 				Name:        "token",
 				Type:        "string",
 				Required:    true,
 				Description: fmt.Sprintf("API key for %s authentication", scheme.Name),
 			}
-			
+
 			// Add metadata about where the key goes
 			if scheme.In == "header" {
 				field.Metadata = map[string]string{
@@ -248,9 +247,9 @@ func (a *DynamicAuthenticator) BuildCredentialTemplate(schemes map[string]Securi
 					"query_param": scheme.ParamName,
 				}
 			}
-			
+
 			template.Fields = append(template.Fields, field)
-			
+
 		case "oauth2":
 			template.SupportedTypes = append(template.SupportedTypes, "oauth2")
 			template.Fields = append(template.Fields, CredentialField{
@@ -259,7 +258,7 @@ func (a *DynamicAuthenticator) BuildCredentialTemplate(schemes map[string]Securi
 				Required:    true,
 				Description: "OAuth2 access token",
 			})
-			
+
 			// Add OAuth2 metadata
 			if flows, ok := scheme.OAuth2Flows["clientCredentials"]; ok {
 				template.OAuth2Config = &OAuth2Config{
@@ -269,18 +268,18 @@ func (a *DynamicAuthenticator) BuildCredentialTemplate(schemes map[string]Securi
 			}
 		}
 	}
-	
+
 	// Remove duplicates
 	template.SupportedTypes = removeDuplicates(template.SupportedTypes)
-	
+
 	return template
 }
 
 // CredentialTemplate describes how to configure credentials for a tool
 type CredentialTemplate struct {
-	SupportedTypes []string           `json:"supported_types"`
-	Fields         []CredentialField  `json:"fields"`
-	OAuth2Config   *OAuth2Config      `json:"oauth2_config,omitempty"`
+	SupportedTypes []string          `json:"supported_types"`
+	Fields         []CredentialField `json:"fields"`
+	OAuth2Config   *OAuth2Config     `json:"oauth2_config,omitempty"`
 }
 
 // CredentialField describes a credential field
@@ -303,13 +302,13 @@ type OAuth2Config struct {
 func removeDuplicates(items []string) []string {
 	seen := make(map[string]bool)
 	result := []string{}
-	
+
 	for _, item := range items {
 		if !seen[item] {
 			seen[item] = true
 			result = append(result, item)
 		}
 	}
-	
+
 	return result
 }

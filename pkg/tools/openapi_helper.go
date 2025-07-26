@@ -2,7 +2,6 @@ package tools
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/core/tool"
 	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/getkin/kin-openapi/openapi3"
@@ -45,25 +43,25 @@ func (h *OpenAPIHelper) MakeAuthenticatedRequest(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-	
+
 	// Add authentication using dynamic authenticator
 	if err := h.auth.ApplyAuthentication(req, creds); err != nil {
 		return nil, fmt.Errorf("failed to authenticate request: %w", err)
 	}
-	
+
 	// Add common headers
 	req.Header.Set("User-Agent", "DevOps-MCP/1.0")
 	req.Header.Set("Accept", "application/json")
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	
+
 	// Make request
 	resp, err := h.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	
+
 	return resp, nil
 }
 
@@ -74,10 +72,10 @@ func (h *OpenAPIHelper) GenerateToolFromOperation(
 	method string,
 	operation *openapi3.Operation,
 	baseURL string,
-) (*tool.Tool, error) {
+) (*Tool, error) {
 	// Generate tool name
 	toolName := h.generateToolName(operationID, path, method)
-	
+
 	// Generate description
 	description := operation.Summary
 	if description == "" {
@@ -86,18 +84,18 @@ func (h *OpenAPIHelper) GenerateToolFromOperation(
 	if description == "" {
 		description = fmt.Sprintf("%s %s", method, path)
 	}
-	
+
 	// Generate parameters schema
 	paramSchema, required := h.generateParameterSchema(operation)
-	
+
 	// Generate return schema
 	returnSchema := h.generateReturnSchema(operation)
-	
+
 	// Create tool definition
-	definition := tool.ToolDefinition{
+	definition := ToolDefinition{
 		Name:        toolName,
 		Description: description,
-		Parameters: tool.ParameterSchema{
+		Parameters: ParameterSchema{
 			Type:       "object",
 			Properties: paramSchema,
 			Required:   required,
@@ -105,11 +103,11 @@ func (h *OpenAPIHelper) GenerateToolFromOperation(
 		Returns: returnSchema,
 		Tags:    h.generateTags(operation),
 	}
-	
+
 	// Create handler
 	handler := h.createOperationHandler(path, method, operation, baseURL)
-	
-	return &tool.Tool{
+
+	return &Tool{
 		Definition: definition,
 		Handler:    handler,
 	}, nil
@@ -120,17 +118,17 @@ func (h *OpenAPIHelper) generateToolName(operationID, path, method string) strin
 	if operationID != "" {
 		return h.sanitizeName(operationID)
 	}
-	
+
 	// Generate from path and method
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	name := strings.ToLower(method)
-	
+
 	for _, part := range parts {
 		if !strings.HasPrefix(part, "{") {
 			name += "_" + h.sanitizeName(part)
 		}
 	}
-	
+
 	return name
 }
 
@@ -143,24 +141,48 @@ func (h *OpenAPIHelper) sanitizeName(s string) string {
 		}
 		return '_'
 	}, s)
-	
+
 	// Convert to lowercase and trim underscores
 	result = strings.ToLower(result)
 	result = strings.Trim(result, "_")
-	
+
 	// Replace multiple underscores with single
 	for strings.Contains(result, "__") {
 		result = strings.ReplaceAll(result, "__", "_")
 	}
-	
+
 	return result
 }
 
+// getSchemaType returns the type of an OpenAPI schema as a string
+func getSchemaType(schema *openapi3.Schema) string {
+	if schema.Type == nil {
+		return "string" // default
+	}
+
+	// Type is a slice in OpenAPI 3.1
+	if schema.Type.Is("string") {
+		return "string"
+	} else if schema.Type.Is("number") {
+		return "number"
+	} else if schema.Type.Is("integer") {
+		return "integer"
+	} else if schema.Type.Is("boolean") {
+		return "boolean"
+	} else if schema.Type.Is("array") {
+		return "array"
+	} else if schema.Type.Is("object") {
+		return "object"
+	}
+
+	return "string" // default
+}
+
 // generateParameterSchema generates parameter schema from OpenAPI operation
-func (h *OpenAPIHelper) generateParameterSchema(operation *openapi3.Operation) (map[string]tool.PropertySchema, []string) {
-	properties := make(map[string]tool.PropertySchema)
+func (h *OpenAPIHelper) generateParameterSchema(operation *openapi3.Operation) (map[string]PropertySchema, []string) {
+	properties := make(map[string]PropertySchema)
 	required := []string{}
-	
+
 	// Add path parameters
 	for _, param := range operation.Parameters {
 		if param.Value != nil && param.Value.In == "path" {
@@ -172,7 +194,7 @@ func (h *OpenAPIHelper) generateParameterSchema(operation *openapi3.Operation) (
 			}
 		}
 	}
-	
+
 	// Add query parameters
 	for _, param := range operation.Parameters {
 		if param.Value != nil && param.Value.In == "query" {
@@ -184,7 +206,7 @@ func (h *OpenAPIHelper) generateParameterSchema(operation *openapi3.Operation) (
 			}
 		}
 	}
-	
+
 	// Add request body
 	if operation.RequestBody != nil && operation.RequestBody.Value != nil {
 		if jsonContent, ok := operation.RequestBody.Value.Content["application/json"]; ok {
@@ -194,7 +216,7 @@ func (h *OpenAPIHelper) generateParameterSchema(operation *openapi3.Operation) (
 					for name, prop := range jsonContent.Schema.Value.Properties {
 						schema := h.schemaRefToPropertySchema(prop)
 						properties["body_"+name] = schema
-						
+
 						// Check if required
 						for _, req := range jsonContent.Schema.Value.Required {
 							if req == name {
@@ -206,84 +228,87 @@ func (h *OpenAPIHelper) generateParameterSchema(operation *openapi3.Operation) (
 			}
 		}
 	}
-	
+
 	return properties, required
 }
 
 // schemaToPropertySchema converts OpenAPI schema to property schema
-func (h *OpenAPIHelper) schemaToPropertySchema(schema *openapi3.SchemaRef) tool.PropertySchema {
+func (h *OpenAPIHelper) schemaToPropertySchema(schema *openapi3.SchemaRef) PropertySchema {
 	if schema == nil || schema.Value == nil {
-		return tool.PropertySchema{Type: "string"}
+		return PropertySchema{Type: "string"}
 	}
-	
+
 	return h.schemaValueToPropertySchema(schema.Value)
 }
 
 // schemaRefToPropertySchema converts OpenAPI schema ref to property schema
-func (h *OpenAPIHelper) schemaRefToPropertySchema(schema *openapi3.SchemaRef) tool.PropertySchema {
+func (h *OpenAPIHelper) schemaRefToPropertySchema(schema *openapi3.SchemaRef) PropertySchema {
 	if schema == nil || schema.Value == nil {
-		return tool.PropertySchema{Type: "string"}
+		return PropertySchema{Type: "string"}
 	}
-	
+
 	return h.schemaValueToPropertySchema(schema.Value)
 }
 
 // schemaValueToPropertySchema converts OpenAPI schema value to property schema
-func (h *OpenAPIHelper) schemaValueToPropertySchema(schema *openapi3.Schema) tool.PropertySchema {
-	prop := tool.PropertySchema{
-		Type:        schema.Type,
+func (h *OpenAPIHelper) schemaValueToPropertySchema(schema *openapi3.Schema) PropertySchema {
+	prop := PropertySchema{
+		Type:        getSchemaType(schema),
 		Description: schema.Description,
 	}
-	
+
 	// Handle enums
 	if len(schema.Enum) > 0 {
-		prop.Enum = make([]string, len(schema.Enum))
-		for i, v := range schema.Enum {
-			prop.Enum[i] = fmt.Sprintf("%v", v)
-		}
+		prop.Enum = make([]interface{}, len(schema.Enum))
+		copy(prop.Enum, schema.Enum)
 	}
-	
+
 	// Handle defaults
 	if schema.Default != nil {
 		prop.Default = schema.Default
 	}
-	
+
 	// Handle arrays
-	if schema.Type == "array" && schema.Items != nil {
+	if getSchemaType(schema) == "array" && schema.Items != nil {
 		itemSchema := h.schemaRefToPropertySchema(schema.Items)
 		prop.Items = &itemSchema
 	}
-	
+
 	// Handle objects
-	if schema.Type == "object" && len(schema.Properties) > 0 {
-		prop.Properties = make(map[string]tool.PropertySchema)
+	if getSchemaType(schema) == "object" && len(schema.Properties) > 0 {
+		prop.Properties = make(map[string]PropertySchema)
 		for name, propSchema := range schema.Properties {
 			prop.Properties[name] = h.schemaRefToPropertySchema(propSchema)
 		}
 	}
-	
+
 	return prop
 }
 
 // generateReturnSchema generates return schema from OpenAPI operation
-func (h *OpenAPIHelper) generateReturnSchema(operation *openapi3.Operation) tool.ReturnSchema {
+func (h *OpenAPIHelper) generateReturnSchema(operation *openapi3.Operation) ReturnSchema {
 	// Look for 200 OK response
-	if operation.Responses != nil {
-		if resp200, ok := operation.Responses["200"]; ok && resp200.Value != nil {
+	if operation.Responses != nil && operation.Responses.Map() != nil {
+		responses := operation.Responses.Map()
+		if resp200, ok := responses["200"]; ok && resp200.Value != nil {
 			if jsonContent, ok := resp200.Value.Content["application/json"]; ok {
 				if jsonContent.Schema != nil && jsonContent.Schema.Value != nil {
 					schema := jsonContent.Schema.Value
-					return tool.ReturnSchema{
-						Type:        schema.Type,
-						Description: resp200.Value.Description,
+					desc := ""
+					if resp200.Value.Description != nil {
+						desc = *resp200.Value.Description
+					}
+					return ReturnSchema{
+						Type:        getSchemaType(schema),
+						Description: desc,
 					}
 				}
 			}
 		}
 	}
-	
+
 	// Default return schema
-	return tool.ReturnSchema{
+	return ReturnSchema{
 		Type:        "object",
 		Description: "Operation response",
 	}
@@ -292,10 +317,10 @@ func (h *OpenAPIHelper) generateReturnSchema(operation *openapi3.Operation) tool
 // generateTags generates tags for the tool
 func (h *OpenAPIHelper) generateTags(operation *openapi3.Operation) []string {
 	tags := []string{"openapi"}
-	
+
 	// Add operation tags
 	tags = append(tags, operation.Tags...)
-	
+
 	// Add capability-based tags
 	if strings.Contains(strings.ToLower(operation.OperationID), "create") {
 		tags = append(tags, "write")
@@ -303,7 +328,7 @@ func (h *OpenAPIHelper) generateTags(operation *openapi3.Operation) []string {
 		strings.Contains(strings.ToLower(operation.OperationID), "list") {
 		tags = append(tags, "read")
 	}
-	
+
 	return tags
 }
 
@@ -313,12 +338,12 @@ func (h *OpenAPIHelper) createOperationHandler(
 	method string,
 	operation *openapi3.Operation,
 	baseURL string,
-) tool.ToolHandler {
-	return func(params map[string]interface{}) (interface{}, error) {
+) ToolHandler {
+	return func(ctx context.Context, params map[string]interface{}) (interface{}, error) {
 		// This will be implemented by the OpenAPIAdapter
 		// The handler needs access to credentials and other config
 		return map[string]interface{}{
-			"status": "handler_not_implemented",
+			"status":  "handler_not_implemented",
 			"message": fmt.Sprintf("Handler for %s %s needs to be created by OpenAPIAdapter", method, path),
 		}, nil
 	}
@@ -332,33 +357,33 @@ func (h *OpenAPIHelper) TestConnection(ctx context.Context, config ToolConfig) e
 		return fmt.Errorf("connection test failed: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	// Check for authentication errors
 	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
 		return fmt.Errorf("authentication failed: status %d", resp.StatusCode)
 	}
-	
+
 	// Any non-5xx response is considered successful for connection test
 	if resp.StatusCode >= 500 {
 		return fmt.Errorf("server error: status %d", resp.StatusCode)
 	}
-	
+
 	return nil
 }
 
-// buildRequestURL builds the complete request URL with path parameters
-func (h *OpenAPIHelper) buildRequestURL(baseURL, path string, params map[string]interface{}) string {
+// BuildRequestURL builds the complete request URL with path parameters
+func (h *OpenAPIHelper) BuildRequestURL(baseURL, path string, params map[string]interface{}) string {
 	// Replace path parameters
-	url := baseURL + path
-	
+	reqURL := baseURL + path
+
 	// Replace {param} style parameters
 	for key, value := range params {
 		placeholder := fmt.Sprintf("{%s}", key)
-		if strings.Contains(url, placeholder) {
-			url = strings.Replace(url, placeholder, fmt.Sprintf("%v", value), 1)
+		if strings.Contains(reqURL, placeholder) {
+			reqURL = strings.Replace(reqURL, placeholder, fmt.Sprintf("%v", value), 1)
 		}
 	}
-	
+
 	// Add query parameters
 	queryParams := url.Values{}
 	for key, value := range params {
@@ -373,18 +398,18 @@ func (h *OpenAPIHelper) buildRequestURL(baseURL, path string, params map[string]
 		// Add as query parameter
 		queryParams.Set(key, fmt.Sprintf("%v", value))
 	}
-	
+
 	if len(queryParams) > 0 {
-		url += "?" + queryParams.Encode()
+		reqURL += "?" + queryParams.Encode()
 	}
-	
-	return url
+
+	return reqURL
 }
 
-// extractBodyParameters extracts body parameters from the params map
-func (h *OpenAPIHelper) extractBodyParameters(params map[string]interface{}) map[string]interface{} {
+// ExtractBodyParameters extracts body parameters from the params map
+func (h *OpenAPIHelper) ExtractBodyParameters(params map[string]interface{}) map[string]interface{} {
 	body := make(map[string]interface{})
-	
+
 	for key, value := range params {
 		if strings.HasPrefix(key, "body_") {
 			// Remove the "body_" prefix
@@ -392,6 +417,6 @@ func (h *OpenAPIHelper) extractBodyParameters(params map[string]interface{}) map
 			body[actualKey] = value
 		}
 	}
-	
+
 	return body
 }

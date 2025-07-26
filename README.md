@@ -53,6 +53,13 @@ DevOps teams struggle to integrate AI effectively - managing multiple models, co
 - **Connection Pooling**: Efficient resource utilization
 - **Heartbeat Monitoring**: Automatic reconnection handling
 
+### Dynamic Tool Integration
+- **Zero-Code Tool Addition**: Add any DevOps tool via OpenAPI spec
+- **Automatic Discovery**: Finds and imports tool capabilities
+- **Dynamic Authentication**: Supports OAuth, API keys, basic auth
+- **Health Monitoring**: Built-in health checks for all tools
+- **Supported Tools**: GitHub, GitLab, Harness, SonarQube, JFrog, Dynatrace, and any OpenAPI-compliant tool
+
 ## 📊 Real-World Impact
 
 ### 🎯 Intelligent Code Review
@@ -82,7 +89,7 @@ graph TD
     C --> D[Assignment Engine]
     D --> E[Agent Registry]
     B --> F[REST API]
-    F --> G[GitHub/Tools]
+    F --> G[Dynamic Tools]
     B --> H[Vector DB]
     B --> I[S3 Storage]
     B --> J[SQS Queue]
@@ -175,6 +182,26 @@ websocket.JSON.Send(ws, msg)
 # See the WebSocket protocol documentation for message formats
 ```
 
+### Add a DevOps Tool
+
+```bash
+# Add GitHub to your DevOps tool arsenal
+curl -X POST http://localhost:8080/api/v1/tools \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "github",
+    "base_url": "https://api.github.com",
+    "auth_type": "token",
+    "credentials": {
+      "token": "ghp_xxxxxxxxxxxx"
+    }
+  }'
+
+# The system automatically discovers GitHub's capabilities
+# and makes them available to your AI agents
+```
+
 ### Monitor System Health
 
 ```bash
@@ -222,6 +249,7 @@ curl http://localhost:8081/health
 ### API Reference
 - [WebSocket Protocol](docs/api-reference/agent-websocket-protocol.md)
 - [REST API Reference](docs/api-reference/rest-api-reference.md)
+- [Dynamic Tools API](docs/dynamic_tools_api.md)
 - [SDK Documentation](docs/guides/agent-sdk-guide.md)
 
 ### Operations

@@ -27,7 +27,7 @@ func (r *CreateToolRequest) Validate() error {
 	if _, err := url.Parse(r.BaseURL); err != nil {
 		return errors.New("invalid base URL")
 	}
-	
+
 	// Validate auth type
 	validAuthTypes := []string{"token", "bearer", "api_key", "basic", "oauth2", "custom"}
 	valid := false
@@ -40,7 +40,7 @@ func (r *CreateToolRequest) Validate() error {
 	if !valid {
 		return errors.New("invalid auth type")
 	}
-	
+
 	// Validate credentials if provided
 	if r.Credentials != nil {
 		if r.AuthType == "basic" && (r.Credentials.Username == "" || r.Credentials.Password == "") {
@@ -50,7 +50,7 @@ func (r *CreateToolRequest) Validate() error {
 			return errors.New("token required for selected auth type")
 		}
 	}
-	
+
 	return nil
 }
 
@@ -91,14 +91,14 @@ func (r *DiscoverToolRequest) Validate() error {
 	if _, err := url.Parse(r.BaseURL); err != nil {
 		return errors.New("invalid base URL")
 	}
-	
+
 	// If OpenAPI URL provided, validate it
 	if r.OpenAPIURL != "" {
 		if _, err := url.Parse(r.OpenAPIURL); err != nil {
 			return errors.New("invalid OpenAPI URL")
 		}
 	}
-	
+
 	return nil
 }
 
@@ -137,24 +137,24 @@ type Tool struct {
 	HealthStatus     *tools.HealthStatus      `json:"health_status,omitempty"`
 	CreatedAt        string                   `json:"created_at"`
 	UpdatedAt        string                   `json:"updated_at"`
-	
+
 	// Internal fields not exposed in JSON
 	Config tools.ToolConfig `json:"-"`
 }
 
 // DiscoverySession represents an active discovery session
 type DiscoverySession struct {
-	ID             string                  `json:"id"`
-	TenantID       string                  `json:"tenant_id"`
-	SessionID      string                  `json:"session_id"`
-	BaseURL        string                  `json:"base_url"`
-	Status         tools.DiscoveryStatus   `json:"status"`
-	DiscoveredURLs []string                `json:"discovered_urls,omitempty"`
-	SelectedURL    string                  `json:"selected_url,omitempty"`
-	Metadata       map[string]interface{}  `json:"metadata,omitempty"`
-	ErrorMessage   string                  `json:"error_message,omitempty"`
-	CreatedAt      string                  `json:"created_at"`
-	ExpiresAt      string                  `json:"expires_at"`
+	ID             string                 `json:"id"`
+	TenantID       string                 `json:"tenant_id"`
+	SessionID      string                 `json:"session_id"`
+	BaseURL        string                 `json:"base_url"`
+	Status         tools.DiscoveryStatus  `json:"status"`
+	DiscoveredURLs []string               `json:"discovered_urls,omitempty"`
+	SelectedURL    string                 `json:"selected_url,omitempty"`
+	Metadata       map[string]interface{} `json:"metadata,omitempty"`
+	ErrorMessage   string                 `json:"error_message,omitempty"`
+	CreatedAt      string                 `json:"created_at"`
+	ExpiresAt      string                 `json:"expires_at"`
 }
 
 // ActionDefinition represents a tool action
@@ -169,14 +169,14 @@ type ActionDefinition struct {
 
 // ExecutionResult represents the result of executing a tool action
 type ExecutionResult struct {
-	ToolID       string                 `json:"tool_id"`
-	Action       string                 `json:"action"`
-	Status       string                 `json:"status"`
-	Result       interface{}            `json:"result,omitempty"`
-	Error        string                 `json:"error,omitempty"`
-	ResponseTime int                    `json:"response_time_ms"`
-	RetryCount   int                    `json:"retry_count"`
-	ExecutedAt   string                 `json:"executed_at"`
+	ToolID       string      `json:"tool_id"`
+	Action       string      `json:"action"`
+	Status       string      `json:"status"`
+	Result       interface{} `json:"result,omitempty"`
+	Error        string      `json:"error,omitempty"`
+	ResponseTime int         `json:"response_time_ms"`
+	RetryCount   int         `json:"retry_count"`
+	ExecutedAt   string      `json:"executed_at"`
 }
 
 // Common errors

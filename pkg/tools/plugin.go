@@ -2,11 +2,9 @@ package tools
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"time"
 
-	"github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/core/tool"
 	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/resilience"
 	"github.com/getkin/kin-openapi/openapi3"
@@ -18,24 +16,24 @@ type OpenAPIHandler interface {
 	DiscoverAPIs(ctx context.Context, config ToolConfig) (*DiscoveryResult, error)
 
 	// GenerateTools generates tool definitions from OpenAPI specification
-	GenerateTools(config ToolConfig, spec *openapi3.T) ([]*tool.Tool, error)
+	GenerateTools(config ToolConfig, spec *openapi3.T) ([]*Tool, error)
 
 	// AuthenticateRequest adds authentication to HTTP requests based on OpenAPI security schemes
 	AuthenticateRequest(req *http.Request, creds *models.TokenCredential, securitySchemes map[string]SecurityScheme) error
 
 	// TestConnection tests the connection to the tool
 	TestConnection(ctx context.Context, config ToolConfig) error
-	
+
 	// ExtractSecuritySchemes extracts security schemes from OpenAPI spec
 	ExtractSecuritySchemes(spec *openapi3.T) map[string]SecurityScheme
 }
 
 // OpenAPIMetadata contains metadata about the OpenAPI handler
 type OpenAPIMetadata struct {
-	Name        string   `json:"name"`
-	Version     string   `json:"version"`
-	Description string   `json:"description"`
-	Author      string   `json:"author"`
+	Name        string `json:"name"`
+	Version     string `json:"version"`
+	Description string `json:"description"`
+	Author      string `json:"author"`
 }
 
 // ConfigField defines a configuration field schema
@@ -50,16 +48,16 @@ type ConfigField struct {
 
 // ToolConfig represents a tool configuration
 type ToolConfig struct {
-	ID               string                   `json:"id"`
-	TenantID         string                   `json:"tenant_id"`
-	Name             string                   `json:"name"`
-	BaseURL          string                   `json:"base_url"`
-	DocumentationURL string                   `json:"documentation_url,omitempty"`
-	OpenAPIURL       string                   `json:"openapi_url,omitempty"`
-	Config           map[string]interface{}   `json:"config"`
-	Credential       *models.TokenCredential  `json:"-"` // Never serialize credentials
-	RetryPolicy      *ToolRetryPolicy         `json:"retry_policy,omitempty"`
-	HealthConfig     *HealthCheckConfig       `json:"health_config,omitempty"`
+	ID               string                  `json:"id"`
+	TenantID         string                  `json:"tenant_id"`
+	Name             string                  `json:"name"`
+	BaseURL          string                  `json:"base_url"`
+	DocumentationURL string                  `json:"documentation_url,omitempty"`
+	OpenAPIURL       string                  `json:"openapi_url,omitempty"`
+	Config           map[string]interface{}  `json:"config"`
+	Credential       *models.TokenCredential `json:"-"` // Never serialize credentials
+	RetryPolicy      *ToolRetryPolicy        `json:"retry_policy,omitempty"`
+	HealthConfig     *HealthCheckConfig      `json:"health_config,omitempty"`
 }
 
 // ToolRetryPolicy extends the base retry policy with tool-specific settings
@@ -81,23 +79,23 @@ type HealthCheckConfig struct {
 
 // HealthStatus represents the health status of a tool
 type HealthStatus struct {
-	IsHealthy    bool      `json:"is_healthy"`
-	LastChecked  time.Time `json:"last_checked"`
-	ResponseTime int       `json:"response_time_ms"`
-	Error        string    `json:"error,omitempty"`
-	Version      string    `json:"version,omitempty"`
+	IsHealthy    bool                   `json:"is_healthy"`
+	LastChecked  time.Time              `json:"last_checked"`
+	ResponseTime int                    `json:"response_time_ms"`
+	Error        string                 `json:"error,omitempty"`
+	Version      string                 `json:"version,omitempty"`
 	Details      map[string]interface{} `json:"details,omitempty"`
 }
 
 // DiscoveryResult contains the results of API discovery
 type DiscoveryResult struct {
-	Status           DiscoveryStatus `json:"status"`
-	OpenAPISpec      *openapi3.T     `json:"-"` // Don't serialize the full spec
-	SpecURL          string          `json:"spec_url,omitempty"`
-	DiscoveredURLs   []string        `json:"discovered_urls"`
-	Capabilities     []Capability    `json:"capabilities"`
-	RequiresManual   bool            `json:"requires_manual"`
-	SuggestedActions []string        `json:"suggested_actions,omitempty"`
+	Status           DiscoveryStatus        `json:"status"`
+	OpenAPISpec      *openapi3.T            `json:"-"` // Don't serialize the full spec
+	SpecURL          string                 `json:"spec_url,omitempty"`
+	DiscoveredURLs   []string               `json:"discovered_urls"`
+	Capabilities     []Capability           `json:"capabilities"`
+	RequiresManual   bool                   `json:"requires_manual"`
+	SuggestedActions []string               `json:"suggested_actions,omitempty"`
 	Metadata         map[string]interface{} `json:"metadata,omitempty"`
 }
 
@@ -193,24 +191,3 @@ const (
 	ExecutionStatusTimeout  ExecutionStatus = "timeout"
 	ExecutionStatusRetrying ExecutionStatus = "retrying"
 )
-
-// SecurityScheme represents an OpenAPI security scheme
-type SecurityScheme struct {
-	Type             string                 `json:"type"`
-	Name             string                 `json:"name"`
-	Description      string                 `json:"description,omitempty"`
-	In               string                 `json:"in,omitempty"`           // For apiKey
-	ParamName        string                 `json:"paramName,omitempty"`    // For apiKey
-	Scheme           string                 `json:"scheme,omitempty"`       // For http
-	BearerFormat     string                 `json:"bearerFormat,omitempty"` // For http bearer
-	OAuth2Flows      map[string]OAuth2Flow  `json:"flows,omitempty"`        // For oauth2
-	OpenIDConnectURL string                 `json:"openIdConnectUrl,omitempty"` // For openIdConnect
-}
-
-// OAuth2Flow represents an OAuth2 flow
-type OAuth2Flow struct {
-	AuthorizationURL string            `json:"authorizationUrl,omitempty"`
-	TokenURL         string            `json:"tokenUrl,omitempty"`
-	RefreshURL       string            `json:"refreshUrl,omitempty"`
-	Scopes           map[string]string `json:"scopes,omitempty"`
-}

@@ -19,11 +19,15 @@ type ToolCredentials struct {
 
 // TokenCredential represents a single credential
 type TokenCredential struct {
-	Token     string    `json:"token"`
-	Type      string    `json:"type,omitempty"`     // "pat", "oauth", "basic", "bearer"
-	Username  string    `json:"username,omitempty"` // For basic auth
-	BaseURL   string    `json:"base_url,omitempty"` // For self-hosted instances
-	ExpiresAt time.Time `json:"expires_at,omitempty"`
+	Token        string    `json:"token"`
+	Type         string    `json:"type,omitempty"`     // "pat", "oauth", "basic", "bearer", "api_key"
+	Username     string    `json:"username,omitempty"` // For basic auth
+	Password     string    `json:"password,omitempty"` // For basic auth (encrypted in storage)
+	BaseURL      string    `json:"base_url,omitempty"` // For self-hosted instances
+	ExpiresAt    time.Time `json:"expires_at,omitempty"`
+	HeaderName   string    `json:"header_name,omitempty"`   // For API key header name
+	HeaderPrefix string    `json:"header_prefix,omitempty"` // For custom header prefix (e.g., "Bearer", "Token")
+	QueryParam   string    `json:"query_param,omitempty"`   // For API key as query parameter
 }
 
 // CredentialRequest wraps tool requests with optional credentials

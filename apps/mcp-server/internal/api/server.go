@@ -21,7 +21,9 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/repository"
 	"github.com/developer-mesh/developer-mesh/pkg/repository/agent"
+	"github.com/developer-mesh/developer-mesh/pkg/security"
 	pgservices "github.com/developer-mesh/developer-mesh/pkg/services"
+	pkgtools "github.com/developer-mesh/developer-mesh/pkg/tools"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 	swaggerFiles "github.com/swaggo/files"
@@ -63,6 +65,10 @@ type Server struct {
 	workspaceService pgservices.WorkspaceService
 	documentService  pgservices.DocumentService
 	conflictService  pgservices.ConflictResolutionService
+	// Dynamic tools
+	dynamicToolsAPI      *DynamicToolsAPI
+	healthCheckScheduler *pkgtools.HealthCheckScheduler
+	encryptionService    *security.EncryptionService
 }
 
 // NewServer creates a new API server
@@ -284,6 +290,53 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 	return s
 }
 
+// initializeDynamicTools initializes the dynamic tools subsystem
+func (s *Server) initializeDynamicTools(ctx context.Context) error {
+	// Create encryption service
+	s.encryptionService = security.NewEncryptionService(s.logger)
+
+	// Create health check manager
+	healthCheckManager := pkgtools.NewHealthCheckManager(s.logger)
+
+	// Create health check database implementation
+	healthCheckDB := NewHealthCheckDBImpl(s.db, s.encryptionService)
+
+	// Create health check scheduler
+	healthCheckInterval := 5 * time.Minute // Default health check interval
+	s.healthCheckScheduler = pkgtools.NewHealthCheckScheduler(
+		healthCheckManager,
+		healthCheckDB,
+		s.logger,
+		healthCheckInterval,
+	)
+
+	// Create dynamic tool service
+	dynamicToolService := NewDynamicToolService(s.db, s.encryptionService, s.logger)
+
+	// Create audit logger
+	auditLogger := auth.NewAuditLogger(s.logger)
+
+	// Create dynamic tools API
+	s.dynamicToolsAPI = NewDynamicToolsAPI(
+		dynamicToolService,
+		s.logger,
+		s.encryptionService,
+		healthCheckManager,
+		auditLogger,
+	)
+
+	// Start health check scheduler
+	if err := s.healthCheckScheduler.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start health check scheduler: %w", err)
+	}
+
+	s.logger.Info("Dynamic tools subsystem initialized successfully", map[string]interface{}{
+		"health_check_interval": healthCheckInterval.String(),
+	})
+
+	return nil
+}
+
 // Initialize initializes all components and routes
 func (s *Server) Initialize(ctx context.Context) error {
 	// Setup HTTP server if not done already
@@ -317,6 +370,14 @@ func (s *Server) Initialize(ctx context.Context) error {
 			s.webhookAPIProxy = proxies.NewMockWebhookRepository(s.logger)
 			s.logger.Info("Initialized Mock Webhook Repository for temporary use", nil)
 		}
+	}
+
+	// Initialize dynamic tools components
+	if err := s.initializeDynamicTools(ctx); err != nil {
+		s.logger.Error("Failed to initialize dynamic tools", map[string]interface{}{
+			"error": err.Error(),
+		})
+		// Don't fail server startup, but log the error
 	}
 
 	// Initialize routes
@@ -420,6 +481,14 @@ func (s *Server) setupRoutes() {
 		s.logger.Warn("Embedding proxy not available - REST API not configured", nil)
 	}
 
+	// Register Dynamic Tools API routes
+	if s.dynamicToolsAPI != nil {
+		s.dynamicToolsAPI.RegisterRoutes(v1)
+		s.logger.Info("Dynamic Tools API routes registered", nil)
+	} else {
+		s.logger.Warn("Dynamic Tools API not available - initialization may have failed", nil)
+	}
+
 	// Log API availability via proxies
 	if s.config.RestAPI.Enabled {
 		if s.agentAPIProxy != nil {
@@ -480,6 +549,12 @@ func (s *Server) Shutdown(ctx context.Context) error {
 
 	// Log that we're shutting down the server
 	s.logger.Info("Shutting down MCP server", nil)
+
+	// Stop health check scheduler
+	if s.healthCheckScheduler != nil {
+		s.logger.Info("Stopping health check scheduler", nil)
+		s.healthCheckScheduler.Stop()
+	}
 
 	// Close WebSocket server if enabled
 	if s.wsServer != nil {

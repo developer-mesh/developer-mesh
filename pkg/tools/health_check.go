@@ -12,21 +12,21 @@ import (
 
 // HealthCheckManager manages health checks for tools
 type HealthCheckManager struct {
-	cache      cache.Cache
-	handler    OpenAPIHandler
-	logger     observability.Logger
-	metrics    observability.MetricsClient
-	mu         sync.RWMutex
-	checks     map[string]*healthCheckEntry
+	cache   cache.Cache
+	handler OpenAPIHandler
+	logger  observability.Logger
+	metrics observability.MetricsClient
+	mu      sync.RWMutex
+	checks  map[string]*healthCheckEntry
 }
 
 // healthCheckEntry stores health check state
 type healthCheckEntry struct {
-	config       ToolConfig
-	lastCheck    time.Time
-	lastStatus   HealthStatus
-	checking     bool
-	checkingMu   sync.Mutex
+	config     ToolConfig
+	lastCheck  time.Time
+	lastStatus HealthStatus
+	checking   bool
+	checkingMu sync.Mutex
 }
 
 // NewHealthCheckManager creates a new health check manager
@@ -49,7 +49,7 @@ func NewHealthCheckManager(
 func (m *HealthCheckManager) CheckHealth(ctx context.Context, config ToolConfig, force bool) (*HealthStatus, error) {
 	// Generate cache key
 	cacheKey := fmt.Sprintf("health:%s:%s", config.TenantID, config.ID)
-	
+
 	// Check cache if not forcing
 	if !force {
 		var cachedStatus HealthStatus
@@ -60,7 +60,7 @@ func (m *HealthCheckManager) CheckHealth(ctx context.Context, config ToolConfig,
 			}
 		}
 	}
-	
+
 	// Get or create check entry
 	m.mu.Lock()
 	entry, exists := m.checks[config.ID]
@@ -71,7 +71,7 @@ func (m *HealthCheckManager) CheckHealth(ctx context.Context, config ToolConfig,
 		m.checks[config.ID] = entry
 	}
 	m.mu.Unlock()
-	
+
 	// Prevent concurrent checks for the same tool
 	entry.checkingMu.Lock()
 	if entry.checking {
@@ -81,26 +81,26 @@ func (m *HealthCheckManager) CheckHealth(ctx context.Context, config ToolConfig,
 	}
 	entry.checking = true
 	entry.checkingMu.Unlock()
-	
+
 	defer func() {
 		entry.checkingMu.Lock()
 		entry.checking = false
 		entry.checkingMu.Unlock()
 	}()
-	
+
 	// Record check start time
 	startTime := time.Now()
-	
+
 	// Perform health check
 	status := m.performHealthCheck(ctx, config)
-	
+
 	// Record metrics
 	m.recordHealthMetrics(config, status, time.Since(startTime))
-	
+
 	// Update entry
 	entry.lastCheck = time.Now()
 	entry.lastStatus = *status
-	
+
 	// Cache the result
 	if err := m.cache.Set(ctx, cacheKey, status, config.HealthConfig.CacheDuration); err != nil {
 		m.logger.Warn("Failed to cache health status", map[string]interface{}{
@@ -108,7 +108,7 @@ func (m *HealthCheckManager) CheckHealth(ctx context.Context, config ToolConfig,
 			"error":   err.Error(),
 		})
 	}
-	
+
 	return status, nil
 }
 
@@ -117,13 +117,13 @@ func (m *HealthCheckManager) performHealthCheck(ctx context.Context, config Tool
 	// Create timeout context
 	checkCtx, cancel := context.WithTimeout(ctx, config.HealthConfig.CheckTimeout)
 	defer cancel()
-	
+
 	startTime := time.Now()
-	
+
 	// Test connection using the handler
 	err := m.handler.TestConnection(checkCtx, config)
 	responseTime := int(time.Since(startTime).Milliseconds())
-	
+
 	if err != nil {
 		return &HealthStatus{
 			IsHealthy:    false,
@@ -132,10 +132,10 @@ func (m *HealthCheckManager) performHealthCheck(ctx context.Context, config Tool
 			Error:        err.Error(),
 		}
 	}
-	
+
 	// Try to get version and additional details
 	details := make(map[string]interface{})
-	
+
 	// If handler supports extended health checks, use them
 	if healthChecker, ok := m.handler.(ExtendedHealthChecker); ok {
 		version, capabilities, checkErr := healthChecker.GetHealthDetails(checkCtx, config)
@@ -144,7 +144,7 @@ func (m *HealthCheckManager) performHealthCheck(ctx context.Context, config Tool
 			details["capabilities"] = capabilities
 		}
 	}
-	
+
 	return &HealthStatus{
 		IsHealthy:    true,
 		LastChecked:  time.Now(),
@@ -161,7 +161,7 @@ func (m *HealthCheckManager) recordHealthMetrics(config ToolConfig, status *Heal
 		"tenant_id": config.TenantID,
 		"healthy":   fmt.Sprintf("%t", status.IsHealthy),
 	})
-	
+
 	// Record health status
 	healthValue := 0.0
 	if status.IsHealthy {
@@ -172,7 +172,7 @@ func (m *HealthCheckManager) recordHealthMetrics(config ToolConfig, status *Heal
 		"tool_id":   config.ID,
 		"tenant_id": config.TenantID,
 	})
-	
+
 	// Record response time
 	if status.ResponseTime > 0 {
 		m.metrics.RecordHistogram("tool_response_time", float64(status.ResponseTime)/1000.0, map[string]string{
@@ -185,24 +185,24 @@ func (m *HealthCheckManager) recordHealthMetrics(config ToolConfig, status *Heal
 // GetCachedStatus returns cached health status without performing a check
 func (m *HealthCheckManager) GetCachedStatus(ctx context.Context, config ToolConfig) (*HealthStatus, bool) {
 	cacheKey := fmt.Sprintf("health:%s:%s", config.TenantID, config.ID)
-	
+
 	var status HealthStatus
 	if err := m.cache.Get(ctx, cacheKey, &status); err == nil {
 		// Check if stale
 		isStale := time.Since(status.LastChecked) > config.HealthConfig.StaleThreshold
 		return &status, !isStale
 	}
-	
+
 	// Check in-memory
 	m.mu.RLock()
 	entry, exists := m.checks[config.ID]
 	m.mu.RUnlock()
-	
+
 	if exists && !entry.lastStatus.LastChecked.IsZero() {
 		isStale := time.Since(entry.lastStatus.LastChecked) > config.HealthConfig.StaleThreshold
 		return &entry.lastStatus, !isStale
 	}
-	
+
 	return nil, false
 }
 
@@ -234,21 +234,21 @@ type HealthCheckResult struct {
 // CheckMultiple performs health checks for multiple tools
 func (m *HealthCheckManager) CheckMultiple(ctx context.Context, configs []ToolConfig) []HealthCheckResult {
 	results := make([]HealthCheckResult, len(configs))
-	
+
 	// Use goroutines for parallel checking
 	var wg sync.WaitGroup
 	wg.Add(len(configs))
-	
+
 	for i, config := range configs {
 		go func(idx int, cfg ToolConfig) {
 			defer wg.Done()
-			
+
 			status, err := m.CheckHealth(ctx, cfg, false)
 			result := HealthCheckResult{
 				ToolID:   cfg.ID,
 				ToolName: cfg.Name,
 			}
-			
+
 			if err != nil {
 				result.Error = err.Error()
 				result.Status = HealthStatus{
@@ -259,11 +259,11 @@ func (m *HealthCheckManager) CheckMultiple(ctx context.Context, configs []ToolCo
 			} else {
 				result.Status = *status
 			}
-			
+
 			results[idx] = result
 		}(i, config)
 	}
-	
+
 	wg.Wait()
 	return results
 }

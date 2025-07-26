@@ -2,7 +2,6 @@ package adapters
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/tools"
 	"github.com/getkin/kin-openapi/openapi3"
@@ -25,9 +25,9 @@ type DiscoveryService struct {
 
 // DiscoveryHint provides optional user-provided hints for discovering APIs
 type DiscoveryHint struct {
-	CommonPaths    []string          // Additional paths to try
-	Subdomains     []string          // Additional subdomains to try
-	Headers        map[string]string // Headers to send during discovery
+	CommonPaths []string          // Additional paths to try
+	Subdomains  []string          // Additional subdomains to try
+	Headers     map[string]string // Headers to send during discovery
 }
 
 // NewDiscoveryService creates a new discovery service
@@ -54,7 +54,7 @@ func (s *DiscoveryService) DiscoverOpenAPISpec(ctx context.Context, config tools
 		DiscoveredURLs: []string{},
 		Metadata:       make(map[string]interface{}),
 	}
-	
+
 	// Strategy 1: Direct OpenAPI URL if provided
 	if config.OpenAPIURL != "" {
 		spec, err := s.fetchAndParseSpec(ctx, config.OpenAPIURL, config.Credential)
@@ -70,10 +70,10 @@ func (s *DiscoveryService) DiscoverOpenAPISpec(ctx context.Context, config tools
 			"error": err.Error(),
 		})
 	}
-	
+
 	// Get user-provided hints if any (optional)
 	hints := s.getUserProvidedHints(config)
-	
+
 	// Strategy 2: Try common OpenAPI paths
 	openAPIPaths := s.getCommonOpenAPIPaths()
 	if len(hints.CommonPaths) > 0 {
@@ -85,7 +85,7 @@ func (s *DiscoveryService) DiscoverOpenAPISpec(ctx context.Context, config tools
 		if err := s.validator.ValidateURL(ctx, fullURL); err != nil {
 			continue
 		}
-		
+
 		spec, err := s.fetchAndParseSpec(ctx, fullURL, config.Credential)
 		if err == nil {
 			result.Status = tools.DiscoveryStatusSuccess
@@ -96,7 +96,7 @@ func (s *DiscoveryService) DiscoverOpenAPISpec(ctx context.Context, config tools
 		}
 		result.DiscoveredURLs = append(result.DiscoveredURLs, fullURL)
 	}
-	
+
 	// Strategy 3: Try subdomain discovery
 	subdomains := s.getCommonSubdomains()
 	if len(hints.Subdomains) > 0 {
@@ -108,13 +108,13 @@ func (s *DiscoveryService) DiscoverOpenAPISpec(ctx context.Context, config tools
 		if subdomainURL == "" {
 			continue
 		}
-		
+
 		for _, path := range openAPIPaths[:5] { // Try first few paths
 			fullURL := s.buildURL(subdomainURL, path)
 			if err := s.validator.ValidateURL(ctx, fullURL); err != nil {
 				continue
 			}
-			
+
 			spec, err := s.fetchAndParseSpec(ctx, fullURL, config.Credential)
 			if err == nil {
 				result.Status = tools.DiscoveryStatusSuccess
@@ -125,7 +125,7 @@ func (s *DiscoveryService) DiscoverOpenAPISpec(ctx context.Context, config tools
 			}
 		}
 	}
-	
+
 	// Strategy 4: Parse HTML for API documentation links
 	htmlLinks, err := s.discoverFromHTML(ctx, config.BaseURL, config.Credential)
 	if err == nil && len(htmlLinks) > 0 {
@@ -133,7 +133,7 @@ func (s *DiscoveryService) DiscoverOpenAPISpec(ctx context.Context, config tools
 			if err := s.validator.ValidateURL(ctx, link); err != nil {
 				continue
 			}
-			
+
 			spec, err := s.fetchAndParseSpec(ctx, link, config.Credential)
 			if err == nil {
 				result.Status = tools.DiscoveryStatusSuccess
@@ -145,7 +145,7 @@ func (s *DiscoveryService) DiscoverOpenAPISpec(ctx context.Context, config tools
 			result.DiscoveredURLs = append(result.DiscoveredURLs, link)
 		}
 	}
-	
+
 	// Strategy 5: Try well-known paths
 	wellKnownPaths := s.getWellKnownPaths()
 	for _, path := range wellKnownPaths {
@@ -153,7 +153,7 @@ func (s *DiscoveryService) DiscoverOpenAPISpec(ctx context.Context, config tools
 		if err := s.validator.ValidateURL(ctx, fullURL); err != nil {
 			continue
 		}
-		
+
 		// Check if it's a JSON document that might be OpenAPI
 		if s.checkForOpenAPIDocument(ctx, fullURL, config.Credential) {
 			spec, err := s.fetchAndParseSpec(ctx, fullURL, config.Credential)
@@ -166,12 +166,12 @@ func (s *DiscoveryService) DiscoverOpenAPISpec(ctx context.Context, config tools
 			}
 		}
 	}
-	
+
 	// If we discovered some URLs but couldn't parse them, it's partial success
 	if len(result.DiscoveredURLs) > 0 {
 		result.Status = tools.DiscoveryStatusPartial
 		result.RequiresManual = true
-		result.SuggestedActions = append(result.SuggestedActions, 
+		result.SuggestedActions = append(result.SuggestedActions,
 			"Review discovered URLs and provide the correct OpenAPI specification URL",
 			"Check if the API requires special authentication for accessing documentation",
 		)
@@ -184,14 +184,14 @@ func (s *DiscoveryService) DiscoverOpenAPISpec(ctx context.Context, config tools
 			"Check if the API uses a different specification format (RAML, API Blueprint, etc.)",
 		)
 	}
-	
+
 	return result, nil
 }
 
 // getUserProvidedHints extracts user-provided discovery hints from config
 func (s *DiscoveryService) getUserProvidedHints(config tools.ToolConfig) DiscoveryHint {
 	hint := DiscoveryHint{}
-	
+
 	// Check if user provided discovery hints in config
 	if config.Config != nil {
 		if paths, ok := config.Config["discovery_paths"].([]string); ok {
@@ -201,7 +201,7 @@ func (s *DiscoveryService) getUserProvidedHints(config tools.ToolConfig) Discove
 			hint.Subdomains = subdomains
 		}
 	}
-	
+
 	return hint
 }
 
@@ -278,18 +278,18 @@ func (s *DiscoveryService) applySubdomain(baseURL, subdomain string) string {
 	if err != nil {
 		return ""
 	}
-	
+
 	parts := strings.SplitN(u.Host, ".", 2)
 	if len(parts) < 2 {
 		// Can't add subdomain to a bare domain
 		return ""
 	}
-	
+
 	// Check if already has the subdomain
 	if parts[0] == subdomain {
 		return baseURL
 	}
-	
+
 	// Replace or add subdomain
 	u.Host = subdomain + "." + parts[len(parts)-1]
 	return u.String()
@@ -302,7 +302,7 @@ func (s *DiscoveryService) fetchAndParseSpec(ctx context.Context, specURL string
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Add authentication if provided
 	if creds != nil {
 		switch creds.Type {
@@ -316,32 +316,32 @@ func (s *DiscoveryService) fetchAndParseSpec(ctx context.Context, specURL string
 			}
 		}
 	}
-	
+
 	// Common headers
 	req.Header.Set("Accept", "application/json, application/yaml, text/yaml")
 	req.Header.Set("User-Agent", "DevOps-MCP/1.0 OpenAPI-Discovery")
-	
+
 	// Make request
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
-	
+
 	// Read body with size limit
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024)) // 10MB limit
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Parse OpenAPI spec
 	loader := openapi3.NewLoader()
 	loader.IsExternalRefsAllowed = false // Security
-	
+
 	// Try to parse
 	spec, err := loader.LoadFromData(body)
 	if err != nil {
@@ -349,12 +349,12 @@ func (s *DiscoveryService) fetchAndParseSpec(ctx context.Context, specURL string
 		// Note: kin-openapi handles both JSON and YAML
 		return nil, fmt.Errorf("failed to parse OpenAPI spec: %w", err)
 	}
-	
+
 	// Validate
 	if err := spec.Validate(ctx); err != nil {
 		return nil, fmt.Errorf("invalid OpenAPI spec: %w", err)
 	}
-	
+
 	return spec, nil
 }
 
@@ -364,7 +364,7 @@ func (s *DiscoveryService) checkForOpenAPIDocument(ctx context.Context, url stri
 	if err != nil {
 		return false
 	}
-	
+
 	// Add authentication
 	if creds != nil {
 		switch creds.Type {
@@ -374,22 +374,22 @@ func (s *DiscoveryService) checkForOpenAPIDocument(ctx context.Context, url stri
 			req.SetBasicAuth(creds.Username, creds.Password)
 		}
 	}
-	
+
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		return false
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return false
 	}
-	
+
 	// Check content type
 	contentType := resp.Header.Get("Content-Type")
-	return strings.Contains(contentType, "json") || 
-		   strings.Contains(contentType, "yaml") ||
-		   strings.Contains(contentType, "openapi")
+	return strings.Contains(contentType, "json") ||
+		strings.Contains(contentType, "yaml") ||
+		strings.Contains(contentType, "openapi")
 }
 
 // discoverFromHTML discovers API documentation links from HTML pages
@@ -399,7 +399,7 @@ func (s *DiscoveryService) discoverFromHTML(ctx context.Context, baseURL string,
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Add authentication
 	if creds != nil {
 		switch creds.Type {
@@ -409,23 +409,23 @@ func (s *DiscoveryService) discoverFromHTML(ctx context.Context, baseURL string,
 			req.SetBasicAuth(creds.Username, creds.Password)
 		}
 	}
-	
+
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
-	
+
 	// Parse HTML
 	doc, err := html.Parse(resp.Body)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Look for API documentation links
 	var links []string
 	var crawler func(*html.Node)
@@ -451,25 +451,25 @@ func (s *DiscoveryService) discoverFromHTML(ctx context.Context, baseURL string,
 		}
 	}
 	crawler(doc)
-	
+
 	return links, nil
 }
 
 // isAPIDocLink checks if a link might be API documentation
 func (s *DiscoveryService) isAPIDocLink(href string) bool {
 	href = strings.ToLower(href)
-	
+
 	// Keywords that suggest API documentation
 	keywords := []string{
 		"api", "swagger", "openapi", "docs", "documentation",
 		"developer", "reference", "rest", "spec", "specification",
 	}
-	
+
 	for _, keyword := range keywords {
 		if strings.Contains(href, keyword) {
 			return true
 		}
 	}
-	
+
 	return false
 }

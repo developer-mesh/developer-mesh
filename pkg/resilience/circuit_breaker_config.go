@@ -90,16 +90,8 @@ var DefaultCircuitBreakerConfigs = map[string]CircuitBreakerServiceConfig{
 		MinimumRequestCount: 3,
 		MaxRequestsHalfOpen: 3,
 	},
-	"github_adapter": {
-		Enabled:             true,
-		MaxRequests:         100,
-		Interval:            10 * time.Second,
-		Timeout:             30 * time.Second,
-		FailureThreshold:    0.5,
-		SuccessThreshold:    3,
-		MinimumRequestCount: 10,
-		MaxRequestsHalfOpen: 10,
-	},
+	// Dynamic tools will register their own circuit breaker configs
+	// via the dynamic tools API
 	"aws_s3": {
 		Enabled:             true,
 		MaxRequests:         200,
