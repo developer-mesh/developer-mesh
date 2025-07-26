@@ -47,6 +47,17 @@ func NewHealthCheckManager(
 
 // CheckHealth performs a health check for a tool
 func (m *HealthCheckManager) CheckHealth(ctx context.Context, config ToolConfig, force bool) (*HealthStatus, error) {
+	// Apply default health config if not set
+	if config.HealthConfig == nil {
+		config.HealthConfig = &HealthCheckConfig{
+			Mode:           "on_demand",
+			HealthEndpoint: "/health",
+			CheckTimeout:   30 * time.Second,
+			CacheDuration:  5 * time.Minute,
+			StaleThreshold: 10 * time.Minute,
+		}
+	}
+
 	// Generate cache key
 	cacheKey := fmt.Sprintf("health:%s:%s", config.TenantID, config.ID)
 
@@ -189,7 +200,11 @@ func (m *HealthCheckManager) GetCachedStatus(ctx context.Context, config ToolCon
 	var status HealthStatus
 	if err := m.cache.Get(ctx, cacheKey, &status); err == nil {
 		// Check if stale
-		isStale := time.Since(status.LastChecked) > config.HealthConfig.StaleThreshold
+		staleThreshold := 10 * time.Minute // default
+		if config.HealthConfig != nil && config.HealthConfig.StaleThreshold > 0 {
+			staleThreshold = config.HealthConfig.StaleThreshold
+		}
+		isStale := time.Since(status.LastChecked) > staleThreshold
 		return &status, !isStale
 	}
 

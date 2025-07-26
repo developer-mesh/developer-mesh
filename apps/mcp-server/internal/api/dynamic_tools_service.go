@@ -19,6 +19,7 @@ import (
 type DynamicToolService struct {
 	db            *sql.DB
 	logger        observability.Logger
+	metricsClient observability.MetricsClient
 	encryptionSvc *security.EncryptionService
 	toolCache     map[string]*Tool // Simple in-memory cache
 }
@@ -27,11 +28,13 @@ type DynamicToolService struct {
 func NewDynamicToolService(
 	db *sql.DB,
 	logger observability.Logger,
+	metricsClient observability.MetricsClient,
 	encryptionSvc *security.EncryptionService,
 ) *DynamicToolService {
 	return &DynamicToolService{
 		db:            db,
 		logger:        logger,
+		metricsClient: metricsClient,
 		encryptionSvc: encryptionSvc,
 		toolCache:     make(map[string]*Tool),
 	}
@@ -535,6 +538,21 @@ func (s *DynamicToolService) ExecuteAction(ctx context.Context, tool *Tool, acti
 		WHERE id = $1
 	`, executionID, result.Status, resultJSON, result.ResponseTime); err != nil {
 		s.logger.Debugf("failed to update execution record: %v", err)
+	}
+
+	// Record execution metrics
+	if s.metricsClient != nil {
+		s.metricsClient.RecordCounter("dynamic_tools_service_executions", 1, map[string]string{
+			"tool_id":   tool.ID,
+			"tool_name": tool.Name,
+			"action":    action,
+			"status":    result.Status,
+			"tenant_id": tool.TenantID,
+		})
+		s.metricsClient.RecordHistogram("dynamic_tools_service_execution_duration_ms", float64(result.ResponseTime), map[string]string{
+			"tool_name": tool.Name,
+			"action":    action,
+		})
 	}
 
 	return result, nil

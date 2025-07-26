@@ -19,6 +19,7 @@ import (
 type DynamicToolsAPI struct {
 	toolService    *DynamicToolService
 	logger         observability.Logger
+	metricsClient  observability.MetricsClient
 	encryptionSvc  *security.EncryptionService
 	healthCheckMgr *tools.HealthCheckManager
 	openAPIAdapter *adapters.OpenAPIAdapter
@@ -29,6 +30,7 @@ type DynamicToolsAPI struct {
 func NewDynamicToolsAPI(
 	toolService *DynamicToolService,
 	logger observability.Logger,
+	metricsClient observability.MetricsClient,
 	encryptionSvc *security.EncryptionService,
 	healthCheckMgr *tools.HealthCheckManager,
 	auditLogger *auth.AuditLogger,
@@ -36,6 +38,7 @@ func NewDynamicToolsAPI(
 	return &DynamicToolsAPI{
 		toolService:    toolService,
 		logger:         logger,
+		metricsClient:  metricsClient,
 		encryptionSvc:  encryptionSvc,
 		healthCheckMgr: healthCheckMgr,
 		openAPIAdapter: adapters.NewOpenAPIAdapter(logger),
@@ -74,6 +77,7 @@ func (api *DynamicToolsAPI) RegisterRoutes(router *gin.RouterGroup) {
 
 // ListTools lists all configured tools for the tenant
 func (api *DynamicToolsAPI) ListTools(c *gin.Context) {
+	start := time.Now()
 	tenantID := c.GetString("tenant_id")
 	if tenantID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "tenant_id required"})
@@ -90,6 +94,14 @@ func (api *DynamicToolsAPI) ListTools(c *gin.Context) {
 			"tenant_id": tenantID,
 			"error":     err.Error(),
 		})
+		// Record failure metric
+		if api.metricsClient != nil {
+			api.metricsClient.RecordCounter("dynamic_tools_api_requests", 1, map[string]string{
+				"operation": "list_tools",
+				"status":    "error",
+				"tenant_id": tenantID,
+			})
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list tools"})
 		return
 	}
@@ -103,6 +115,23 @@ func (api *DynamicToolsAPI) ListTools(c *gin.Context) {
 		}
 	}
 
+	// Record success metric
+	if api.metricsClient != nil {
+		duration := time.Since(start).Seconds()
+		api.metricsClient.RecordCounter("dynamic_tools_api_requests", 1, map[string]string{
+			"operation": "list_tools",
+			"status":    "success",
+			"tenant_id": tenantID,
+		})
+		api.metricsClient.RecordHistogram("dynamic_tools_api_duration_seconds", duration, map[string]string{
+			"operation": "list_tools",
+		})
+		api.metricsClient.RecordGauge("dynamic_tools_count", float64(len(tools)), map[string]string{
+			"tenant_id": tenantID,
+			"status":    status,
+		})
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"tools": tools,
 		"count": len(tools),
@@ -111,6 +140,7 @@ func (api *DynamicToolsAPI) ListTools(c *gin.Context) {
 
 // CreateTool creates a new tool configuration
 func (api *DynamicToolsAPI) CreateTool(c *gin.Context) {
+	start := time.Now()
 	tenantID := c.GetString("tenant_id")
 	if tenantID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "tenant_id required"})
@@ -191,12 +221,34 @@ func (api *DynamicToolsAPI) CreateTool(c *gin.Context) {
 			"error": err.Error(),
 		})
 		api.auditLogger.LogToolRegistration(c.Request.Context(), tenantID, config.ID, config.Name, false, err)
+		// Record failure metric
+		if api.metricsClient != nil {
+			api.metricsClient.RecordCounter("dynamic_tools_api_requests", 1, map[string]string{
+				"operation": "create_tool",
+				"status":    "error",
+				"tenant_id": tenantID,
+			})
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create tool"})
 		return
 	}
 
 	// Log successful registration
 	api.auditLogger.LogToolRegistration(c.Request.Context(), tenantID, tool.ID, tool.Name, true, nil)
+
+	// Record success metric
+	if api.metricsClient != nil {
+		duration := time.Since(start).Seconds()
+		api.metricsClient.RecordCounter("dynamic_tools_api_requests", 1, map[string]string{
+			"operation": "create_tool",
+			"status":    "success",
+			"tenant_id": tenantID,
+			"tool_name": tool.Name,
+		})
+		api.metricsClient.RecordHistogram("dynamic_tools_api_duration_seconds", duration, map[string]string{
+			"operation": "create_tool",
+		})
+	}
 
 	// Test connection
 	go func() {
@@ -457,8 +509,41 @@ func (api *DynamicToolsAPI) CheckHealth(c *gin.Context) {
 
 	status, err := api.healthCheckMgr.CheckHealth(c.Request.Context(), tool.InternalConfig, force)
 	if err != nil {
+		// Record health check failure
+		if api.metricsClient != nil {
+			api.metricsClient.RecordCounter("dynamic_tools_health_checks", 1, map[string]string{
+				"tool_id":   toolID,
+				"tool_name": tool.Name,
+				"status":    "error",
+				"tenant_id": tenantID,
+			})
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "health check failed", "details": err.Error()})
 		return
+	}
+
+	// Record health check success and tool health status
+	if api.metricsClient != nil {
+		healthStatusStr := "healthy"
+		if !status.IsHealthy {
+			healthStatusStr = "unhealthy"
+		}
+		api.metricsClient.RecordCounter("dynamic_tools_health_checks", 1, map[string]string{
+			"tool_id":       toolID,
+			"tool_name":     tool.Name,
+			"status":        "success",
+			"health_status": healthStatusStr,
+			"tenant_id":     tenantID,
+		})
+		healthValue := 1.0
+		if !status.IsHealthy {
+			healthValue = 0.0
+		}
+		api.metricsClient.RecordGauge("dynamic_tools_health_status", healthValue, map[string]string{
+			"tool_id":   toolID,
+			"tool_name": tool.Name,
+			"tenant_id": tenantID,
+		})
 	}
 
 	c.JSON(http.StatusOK, status)
@@ -497,6 +582,7 @@ func (api *DynamicToolsAPI) RefreshHealth(c *gin.Context) {
 
 // ExecuteAction executes a tool action
 func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
+	start := time.Now()
 	tenantID := c.GetString("tenant_id")
 	toolID := c.Param("toolId")
 	action := c.Param("action")
@@ -521,8 +607,34 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 	// Execute action
 	result, err := api.toolService.ExecuteAction(c.Request.Context(), tool, action, params)
 	if err != nil {
+		// Record failure metric
+		if api.metricsClient != nil {
+			api.metricsClient.RecordCounter("dynamic_tools_executions", 1, map[string]string{
+				"tool_id":   toolID,
+				"tool_name": tool.Name,
+				"action":    action,
+				"status":    "error",
+				"tenant_id": tenantID,
+			})
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "execution failed", "details": err.Error()})
 		return
+	}
+
+	// Record success metric
+	if api.metricsClient != nil {
+		duration := time.Since(start).Seconds()
+		api.metricsClient.RecordCounter("dynamic_tools_executions", 1, map[string]string{
+			"tool_id":   toolID,
+			"tool_name": tool.Name,
+			"action":    action,
+			"status":    "success",
+			"tenant_id": tenantID,
+		})
+		api.metricsClient.RecordHistogram("dynamic_tools_execution_duration_seconds", duration, map[string]string{
+			"tool_name": tool.Name,
+			"action":    action,
+		})
 	}
 
 	c.JSON(http.StatusOK, result)

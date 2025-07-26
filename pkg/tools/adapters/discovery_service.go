@@ -47,6 +47,29 @@ func NewDiscoveryService(logger observability.Logger) *DiscoveryService {
 	}
 }
 
+// NewDiscoveryServiceWithOptions creates a new discovery service with custom options
+func NewDiscoveryServiceWithOptions(logger observability.Logger, httpClient *http.Client, validator *tools.URLValidator) *DiscoveryService {
+	if httpClient == nil {
+		httpClient = &http.Client{
+			Timeout: 10 * time.Second,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				if len(via) >= 5 {
+					return fmt.Errorf("too many redirects")
+				}
+				return nil
+			},
+		}
+	}
+	if validator == nil {
+		validator = tools.NewURLValidator()
+	}
+	return &DiscoveryService{
+		logger:     logger,
+		httpClient: httpClient,
+		validator:  validator,
+	}
+}
+
 // DiscoverOpenAPISpec discovers OpenAPI specification for a given tool
 func (s *DiscoveryService) DiscoverOpenAPISpec(ctx context.Context, config tools.ToolConfig) (*tools.DiscoveryResult, error) {
 	result := &tools.DiscoveryResult{
@@ -82,8 +105,14 @@ func (s *DiscoveryService) DiscoverOpenAPISpec(ctx context.Context, config tools
 	}
 	for _, path := range openAPIPaths {
 		fullURL := s.buildURL(config.BaseURL, path)
-		if err := s.validator.ValidateURL(ctx, fullURL); err != nil {
-			continue
+		if s.validator != nil {
+			if err := s.validator.ValidateURL(ctx, fullURL); err != nil {
+				s.logger.Debug("URL validation failed", map[string]interface{}{
+					"url":   fullURL,
+					"error": err.Error(),
+				})
+				continue
+			}
 		}
 
 		spec, err := s.fetchAndParseSpec(ctx, fullURL, config.Credential)
@@ -94,6 +123,10 @@ func (s *DiscoveryService) DiscoverOpenAPISpec(ctx context.Context, config tools
 			result.DiscoveredURLs = append(result.DiscoveredURLs, fullURL)
 			return result, nil
 		}
+		s.logger.Debug("Failed to fetch spec", map[string]interface{}{
+			"url":   fullURL,
+			"error": err.Error(),
+		})
 		result.DiscoveredURLs = append(result.DiscoveredURLs, fullURL)
 	}
 
@@ -111,8 +144,10 @@ func (s *DiscoveryService) DiscoverOpenAPISpec(ctx context.Context, config tools
 
 		for _, path := range openAPIPaths[:5] { // Try first few paths
 			fullURL := s.buildURL(subdomainURL, path)
-			if err := s.validator.ValidateURL(ctx, fullURL); err != nil {
-				continue
+			if s.validator != nil {
+				if err := s.validator.ValidateURL(ctx, fullURL); err != nil {
+					continue
+				}
 			}
 
 			spec, err := s.fetchAndParseSpec(ctx, fullURL, config.Credential)
@@ -130,8 +165,10 @@ func (s *DiscoveryService) DiscoverOpenAPISpec(ctx context.Context, config tools
 	htmlLinks, err := s.discoverFromHTML(ctx, config.BaseURL, config.Credential)
 	if err == nil && len(htmlLinks) > 0 {
 		for _, link := range htmlLinks {
-			if err := s.validator.ValidateURL(ctx, link); err != nil {
-				continue
+			if s.validator != nil {
+				if err := s.validator.ValidateURL(ctx, link); err != nil {
+					continue
+				}
 			}
 
 			spec, err := s.fetchAndParseSpec(ctx, link, config.Credential)
@@ -150,8 +187,10 @@ func (s *DiscoveryService) DiscoverOpenAPISpec(ctx context.Context, config tools
 	wellKnownPaths := s.getWellKnownPaths()
 	for _, path := range wellKnownPaths {
 		fullURL := s.buildURL(config.BaseURL, path)
-		if err := s.validator.ValidateURL(ctx, fullURL); err != nil {
-			continue
+		if s.validator != nil {
+			if err := s.validator.ValidateURL(ctx, fullURL); err != nil {
+				continue
+			}
 		}
 
 		// Check if it's a JSON document that might be OpenAPI
@@ -279,20 +318,29 @@ func (s *DiscoveryService) applySubdomain(baseURL, subdomain string) string {
 		return ""
 	}
 
-	parts := strings.SplitN(u.Host, ".", 2)
-	if len(parts) < 2 {
-		// Can't add subdomain to a bare domain
-		return ""
+	// Split the host into parts
+	parts := strings.Split(u.Host, ".")
+
+	// If it's a bare domain (e.g., "example.com"), we can add a subdomain
+	if len(parts) == 2 {
+		u.Host = subdomain + "." + u.Host
+		return u.String()
 	}
 
-	// Check if already has the subdomain
-	if parts[0] == subdomain {
+	// If it already has subdomain(s), check if the first one matches
+	if len(parts) > 2 && parts[0] == subdomain {
 		return baseURL
 	}
 
-	// Replace or add subdomain
-	u.Host = subdomain + "." + parts[len(parts)-1]
-	return u.String()
+	// Replace the first subdomain with the new one
+	if len(parts) > 2 {
+		parts[0] = subdomain
+		u.Host = strings.Join(parts, ".")
+		return u.String()
+	}
+
+	// Single part domain (e.g., "localhost"), can't add subdomain
+	return ""
 }
 
 // fetchAndParseSpec fetches and parses an OpenAPI specification

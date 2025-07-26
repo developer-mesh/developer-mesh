@@ -181,7 +181,7 @@ type ExecutionResult struct {
 
 // Common errors
 var (
-	ErrDynamicToolNotFound    = errors.New("tool not found")
-	ErrSessionNotFound        = errors.New("discovery session not found")
-	ErrDynamicActionNotFound  = errors.New("action not found")
+	ErrDynamicToolNotFound   = errors.New("tool not found")
+	ErrSessionNotFound       = errors.New("discovery session not found")
+	ErrDynamicActionNotFound = errors.New("action not found")
 )

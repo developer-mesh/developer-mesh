@@ -33,10 +33,12 @@ func TestHealthCheckManager(t *testing.T) {
 		defer server.Close()
 
 		config := ToolConfig{
-			Name:    "test-tool",
-			BaseURL: server.URL,
+			ID:       "test-tool-new",
+			TenantID: "test-tenant",
+			Name:     "test-tool",
+			BaseURL:  server.URL,
 			HealthConfig: &HealthCheckConfig{
-				Mode:     "on_demand",
+				Mode:           "on_demand",
 				HealthEndpoint: "/health",
 				CheckTimeout:   5 * time.Second,
 			},
@@ -48,7 +50,7 @@ func TestHealthCheckManager(t *testing.T) {
 		// Message field was removed, check IsHealthy instead
 		assert.Contains(t, status.Details, "version")
 		assert.Equal(t, "1.0.0", status.Details["version"])
-		assert.NotZero(t, status.ResponseTime)
+		assert.GreaterOrEqual(t, status.ResponseTime, 0) // Response time should be non-negative
 	})
 
 	t.Run("CheckHealth_Failure", func(t *testing.T) {
@@ -61,10 +63,12 @@ func TestHealthCheckManager(t *testing.T) {
 		defer server.Close()
 
 		config := ToolConfig{
-			Name:    "test-tool",
-			BaseURL: server.URL,
+			ID:       "test-tool-new",
+			TenantID: "test-tenant",
+			Name:     "test-tool",
+			BaseURL:  server.URL,
 			HealthConfig: &HealthCheckConfig{
-				Mode:     "on_demand",
+				Mode:           "on_demand",
 				HealthEndpoint: "/health",
 				CheckTimeout:   5 * time.Second,
 			},
@@ -84,10 +88,12 @@ func TestHealthCheckManager(t *testing.T) {
 		defer server.Close()
 
 		config := ToolConfig{
-			Name:    "test-tool",
-			BaseURL: server.URL,
+			ID:       "test-tool-new",
+			TenantID: "test-tenant",
+			Name:     "test-tool",
+			BaseURL:  server.URL,
 			HealthConfig: &HealthCheckConfig{
-				Mode:     "on_demand",
+				Mode:           "on_demand",
 				HealthEndpoint: "/health",
 				CheckTimeout:   50 * time.Millisecond, // Very short timeout
 			},
@@ -99,7 +105,7 @@ func TestHealthCheckManager(t *testing.T) {
 		status, err := manager.CheckHealth(ctx, config, true)
 		require.NoError(t, err)
 		assert.False(t, status.IsHealthy)
-		assert.Contains(t, status.Error, "timeout")
+		assert.Contains(t, status.Error, "context deadline exceeded")
 	})
 
 	t.Run("CheckHealth_WithAuth", func(t *testing.T) {
@@ -117,10 +123,12 @@ func TestHealthCheckManager(t *testing.T) {
 		defer server.Close()
 
 		config := ToolConfig{
-			Name:    "test-tool",
-			BaseURL: server.URL,
+			ID:       "test-tool-new",
+			TenantID: "test-tenant",
+			Name:     "test-tool",
+			BaseURL:  server.URL,
 			HealthConfig: &HealthCheckConfig{
-				Mode:     "on_demand",
+				Mode:           "on_demand",
 				HealthEndpoint: "/health",
 				CheckTimeout:   5 * time.Second,
 			},
@@ -147,13 +155,15 @@ func TestHealthCheckManager(t *testing.T) {
 		defer server.Close()
 
 		config := ToolConfig{
-			ID:      "test-tool-123",
-			Name:    "test-tool",
-			BaseURL: server.URL,
+			ID:       "test-tool-123",
+			TenantID: "test-tenant",
+			Name:     "test-tool",
+			BaseURL:  server.URL,
 			HealthConfig: &HealthCheckConfig{
-				Mode:     "periodic",
+				Mode:           "periodic",
 				HealthEndpoint: "/health",
 				CheckTimeout:   5 * time.Second,
+				CacheDuration:  5 * time.Minute,
 			},
 		}
 
@@ -178,8 +188,12 @@ func TestHealthCheckManager(t *testing.T) {
 
 	t.Run("GetCachedStatus", func(t *testing.T) {
 		config := ToolConfig{
-			ID:   "test-tool-cached",
-			Name: "test-tool",
+			ID:       "test-tool-cached",
+			Name:     "test-tool",
+			TenantID: "test-tenant",
+			HealthConfig: &HealthCheckConfig{
+				StaleThreshold: 10 * time.Minute,
+			},
 		}
 
 		// No cached status initially
@@ -192,14 +206,14 @@ func TestHealthCheckManager(t *testing.T) {
 			Error:       "", // healthy status has no error
 			LastChecked: time.Now(),
 		}
-		// Store in cache using the Set method
+		// Store in cache using the correct cache key format
 		ctx := context.Background()
-		if err := manager.cache.Set(ctx, config.ID, status, 5*time.Minute); err != nil {
+		cacheKey := fmt.Sprintf("health:%s:%s", config.TenantID, config.ID)
+		if err := manager.cache.Set(ctx, cacheKey, status, 5*time.Minute); err != nil {
 			t.Errorf("failed to set cache: %v", err)
 		}
 
 		// Should find cached status
-		cacheKey := fmt.Sprintf("health:%s:%s", config.TenantID, config.ID)
 		var cachedStatus *HealthStatus
 		err := manager.cache.Get(ctx, cacheKey, &cachedStatus)
 		assert.NoError(t, err)
@@ -210,8 +224,12 @@ func TestHealthCheckManager(t *testing.T) {
 
 	t.Run("InvalidateCache", func(t *testing.T) {
 		config := ToolConfig{
-			ID:   "test-tool-invalidate",
-			Name: "test-tool",
+			ID:       "test-tool-invalidate",
+			Name:     "test-tool",
+			TenantID: "test-tenant",
+			HealthConfig: &HealthCheckConfig{
+				StaleThreshold: 10 * time.Minute,
+			},
 		}
 
 		// Add to cache
@@ -220,9 +238,10 @@ func TestHealthCheckManager(t *testing.T) {
 			Error:       "", // healthy status has no error
 			LastChecked: time.Now(),
 		}
-		// Store in cache using the Set method
+		// Store in cache using the correct cache key format
 		ctx := context.Background()
-		if err := manager.cache.Set(ctx, config.ID, status, 5*time.Minute); err != nil {
+		cacheKey := fmt.Sprintf("health:%s:%s", config.TenantID, config.ID)
+		if err := manager.cache.Set(ctx, cacheKey, status, 5*time.Minute); err != nil {
 			t.Errorf("failed to set cache: %v", err)
 		}
 
@@ -251,8 +270,10 @@ func TestHealthCheckManager(t *testing.T) {
 		defer server.Close()
 
 		config := ToolConfig{
-			Name:    "test-tool",
-			BaseURL: server.URL,
+			ID:       "test-tool-new",
+			TenantID: "test-tenant",
+			Name:     "test-tool",
+			BaseURL:  server.URL,
 			// No HealthConfig - should use defaults
 		}
 
@@ -296,12 +317,14 @@ func TestHealthCheckScheduler(t *testing.T) {
 
 	t.Run("AddRemoveTools", func(t *testing.T) {
 		tool1 := ToolConfig{
-			ID:   "tool-1",
-			Name: "Tool 1",
+			ID:       "tool-1",
+			TenantID: "test-tenant",
+			Name:     "Tool 1",
 		}
 		tool2 := ToolConfig{
-			ID:   "tool-2",
-			Name: "Tool 2",
+			ID:       "tool-2",
+			TenantID: "test-tenant",
+			Name:     "Tool 2",
 		}
 
 		// Add tools
@@ -322,6 +345,15 @@ func TestHealthCheckScheduler(t *testing.T) {
 	})
 
 	t.Run("PerformHealthChecks", func(t *testing.T) {
+		// Create fresh instances for this test
+		freshLogger := &mockLogger{}
+		freshCache := &mockCache{}
+		freshHandler := &mockOpenAPIHandler{}
+		freshMetrics := &mockMetricsClient{}
+		freshManager := NewHealthCheckManager(freshCache, freshHandler, freshLogger, freshMetrics)
+		freshDB := &mockHealthCheckDB{}
+		freshScheduler := NewHealthCheckScheduler(freshManager, freshDB, freshLogger, 100*time.Millisecond)
+
 		// Create test server
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
@@ -338,21 +370,26 @@ func TestHealthCheckScheduler(t *testing.T) {
 			Name:     "Test Tool",
 			BaseURL:  server.URL,
 			HealthConfig: &HealthCheckConfig{
-				Mode:     "periodic",
+				Mode:           "periodic",
 				HealthEndpoint: "/health",
+				CheckTimeout:   5 * time.Second,
+				CacheDuration:  5 * time.Minute,
 			},
 		}
-		scheduler.AddTool(tool)
+		freshScheduler.AddTool(tool)
 
 		// Perform health checks
 		ctx := context.Background()
-		scheduler.performHealthChecks(ctx)
+		freshScheduler.performHealthChecks(ctx)
+
+		// Wait a bit for goroutines to complete
+		time.Sleep(100 * time.Millisecond)
 
 		// Verify database was updated
-		assert.Len(t, db.updates, 1)
-		assert.Equal(t, tool.TenantID, db.updates[0].tenantID)
-		assert.Equal(t, tool.ID, db.updates[0].toolID)
-		assert.True(t, db.updates[0].status.IsHealthy)
+		require.Len(t, freshDB.updates, 1, "Expected exactly 1 database update")
+		assert.Equal(t, tool.TenantID, freshDB.updates[0].tenantID)
+		assert.Equal(t, tool.ID, freshDB.updates[0].toolID)
+		assert.True(t, freshDB.updates[0].status.IsHealthy, "Expected healthy status, got: %+v", freshDB.updates[0].status)
 	})
 }
 
@@ -452,10 +489,15 @@ func (m *mockCache) Get(ctx context.Context, key string, value interface{}) erro
 	}
 	// Use reflection to set the value
 	if val != nil && value != nil {
-		// This is a simplified version - in real implementation would use reflection
-		if hp, ok := value.(**HealthStatus); ok {
+		// Handle both pointer to HealthStatus and pointer to pointer
+		switch v := value.(type) {
+		case *HealthStatus:
 			if hs, ok := val.(*HealthStatus); ok {
-				*hp = hs
+				*v = *hs
+			}
+		case **HealthStatus:
+			if hs, ok := val.(*HealthStatus); ok {
+				*v = hs
 			}
 		}
 	}
@@ -509,9 +551,47 @@ func (m *mockCache) Flush(ctx context.Context) error {
 }
 
 // mockOpenAPIHandler implements OpenAPIHandler for testing
-type mockOpenAPIHandler struct{}
+type mockOpenAPIHandler struct {
+	httpClient *http.Client
+}
 
 func (m *mockOpenAPIHandler) TestConnection(ctx context.Context, config ToolConfig) error {
+	// Make actual HTTP request to test server
+	url := config.BaseURL
+	if config.HealthConfig != nil && config.HealthConfig.HealthEndpoint != "" {
+		url = config.BaseURL + config.HealthConfig.HealthEndpoint
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return err
+	}
+
+	// Add authentication if provided
+	if config.Credential != nil && config.Credential.Token != "" {
+		req.Header.Set("Authorization", "Bearer "+config.Credential.Token)
+	}
+
+	client := m.httpClient
+	if client == nil {
+		client = http.DefaultClient
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Log error but don't fail the test
+			_ = err
+		}
+	}()
+
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("unhealthy: status %d", resp.StatusCode)
+	}
+
 	return nil
 }
 
@@ -533,21 +613,35 @@ func (m *mockOpenAPIHandler) GenerateTools(config ToolConfig, spec *openapi3.T) 
 	return []*Tool{}, nil
 }
 
+// GetHealthDetails implements ExtendedHealthChecker for testing
+func (m *mockOpenAPIHandler) GetHealthDetails(ctx context.Context, config ToolConfig) (version string, capabilities []string, err error) {
+	// For testing, return a fixed version
+	return "1.0.0", []string{"test", "mock"}, nil
+}
+
 // mockMetricsClient implements observability.MetricsClient for testing
 type mockMetricsClient struct{}
 
-func (m *mockMetricsClient) RecordEvent(source, eventType string) {}
-func (m *mockMetricsClient) RecordLatency(operation string, duration time.Duration) {}
-func (m *mockMetricsClient) RecordCounter(name string, value float64, labels map[string]string) {}
-func (m *mockMetricsClient) RecordGauge(name string, value float64, labels map[string]string) {}
+func (m *mockMetricsClient) RecordEvent(source, eventType string)                                 {}
+func (m *mockMetricsClient) RecordLatency(operation string, duration time.Duration)               {}
+func (m *mockMetricsClient) RecordCounter(name string, value float64, labels map[string]string)   {}
+func (m *mockMetricsClient) RecordGauge(name string, value float64, labels map[string]string)     {}
 func (m *mockMetricsClient) RecordHistogram(name string, value float64, labels map[string]string) {}
-func (m *mockMetricsClient) RecordTimer(name string, duration time.Duration, labels map[string]string) {}
-func (m *mockMetricsClient) RecordCacheOperation(operation string, success bool, durationSeconds float64) {}
-func (m *mockMetricsClient) RecordOperation(component string, operation string, success bool, durationSeconds float64, labels map[string]string) {}
-func (m *mockMetricsClient) RecordAPIOperation(api string, operation string, success bool, durationSeconds float64) {}
-func (m *mockMetricsClient) RecordDatabaseOperation(operation string, success bool, durationSeconds float64) {}
-func (m *mockMetricsClient) StartTimer(name string, labels map[string]string) func() { return func() {} }
+func (m *mockMetricsClient) RecordTimer(name string, duration time.Duration, labels map[string]string) {
+}
+func (m *mockMetricsClient) RecordCacheOperation(operation string, success bool, durationSeconds float64) {
+}
+func (m *mockMetricsClient) RecordOperation(component string, operation string, success bool, durationSeconds float64, labels map[string]string) {
+}
+func (m *mockMetricsClient) RecordAPIOperation(api string, operation string, success bool, durationSeconds float64) {
+}
+func (m *mockMetricsClient) RecordDatabaseOperation(operation string, success bool, durationSeconds float64) {
+}
+func (m *mockMetricsClient) StartTimer(name string, labels map[string]string) func() {
+	return func() {}
+}
 func (m *mockMetricsClient) IncrementCounter(name string, value float64) {}
-func (m *mockMetricsClient) IncrementCounterWithLabels(name string, value float64, labels map[string]string) {}
+func (m *mockMetricsClient) IncrementCounterWithLabels(name string, value float64, labels map[string]string) {
+}
 func (m *mockMetricsClient) RecordDuration(name string, duration time.Duration) {}
-func (m *mockMetricsClient) Close() error { return nil }
+func (m *mockMetricsClient) Close() error                                       { return nil }

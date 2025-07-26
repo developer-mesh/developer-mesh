@@ -305,13 +305,13 @@ func (s *Server) initializeDynamicTools(ctx context.Context) error {
 	// Create health check manager
 	// Create cache for health check manager
 	healthCache := cache.NewNoOpCache()
-	
+
 	// Create OpenAPI adapter as the handler
 	openAPIAdapter := adapters.NewOpenAPIAdapter(s.logger)
-	
+
 	// Create metrics client (using noop for now)
 	metricsClient := observability.NewNoOpMetricsClient()
-	
+
 	healthCheckManager := pkgtools.NewHealthCheckManager(healthCache, openAPIAdapter, s.logger, metricsClient)
 
 	// Create health check database implementation
@@ -327,7 +327,7 @@ func (s *Server) initializeDynamicTools(ctx context.Context) error {
 	)
 
 	// Create dynamic tool service
-	dynamicToolService := NewDynamicToolService(s.db.DB, s.logger, s.encryptionService)
+	dynamicToolService := NewDynamicToolService(s.db.DB, s.logger, s.metrics, s.encryptionService)
 
 	// Create audit logger
 	auditLogger := auth.NewAuditLogger(s.logger)
@@ -336,6 +336,7 @@ func (s *Server) initializeDynamicTools(ctx context.Context) error {
 	s.dynamicToolsAPI = NewDynamicToolsAPI(
 		dynamicToolService,
 		s.logger,
+		s.metrics,
 		s.encryptionService,
 		healthCheckManager,
 		auditLogger,
@@ -767,4 +768,3 @@ func (s *Server) SetMultiAgentServices(
 		s.logger.Warn("WebSocket server is nil, cannot set services", nil)
 	}
 }
-
