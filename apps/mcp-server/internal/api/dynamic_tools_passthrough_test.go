@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"net/http"
@@ -11,14 +12,50 @@ import (
 
 	"github.com/developer-mesh/developer-mesh/pkg/auth"
 	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/security"
 	"github.com/developer-mesh/developer-mesh/pkg/tools"
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	_ "github.com/mattn/go-sqlite3"
 )
+
+// mockOpenAPIHandler is a mock implementation of tools.OpenAPIHandler
+type mockOpenAPIHandler struct{}
+
+func (m *mockOpenAPIHandler) DiscoverAPIs(ctx context.Context, config tools.ToolConfig) (*tools.DiscoveryResult, error) {
+	return &tools.DiscoveryResult{
+		Status:         tools.DiscoveryStatusSuccess,
+		DiscoveredURLs: []string{config.OpenAPIURL},
+		Capabilities: []tools.Capability{
+			tools.CapabilityIssueManagement,
+		},
+	}, nil
+}
+
+func (m *mockOpenAPIHandler) GenerateTools(config tools.ToolConfig, spec *openapi3.T) ([]*tools.Tool, error) {
+	return []*tools.Tool{}, nil
+}
+
+func (m *mockOpenAPIHandler) AuthenticateRequest(req *http.Request, creds *models.TokenCredential, securitySchemes map[string]tools.SecurityScheme) error {
+	// Add authentication header based on creds
+	if creds != nil && creds.Token != "" {
+		req.Header.Set("Authorization", "Bearer "+creds.Token)
+	}
+	return nil
+}
+
+func (m *mockOpenAPIHandler) TestConnection(ctx context.Context, config tools.ToolConfig) error {
+	// Always return success for tests
+	return nil
+}
+
+func (m *mockOpenAPIHandler) ExtractSecuritySchemes(spec *openapi3.T) map[string]tools.SecurityScheme {
+	return map[string]tools.SecurityScheme{}
+}
 
 func TestDynamicToolsPassthrough(t *testing.T) {
 	// Setup
@@ -70,7 +107,9 @@ func TestDynamicToolsPassthrough(t *testing.T) {
 
 	// Create services
 	toolService := NewDynamicToolService(db, logger, metricsClient, encryptionSvc)
-	healthCheckMgr := tools.NewHealthCheckManager(cacheClient, nil, logger, metricsClient)
+	// Create a mock OpenAPI handler for health checks
+	mockHandler := &mockOpenAPIHandler{}
+	healthCheckMgr := tools.NewHealthCheckManager(cacheClient, mockHandler, logger, metricsClient)
 	auditLogger := auth.NewAuditLogger(logger)
 
 	// Create API
@@ -160,7 +199,11 @@ func TestDynamicToolsPassthrough(t *testing.T) {
 		require.NoError(t, err2)
 
 		// Verify user token was used (would see john.doe in response)
-		assert.Contains(t, result, "message")
+		assert.Equal(t, "success", result["status"])
+		resultData, ok := result["result"].(map[string]interface{})
+		assert.True(t, ok)
+		assert.Equal(t, "Success with user token", resultData["message"])
+		assert.Equal(t, "john.doe", resultData["user"])
 	})
 
 	t.Run("Execute without passthrough token (fallback to service)", func(t *testing.T) {
@@ -185,27 +228,42 @@ func TestDynamicToolsPassthrough(t *testing.T) {
 		require.NoError(t, err2)
 
 		// Verify service token was used
-		assert.Contains(t, result, "message")
+		assert.Equal(t, "success", result["status"])
+		resultData, ok := result["result"].(map[string]interface{})
+		assert.True(t, ok)
+		assert.Equal(t, "Success with service token", resultData["message"])
+		assert.Equal(t, "service-account", resultData["user"])
 	})
 
 	t.Run("Execute with required passthrough - no token provided", func(t *testing.T) {
-		// Update tool to require passthrough
-		updateReq := UpdateToolRequest{
+		// Create a new tool that requires passthrough
+		createReq2 := CreateToolRequest{
+			Name:     "test-github-required",
+			BaseURL:  toolServer.URL,
+			Provider: "github",
+			AuthType: "bearer",
+			Credentials: &CredentialInput{
+				Token: "service-token-456",
+			},
 			PassthroughConfig: &PassthroughConfig{
 				Mode:              "required",
 				FallbackToService: false,
 			},
 		}
-		reqBody, _ := json.Marshal(updateReq)
 
-		// Update tool configuration
-		req := httptest.NewRequest("PUT", "/api/v1/tools/"+createdTool.ID, bytes.NewReader(reqBody))
+		// Create tool
+		reqBody, _ := json.Marshal(createReq2)
+		req := httptest.NewRequest("POST", "/api/v1/tools", bytes.NewReader(reqBody))
 		req.Header.Set("Authorization", "Bearer test-key")
 		req.Header.Set("Content-Type", "application/json")
 
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-		require.Equal(t, http.StatusOK, w.Code)
+		require.Equal(t, http.StatusCreated, w.Code)
+
+		var requiredTool Tool
+		err = json.Unmarshal(w.Body.Bytes(), &requiredTool)
+		require.NoError(t, err)
 
 		// Now try to execute without passthrough token
 		executeReq := map[string]interface{}{
@@ -214,7 +272,7 @@ func TestDynamicToolsPassthrough(t *testing.T) {
 		reqBody, _ = json.Marshal(executeReq)
 
 		// Try to execute without passthrough token
-		req = httptest.NewRequest("POST", "/api/v1/tools/"+createdTool.ID+"/execute/test_action", bytes.NewReader(reqBody))
+		req = httptest.NewRequest("POST", "/api/v1/tools/"+requiredTool.ID+"/execute/test_action", bytes.NewReader(reqBody))
 		req.Header.Set("Authorization", "Bearer test-key")
 		req.Header.Set("Content-Type", "application/json")
 
@@ -266,18 +324,22 @@ func runTestMigrations(db *sql.DB) error {
 		CREATE TABLE IF NOT EXISTS tool_configurations (
 			id TEXT PRIMARY KEY,
 			tenant_id TEXT NOT NULL,
-			name TEXT NOT NULL,
-			base_url TEXT NOT NULL,
+			tool_name TEXT NOT NULL,
+			display_name TEXT,
+			base_url TEXT,
 			documentation_url TEXT,
 			openapi_url TEXT,
 			auth_type TEXT NOT NULL,
-			credential TEXT,
+			credentials_encrypted TEXT,
 			config TEXT,
 			retry_policy TEXT,
 			health_config TEXT,
+			health_status TEXT,
+			last_health_check TIMESTAMP,
+			status TEXT DEFAULT 'active',
+			created_by TEXT,
 			provider TEXT,
 			passthrough_config TEXT DEFAULT '{"mode": "optional", "fallback_to_service": true}',
-			status TEXT DEFAULT 'active',
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)
@@ -294,6 +356,29 @@ func runTestMigrations(db *sql.DB) error {
 			email TEXT NOT NULL,
 			metadata TEXT,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)
+	`)
+	if err != nil {
+		return err
+	}
+
+	// Create tool_executions table
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS tool_executions (
+			id TEXT PRIMARY KEY,
+			tool_config_id TEXT NOT NULL,
+			tenant_id TEXT NOT NULL,
+			action TEXT NOT NULL,
+			parameters TEXT,
+			status TEXT NOT NULL,
+			result TEXT,
+			error_message TEXT,
+			retry_count INTEGER DEFAULT 0,
+			response_time_ms INTEGER,
+			executed_by TEXT,
+			correlation_id TEXT,
+			executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			completed_at TIMESTAMP
 		)
 	`)
 	return err

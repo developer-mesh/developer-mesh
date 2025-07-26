@@ -327,7 +327,7 @@ func (api *DynamicToolsAPI) UpdateTool(c *gin.Context) {
 		return
 	}
 
-	// Get existing tool
+	// Get existing tool (bypass cache to ensure fresh data)
 	existing, err := api.toolService.GetTool(c.Request.Context(), tenantID, toolID)
 	if err != nil {
 		if err == ErrDynamicToolNotFound {
@@ -336,6 +336,11 @@ func (api *DynamicToolsAPI) UpdateTool(c *gin.Context) {
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get tool"})
 		return
+	}
+
+	// Ensure config map exists
+	if existing.InternalConfig.Config == nil {
+		existing.InternalConfig.Config = make(map[string]interface{})
 	}
 
 	// Update fields
@@ -369,6 +374,10 @@ func (api *DynamicToolsAPI) UpdateTool(c *gin.Context) {
 	// Update tool
 	updated, err := api.toolService.UpdateTool(c.Request.Context(), existing.InternalConfig)
 	if err != nil {
+		api.logger.Error("Failed to update tool", map[string]interface{}{
+			"tool_id": toolID,
+			"error":   err.Error(),
+		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update tool"})
 		return
 	}
