@@ -132,7 +132,6 @@ func (s *DynamicToolService) GetTool(ctx context.Context, tenantID, toolID strin
 	// Update cache
 	s.toolCache[cacheKey] = tool
 
-
 	return tool, nil
 }
 
@@ -146,7 +145,7 @@ func (s *DynamicToolService) CreateTool(ctx context.Context, config tools.ToolCo
 	config.Config["base_url"] = config.BaseURL
 	config.Config["documentation_url"] = config.DocumentationURL
 	config.Config["openapi_url"] = config.OpenAPIURL
-	
+
 	configJSON, err := json.Marshal(config.Config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal config: %w", err)
@@ -231,7 +230,7 @@ func (s *DynamicToolService) UpdateTool(ctx context.Context, config tools.ToolCo
 	config.Config["base_url"] = config.BaseURL
 	config.Config["documentation_url"] = config.DocumentationURL
 	config.Config["openapi_url"] = config.OpenAPIURL
-	
+
 	configJSON, err := json.Marshal(config.Config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal config: %w", err)
@@ -271,7 +270,6 @@ func (s *DynamicToolService) UpdateTool(ctx context.Context, config tools.ToolCo
 			updated_at = CURRENT_TIMESTAMP
 		WHERE tenant_id = $1 AND id = $2
 	`
-
 
 	result, err := s.db.ExecContext(
 		ctx, query,
@@ -634,7 +632,6 @@ func (s *DynamicToolService) ExecuteAction(ctx context.Context, tool *Tool, acti
 			ExecutedAt:   startTime.Format(time.RFC3339),
 		}
 	}
-
 
 	// Record execution metrics
 	if s.metricsClient != nil {

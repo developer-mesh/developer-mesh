@@ -18,9 +18,9 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/tools"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/gin-gonic/gin"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	_ "github.com/mattn/go-sqlite3"
 )
 
 // mockOpenAPIHandler is a mock implementation of tools.OpenAPIHandler
@@ -121,7 +121,7 @@ func TestDynamicToolsPassthrough(t *testing.T) {
 		// Mock auth middleware - set tenant_id for all requests
 		c.Set("tenant_id", "test-tenant")
 		c.Set("user_id", "test-user")
-		
+
 		// Handle passthrough headers if present
 		if userToken := c.GetHeader("X-User-Token"); userToken != "" {
 			if provider := c.GetHeader("X-Token-Provider"); provider != "" {
@@ -133,7 +133,7 @@ func TestDynamicToolsPassthrough(t *testing.T) {
 				c.Request = c.Request.WithContext(ctx)
 			}
 		}
-		
+
 		c.Next()
 	})
 	v1 := router.Group("/api/v1")
