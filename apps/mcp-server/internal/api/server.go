@@ -454,9 +454,9 @@ func (s *Server) setupRoutes() {
 		v1.Use(s.authMiddleware.GinMiddleware())
 		s.logger.Info("Using enhanced authentication with rate limiting and audit logging", nil)
 	} else {
-		// Fall back to basic centralized auth middleware
-		v1.Use(s.authService.GinMiddleware(auth.TypeAPIKey, auth.TypeJWT))
-		s.logger.Warn("Using basic authentication - enhanced features not available", nil)
+		// Use passthrough-enabled auth middleware to support user token forwarding
+		v1.Use(s.authService.GinMiddlewareWithPassthrough(auth.TypeAPIKey, auth.TypeJWT))
+		s.logger.Info("Using authentication with passthrough token support", nil)
 	}
 
 	// Add credential extraction middleware

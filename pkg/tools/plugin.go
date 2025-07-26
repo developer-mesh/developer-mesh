@@ -48,16 +48,24 @@ type ConfigField struct {
 
 // ToolConfig represents a tool configuration
 type ToolConfig struct {
-	ID               string                  `json:"id"`
-	TenantID         string                  `json:"tenant_id"`
-	Name             string                  `json:"name"`
-	BaseURL          string                  `json:"base_url"`
-	DocumentationURL string                  `json:"documentation_url,omitempty"`
-	OpenAPIURL       string                  `json:"openapi_url,omitempty"`
-	Config           map[string]interface{}  `json:"config"`
-	Credential       *models.TokenCredential `json:"-"` // Never serialize credentials
-	RetryPolicy      *ToolRetryPolicy        `json:"retry_policy,omitempty"`
-	HealthConfig     *HealthCheckConfig      `json:"health_config,omitempty"`
+	ID                string                  `json:"id"`
+	TenantID          string                  `json:"tenant_id"`
+	Name              string                  `json:"name"`
+	BaseURL           string                  `json:"base_url"`
+	DocumentationURL  string                  `json:"documentation_url,omitempty"`
+	OpenAPIURL        string                  `json:"openapi_url,omitempty"`
+	Config            map[string]interface{}  `json:"config"`
+	Credential        *models.TokenCredential `json:"-"` // Never serialize credentials
+	RetryPolicy       *ToolRetryPolicy        `json:"retry_policy,omitempty"`
+	HealthConfig      *HealthCheckConfig      `json:"health_config,omitempty"`
+	Provider          string                  `json:"provider,omitempty"`
+	PassthroughConfig *PassthroughConfig      `json:"passthrough_config,omitempty"`
+}
+
+// PassthroughConfig defines how user token passthrough should be handled
+type PassthroughConfig struct {
+	Mode              string `json:"mode"`                // optional, required, disabled
+	FallbackToService bool   `json:"fallback_to_service"` // Allow fallback to service account
 }
 
 // ToolRetryPolicy extends the base retry policy with tool-specific settings

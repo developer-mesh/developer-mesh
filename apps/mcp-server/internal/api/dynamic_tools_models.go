@@ -9,16 +9,18 @@ import (
 
 // CreateToolRequest represents a request to create a new tool
 type CreateToolRequest struct {
-	Name             string                   `json:"name" binding:"required"`
-	DisplayName      string                   `json:"display_name"`
-	BaseURL          string                   `json:"base_url" binding:"required"`
-	DocumentationURL string                   `json:"documentation_url,omitempty"`
-	OpenAPIURL       string                   `json:"openapi_url,omitempty"`
-	AuthType         string                   `json:"auth_type" binding:"required"`
-	Credentials      *CredentialInput         `json:"credentials,omitempty"`
-	Config           map[string]interface{}   `json:"config,omitempty"`
-	RetryPolicy      *tools.ToolRetryPolicy   `json:"retry_policy,omitempty"`
-	HealthConfig     *tools.HealthCheckConfig `json:"health_config,omitempty"`
+	Name              string                   `json:"name" binding:"required"`
+	DisplayName       string                   `json:"display_name"`
+	BaseURL           string                   `json:"base_url" binding:"required"`
+	DocumentationURL  string                   `json:"documentation_url,omitempty"`
+	OpenAPIURL        string                   `json:"openapi_url,omitempty"`
+	AuthType          string                   `json:"auth_type" binding:"required"`
+	Credentials       *CredentialInput         `json:"credentials,omitempty"`
+	Config            map[string]interface{}   `json:"config,omitempty"`
+	RetryPolicy       *tools.ToolRetryPolicy   `json:"retry_policy,omitempty"`
+	HealthConfig      *tools.HealthCheckConfig `json:"health_config,omitempty"`
+	Provider          string                   `json:"provider,omitempty"`
+	PassthroughConfig *PassthroughConfig       `json:"passthrough_config,omitempty"`
 }
 
 // Validate validates the create tool request
@@ -56,14 +58,15 @@ func (r *CreateToolRequest) Validate() error {
 
 // UpdateToolRequest represents a request to update a tool
 type UpdateToolRequest struct {
-	Name             string                   `json:"name,omitempty"`
-	DisplayName      string                   `json:"display_name,omitempty"`
-	BaseURL          string                   `json:"base_url,omitempty"`
-	DocumentationURL string                   `json:"documentation_url,omitempty"`
-	OpenAPIURL       string                   `json:"openapi_url,omitempty"`
-	Config           map[string]interface{}   `json:"config,omitempty"`
-	RetryPolicy      *tools.ToolRetryPolicy   `json:"retry_policy,omitempty"`
-	HealthConfig     *tools.HealthCheckConfig `json:"health_config,omitempty"`
+	Name              string                   `json:"name,omitempty"`
+	DisplayName       string                   `json:"display_name,omitempty"`
+	BaseURL           string                   `json:"base_url,omitempty"`
+	DocumentationURL  string                   `json:"documentation_url,omitempty"`
+	OpenAPIURL        string                   `json:"openapi_url,omitempty"`
+	Config            map[string]interface{}   `json:"config,omitempty"`
+	RetryPolicy       *tools.ToolRetryPolicy   `json:"retry_policy,omitempty"`
+	HealthConfig      *tools.HealthCheckConfig `json:"health_config,omitempty"`
+	PassthroughConfig *PassthroughConfig       `json:"passthrough_config,omitempty"`
 }
 
 // CredentialInput represents credential input
@@ -120,23 +123,31 @@ type UpdateCredentialsRequest struct {
 	Credentials *CredentialInput `json:"credentials" binding:"required"`
 }
 
+// PassthroughConfig defines how user token passthrough should be handled
+type PassthroughConfig struct {
+	Mode              string `json:"mode"`                // optional, required, disabled
+	FallbackToService bool   `json:"fallback_to_service"` // Allow fallback to service account
+}
+
 // Tool represents a configured tool with its current state
 type Tool struct {
-	ID               string                   `json:"id"`
-	TenantID         string                   `json:"tenant_id"`
-	Name             string                   `json:"name"`
-	DisplayName      string                   `json:"display_name"`
-	BaseURL          string                   `json:"base_url"`
-	DocumentationURL string                   `json:"documentation_url,omitempty"`
-	OpenAPIURL       string                   `json:"openapi_url,omitempty"`
-	AuthType         string                   `json:"auth_type"`
-	Config           map[string]interface{}   `json:"config"`
-	RetryPolicy      *tools.ToolRetryPolicy   `json:"retry_policy,omitempty"`
-	HealthConfig     *tools.HealthCheckConfig `json:"health_config,omitempty"`
-	Status           string                   `json:"status"`
-	HealthStatus     *tools.HealthStatus      `json:"health_status,omitempty"`
-	CreatedAt        string                   `json:"created_at"`
-	UpdatedAt        string                   `json:"updated_at"`
+	ID                string                   `json:"id"`
+	TenantID          string                   `json:"tenant_id"`
+	Name              string                   `json:"name"`
+	DisplayName       string                   `json:"display_name"`
+	BaseURL           string                   `json:"base_url"`
+	DocumentationURL  string                   `json:"documentation_url,omitempty"`
+	OpenAPIURL        string                   `json:"openapi_url,omitempty"`
+	AuthType          string                   `json:"auth_type"`
+	Config            map[string]interface{}   `json:"config"`
+	RetryPolicy       *tools.ToolRetryPolicy   `json:"retry_policy,omitempty"`
+	HealthConfig      *tools.HealthCheckConfig `json:"health_config,omitempty"`
+	Status            string                   `json:"status"`
+	HealthStatus      *tools.HealthStatus      `json:"health_status,omitempty"`
+	Provider          string                   `json:"provider,omitempty"`
+	PassthroughConfig *PassthroughConfig       `json:"passthrough_config,omitempty"`
+	CreatedAt         string                   `json:"created_at"`
+	UpdatedAt         string                   `json:"updated_at"`
 
 	// Internal fields not exposed in JSON
 	InternalConfig tools.ToolConfig `json:"-"`

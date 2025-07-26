@@ -47,7 +47,7 @@ func (s *DynamicToolService) ListTools(ctx context.Context, tenantID string, sta
 			id, tenant_id, tool_name, display_name, 
 			config, auth_type, retry_policy, status, 
 			health_status, last_health_check,
-			created_at, updated_at
+			created_at, updated_at, provider, passthrough_config
 		FROM tool_configurations
 		WHERE tenant_id = $1
 	`
@@ -98,7 +98,8 @@ func (s *DynamicToolService) GetTool(ctx context.Context, tenantID, toolID strin
 			id, tenant_id, tool_name, display_name, 
 			config, credentials_encrypted, auth_type, 
 			retry_policy, status, health_status, 
-			last_health_check, created_at, updated_at
+			last_health_check, created_at, updated_at,
+			provider, passthrough_config
 		FROM tool_configurations
 		WHERE tenant_id = $1 AND id = $2
 	`
@@ -151,14 +152,20 @@ func (s *DynamicToolService) CreateTool(ctx context.Context, config tools.ToolCo
 		authType = config.Credential.Type
 	}
 
+	// Marshal passthrough config
+	passthroughConfigJSON, err := json.Marshal(config.PassthroughConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal passthrough config: %w", err)
+	}
+
 	// Insert tool
 	query := `
 		INSERT INTO tool_configurations (
 			id, tenant_id, tool_name, display_name,
 			config, credentials_encrypted, auth_type,
-			retry_policy, status, created_by
+			retry_policy, status, created_by, provider, passthrough_config
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
 		) RETURNING created_at, updated_at
 	`
 
@@ -167,7 +174,7 @@ func (s *DynamicToolService) CreateTool(ctx context.Context, config tools.ToolCo
 		ctx, query,
 		config.ID, config.TenantID, config.Name, config.Name,
 		configJSON, credentialsEncrypted, authType,
-		retryPolicyJSON, "active", "api",
+		retryPolicyJSON, "active", "api", config.Provider, passthroughConfigJSON,
 	).Scan(&createdAt, &updatedAt)
 
 	if err != nil {
@@ -176,21 +183,23 @@ func (s *DynamicToolService) CreateTool(ctx context.Context, config tools.ToolCo
 
 	// Build response
 	tool := &Tool{
-		ID:               config.ID,
-		TenantID:         config.TenantID,
-		Name:             config.Name,
-		DisplayName:      config.Name,
-		BaseURL:          config.BaseURL,
-		DocumentationURL: config.DocumentationURL,
-		OpenAPIURL:       config.OpenAPIURL,
-		AuthType:         authType,
-		Config:           config.Config,
-		RetryPolicy:      config.RetryPolicy,
-		HealthConfig:     config.HealthConfig,
-		Status:           "active",
-		CreatedAt:        createdAt.Format(time.RFC3339),
-		UpdatedAt:        updatedAt.Format(time.RFC3339),
-		InternalConfig:   config,
+		ID:                config.ID,
+		TenantID:          config.TenantID,
+		Name:              config.Name,
+		DisplayName:       config.Name,
+		BaseURL:           config.BaseURL,
+		DocumentationURL:  config.DocumentationURL,
+		OpenAPIURL:        config.OpenAPIURL,
+		AuthType:          authType,
+		Config:            config.Config,
+		RetryPolicy:       config.RetryPolicy,
+		HealthConfig:      config.HealthConfig,
+		Status:            "active",
+		Provider:          config.Provider,
+		PassthroughConfig: (*PassthroughConfig)(config.PassthroughConfig),
+		CreatedAt:         createdAt.Format(time.RFC3339),
+		UpdatedAt:         updatedAt.Format(time.RFC3339),
+		InternalConfig:    config,
 	}
 
 	// Update cache
@@ -588,15 +597,15 @@ func (s *DynamicToolService) GetAvailableActions(ctx context.Context, tool *Tool
 
 func (s *DynamicToolService) scanTool(rows *sql.Rows) (*Tool, error) {
 	var tool Tool
-	var configJSON, retryPolicyJSON []byte
-	var healthStatus, lastHealthCheck sql.NullString
+	var configJSON, retryPolicyJSON, passthroughConfigJSON []byte
+	var healthStatus, lastHealthCheck, provider sql.NullString
 	var createdAt, updatedAt time.Time
 
 	err := rows.Scan(
 		&tool.ID, &tool.TenantID, &tool.Name, &tool.DisplayName,
 		&configJSON, &tool.AuthType, &retryPolicyJSON, &tool.Status,
 		&healthStatus, &lastHealthCheck,
-		&createdAt, &updatedAt,
+		&createdAt, &updatedAt, &provider, &passthroughConfigJSON,
 	)
 
 	if err != nil {
@@ -610,6 +619,14 @@ func (s *DynamicToolService) scanTool(rows *sql.Rows) (*Tool, error) {
 	if err := json.Unmarshal(retryPolicyJSON, &tool.RetryPolicy); err != nil {
 		s.logger.Debugf("failed to unmarshal retry policy: %v", err)
 	}
+	if err := json.Unmarshal(passthroughConfigJSON, &tool.PassthroughConfig); err != nil {
+		s.logger.Debugf("failed to unmarshal passthrough config: %v", err)
+	}
+
+	// Set provider
+	if provider.Valid {
+		tool.Provider = provider.String
+	}
 
 	// Set timestamps
 	tool.CreatedAt = createdAt.Format(time.RFC3339)
@@ -617,11 +634,13 @@ func (s *DynamicToolService) scanTool(rows *sql.Rows) (*Tool, error) {
 
 	// Build tool config
 	tool.InternalConfig = tools.ToolConfig{
-		ID:          tool.ID,
-		TenantID:    tool.TenantID,
-		Name:        tool.Name,
-		Config:      tool.Config,
-		RetryPolicy: tool.RetryPolicy,
+		ID:                tool.ID,
+		TenantID:          tool.TenantID,
+		Name:              tool.Name,
+		Config:            tool.Config,
+		RetryPolicy:       tool.RetryPolicy,
+		Provider:          tool.Provider,
+		PassthroughConfig: (*tools.PassthroughConfig)(tool.PassthroughConfig),
 	}
 
 	return &tool, nil
@@ -629,8 +648,8 @@ func (s *DynamicToolService) scanTool(rows *sql.Rows) (*Tool, error) {
 
 func (s *DynamicToolService) scanToolWithCredentials(row *sql.Row) (*Tool, error) {
 	var tool Tool
-	var configJSON, retryPolicyJSON, credentialsEncrypted []byte
-	var healthStatus, lastHealthCheck sql.NullString
+	var configJSON, retryPolicyJSON, credentialsEncrypted, passthroughConfigJSON []byte
+	var healthStatus, lastHealthCheck, provider sql.NullString
 	var createdAt, updatedAt time.Time
 
 	err := row.Scan(
@@ -638,6 +657,7 @@ func (s *DynamicToolService) scanToolWithCredentials(row *sql.Row) (*Tool, error
 		&configJSON, &credentialsEncrypted, &tool.AuthType,
 		&retryPolicyJSON, &tool.Status, &healthStatus,
 		&lastHealthCheck, &createdAt, &updatedAt,
+		&provider, &passthroughConfigJSON,
 	)
 
 	if err != nil {
@@ -651,6 +671,14 @@ func (s *DynamicToolService) scanToolWithCredentials(row *sql.Row) (*Tool, error
 	if err := json.Unmarshal(retryPolicyJSON, &tool.RetryPolicy); err != nil {
 		s.logger.Debugf("failed to unmarshal retry policy: %v", err)
 	}
+	if err := json.Unmarshal(passthroughConfigJSON, &tool.PassthroughConfig); err != nil {
+		s.logger.Debugf("failed to unmarshal passthrough config: %v", err)
+	}
+
+	// Set provider
+	if provider.Valid {
+		tool.Provider = provider.String
+	}
 
 	// Set timestamps
 	tool.CreatedAt = createdAt.Format(time.RFC3339)
@@ -658,11 +686,13 @@ func (s *DynamicToolService) scanToolWithCredentials(row *sql.Row) (*Tool, error
 
 	// Build tool config
 	tool.InternalConfig = tools.ToolConfig{
-		ID:          tool.ID,
-		TenantID:    tool.TenantID,
-		Name:        tool.Name,
-		Config:      tool.Config,
-		RetryPolicy: tool.RetryPolicy,
+		ID:                tool.ID,
+		TenantID:          tool.TenantID,
+		Name:              tool.Name,
+		Config:            tool.Config,
+		RetryPolicy:       tool.RetryPolicy,
+		Provider:          tool.Provider,
+		PassthroughConfig: (*tools.PassthroughConfig)(tool.PassthroughConfig),
 	}
 
 	// Handle credentials

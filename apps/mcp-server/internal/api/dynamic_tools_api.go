@@ -2,7 +2,9 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/developer-mesh/developer-mesh/pkg/auth"
@@ -159,17 +161,42 @@ func (api *DynamicToolsAPI) CreateTool(c *gin.Context) {
 		return
 	}
 
+	// Auto-detect provider if not specified
+	provider := req.Provider
+	if provider == "" {
+		if strings.Contains(req.BaseURL, "github.com") {
+			provider = "github"
+		} else if strings.Contains(req.BaseURL, "gitlab.com") {
+			provider = "gitlab"
+		} else if strings.Contains(req.BaseURL, "bitbucket.org") {
+			provider = "bitbucket"
+		} else {
+			provider = "custom"
+		}
+	}
+
+	// Set default passthrough config if not provided
+	passthroughConfig := req.PassthroughConfig
+	if passthroughConfig == nil {
+		passthroughConfig = &PassthroughConfig{
+			Mode:              "optional",
+			FallbackToService: true,
+		}
+	}
+
 	// Create tool config
 	config := tools.ToolConfig{
-		ID:               uuid.New().String(),
-		TenantID:         tenantID,
-		Name:             req.Name,
-		BaseURL:          req.BaseURL,
-		DocumentationURL: req.DocumentationURL,
-		OpenAPIURL:       req.OpenAPIURL,
-		Config:           req.Config,
-		RetryPolicy:      req.RetryPolicy,
-		HealthConfig:     req.HealthConfig,
+		ID:                uuid.New().String(),
+		TenantID:          tenantID,
+		Name:              req.Name,
+		BaseURL:           req.BaseURL,
+		DocumentationURL:  req.DocumentationURL,
+		OpenAPIURL:        req.OpenAPIURL,
+		Config:            req.Config,
+		RetryPolicy:       req.RetryPolicy,
+		HealthConfig:      req.HealthConfig,
+		Provider:          provider,
+		PassthroughConfig: (*tools.PassthroughConfig)(passthroughConfig),
 	}
 
 	// Handle credentials
@@ -334,6 +361,9 @@ func (api *DynamicToolsAPI) UpdateTool(c *gin.Context) {
 	}
 	if req.HealthConfig != nil {
 		existing.InternalConfig.HealthConfig = req.HealthConfig
+	}
+	if req.PassthroughConfig != nil {
+		existing.InternalConfig.PassthroughConfig = (*tools.PassthroughConfig)(req.PassthroughConfig)
 	}
 
 	// Update tool
@@ -604,17 +634,88 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 		return
 	}
 
-	// Execute action
-	result, err := api.toolService.ExecuteAction(c.Request.Context(), tool, action, params)
+	// Check for passthrough token
+	ctx := c.Request.Context()
+	authMethod := "service_account"
+
+	if passthroughToken, ok := auth.GetPassthroughToken(ctx); ok && tool.Provider != "" {
+		// Validate provider matches
+		if passthroughToken.Provider == tool.Provider {
+			// Add user credentials to context
+			var userCreds *models.ToolCredentials
+			switch tool.Provider {
+			case "github":
+				userCreds = &models.ToolCredentials{
+					GitHub: &models.TokenCredential{
+						Type:  "bearer",
+						Token: passthroughToken.Token,
+					},
+				}
+			case "gitlab":
+				userCreds = &models.ToolCredentials{
+					GitLab: &models.TokenCredential{
+						Type:  "bearer",
+						Token: passthroughToken.Token,
+					},
+				}
+			default:
+				// For custom providers, use generic credential
+				userCreds = &models.ToolCredentials{
+					Custom: map[string]*models.TokenCredential{
+						tool.Provider: {
+							Type:  "bearer",
+							Token: passthroughToken.Token,
+						},
+					},
+				}
+			}
+
+			ctx = auth.WithToolCredentials(ctx, userCreds)
+			authMethod = "passthrough"
+
+			api.logger.Info("Using passthrough token for tool execution", map[string]interface{}{
+				"tool_id":  toolID,
+				"provider": tool.Provider,
+			})
+		} else if tool.PassthroughConfig != nil && tool.PassthroughConfig.Mode == "required" {
+			// Passthrough required but provider mismatch
+			c.JSON(http.StatusForbidden, gin.H{
+				"error":   "provider mismatch",
+				"details": fmt.Sprintf("tool requires %s credentials but %s token provided", tool.Provider, passthroughToken.Provider),
+			})
+			return
+		}
+	} else if tool.PassthroughConfig != nil && tool.PassthroughConfig.Mode == "required" {
+		// Passthrough required but no token provided
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error":   "passthrough token required",
+			"details": "this tool requires user authentication via X-User-Token header",
+		})
+		return
+	}
+
+	// Execute action with updated context
+	result, err := api.toolService.ExecuteAction(ctx, tool, action, params)
+	executionDuration := time.Since(start)
+
+	// Audit log the execution with metadata
+	auditMetadata := map[string]interface{}{
+		"auth_method": authMethod,
+		"tool_name":   tool.Name,
+		"provider":    tool.Provider,
+	}
+	api.auditLogger.LogToolExecution(ctx, tenantID, toolID, action, params, result, executionDuration, err, auditMetadata)
+
 	if err != nil {
 		// Record failure metric
 		if api.metricsClient != nil {
 			api.metricsClient.RecordCounter("dynamic_tools_executions", 1, map[string]string{
-				"tool_id":   toolID,
-				"tool_name": tool.Name,
-				"action":    action,
-				"status":    "error",
-				"tenant_id": tenantID,
+				"tool_id":     toolID,
+				"tool_name":   tool.Name,
+				"action":      action,
+				"status":      "error",
+				"tenant_id":   tenantID,
+				"auth_method": authMethod,
 			})
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "execution failed", "details": err.Error()})
@@ -623,15 +724,15 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 
 	// Record success metric
 	if api.metricsClient != nil {
-		duration := time.Since(start).Seconds()
 		api.metricsClient.RecordCounter("dynamic_tools_executions", 1, map[string]string{
-			"tool_id":   toolID,
-			"tool_name": tool.Name,
-			"action":    action,
-			"status":    "success",
-			"tenant_id": tenantID,
+			"tool_id":     toolID,
+			"tool_name":   tool.Name,
+			"action":      action,
+			"status":      "success",
+			"tenant_id":   tenantID,
+			"auth_method": authMethod,
 		})
-		api.metricsClient.RecordHistogram("dynamic_tools_execution_duration_seconds", duration, map[string]string{
+		api.metricsClient.RecordHistogram("dynamic_tools_execution_duration_seconds", executionDuration.Seconds(), map[string]string{
 			"tool_name": tool.Name,
 			"action":    action,
 		})

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/developer-mesh/developer-mesh/pkg/auth"
 	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/tools"
@@ -175,13 +176,50 @@ func (a *OpenAPIAdapter) createDynamicHandler(
 			}
 		}
 
-		// Make the request
+		// Determine which credentials to use
+		credential := config.Credential // Default to service account
+
+		// Check for user credentials in context
+		if userCreds, ok := auth.GetToolCredentials(ctx); ok && config.Provider != "" {
+			// Get credential for the specific provider
+			var userCred *models.TokenCredential
+			switch config.Provider {
+			case "github":
+				userCred = userCreds.GitHub
+			case "gitlab":
+				userCred = userCreds.GitLab
+			default:
+				if userCreds.Custom != nil {
+					userCred = userCreds.Custom[config.Provider]
+				}
+			}
+
+			// Use user credential if available
+			if userCred != nil {
+				credential = userCred
+				a.logger.Debug("Using passthrough credentials for API request", map[string]interface{}{
+					"provider": config.Provider,
+					"tool_id":  config.ID,
+				})
+			} else if config.PassthroughConfig != nil && config.PassthroughConfig.Mode == "required" {
+				return nil, fmt.Errorf("passthrough token required but not found for provider %s", config.Provider)
+			}
+		} else if config.PassthroughConfig != nil && config.PassthroughConfig.Mode == "required" {
+			return nil, fmt.Errorf("passthrough authentication required but no user credentials provided")
+		}
+
+		// Validate we have credentials
+		if credential == nil {
+			return nil, fmt.Errorf("no credentials available for tool %s", config.Name)
+		}
+
+		// Make the request with selected credentials
 		resp, err := a.helper.MakeAuthenticatedRequest(
 			ctx,
 			method,
 			requestURL,
 			body,
-			config.Credential,
+			credential,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("request failed: %w", err)

@@ -75,13 +75,14 @@ func (al *AuditLogger) LogToolDiscovery(ctx context.Context, tenantID, baseURL s
 }
 
 // LogToolExecution logs a tool execution event
-func (al *AuditLogger) LogToolExecution(ctx context.Context, tenantID, toolID, action string, params map[string]interface{}, result interface{}, duration time.Duration, err error) {
+func (al *AuditLogger) LogToolExecution(ctx context.Context, tenantID, toolID, action string, params map[string]interface{}, result interface{}, duration time.Duration, err error, metadata map[string]interface{}) {
 	event := DynamicToolAuditEvent{
 		AuditEvent: AuditEvent{
 			Timestamp: time.Now(),
 			EventType: "tool_execution",
 			TenantID:  tenantID,
 			Success:   err == nil,
+			Metadata:  metadata,
 		},
 		ToolID:     toolID,
 		Action:     action,

@@ -9,6 +9,7 @@ The Dynamic Tools API allows you to add and manage DevOps tools without modifyin
 - **Zero Code Integration**: Add new tools without writing any code
 - **Automatic Discovery**: Automatically discovers OpenAPI specifications from tool endpoints
 - **Dynamic Authentication**: Supports multiple authentication methods based on OpenAPI security schemes
+- **User Token Passthrough**: Allows users to authenticate with their own credentials for tools
 - **Health Monitoring**: Built-in health checking with configurable intervals
 - **Credential Encryption**: Per-tenant AES-256-GCM encryption for all credentials
 - **Rate Limiting**: Per-tenant and per-tool rate limiting
@@ -58,6 +59,11 @@ Request Body:
   "auth_type": "token",
   "credentials": {
     "token": "ghp_xxxxxxxxxxxx"
+  },
+  "provider": "github",
+  "passthrough_config": {
+    "mode": "optional",
+    "fallback_to_service": true
   },
   "health_config": {
     "mode": "periodic",
@@ -161,6 +167,10 @@ POST /api/v1/tools/{toolId}/execute/{action}
 
 Executes a tool action.
 
+Request Headers (optional for passthrough authentication):
+- `X-User-Token`: User's personal access token for the tool
+- `X-Token-Provider`: Provider name (e.g., "github", "gitlab")
+
 Request Body:
 ```json
 {
@@ -195,6 +205,58 @@ Request Body:
 ## Authentication Methods
 
 The following authentication methods are supported:
+
+### User Token Passthrough
+
+Dynamic tools support user token passthrough, allowing users to authenticate with their own credentials instead of service accounts. This ensures that actions are performed with the user's permissions and are properly attributed.
+
+For detailed information about passthrough authentication, see [Dynamic Tools Passthrough Authentication](dynamic_tools_passthrough.md).
+
+#### Configuration
+
+When creating a tool, specify the provider and passthrough configuration:
+
+```json
+{
+  "provider": "github",  // github, gitlab, bitbucket, or custom
+  "passthrough_config": {
+    "mode": "optional",  // optional, required, or disabled
+    "fallback_to_service": true  // Allow fallback to service account
+  }
+}
+```
+
+#### Passthrough Modes
+
+- **optional**: User tokens are used if provided, otherwise falls back to service account
+- **required**: User tokens are mandatory, requests without them are rejected
+- **disabled**: Only service account credentials are used
+
+#### Using Passthrough Authentication
+
+To use your own credentials when executing tool actions, include these headers:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tools/{toolId}/execute/{action} \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "X-User-Token: $USER_TOKEN" \
+  -H "X-Token-Provider: github" \
+  -H "Content-Type: application/json" \
+  -d '{"parameters": {...}}'
+```
+
+The system will:
+1. Validate that the token provider matches the tool's provider
+2. Use the user's token for the API request
+3. Audit log the authentication method used
+4. Fall back to service account if configured and user token fails
+
+### Service Account Authentication
+
+Service accounts are configured at the tool level and used when:
+- No user token is provided (and passthrough mode is not required)
+- User token authentication fails (and fallback is enabled)
+- Passthrough is disabled for the tool
 
 ### API Key
 ```json
@@ -265,6 +327,45 @@ Health check results include:
 
 ## Examples
 
+### Using Passthrough Authentication
+
+Execute a GitHub action with your personal access token:
+
+```bash
+# First, create a tool with passthrough enabled
+curl -X POST http://localhost:8080/api/v1/tools \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "github-passthrough",
+    "base_url": "https://api.github.com",
+    "auth_type": "token",
+    "credentials": {
+      "token": "ghp_service_account_token"
+    },
+    "provider": "github",
+    "passthrough_config": {
+      "mode": "optional",
+      "fallback_to_service": true
+    }
+  }'
+
+# Execute an action with your personal token
+curl -X POST http://localhost:8080/api/v1/tools/{toolId}/execute/create_issue \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "X-User-Token: ghp_your_personal_token" \
+  -H "X-Token-Provider: github" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "parameters": {
+      "owner": "myorg",
+      "repo": "myrepo",
+      "title": "New Issue",
+      "body": "Created with my personal token"
+    }
+  }'
+```
+
 ### Adding GitHub
 ```bash
 curl -X POST http://localhost:8080/api/v1/tools \
@@ -276,6 +377,11 @@ curl -X POST http://localhost:8080/api/v1/tools \
     "auth_type": "token",
     "credentials": {
       "token": "ghp_xxxxxxxxxxxx"
+    },
+    "provider": "github",
+    "passthrough_config": {
+      "mode": "optional",
+      "fallback_to_service": true
     }
   }'
 ```
@@ -337,9 +443,11 @@ curl -X POST http://localhost:8080/api/v1/tools \
 1. **Credential Storage**: All credentials are encrypted using AES-256-GCM with per-tenant keys
 2. **Network Security**: Only HTTPS URLs are allowed for production tools
 3. **Rate Limiting**: Prevents abuse through per-tenant and per-tool limits
-4. **Audit Trail**: All operations are logged for compliance
+4. **Audit Trail**: All operations are logged for compliance with authentication method tracking
 5. **Input Validation**: All inputs are validated to prevent injection attacks
 6. **Health Check Timeouts**: Prevents hanging connections
+7. **User Token Security**: User tokens are never stored and only used for the specific request
+8. **Provider Validation**: System validates that user tokens match the configured tool provider
 
 ## Migration from Legacy Tools
 
