@@ -1,0 +1,888 @@
+paths:
+  /tools:
+    get:
+      tags:
+        - Dynamic Tools
+      summary: List dynamic tools
+      description: |
+        Returns a list of all dynamically configured tools for the tenant.
+        Tools can be filtered by status and optionally include health information.
+      operationId: listDynamicTools
+      parameters:
+        - name: status
+          in: query
+          description: Filter tools by status
+          schema:
+            type: string
+            enum: [active, inactive, disabled]
+        - name: include_health
+          in: query
+          description: Include current health status for each tool
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: List of dynamic tools
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tools:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DynamicTool'
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - Dynamic Tools
+      summary: Create a new dynamic tool
+      description: |
+        Creates a new dynamic tool configuration. The tool can be configured with:
+        - Direct OpenAPI specification URL
+        - Automatic discovery from base URL
+        - Manual configuration with custom endpoints
+      operationId: createDynamicTool
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateToolRequest'
+      responses:
+        '201':
+          description: Tool created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DynamicTool'
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '409':
+          description: Tool already exists
+          content:
+            application/json:
+              schema:
+                $ref: '../common/schemas.yaml#/components/schemas/Error'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /tools/{toolId}:
+    parameters:
+      - $ref: '../common/parameters.yaml#/components/parameters/ToolID'
+    
+    get:
+      tags:
+        - Dynamic Tools
+      summary: Get dynamic tool details
+      description: |
+        Returns detailed information about a specific dynamic tool including
+        its configuration, available actions, and current health status.
+      operationId: getDynamicTool
+      responses:
+        '200':
+          description: Tool details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DynamicTool'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+    put:
+      tags:
+        - Dynamic Tools
+      summary: Update dynamic tool
+      description: |
+        Updates an existing dynamic tool configuration. Only provided fields
+        will be updated, others will remain unchanged.
+      operationId: updateDynamicTool
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateToolRequest'
+      responses:
+        '200':
+          description: Tool updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DynamicTool'
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+    delete:
+      tags:
+        - Dynamic Tools
+      summary: Delete dynamic tool
+      description: |
+        Deletes a dynamic tool configuration. This will remove all associated
+        credentials and health check history.
+      operationId: deleteDynamicTool
+      responses:
+        '204':
+          description: Tool deleted successfully
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /tools/discover:
+    post:
+      tags:
+        - Dynamic Tools
+      summary: Discover tool APIs
+      description: |
+        Initiates discovery of APIs and OpenAPI specifications from a base URL.
+        Returns a discovery session that can be used to confirm the discovered endpoints.
+      operationId: discoverTool
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DiscoverToolRequest'
+      responses:
+        '200':
+          description: Discovery initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscoverySession'
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /tools/discover/{sessionId}:
+    parameters:
+      - name: sessionId
+        in: path
+        required: true
+        description: Discovery session ID
+        schema:
+          type: string
+          format: uuid
+    
+    get:
+      tags:
+        - Dynamic Tools
+      summary: Get discovery session status
+      description: |
+        Returns the current status of a discovery session including any
+        discovered OpenAPI specifications and their locations.
+      operationId: getDiscoverySession
+      responses:
+        '200':
+          description: Discovery session details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscoverySession'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /tools/discover/{sessionId}/confirm:
+    parameters:
+      - name: sessionId
+        in: path
+        required: true
+        description: Discovery session ID
+        schema:
+          type: string
+          format: uuid
+    
+    post:
+      tags:
+        - Dynamic Tools
+      summary: Confirm discovery results
+      description: |
+        Confirms the discovery results and creates a tool configuration
+        based on the selected OpenAPI specification.
+      operationId: confirmDiscovery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmDiscoveryRequest'
+      responses:
+        '200':
+          description: Tool created from discovery
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DynamicTool'
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /tools/{toolId}/health:
+    parameters:
+      - $ref: '../common/parameters.yaml#/components/parameters/ToolID'
+    
+    get:
+      tags:
+        - Dynamic Tools
+      summary: Check tool health
+      description: |
+        Returns the current health status of a dynamic tool. By default returns
+        cached status. Use force=true to trigger a fresh health check.
+      operationId: checkToolHealth
+      parameters:
+        - name: force
+          in: query
+          description: Force a fresh health check instead of returning cached status
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Health status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /tools/{toolId}/health/refresh:
+    parameters:
+      - $ref: '../common/parameters.yaml#/components/parameters/ToolID'
+    
+    post:
+      tags:
+        - Dynamic Tools
+      summary: Refresh health status
+      description: |
+        Forces an immediate health check for the tool and updates the cached status.
+      operationId: refreshToolHealth
+      responses:
+        '200':
+          description: Health status refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /tools/{toolId}/actions:
+    parameters:
+      - $ref: '../common/parameters.yaml#/components/parameters/ToolID'
+    
+    get:
+      tags:
+        - Dynamic Tools
+      summary: List tool actions
+      description: |
+        Returns all available actions for a dynamic tool based on its
+        OpenAPI specification or custom configuration.
+      operationId: listDynamicToolActions
+      responses:
+        '200':
+          description: Available actions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tool_id:
+                    type: string
+                  tool_name:
+                    type: string
+                  actions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ActionDefinition'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /tools/{toolId}/execute/{action}:
+    parameters:
+      - $ref: '../common/parameters.yaml#/components/parameters/ToolID'
+      - name: action
+        in: path
+        required: true
+        description: Action name to execute
+        schema:
+          type: string
+    
+    post:
+      tags:
+        - Dynamic Tools
+      summary: Execute tool action
+      description: |
+        Executes a specific action on a dynamic tool. The request body should
+        match the action's parameter schema.
+      operationId: executeDynamicToolAction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              description: Action-specific parameters
+      responses:
+        '200':
+          description: Action executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionResult'
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: '../common/responses.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /tools/{toolId}/credentials:
+    parameters:
+      - $ref: '../common/parameters.yaml#/components/parameters/ToolID'
+    
+    put:
+      tags:
+        - Dynamic Tools
+      summary: Update tool credentials
+      description: |
+        Updates the authentication credentials for a dynamic tool.
+        Credentials are encrypted per-tenant before storage.
+      operationId: updateToolCredentials
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCredentialsRequest'
+      responses:
+        '200':
+          description: Credentials updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Credentials updated successfully"
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    DynamicTool:
+      type: object
+      required:
+        - id
+        - tenant_id
+        - name
+        - base_url
+        - auth_type
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique tool identifier
+        tenant_id:
+          type: string
+          description: Tenant ID that owns this tool
+        name:
+          type: string
+          description: Tool name (must be unique per tenant)
+        description:
+          type: string
+          description: Tool description
+        base_url:
+          type: string
+          format: uri
+          description: Base URL for the tool's API
+        documentation_url:
+          type: string
+          format: uri
+          description: URL to tool documentation
+        openapi_url:
+          type: string
+          format: uri
+          description: URL to OpenAPI specification
+        auth_type:
+          type: string
+          enum: [none, api_key, bearer, basic, oauth2, custom]
+          description: Authentication type required
+        config:
+          type: object
+          additionalProperties: true
+          description: Tool-specific configuration
+        retry_policy:
+          $ref: '#/components/schemas/RetryPolicy'
+        health_config:
+          $ref: '#/components/schemas/HealthCheckConfig'
+        status:
+          type: string
+          enum: [active, inactive, disabled]
+          description: Tool status
+        health_status:
+          $ref: '#/components/schemas/HealthStatus'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateToolRequest:
+      type: object
+      required:
+        - name
+        - base_url
+        - auth_type
+      properties:
+        name:
+          type: string
+          description: Tool name (must be unique per tenant)
+          pattern: '^[a-zA-Z0-9_-]+$'
+          minLength: 3
+          maxLength: 50
+        description:
+          type: string
+          description: Tool description
+          maxLength: 500
+        base_url:
+          type: string
+          format: uri
+          description: Base URL for the tool's API
+        documentation_url:
+          type: string
+          format: uri
+          description: URL to tool documentation
+        openapi_url:
+          type: string
+          format: uri
+          description: URL to OpenAPI specification
+        auth_type:
+          type: string
+          enum: [none, api_key, bearer, basic, oauth2, custom]
+          description: Authentication type
+        credential:
+          $ref: '#/components/schemas/CredentialRequest'
+        config:
+          type: object
+          additionalProperties: true
+          description: Tool-specific configuration
+        retry_policy:
+          $ref: '#/components/schemas/RetryPolicy'
+        health_config:
+          $ref: '#/components/schemas/HealthCheckConfig'
+
+    UpdateToolRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Tool name
+          pattern: '^[a-zA-Z0-9_-]+$'
+          minLength: 3
+          maxLength: 50
+        description:
+          type: string
+          description: Tool description
+          maxLength: 500
+        base_url:
+          type: string
+          format: uri
+          description: Base URL for the tool's API
+        documentation_url:
+          type: string
+          format: uri
+          description: URL to tool documentation
+        openapi_url:
+          type: string
+          format: uri
+          description: URL to OpenAPI specification
+        config:
+          type: object
+          additionalProperties: true
+          description: Tool-specific configuration
+        retry_policy:
+          $ref: '#/components/schemas/RetryPolicy'
+        health_config:
+          $ref: '#/components/schemas/HealthCheckConfig'
+        status:
+          type: string
+          enum: [active, inactive, disabled]
+          description: Tool status
+
+    CredentialRequest:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum: [api_key, bearer, basic, oauth2, custom]
+        token:
+          type: string
+          description: API key or bearer token
+        username:
+          type: string
+          description: Username for basic auth
+        password:
+          type: string
+          format: password
+          description: Password for basic auth
+        header_name:
+          type: string
+          description: Custom header name for API key
+        query_param:
+          type: string
+          description: Query parameter name for API key
+        oauth_config:
+          type: object
+          properties:
+            client_id:
+              type: string
+            client_secret:
+              type: string
+            token_url:
+              type: string
+            scopes:
+              type: array
+              items:
+                type: string
+
+    DiscoverToolRequest:
+      type: object
+      required:
+        - base_url
+      properties:
+        base_url:
+          type: string
+          format: uri
+          description: Base URL to discover APIs from
+        auth_type:
+          type: string
+          enum: [none, api_key, bearer, basic, oauth2]
+          description: Authentication type if known
+        credential:
+          $ref: '#/components/schemas/CredentialRequest'
+        discovery_hints:
+          type: object
+          properties:
+            paths:
+              type: array
+              items:
+                type: string
+              description: Additional paths to check
+            subdomains:
+              type: array
+              items:
+                type: string
+              description: Additional subdomains to try
+
+    ConfirmDiscoveryRequest:
+      type: object
+      required:
+        - selected_url
+        - tool_name
+      properties:
+        selected_url:
+          type: string
+          format: uri
+          description: Selected OpenAPI specification URL
+        tool_name:
+          type: string
+          description: Name for the new tool
+        description:
+          type: string
+          description: Tool description
+        credential:
+          $ref: '#/components/schemas/CredentialRequest'
+
+    UpdateCredentialsRequest:
+      type: object
+      required:
+        - auth_type
+        - credential
+      properties:
+        auth_type:
+          type: string
+          enum: [none, api_key, bearer, basic, oauth2, custom]
+        credential:
+          $ref: '#/components/schemas/CredentialRequest'
+
+    DiscoverySession:
+      type: object
+      required:
+        - session_id
+        - status
+        - created_at
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, in_progress, success, partial, manual_needed, failed]
+        base_url:
+          type: string
+          format: uri
+        discovered_urls:
+          type: array
+          items:
+            type: string
+            format: uri
+          description: URLs where OpenAPI specs were found
+        openapi_specs:
+          type: array
+          items:
+            type: object
+            properties:
+              url:
+                type: string
+                format: uri
+              title:
+                type: string
+              version:
+                type: string
+              description:
+                type: string
+        selected_url:
+          type: string
+          format: uri
+          description: URL selected for tool creation
+        error_message:
+          type: string
+          description: Error message if discovery failed
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Additional discovery metadata
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ActionDefinition:
+      type: object
+      required:
+        - name
+        - method
+        - path
+      properties:
+        name:
+          type: string
+          description: Action name
+        description:
+          type: string
+          description: Action description
+        method:
+          type: string
+          enum: [GET, POST, PUT, PATCH, DELETE]
+          description: HTTP method
+        path:
+          type: string
+          description: API path
+        parameters:
+          type: object
+          description: Parameter schema
+        response_schema:
+          type: object
+          description: Response schema
+        tags:
+          type: array
+          items:
+            type: string
+          description: Action tags/categories
+
+    ExecutionResult:
+      type: object
+      required:
+        - tool_id
+        - action
+        - status
+        - executed_at
+      properties:
+        tool_id:
+          type: string
+          format: uuid
+        tool_name:
+          type: string
+        action:
+          type: string
+        status:
+          type: string
+          enum: [success, failure]
+        result:
+          type: object
+          additionalProperties: true
+          description: Action result data
+        error:
+          type: string
+          description: Error message if failed
+        response_time:
+          type: integer
+          description: Response time in milliseconds
+        retry_count:
+          type: integer
+          description: Number of retries attempted
+        executed_at:
+          type: string
+          format: date-time
+
+    HealthStatus:
+      type: object
+      required:
+        - is_healthy
+        - last_checked
+      properties:
+        is_healthy:
+          type: boolean
+          description: Whether the tool is healthy
+        last_checked:
+          type: string
+          format: date-time
+          description: Last health check time
+        response_time:
+          type: integer
+          description: Response time in milliseconds
+        error:
+          type: string
+          description: Error message if unhealthy
+        version:
+          type: string
+          description: Tool version if available
+        details:
+          type: object
+          additionalProperties: true
+          description: Additional health details
+
+    RetryPolicy:
+      type: object
+      properties:
+        max_retries:
+          type: integer
+          minimum: 0
+          maximum: 10
+          default: 3
+          description: Maximum number of retries
+        initial_delay:
+          type: integer
+          minimum: 100
+          maximum: 60000
+          default: 1000
+          description: Initial retry delay in milliseconds
+        max_delay:
+          type: integer
+          minimum: 1000
+          maximum: 300000
+          default: 30000
+          description: Maximum retry delay in milliseconds
+        multiplier:
+          type: number
+          format: float
+          minimum: 1.0
+          maximum: 10.0
+          default: 2.0
+          description: Delay multiplier for exponential backoff
+        retry_on:
+          type: array
+          items:
+            type: integer
+          default: [408, 429, 500, 502, 503, 504]
+          description: HTTP status codes to retry on
+
+    HealthCheckConfig:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          default: true
+          description: Whether health checks are enabled
+        interval:
+          type: integer
+          minimum: 60
+          maximum: 86400
+          default: 300
+          description: Health check interval in seconds
+        timeout:
+          type: integer
+          minimum: 1
+          maximum: 300
+          default: 30
+          description: Health check timeout in seconds
+        endpoint:
+          type: string
+          description: Custom health check endpoint path
+        method:
+          type: string
+          enum: [GET, POST]
+          default: GET
+          description: HTTP method for health check
+        expected_status:
+          type: array
+          items:
+            type: integer
+          default: [200, 204]
+          description: Expected HTTP status codes for healthy state

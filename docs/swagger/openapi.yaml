@@ -76,8 +76,10 @@ tags:
     description: Health check and monitoring endpoints
   - name: Contexts
     description: MCP context management operations
-  - name: Tools
-    description: DevOps tool integration endpoints
+  - name: Dynamic Tools
+    description: Dynamic tool registration and management endpoints
+  - name: GitHub Tools
+    description: Pre-configured GitHub tool endpoints (legacy)
   - name: Agents
     description: AI agent management and orchestration
   - name: Models
@@ -130,22 +132,43 @@ paths:
   /contexts/{contextID}/summary:
     $ref: './core/contexts.yaml#/paths/~1contexts~1{contextID}~1summary'
   
-  # Tool Management
+  # Dynamic Tool Management
   /tools:
-    $ref: './core/tools.yaml#/paths/~1tools'
+    $ref: './core/dynamic_tools.yaml#/paths/~1tools'
   
-  /tools/{tool}:
-    $ref: './core/tools.yaml#/paths/~1tools~1{tool}'
+  /tools/{toolId}:
+    $ref: './core/dynamic_tools.yaml#/paths/~1tools~1{toolId}'
   
-  /tools/{tool}/actions:
-    $ref: './core/tools.yaml#/paths/~1tools~1{tool}~1actions'
+  /tools/discover:
+    $ref: './core/dynamic_tools.yaml#/paths/~1tools~1discover'
   
-  /tools/{tool}/actions/{action}:
-    $ref: './core/tools.yaml#/paths/~1tools~1{tool}~1actions~1{action}'
+  /tools/discover/{sessionId}:
+    $ref: './core/dynamic_tools.yaml#/paths/~1tools~1discover~1{sessionId}'
   
-  /tools/{tool}/queries:
-    $ref: './core/tools.yaml#/paths/~1tools~1{tool}~1queries'
+  /tools/discover/{sessionId}/confirm:
+    $ref: './core/dynamic_tools.yaml#/paths/~1tools~1discover~1{sessionId}~1confirm'
   
+  /tools/{toolId}/health:
+    $ref: './core/dynamic_tools.yaml#/paths/~1tools~1{toolId}~1health'
+  
+  /tools/{toolId}/health/refresh:
+    $ref: './core/dynamic_tools.yaml#/paths/~1tools~1{toolId}~1health~1refresh'
+  
+  /tools/{toolId}/actions:
+    $ref: './core/dynamic_tools.yaml#/paths/~1tools~1{toolId}~1actions'
+  
+  /tools/{toolId}/execute/{action}:
+    $ref: './core/dynamic_tools.yaml#/paths/~1tools~1{toolId}~1execute~1{action}'
+  
+  /tools/{toolId}/credentials:
+    $ref: './core/dynamic_tools.yaml#/paths/~1tools~1{toolId}~1credentials'
+  
+  # GitHub Tools (Legacy)
+  /tools/github:
+    $ref: './core/tools.yaml#/paths/~1tools~1github'
+  
+  /tools/github/{tool_name}:
+    $ref: './core/tools.yaml#/paths/~1tools~1github~1{tool_name}'
   
   # Agent Management
   /agents:
