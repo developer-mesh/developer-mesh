@@ -26,7 +26,9 @@ func TestHealthCheckManager(t *testing.T) {
 	t.Run("CheckHealth_Success", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"status": "healthy", "version": "1.0.0"}`))
+			if _, err := w.Write([]byte(`{"status": "healthy", "version": "1.0.0"}`)); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
 		}))
 		defer server.Close()
 
@@ -52,7 +54,9 @@ func TestHealthCheckManager(t *testing.T) {
 	t.Run("CheckHealth_Failure", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(`{"error": "database connection failed"}`))
+			if _, err := w.Write([]byte(`{"error": "database connection failed"}`)); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
 		}))
 		defer server.Close()
 
@@ -103,7 +107,9 @@ func TestHealthCheckManager(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Header.Get("Authorization") == "Bearer "+expectedToken {
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(`{"status": "healthy"}`))
+				if _, err := w.Write([]byte(`{"status": "healthy"}`)); err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+				}
 			} else {
 				w.WriteHeader(http.StatusUnauthorized)
 			}
@@ -134,7 +140,9 @@ func TestHealthCheckManager(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			callCount++
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"status": "healthy"}`))
+			if _, err := w.Write([]byte(`{"status": "healthy"}`)); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
 		}))
 		defer server.Close()
 
@@ -186,7 +194,9 @@ func TestHealthCheckManager(t *testing.T) {
 		}
 		// Store in cache using the Set method
 		ctx := context.Background()
-		manager.cache.Set(ctx, config.ID, status, 5*time.Minute)
+		if err := manager.cache.Set(ctx, config.ID, status, 5*time.Minute); err != nil {
+			t.Errorf("failed to set cache: %v", err)
+		}
 
 		// Should find cached status
 		cacheKey := fmt.Sprintf("health:%s:%s", config.TenantID, config.ID)
@@ -212,14 +222,18 @@ func TestHealthCheckManager(t *testing.T) {
 		}
 		// Store in cache using the Set method
 		ctx := context.Background()
-		manager.cache.Set(ctx, config.ID, status, 5*time.Minute)
+		if err := manager.cache.Set(ctx, config.ID, status, 5*time.Minute); err != nil {
+			t.Errorf("failed to set cache: %v", err)
+		}
 
 		// Verify it's cached
 		_, exists := manager.GetCachedStatus(context.Background(), config)
 		assert.True(t, exists)
 
 		// Invalidate
-		manager.InvalidateCache(context.Background(), config)
+		if err := manager.InvalidateCache(context.Background(), config); err != nil {
+			t.Errorf("failed to invalidate cache: %v", err)
+		}
 
 		// Should no longer be cached
 		_, exists = manager.GetCachedStatus(context.Background(), config)
@@ -311,7 +325,9 @@ func TestHealthCheckScheduler(t *testing.T) {
 		// Create test server
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"status": "healthy"}`))
+			if _, err := w.Write([]byte(`{"status": "healthy"}`)); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
 		}))
 		defer server.Close()
 

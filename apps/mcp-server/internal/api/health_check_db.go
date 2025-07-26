@@ -43,7 +43,9 @@ func (h *HealthCheckDBImpl) GetActiveToolsForHealthCheck(ctx context.Context) ([
 	if err != nil {
 		return nil, fmt.Errorf("failed to query active tools: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close() // Ignore error on close
+	}()
 
 	var configs []tools.ToolConfig
 	for rows.Next() {
@@ -96,7 +98,7 @@ func (h *HealthCheckDBImpl) GetActiveToolsForHealthCheck(ctx context.Context) ([
 		}
 
 		if retryPolicyJSON.Valid {
-			var retryPolicy tools.RetryPolicy
+			var retryPolicy tools.ToolRetryPolicy
 			if err := json.Unmarshal([]byte(retryPolicyJSON.String), &retryPolicy); err != nil {
 				return nil, fmt.Errorf("failed to parse retry policy JSON: %w", err)
 			}
@@ -104,7 +106,7 @@ func (h *HealthCheckDBImpl) GetActiveToolsForHealthCheck(ctx context.Context) ([
 		}
 
 		if healthConfigJSON.Valid {
-			var healthConfig tools.HealthConfig
+			var healthConfig tools.HealthCheckConfig
 			if err := json.Unmarshal([]byte(healthConfigJSON.String), &healthConfig); err != nil {
 				return nil, fmt.Errorf("failed to parse health config JSON: %w", err)
 			}
@@ -144,9 +146,9 @@ func (h *HealthCheckDBImpl) UpdateToolHealthStatus(ctx context.Context, tenantID
 		"is_healthy":    status.IsHealthy,
 		"last_checked":  status.LastChecked,
 		"response_time": status.ResponseTime,
-		"message":       status.Message,
+		"error":         status.Error,
 		"details":       status.Details,
-		"api_version":   status.APIVersion,
+		"version":       status.Version,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to marshal health status: %w", err)

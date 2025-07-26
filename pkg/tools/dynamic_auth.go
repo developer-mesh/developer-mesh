@@ -173,9 +173,10 @@ func (a *DynamicAuthenticator) DetermineAuthType(schemes map[string]SecuritySche
 	for _, scheme := range schemes {
 		switch scheme.Type {
 		case "http":
-			if scheme.Scheme == "bearer" {
+			switch scheme.Scheme {
+			case "bearer":
 				return "bearer"
-			} else if scheme.Scheme == "basic" {
+			case "basic":
 				return "basic"
 			}
 		case "apiKey":
@@ -200,7 +201,8 @@ func (a *DynamicAuthenticator) BuildCredentialTemplate(schemes map[string]Securi
 	for _, scheme := range schemes {
 		switch scheme.Type {
 		case "http":
-			if scheme.Scheme == "bearer" {
+			switch scheme.Scheme {
+			case "bearer":
 				template.SupportedTypes = append(template.SupportedTypes, "bearer")
 				template.Fields = append(template.Fields, CredentialField{
 					Name:        "token",
@@ -208,7 +210,7 @@ func (a *DynamicAuthenticator) BuildCredentialTemplate(schemes map[string]Securi
 					Required:    true,
 					Description: "Bearer token for authentication",
 				})
-			} else if scheme.Scheme == "basic" {
+			case "basic":
 				template.SupportedTypes = append(template.SupportedTypes, "basic")
 				template.Fields = append(template.Fields,
 					CredentialField{
@@ -238,11 +240,12 @@ func (a *DynamicAuthenticator) BuildCredentialTemplate(schemes map[string]Securi
 			}
 
 			// Add metadata about where the key goes
-			if scheme.In == "header" {
+			switch scheme.In {
+			case "header":
 				field.Metadata = map[string]string{
 					"header_name": scheme.ParamName,
 				}
-			} else if scheme.In == "query" {
+			case "query":
 				field.Metadata = map[string]string{
 					"query_param": scheme.ParamName,
 				}

@@ -61,7 +61,11 @@ func (s *DynamicToolService) ListTools(ctx context.Context, tenantID string, sta
 	if err != nil {
 		return nil, fmt.Errorf("failed to query tools: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			s.logger.Debugf("failed to close rows: %v", err)
+		}
+	}()
 
 	var tools []*Tool
 	for rows.Next() {
@@ -100,21 +104,21 @@ func (s *DynamicToolService) GetTool(ctx context.Context, tenantID, toolID strin
 	tool, err := s.scanToolWithCredentials(row)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, ErrToolNotFound
+			return nil, ErrDynamicToolNotFound
 		}
 		return nil, fmt.Errorf("failed to get tool: %w", err)
 	}
 
 	// Decrypt credentials
-	if tool.Config.Credential != nil && tool.Config.Credential.Token != "" {
-		decrypted, err := s.encryptionSvc.DecryptCredential([]byte(tool.Config.Credential.Token), tenantID)
+	if tool.InternalConfig.Credential != nil && tool.InternalConfig.Credential.Token != "" {
+		decrypted, err := s.encryptionSvc.DecryptCredential([]byte(tool.InternalConfig.Credential.Token), tenantID)
 		if err != nil {
 			s.logger.Error("Failed to decrypt credentials", map[string]interface{}{
 				"tool_id": toolID,
 				"error":   err.Error(),
 			})
 		} else {
-			tool.Config.Credential.Token = decrypted
+			tool.InternalConfig.Credential.Token = decrypted
 		}
 	}
 
@@ -183,7 +187,7 @@ func (s *DynamicToolService) CreateTool(ctx context.Context, config tools.ToolCo
 		Status:           "active",
 		CreatedAt:        createdAt.Format(time.RFC3339),
 		UpdatedAt:        updatedAt.Format(time.RFC3339),
-		Config:           config,
+		InternalConfig:   config,
 	}
 
 	// Update cache
@@ -228,7 +232,7 @@ func (s *DynamicToolService) UpdateTool(ctx context.Context, config tools.ToolCo
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, ErrToolNotFound
+			return nil, ErrDynamicToolNotFound
 		}
 		return nil, fmt.Errorf("failed to update tool: %w", err)
 	}
@@ -259,7 +263,7 @@ func (s *DynamicToolService) DeleteTool(ctx context.Context, tenantID, toolID st
 	}
 
 	if rowsAffected == 0 {
-		return ErrToolNotFound
+		return ErrDynamicToolNotFound
 	}
 
 	// Invalidate cache
@@ -345,7 +349,9 @@ func (s *DynamicToolService) GetDiscoverySession(ctx context.Context, sessionID 
 		session.ErrorMessage = errorMessage.String
 	}
 	if metadata.Valid {
-		json.Unmarshal([]byte(metadata.String), &session.Metadata)
+		if err := json.Unmarshal([]byte(metadata.String), &session.Metadata); err != nil {
+			s.logger.Debugf("failed to unmarshal session metadata: %v", err)
+		}
 	}
 
 	return &session, nil
@@ -431,11 +437,13 @@ func (s *DynamicToolService) CreateToolFromDiscovery(ctx context.Context, sessio
 	}
 
 	// Mark session as confirmed
-	s.db.ExecContext(ctx, `
+	if _, err := s.db.ExecContext(ctx, `
 		UPDATE tool_discovery_sessions
 		SET status = 'confirmed', selected_url = $2
 		WHERE session_id = $1
-	`, session.SessionID, req.SelectedURL)
+	`, session.SessionID, req.SelectedURL); err != nil {
+		s.logger.Debugf("failed to update discovery session: %v", err)
+	}
 
 	return tool, nil
 }
@@ -517,7 +525,7 @@ func (s *DynamicToolService) ExecuteAction(ctx context.Context, tool *Tool, acti
 
 	// Update execution record
 	resultJSON, _ := json.Marshal(result.Result)
-	s.db.ExecContext(ctx, `
+	if _, err := s.db.ExecContext(ctx, `
 		UPDATE tool_executions
 		SET 
 			status = $2,
@@ -525,7 +533,9 @@ func (s *DynamicToolService) ExecuteAction(ctx context.Context, tool *Tool, acti
 			response_time_ms = $4,
 			completed_at = NOW()
 		WHERE id = $1
-	`, executionID, result.Status, resultJSON, result.ResponseTime)
+	`, executionID, result.Status, resultJSON, result.ResponseTime); err != nil {
+		s.logger.Debugf("failed to update execution record: %v", err)
+	}
 
 	return result, nil
 }
@@ -576,15 +586,19 @@ func (s *DynamicToolService) scanTool(rows *sql.Rows) (*Tool, error) {
 	}
 
 	// Parse JSON fields
-	json.Unmarshal(configJSON, &tool.Config)
-	json.Unmarshal(retryPolicyJSON, &tool.RetryPolicy)
+	if err := json.Unmarshal(configJSON, &tool.Config); err != nil {
+		s.logger.Debugf("failed to unmarshal tool config: %v", err)
+	}
+	if err := json.Unmarshal(retryPolicyJSON, &tool.RetryPolicy); err != nil {
+		s.logger.Debugf("failed to unmarshal retry policy: %v", err)
+	}
 
 	// Set timestamps
 	tool.CreatedAt = createdAt.Format(time.RFC3339)
 	tool.UpdatedAt = updatedAt.Format(time.RFC3339)
 
 	// Build tool config
-	tool.Config = tools.ToolConfig{
+	tool.InternalConfig = tools.ToolConfig{
 		ID:          tool.ID,
 		TenantID:    tool.TenantID,
 		Name:        tool.Name,
@@ -613,15 +627,19 @@ func (s *DynamicToolService) scanToolWithCredentials(row *sql.Row) (*Tool, error
 	}
 
 	// Parse JSON fields
-	json.Unmarshal(configJSON, &tool.Config)
-	json.Unmarshal(retryPolicyJSON, &tool.RetryPolicy)
+	if err := json.Unmarshal(configJSON, &tool.Config); err != nil {
+		s.logger.Debugf("failed to unmarshal tool config: %v", err)
+	}
+	if err := json.Unmarshal(retryPolicyJSON, &tool.RetryPolicy); err != nil {
+		s.logger.Debugf("failed to unmarshal retry policy: %v", err)
+	}
 
 	// Set timestamps
 	tool.CreatedAt = createdAt.Format(time.RFC3339)
 	tool.UpdatedAt = updatedAt.Format(time.RFC3339)
 
 	// Build tool config
-	tool.Config = tools.ToolConfig{
+	tool.InternalConfig = tools.ToolConfig{
 		ID:          tool.ID,
 		TenantID:    tool.TenantID,
 		Name:        tool.Name,
@@ -631,7 +649,7 @@ func (s *DynamicToolService) scanToolWithCredentials(row *sql.Row) (*Tool, error
 
 	// Handle credentials
 	if len(credentialsEncrypted) > 0 {
-		tool.Config.Credential = &models.TokenCredential{
+		tool.InternalConfig.Credential = &models.TokenCredential{
 			Type:  tool.AuthType,
 			Token: string(credentialsEncrypted),
 		}

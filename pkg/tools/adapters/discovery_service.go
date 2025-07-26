@@ -326,7 +326,12 @@ func (s *DiscoveryService) fetchAndParseSpec(ctx context.Context, specURL string
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Log error but don't fail the operation
+			s.logger.Debugf("failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
@@ -379,7 +384,12 @@ func (s *DiscoveryService) checkForOpenAPIDocument(ctx context.Context, url stri
 	if err != nil {
 		return false
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Log error but don't fail the operation
+			s.logger.Debugf("failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return false
@@ -414,7 +424,12 @@ func (s *DiscoveryService) discoverFromHTML(ctx context.Context, baseURL string,
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Log error but don't fail the operation
+			s.logger.Debugf("failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)

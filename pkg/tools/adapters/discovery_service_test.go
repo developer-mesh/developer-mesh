@@ -23,7 +23,9 @@ func TestDiscoveryService(t *testing.T) {
 		spec := createTestOpenAPISpec()
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(spec)
+			if err := json.NewEncoder(w).Encode(spec); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
 		}))
 		defer server.Close()
 
@@ -45,7 +47,9 @@ func TestDiscoveryService(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/swagger.json" {
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(spec)
+				if err := json.NewEncoder(w).Encode(spec); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
 			} else {
 				http.NotFound(w, r)
 			}
@@ -70,7 +74,9 @@ func TestDiscoveryService(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == customPath {
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(spec)
+				if err := json.NewEncoder(w).Encode(spec); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
 			} else {
 				http.NotFound(w, r)
 			}
@@ -113,7 +119,9 @@ func TestDiscoveryService(t *testing.T) {
 	t.Run("InvalidOpenAPISpec", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
-			w.Write([]byte(`{"invalid": "not an openapi spec"}`))
+			if _, err := w.Write([]byte(`{"invalid": "not an openapi spec"}`)); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
 		}))
 		defer server.Close()
 
@@ -133,7 +141,9 @@ func TestDiscoveryService(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Header.Get("Authorization") == "Bearer test-token" {
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(spec)
+				if err := json.NewEncoder(w).Encode(spec); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
 			} else {
 				w.WriteHeader(http.StatusUnauthorized)
 			}

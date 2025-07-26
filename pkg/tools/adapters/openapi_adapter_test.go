@@ -24,7 +24,9 @@ func TestOpenAPIAdapter(t *testing.T) {
 		spec := createTestOpenAPISpec()
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(spec)
+			if err := json.NewEncoder(w).Encode(spec); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
 		}))
 		defer server.Close()
 

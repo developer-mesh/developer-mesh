@@ -304,7 +304,12 @@ func (v *URLValidator) validateTLS(ctx context.Context, host, port string) error
 	if err != nil {
 		return fmt.Errorf("TLS connection failed: %w", err)
 	}
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			// Connection close error is not critical
+			_ = err
+		}
+	}()
 
 	// Get certificates
 	certs := conn.ConnectionState().PeerCertificates

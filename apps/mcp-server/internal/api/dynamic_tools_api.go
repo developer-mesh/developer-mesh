@@ -97,7 +97,7 @@ func (api *DynamicToolsAPI) ListTools(c *gin.Context) {
 	// Optionally include health status
 	if includeHealth {
 		for i := range tools {
-			if status, ok := api.healthCheckMgr.GetCachedStatus(c.Request.Context(), tools[i].Config); ok {
+			if status, ok := api.healthCheckMgr.GetCachedStatus(c.Request.Context(), tools[i].InternalConfig); ok {
 				tools[i].HealthStatus = status
 			}
 		}
@@ -175,6 +175,9 @@ func (api *DynamicToolsAPI) CreateTool(c *gin.Context) {
 			// Generate tools from spec
 			generatedTools, err := api.openAPIAdapter.GenerateTools(config, discovery.OpenAPISpec)
 			if err == nil {
+				if config.Config == nil {
+					config.Config = make(map[string]interface{})
+				}
 				config.Config["generated_tools_count"] = len(generatedTools)
 				config.Config["capabilities"] = discovery.Capabilities
 			}
@@ -218,7 +221,7 @@ func (api *DynamicToolsAPI) GetTool(c *gin.Context) {
 
 	tool, err := api.toolService.GetTool(c.Request.Context(), tenantID, toolID)
 	if err != nil {
-		if err == ErrToolNotFound {
+		if err == ErrDynamicToolNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "tool not found"})
 			return
 		}
@@ -227,7 +230,7 @@ func (api *DynamicToolsAPI) GetTool(c *gin.Context) {
 	}
 
 	// Include health status
-	if status, ok := api.healthCheckMgr.GetCachedStatus(c.Request.Context(), tool.Config); ok {
+	if status, ok := api.healthCheckMgr.GetCachedStatus(c.Request.Context(), tool.InternalConfig); ok {
 		tool.HealthStatus = status
 	}
 
@@ -248,7 +251,7 @@ func (api *DynamicToolsAPI) UpdateTool(c *gin.Context) {
 	// Get existing tool
 	existing, err := api.toolService.GetTool(c.Request.Context(), tenantID, toolID)
 	if err != nil {
-		if err == ErrToolNotFound {
+		if err == ErrDynamicToolNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "tool not found"})
 			return
 		}
@@ -258,38 +261,41 @@ func (api *DynamicToolsAPI) UpdateTool(c *gin.Context) {
 
 	// Update fields
 	if req.Name != "" {
-		existing.Config.Name = req.Name
+		existing.InternalConfig.Name = req.Name
 	}
 	if req.BaseURL != "" {
-		existing.Config.BaseURL = req.BaseURL
+		existing.InternalConfig.BaseURL = req.BaseURL
 	}
 	if req.DocumentationURL != "" {
-		existing.Config.DocumentationURL = req.DocumentationURL
+		existing.InternalConfig.DocumentationURL = req.DocumentationURL
 	}
 	if req.OpenAPIURL != "" {
-		existing.Config.OpenAPIURL = req.OpenAPIURL
+		existing.InternalConfig.OpenAPIURL = req.OpenAPIURL
 	}
 	if req.Config != nil {
 		for k, v := range req.Config {
-			existing.Config.Config[k] = v
+			existing.InternalConfig.Config[k] = v
 		}
 	}
 	if req.RetryPolicy != nil {
-		existing.Config.RetryPolicy = req.RetryPolicy
+		existing.InternalConfig.RetryPolicy = req.RetryPolicy
 	}
 	if req.HealthConfig != nil {
-		existing.Config.HealthConfig = req.HealthConfig
+		existing.InternalConfig.HealthConfig = req.HealthConfig
 	}
 
 	// Update tool
-	updated, err := api.toolService.UpdateTool(c.Request.Context(), existing.Config)
+	updated, err := api.toolService.UpdateTool(c.Request.Context(), existing.InternalConfig)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update tool"})
 		return
 	}
 
 	// Invalidate health cache
-	api.healthCheckMgr.InvalidateCache(c.Request.Context(), updated.Config)
+	if err := api.healthCheckMgr.InvalidateCache(c.Request.Context(), updated.InternalConfig); err != nil {
+		// Log error but don't fail the request
+		api.logger.Debugf("failed to invalidate health cache: %v", err)
+	}
 
 	c.JSON(http.StatusOK, updated)
 }
@@ -301,7 +307,7 @@ func (api *DynamicToolsAPI) DeleteTool(c *gin.Context) {
 
 	err := api.toolService.DeleteTool(c.Request.Context(), tenantID, toolID)
 	if err != nil {
-		if err == ErrToolNotFound {
+		if err == ErrDynamicToolNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "tool not found"})
 			return
 		}
@@ -363,11 +369,15 @@ func (api *DynamicToolsAPI) DiscoverTool(c *gin.Context) {
 
 		result, err := api.openAPIAdapter.DiscoverAPIs(ctx, config)
 		if err != nil {
-			api.toolService.UpdateDiscoverySession(ctx, session.ID, tools.DiscoveryStatusFailed, nil, err)
+			if updateErr := api.toolService.UpdateDiscoverySession(ctx, session.ID, tools.DiscoveryStatusFailed, nil, err); updateErr != nil {
+				api.logger.Errorf("failed to update discovery session: %v", updateErr)
+			}
 			return
 		}
 
-		api.toolService.UpdateDiscoverySession(ctx, session.ID, result.Status, result, nil)
+		if err := api.toolService.UpdateDiscoverySession(ctx, session.ID, result.Status, result, nil); err != nil {
+			api.logger.Errorf("failed to update discovery session: %v", err)
+		}
 	}()
 
 	c.JSON(http.StatusAccepted, session)
@@ -434,7 +444,7 @@ func (api *DynamicToolsAPI) CheckHealth(c *gin.Context) {
 
 	tool, err := api.toolService.GetTool(c.Request.Context(), tenantID, toolID)
 	if err != nil {
-		if err == ErrToolNotFound {
+		if err == ErrDynamicToolNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "tool not found"})
 			return
 		}
@@ -445,7 +455,7 @@ func (api *DynamicToolsAPI) CheckHealth(c *gin.Context) {
 	// Check if cached result is available
 	force := c.Query("force") == "true"
 
-	status, err := api.healthCheckMgr.CheckHealth(c.Request.Context(), tool.Config, force)
+	status, err := api.healthCheckMgr.CheckHealth(c.Request.Context(), tool.InternalConfig, force)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "health check failed", "details": err.Error()})
 		return
@@ -461,7 +471,7 @@ func (api *DynamicToolsAPI) RefreshHealth(c *gin.Context) {
 
 	tool, err := api.toolService.GetTool(c.Request.Context(), tenantID, toolID)
 	if err != nil {
-		if err == ErrToolNotFound {
+		if err == ErrDynamicToolNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "tool not found"})
 			return
 		}
@@ -470,14 +480,17 @@ func (api *DynamicToolsAPI) RefreshHealth(c *gin.Context) {
 	}
 
 	// Force health check
-	status, err := api.healthCheckMgr.CheckHealth(c.Request.Context(), tool.Config, true)
+	status, err := api.healthCheckMgr.CheckHealth(c.Request.Context(), tool.InternalConfig, true)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "health check failed", "details": err.Error()})
 		return
 	}
 
 	// Update tool status in database
-	api.toolService.UpdateHealthStatus(c.Request.Context(), tenantID, toolID, status)
+	if err := api.toolService.UpdateHealthStatus(c.Request.Context(), tenantID, toolID, status); err != nil {
+		// Log error but don't fail the response
+		api.logger.Errorf("failed to update health status: %v", err)
+	}
 
 	c.JSON(http.StatusOK, status)
 }
@@ -497,7 +510,7 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 	// Get tool
 	tool, err := api.toolService.GetTool(c.Request.Context(), tenantID, toolID)
 	if err != nil {
-		if err == ErrToolNotFound {
+		if err == ErrDynamicToolNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "tool not found"})
 			return
 		}
@@ -522,7 +535,7 @@ func (api *DynamicToolsAPI) ListActions(c *gin.Context) {
 
 	tool, err := api.toolService.GetTool(c.Request.Context(), tenantID, toolID)
 	if err != nil {
-		if err == ErrToolNotFound {
+		if err == ErrDynamicToolNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "tool not found"})
 			return
 		}
@@ -558,7 +571,7 @@ func (api *DynamicToolsAPI) UpdateCredentials(c *gin.Context) {
 	// Get existing tool
 	tool, err := api.toolService.GetTool(c.Request.Context(), tenantID, toolID)
 	if err != nil {
-		if err == ErrToolNotFound {
+		if err == ErrDynamicToolNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "tool not found"})
 			return
 		}
@@ -574,7 +587,7 @@ func (api *DynamicToolsAPI) UpdateCredentials(c *gin.Context) {
 	}
 
 	// Update credentials
-	tool.Config.Credential = &models.TokenCredential{
+	tool.InternalConfig.Credential = &models.TokenCredential{
 		Type:         req.AuthType,
 		Token:        string(encrypted),
 		HeaderName:   req.Credentials.HeaderName,
@@ -585,7 +598,7 @@ func (api *DynamicToolsAPI) UpdateCredentials(c *gin.Context) {
 	}
 
 	// Save updated tool
-	if _, err := api.toolService.UpdateTool(c.Request.Context(), tool.Config); err != nil {
+	if _, err := api.toolService.UpdateTool(c.Request.Context(), tool.InternalConfig); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update tool"})
 		return
 	}
@@ -595,7 +608,9 @@ func (api *DynamicToolsAPI) UpdateCredentials(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		api.healthCheckMgr.CheckHealth(ctx, tool.Config, true)
+		if _, err := api.healthCheckMgr.CheckHealth(ctx, tool.InternalConfig, true); err != nil {
+			api.logger.Errorf("failed to run health check: %v", err)
+		}
 	}()
 
 	c.JSON(http.StatusOK, gin.H{"message": "credentials updated successfully"})

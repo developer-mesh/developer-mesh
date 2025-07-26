@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/tools"
 	"github.com/getkin/kin-openapi/openapi3"
@@ -184,7 +186,12 @@ func (a *OpenAPIAdapter) createDynamicHandler(
 		if err != nil {
 			return nil, fmt.Errorf("request failed: %w", err)
 		}
-		defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				// Log error but don't fail the operation
+				a.logger.Debugf("failed to close response body: %v", err)
+			}
+		}()
 
 		// Read response
 		responseBody, err := io.ReadAll(resp.Body)
@@ -199,7 +206,10 @@ func (a *OpenAPIAdapter) createDynamicHandler(
 		if resp.StatusCode >= 400 {
 			var errorResponse map[string]interface{}
 			if strings.Contains(contentType, "application/json") {
-				json.Unmarshal(responseBody, &errorResponse)
+				if err := json.Unmarshal(responseBody, &errorResponse); err != nil {
+					// Log unmarshal error but continue with raw body
+					a.logger.Debugf("failed to unmarshal error response: %v", err)
+				}
 			}
 
 			return nil, fmt.Errorf("API error (status %d): %s",
@@ -330,4 +340,22 @@ func (a *OpenAPIAdapter) sanitizePrefix(s string) string {
 	}, s)
 
 	return strings.ToLower(strings.Trim(result, "_"))
+}
+
+// AuthenticateRequest adds authentication to HTTP requests based on OpenAPI security schemes
+func (a *OpenAPIAdapter) AuthenticateRequest(req *http.Request, creds *models.TokenCredential, securitySchemes map[string]tools.SecurityScheme) error {
+	// Use the dynamic authenticator to apply authentication
+	return a.auth.ApplyAuthentication(req, creds)
+}
+
+// TestConnection tests the connection to the tool
+func (a *OpenAPIAdapter) TestConnection(ctx context.Context, config tools.ToolConfig) error {
+	// Use the OpenAPI helper to test connection
+	return a.helper.TestConnection(ctx, config)
+}
+
+// ExtractSecuritySchemes extracts security schemes from OpenAPI spec
+func (a *OpenAPIAdapter) ExtractSecuritySchemes(spec *openapi3.T) map[string]tools.SecurityScheme {
+	// Use the dynamic authenticator to extract security schemes
+	return a.auth.ExtractSecuritySchemes(spec)
 }

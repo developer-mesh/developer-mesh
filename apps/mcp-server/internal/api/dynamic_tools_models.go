@@ -139,7 +139,7 @@ type Tool struct {
 	UpdatedAt        string                   `json:"updated_at"`
 
 	// Internal fields not exposed in JSON
-	Config tools.ToolConfig `json:"-"`
+	InternalConfig tools.ToolConfig `json:"-"`
 }
 
 // DiscoverySession represents an active discovery session
@@ -181,7 +181,7 @@ type ExecutionResult struct {
 
 // Common errors
 var (
-	ErrToolNotFound    = errors.New("tool not found")
-	ErrSessionNotFound = errors.New("discovery session not found")
-	ErrActionNotFound  = errors.New("action not found")
+	ErrDynamicToolNotFound    = errors.New("tool not found")
+	ErrSessionNotFound        = errors.New("discovery session not found")
+	ErrDynamicActionNotFound  = errors.New("action not found")
 )

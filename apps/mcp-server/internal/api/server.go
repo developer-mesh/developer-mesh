@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"reflect"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/security"
 	pgservices "github.com/developer-mesh/developer-mesh/pkg/services"
 	pkgtools "github.com/developer-mesh/developer-mesh/pkg/tools"
+	"github.com/developer-mesh/developer-mesh/pkg/tools/adapters"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 	swaggerFiles "github.com/swaggo/files"
@@ -293,13 +295,27 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 // initializeDynamicTools initializes the dynamic tools subsystem
 func (s *Server) initializeDynamicTools(ctx context.Context) error {
 	// Create encryption service
-	s.encryptionService = security.NewEncryptionService(s.logger)
+	// TODO: Get master key from config
+	masterKey := os.Getenv("ENCRYPTION_MASTER_KEY")
+	if masterKey == "" {
+		masterKey = "default-master-key-for-development" // WARNING: Use proper key in production
+	}
+	s.encryptionService = security.NewEncryptionService(masterKey)
 
 	// Create health check manager
-	healthCheckManager := pkgtools.NewHealthCheckManager(s.logger)
+	// Create cache for health check manager
+	healthCache := cache.NewNoOpCache()
+	
+	// Create OpenAPI adapter as the handler
+	openAPIAdapter := adapters.NewOpenAPIAdapter(s.logger)
+	
+	// Create metrics client (using noop for now)
+	metricsClient := observability.NewNoOpMetricsClient()
+	
+	healthCheckManager := pkgtools.NewHealthCheckManager(healthCache, openAPIAdapter, s.logger, metricsClient)
 
 	// Create health check database implementation
-	healthCheckDB := NewHealthCheckDBImpl(s.db, s.encryptionService)
+	healthCheckDB := NewHealthCheckDBImpl(s.db.DB, s.encryptionService)
 
 	// Create health check scheduler
 	healthCheckInterval := 5 * time.Minute // Default health check interval
@@ -311,7 +327,7 @@ func (s *Server) initializeDynamicTools(ctx context.Context) error {
 	)
 
 	// Create dynamic tool service
-	dynamicToolService := NewDynamicToolService(s.db, s.encryptionService, s.logger)
+	dynamicToolService := NewDynamicToolService(s.db.DB, s.logger, s.encryptionService)
 
 	// Create audit logger
 	auditLogger := auth.NewAuditLogger(s.logger)
@@ -751,3 +767,4 @@ func (s *Server) SetMultiAgentServices(
 		s.logger.Warn("WebSocket server is nil, cannot set services", nil)
 	}
 }
+

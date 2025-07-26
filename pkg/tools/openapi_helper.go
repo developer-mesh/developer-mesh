@@ -356,7 +356,12 @@ func (h *OpenAPIHelper) TestConnection(ctx context.Context, config ToolConfig) e
 	if err != nil {
 		return fmt.Errorf("connection test failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Log error but don't fail the operation
+			h.logger.Debugf("failed to close response body: %v", err)
+		}
+	}()
 
 	// Check for authentication errors
 	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
@@ -379,9 +384,7 @@ func (h *OpenAPIHelper) BuildRequestURL(baseURL, path string, params map[string]
 	// Replace {param} style parameters
 	for key, value := range params {
 		placeholder := fmt.Sprintf("{%s}", key)
-		if strings.Contains(reqURL, placeholder) {
-			reqURL = strings.Replace(reqURL, placeholder, fmt.Sprintf("%v", value), 1)
-		}
+		reqURL = strings.Replace(reqURL, placeholder, fmt.Sprintf("%v", value), 1)
 	}
 
 	// Add query parameters

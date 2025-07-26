@@ -21,11 +21,18 @@ func NewValidationMiddleware() *ValidationMiddleware {
 	v := validator.New()
 
 	// Register custom validators
-	v.RegisterValidation("url", validateURL)
-	v.RegisterValidation("tool_name", validateToolName)
-	v.RegisterValidation("auth_type", validateAuthType)
-	v.RegisterValidation("no_sql", validateNoSQL)
-	v.RegisterValidation("safe_json", validateSafeJSON)
+	if err := v.RegisterValidation("url", validateURL); err != nil {
+		// Log error but continue - validation will fail if used
+		panic(fmt.Sprintf("failed to register url validator: %v", err))
+	}
+	if err := v.RegisterValidation("tool_name", validateToolName); err != nil {
+		panic(fmt.Sprintf("failed to register tool_name validator: %v", err))
+	}
+	if err := v.RegisterValidation("auth_type", validateAuthType); err != nil {
+		panic(fmt.Sprintf("failed to register auth_type validator: %v", err))
+	}
+	_ = v.RegisterValidation("no_sql", validateNoSQL)
+	_ = v.RegisterValidation("safe_json", validateSafeJSON)
 
 	return &ValidationMiddleware{
 		validator: v,
