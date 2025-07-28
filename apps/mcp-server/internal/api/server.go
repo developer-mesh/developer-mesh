@@ -60,7 +60,6 @@ type Server struct {
 	searchAPIProxy  repository.SearchRepository    // Proxy for search operations
 	// WebSocket server
 	wsServer        *websocket.Server
-	webhookAPIProxy proxies.WebhookRepository // Proxy for webhook operations
 	// Multi-agent services
 	taskService      pgservices.TaskService
 	workflowService  pgservices.WorkflowService
@@ -301,12 +300,13 @@ func (s *Server) initializeDynamicTools(ctx context.Context) error {
 		// Generate a random key if not provided, but log a warning
 		randomKey, err := security.GenerateSecureToken(32)
 		if err != nil {
-			s.logger.Error("Failed to generate encryption key", "error", err)
+			s.logger.Error("Failed to generate encryption key", map[string]interface{}{"error": err})
 			return fmt.Errorf("encryption key not provided and failed to generate: %w", err)
 		}
 		masterKey = randomKey
-		s.logger.Warn("ENCRYPTION_MASTER_KEY not set - using randomly generated key. This is not suitable for production!",
-			"recommendation", "Set ENCRYPTION_MASTER_KEY environment variable with a secure 32+ character key")
+		s.logger.Warn("ENCRYPTION_MASTER_KEY not set - using randomly generated key. This is not suitable for production!", map[string]interface{}{
+			"recommendation": "Set ENCRYPTION_MASTER_KEY environment variable with a secure 32+ character key",
+		})
 	}
 	s.encryptionService = security.NewEncryptionService(masterKey)
 
@@ -389,12 +389,6 @@ func (s *Server) Initialize(ctx context.Context) error {
 			s.logger.Info("Initialized Mock Search Repository for temporary use", nil)
 		}
 
-		// Webhook repository initialization
-		if s.webhookAPIProxy == nil {
-			// Using mock implementation until rest client is fully integrated
-			s.webhookAPIProxy = proxies.NewMockWebhookRepository(s.logger)
-			s.logger.Info("Initialized Mock Webhook Repository for temporary use", nil)
-		}
 	}
 
 	// Initialize dynamic tools components

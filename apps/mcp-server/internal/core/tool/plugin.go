@@ -14,7 +14,7 @@ type ToolPlugin interface {
 	DiscoverAPIs(ctx context.Context, config ToolConfig) (*DiscoveryResult, error)
 
 	// Tool generation from ANY OpenAPI spec
-	GenerateTools(config ToolConfig, spec *openapi3.T) ([]*Tool, error)
+	GenerateTools(config ToolConfig, spec *openapi3.T) ([]*DynamicTool, error)
 
 	// Dynamic authentication based on security schemes
 	AuthenticateRequest(req *http.Request, creds *TokenCredential) error
@@ -130,8 +130,8 @@ type CredentialField struct {
 	Example     string `json:"example,omitempty"`
 }
 
-// Tool represents a dynamically generated tool
-type Tool struct {
+// DynamicTool represents a dynamically generated tool from OpenAPI
+type DynamicTool struct {
 	ID          string           `json:"id"`
 	Name        string           `json:"name"`
 	Description string           `json:"description"`

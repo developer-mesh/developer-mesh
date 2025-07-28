@@ -45,7 +45,7 @@ func NewHealthChecker(logger observability.Logger) *HealthChecker {
 // CheckHealth performs a health check on a tool
 func (h *HealthChecker) CheckHealth(ctx context.Context, config *tool.ToolConfig) *tool.HealthStatus {
 	// Check cache first
-	if cached := h.GetCachedHealth(config.ID); cached != nil && !cached.IsStale() {
+	if cached := h.GetCachedHealth(config.ID); cached != nil && !h.isHealthStale(cached) {
 		cached.WasCached = true
 		return cached
 	}
@@ -260,8 +260,8 @@ func (h *HealthChecker) GetCacheStats() map[string]interface{} {
 	}
 }
 
-// IsStale method for HealthStatus
-func (s *tool.HealthStatus) IsStale() bool {
-	// Consider stale if older than 10 minutes
-	return time.Since(s.LastChecked) > 10*time.Minute
+// isHealthStale checks if a health status is stale
+func (h *HealthChecker) isHealthStale(status *tool.HealthStatus) bool {
+	// Consider stale if older than cache duration
+	return time.Since(status.LastChecked) > h.cacheDuration
 }

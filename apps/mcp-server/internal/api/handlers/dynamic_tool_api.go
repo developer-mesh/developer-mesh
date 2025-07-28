@@ -8,7 +8,6 @@ import (
 
 	"github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/core/tool"
 	"github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/services"
-	"github.com/developer-mesh/developer-mesh/pkg/auth"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -70,9 +69,12 @@ func (api *DynamicToolAPI) RegisterRoutes(router *gin.RouterGroup) {
 
 // listTools returns all tools for the authenticated tenant
 func (api *DynamicToolAPI) listTools(c *gin.Context) {
-	// Get tenant from auth context
-	claims, _ := auth.GetClaims(c)
-	tenantID := claims.TenantID
+	// Get tenant from context
+	tenantID := c.GetString("tenant_id")
+	if tenantID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing tenant ID"})
+		return
+	}
 
 	tools, err := api.toolRegistry.ListToolsForTenant(c.Request.Context(), tenantID)
 	if err != nil {
@@ -114,8 +116,11 @@ func (api *DynamicToolAPI) listTools(c *gin.Context) {
 
 // registerTool creates a new tool for the tenant
 func (api *DynamicToolAPI) registerTool(c *gin.Context) {
-	claims, _ := auth.GetClaims(c)
-	tenantID := claims.TenantID
+	tenantID := c.GetString("tenant_id")
+	if tenantID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing tenant ID"})
+		return
+	}
 
 	var request struct {
 		Name             string                  `json:"name" binding:"required"`
@@ -183,7 +188,8 @@ func (api *DynamicToolAPI) registerTool(c *gin.Context) {
 	}
 
 	// Register the tool
-	result, err := api.toolRegistry.RegisterTool(c.Request.Context(), tenantID, config, claims.UserID)
+	userID := c.GetString("user_id")
+	result, err := api.toolRegistry.RegisterTool(c.Request.Context(), tenantID, config, userID)
 	if err != nil {
 		api.logger.Error("Failed to register tool", map[string]interface{}{
 			"error":     err.Error(),
@@ -236,8 +242,11 @@ func (api *DynamicToolAPI) registerTool(c *gin.Context) {
 
 // startDiscovery initiates a tool discovery session
 func (api *DynamicToolAPI) startDiscovery(c *gin.Context) {
-	claims, _ := auth.GetClaims(c)
-	tenantID := claims.TenantID
+	tenantID := c.GetString("tenant_id")
+	if tenantID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing tenant ID"})
+		return
+	}
 
 	var request struct {
 		BaseURL string                 `json:"base_url" binding:"required"`
@@ -273,8 +282,11 @@ func (api *DynamicToolAPI) startDiscovery(c *gin.Context) {
 
 // confirmDiscovery confirms a discovery selection
 func (api *DynamicToolAPI) confirmDiscovery(c *gin.Context) {
-	claims, _ := auth.GetClaims(c)
-	tenantID := claims.TenantID
+	tenantID := c.GetString("tenant_id")
+	if tenantID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing tenant ID"})
+		return
+	}
 	sessionID := c.Param("session_id")
 
 	var request struct {
@@ -328,8 +340,11 @@ func (api *DynamicToolAPI) confirmDiscovery(c *gin.Context) {
 
 // getToolDetails returns details about a specific tool
 func (api *DynamicToolAPI) getToolDetails(c *gin.Context) {
-	claims, _ := auth.GetClaims(c)
-	tenantID := claims.TenantID
+	tenantID := c.GetString("tenant_id")
+	if tenantID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing tenant ID"})
+		return
+	}
 	toolName := c.Param("tool")
 
 	tool, err := api.toolRegistry.GetToolForTenant(c.Request.Context(), tenantID, toolName)
@@ -361,8 +376,11 @@ func (api *DynamicToolAPI) getToolDetails(c *gin.Context) {
 
 // updateTool updates a tool configuration
 func (api *DynamicToolAPI) updateTool(c *gin.Context) {
-	claims, _ := auth.GetClaims(c)
-	tenantID := claims.TenantID
+	tenantID := c.GetString("tenant_id")
+	if tenantID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing tenant ID"})
+		return
+	}
 	toolName := c.Param("tool")
 
 	var request map[string]interface{}
@@ -415,8 +433,11 @@ func (api *DynamicToolAPI) updateTool(c *gin.Context) {
 
 // deleteTool removes a tool
 func (api *DynamicToolAPI) deleteTool(c *gin.Context) {
-	claims, _ := auth.GetClaims(c)
-	tenantID := claims.TenantID
+	tenantID := c.GetString("tenant_id")
+	if tenantID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing tenant ID"})
+		return
+	}
 	toolName := c.Param("tool")
 
 	err := api.toolRegistry.DeleteTool(c.Request.Context(), tenantID, toolName)
@@ -441,8 +462,11 @@ func (api *DynamicToolAPI) deleteTool(c *gin.Context) {
 
 // testConnection tests tool connectivity
 func (api *DynamicToolAPI) testConnection(c *gin.Context) {
-	claims, _ := auth.GetClaims(c)
-	tenantID := claims.TenantID
+	tenantID := c.GetString("tenant_id")
+	if tenantID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing tenant ID"})
+		return
+	}
 	toolName := c.Param("tool")
 
 	health, err := api.toolRegistry.TestConnection(c.Request.Context(), tenantID, toolName)
@@ -471,8 +495,11 @@ func (api *DynamicToolAPI) testConnection(c *gin.Context) {
 
 // listToolActions returns available actions for a tool
 func (api *DynamicToolAPI) listToolActions(c *gin.Context) {
-	claims, _ := auth.GetClaims(c)
-	tenantID := claims.TenantID
+	tenantID := c.GetString("tenant_id")
+	if tenantID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing tenant ID"})
+		return
+	}
 	toolName := c.Param("tool")
 
 	actions, err := api.toolRegistry.GetToolActions(c.Request.Context(), tenantID, toolName)
@@ -508,8 +535,11 @@ func (api *DynamicToolAPI) listToolActions(c *gin.Context) {
 
 // getActionDetails returns details about a specific action
 func (api *DynamicToolAPI) getActionDetails(c *gin.Context) {
-	claims, _ := auth.GetClaims(c)
-	tenantID := claims.TenantID
+	tenantID := c.GetString("tenant_id")
+	if tenantID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing tenant ID"})
+		return
+	}
 	toolName := c.Param("tool")
 	actionName := c.Param("action")
 
@@ -537,8 +567,11 @@ func (api *DynamicToolAPI) getActionDetails(c *gin.Context) {
 
 // executeAction executes a tool action
 func (api *DynamicToolAPI) executeAction(c *gin.Context) {
-	claims, _ := auth.GetClaims(c)
-	tenantID := claims.TenantID
+	tenantID := c.GetString("tenant_id")
+	if tenantID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing tenant ID"})
+		return
+	}
 	toolName := c.Param("tool")
 	actionName := c.Param("action")
 
@@ -562,7 +595,7 @@ func (api *DynamicToolAPI) executeAction(c *gin.Context) {
 		toolName,
 		actionName,
 		request.Parameters,
-		claims.UserID,
+		c.GetString("user_id"),
 	)
 
 	if err != nil {
@@ -671,15 +704,15 @@ func (api *DynamicToolAPI) githubCompatibilityMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Intercept old GitHub routes
 		if strings.Contains(c.Request.URL.Path, "/tools/github/") {
-			// Get tenant from auth context
-			claims, exists := auth.GetClaims(c)
-			if !exists {
+			// Get tenant from context
+			tenantID := c.GetString("tenant_id")
+			if tenantID == "" {
 				c.Next()
 				return
 			}
 
 			// Look up migrated GitHub tool
-			tool, err := api.toolRegistry.GetToolByType(c.Request.Context(), claims.TenantID, "github")
+			tool, err := api.toolRegistry.GetToolByType(c.Request.Context(), tenantID, "github")
 			if err != nil {
 				c.JSON(http.StatusNotFound, gin.H{
 					"error":          "GitHub tool not found",
@@ -700,7 +733,7 @@ func (api *DynamicToolAPI) githubCompatibilityMiddleware() gin.HandlerFunc {
 			)
 
 			api.logger.Info("GitHub compatibility redirect", map[string]interface{}{
-				"tenant_id": claims.TenantID,
+				"tenant_id": tenantID,
 				"old_path":  oldPath,
 				"new_path":  c.Request.URL.Path,
 			})

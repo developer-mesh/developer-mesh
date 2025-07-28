@@ -19,7 +19,7 @@ type ToolRegistry struct {
 
 	// Cache for loaded tools per tenant
 	mu         sync.RWMutex
-	toolsCache map[string]map[string][]*tool.Tool // tenantID -> toolName -> tools
+	toolsCache map[string]map[string][]*tool.DynamicTool // tenantID -> toolName -> tools
 }
 
 // NewToolRegistry creates a new tool registry
@@ -33,7 +33,7 @@ func NewToolRegistry(
 		openAPIAdapter: openapi.NewOpenAPIAdapter(),
 		healthChecker:  healthChecker,
 		logger:         logger,
-		toolsCache:     make(map[string]map[string][]*tool.Tool),
+		toolsCache:     make(map[string]map[string][]*tool.DynamicTool),
 	}
 }
 
@@ -109,7 +109,7 @@ func (r *ToolRegistry) ListToolsForTenant(ctx context.Context, tenantID string) 
 }
 
 // GetToolActions returns the available actions for a tool
-func (r *ToolRegistry) GetToolActions(ctx context.Context, tenantID, toolName string) ([]*tool.Tool, error) {
+func (r *ToolRegistry) GetToolActions(ctx context.Context, tenantID, toolName string) ([]*tool.DynamicTool, error) {
 	// Check cache first
 	r.mu.RLock()
 	if tenantTools, ok := r.toolsCache[tenantID]; ok {
@@ -145,7 +145,7 @@ func (r *ToolRegistry) GetToolActions(ctx context.Context, tenantID, toolName st
 	// Cache the tools
 	r.mu.Lock()
 	if r.toolsCache[tenantID] == nil {
-		r.toolsCache[tenantID] = make(map[string][]*tool.Tool)
+		r.toolsCache[tenantID] = make(map[string][]*tool.DynamicTool)
 	}
 	r.toolsCache[tenantID][toolName] = tools
 	r.mu.Unlock()
@@ -154,7 +154,7 @@ func (r *ToolRegistry) GetToolActions(ctx context.Context, tenantID, toolName st
 }
 
 // GetToolAction returns a specific action for a tool
-func (r *ToolRegistry) GetToolAction(ctx context.Context, tenantID, toolName, actionName string) (*tool.Tool, error) {
+func (r *ToolRegistry) GetToolAction(ctx context.Context, tenantID, toolName, actionName string) (*tool.DynamicTool, error) {
 	actions, err := r.GetToolActions(ctx, tenantID, toolName)
 	if err != nil {
 		return nil, err

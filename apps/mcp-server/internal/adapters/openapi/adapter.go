@@ -149,10 +149,10 @@ func (a *OpenAPIAdapter) DiscoverAPIs(ctx context.Context, config tool.ToolConfi
 }
 
 // GenerateTools creates tool definitions from an OpenAPI spec
-func (a *OpenAPIAdapter) GenerateTools(config tool.ToolConfig, spec *openapi3.T) ([]*tool.Tool, error) {
-	var tools []*tool.Tool
+func (a *OpenAPIAdapter) GenerateTools(config tool.ToolConfig, spec *openapi3.T) ([]*tool.DynamicTool, error) {
+	var tools []*tool.DynamicTool
 
-	for path, pathItem := range spec.Paths {
+	for path, pathItem := range spec.Paths.Map() {
 		for method, operation := range pathItem.Operations() {
 			if operation == nil {
 				continue
@@ -314,7 +314,7 @@ func (a *OpenAPIAdapter) loadOpenAPISpec(ctx context.Context, specURL string, cr
 func (a *OpenAPIAdapter) extractCapabilities(spec *openapi3.T) []tool.Capability {
 	capabilities := make(map[string]*tool.Capability)
 
-	for path, pathItem := range spec.Paths {
+	for path, pathItem := range spec.Paths.Map() {
 		for method, operation := range pathItem.Operations() {
 			if operation == nil {
 				continue
@@ -362,7 +362,7 @@ func (a *OpenAPIAdapter) extractCapabilities(spec *openapi3.T) []tool.Capability
 }
 
 // operationToTool converts an OpenAPI operation to a tool definition
-func (a *OpenAPIAdapter) operationToTool(prefix, path, method string, operation *openapi3.Operation) *tool.Tool {
+func (a *OpenAPIAdapter) operationToTool(prefix, path, method string, operation *openapi3.Operation) *tool.DynamicTool {
 	if operation == nil {
 		return nil
 	}
@@ -380,7 +380,7 @@ func (a *OpenAPIAdapter) operationToTool(prefix, path, method string, operation 
 	// Build parameter schema
 	params := &tool.ParameterSchema{
 		Type:       "object",
-		Properties: make(map[string]interface{}),
+		Properties: make(map[string]tool.PropertySchema),
 		Required:   []string{},
 	}
 
@@ -391,9 +391,9 @@ func (a *OpenAPIAdapter) operationToTool(prefix, path, method string, operation 
 		}
 		p := param.Value
 		if p.In == "path" || p.In == "query" {
-			paramSchema := map[string]interface{}{
-				"type":        getSchemaType(p.Schema),
-				"description": p.Description,
+			paramSchema := tool.PropertySchema{
+				Type:        getSchemaType(p.Schema),
+				Description: p.Description,
 			}
 			params.Properties[p.Name] = paramSchema
 			if p.Required {
@@ -408,9 +408,9 @@ func (a *OpenAPIAdapter) operationToTool(prefix, path, method string, operation 
 			if content.Schema.Value != nil && content.Schema.Value.Properties != nil {
 				for propName, propSchema := range content.Schema.Value.Properties {
 					if propSchema.Value != nil {
-						params.Properties[propName] = map[string]interface{}{
-							"type":        getSchemaType(propSchema),
-							"description": propSchema.Value.Description,
+						params.Properties[propName] = tool.PropertySchema{
+							Type:        getSchemaType(propSchema),
+							Description: propSchema.Value.Description,
 						}
 					}
 				}
@@ -428,7 +428,7 @@ func (a *OpenAPIAdapter) operationToTool(prefix, path, method string, operation 
 		description = fmt.Sprintf("%s %s", strings.ToUpper(method), path)
 	}
 
-	return &tool.Tool{
+	return &tool.DynamicTool{
 		ID:          name,
 		Name:        name,
 		Description: description,
@@ -446,8 +446,9 @@ func getSchemaType(schemaRef *openapi3.SchemaRef) string {
 	}
 
 	schema := schemaRef.Value
-	if schema.Type != "" {
-		return schema.Type
+	if schema.Type != nil && len(*schema.Type) > 0 {
+		// Type is a slice, return the first type
+		return (*schema.Type)[0]
 	}
 
 	// Default to string if type is not specified

@@ -173,17 +173,21 @@ func GitHubWebhookHandlerMultiOrg(
 		}
 
 		ctx := r.Context()
-		sqsClient, err := queue.NewSQSClient(ctx)
+		// Create Redis queue client
+		queueClient, err := queue.NewClient(ctx, &queue.Config{
+			Logger: logger,
+		})
 		if err != nil {
-			http.Error(w, "Failed to create SQS client", http.StatusInternalServerError)
-			logger.Error("Failed to create SQS client", map[string]any{"error": err.Error()})
+			http.Error(w, "Failed to create queue client", http.StatusInternalServerError)
+			logger.Error("Failed to create queue client", map[string]any{"error": err.Error()})
 			return
 		}
+		defer queueClient.Close()
 
-		err = sqsClient.EnqueueEvent(ctx, event)
+		err = queueClient.EnqueueEvent(ctx, event)
 		if err != nil {
 			http.Error(w, "Failed to enqueue event", http.StatusInternalServerError)
-			logger.Error("Failed to enqueue event to SQS", map[string]any{"error": err.Error()})
+			logger.Error("Failed to enqueue event to Redis", map[string]any{"error": err.Error()})
 			return
 		}
 

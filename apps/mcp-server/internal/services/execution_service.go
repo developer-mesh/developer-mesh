@@ -151,7 +151,7 @@ func (s *ExecutionService) ExecuteToolAction(
 func (s *ExecutionService) buildRequest(
 	ctx context.Context,
 	config *tool.ToolConfig,
-	action *tool.Tool,
+	action *tool.DynamicTool,
 	parameters map[string]interface{},
 ) (*http.Request, error) {
 	// Build URL
@@ -265,7 +265,7 @@ func (s *ExecutionService) executeHTTPRequest(req *http.Request) (interface{}, e
 }
 
 // validateParameters validates action parameters
-func (s *ExecutionService) validateParameters(action *tool.Tool, parameters map[string]interface{}) error {
+func (s *ExecutionService) validateParameters(action *tool.DynamicTool, parameters map[string]interface{}) error {
 	if action.Parameters == nil {
 		return nil
 	}
@@ -285,12 +285,8 @@ func (s *ExecutionService) validateParameters(action *tool.Tool, parameters map[
 		}
 
 		// Basic type validation
-		if schemaMap, ok := schema.(map[string]interface{}); ok {
-			if typeStr, ok := schemaMap["type"].(string); ok {
-				if err := s.validateType(name, value, typeStr); err != nil {
-					return err
-				}
-			}
+		if err := s.validateType(name, value, schema.Type); err != nil {
+			return err
 		}
 	}
 

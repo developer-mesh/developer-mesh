@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/api/websocket"
-	"github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/config"
 )
 
 // Config holds configuration for the API server
@@ -21,7 +20,6 @@ type Config struct {
 	RateLimit     RateLimitConfig       `mapstructure:"rate_limit"`
 	Versioning    VersioningConfig      `mapstructure:"versioning"`
 	Performance   PerformanceConfig     `mapstructure:"performance"`
-	Webhook       *config.WebhookConfig `mapstructure:"webhook"`
 	RestAPI       RestAPIConfig         `mapstructure:"rest_api"`
 	WebSocket     WebSocketConfig       `mapstructure:"websocket"`
 }
@@ -154,16 +152,6 @@ func DefaultConfig() Config {
 			CircuitBreakerTimeout: 30 * time.Second,
 			MaxRetries:            3,
 			RetryBackoff:          500 * time.Millisecond,
-		},
-		Webhook: &config.WebhookConfig{
-			Enabled: false, // Disabled by default, should be enabled through configuration
-			GitHub: config.GitHubWebhookConfig{
-				Enabled:       false,
-				Endpoint:      "/api/webhooks/github",
-				Secret:        "", // Must be provided through configuration
-				IPValidation:  true,
-				AllowedEvents: []string{},
-			},
 		},
 		RestAPI: RestAPIConfig{
 			Enabled:    true,

@@ -21,7 +21,6 @@ import (
 	// Internal application-specific imports
 	"github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/api"
 	"github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/api/websocket"
-	"github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/config"
 	"github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/core"
 
 	// Shared package imports
@@ -1072,19 +1071,7 @@ func buildAPIConfig(cfg *commonconfig.Config, logger observability.Logger) api.C
 		apiConfig.Auth.JWTSecret = jwtSecret
 	}
 
-	// Configure webhook if available
-	if cfg.API.Webhook != nil {
-		webhookConfig := parseWebhookConfig(cfg.API.Webhook)
-		if webhookConfig != nil && webhookConfig.IsEnabled() {
-			apiConfig.Webhook = webhookConfig
-			// Log webhook configuration (without secrets)
-			logger.Info("Webhook configuration loaded", map[string]interface{}{
-				"enabled":         webhookConfig.IsEnabled(),
-				"github_enabled":  webhookConfig.IsGitHubEnabled(),
-				"github_endpoint": webhookConfig.GitHubEndpoint(),
-			})
-		}
-	}
+	// Webhooks are handled by the REST API, not the MCP server
 
 	// Configure rate limiting
 	if cfg.API.RateLimit != nil {
@@ -1156,68 +1143,6 @@ func parseRateLimitConfig(input interface{}) api.RateLimitConfig {
 		log.Printf("Warning: unexpected type for rate_limit configuration: %T\n", input)
 		return config
 	}
-}
-
-// parseWebhookConfig converts a map[string]interface{} to a WebhookConfig struct
-// This function safely parses the unstructured webhook configuration from YAML/JSON
-// into a strongly-typed WebhookConfig struct, with sensible defaults
-func parseWebhookConfig(webhookMap map[string]interface{}) *config.WebhookConfig {
-	if webhookMap == nil {
-		return nil
-	}
-
-	// Initialize with secure defaults
-	webhookConfig := &config.WebhookConfig{
-		Enabled: false,
-		GitHub: config.GitHubWebhookConfig{
-			Enabled:       false,
-			Endpoint:      "/api/webhooks/github",
-			Secret:        "",
-			IPValidation:  true, // Security best practice: validate source IPs by default
-			AllowedEvents: []string{},
-		},
-	}
-
-	// Parse enabled flag
-	if enabled, ok := webhookMap["enabled"].(bool); ok {
-		webhookConfig.Enabled = enabled
-	}
-
-	// Parse GitHub configuration
-	if githubMap, ok := webhookMap["github"].(map[string]interface{}); ok {
-		if enabled, ok := githubMap["enabled"].(bool); ok {
-			webhookConfig.GitHub.Enabled = enabled
-		}
-		if endpoint, ok := githubMap["endpoint"].(string); ok && endpoint != "" {
-			webhookConfig.GitHub.Endpoint = endpoint
-		}
-		if secret, ok := githubMap["secret"].(string); ok {
-			webhookConfig.GitHub.Secret = secret
-		}
-		// Check for environment variable override for security
-		if envSecret := os.Getenv("GITHUB_WEBHOOK_SECRET"); envSecret != "" {
-			webhookConfig.GitHub.Secret = envSecret
-		}
-		if ipValidation, ok := githubMap["ip_validation"].(bool); ok {
-			webhookConfig.GitHub.IPValidation = ipValidation
-		}
-		if events, ok := githubMap["allowed_events"].([]interface{}); ok {
-			allowedEvents := make([]string, 0, len(events))
-			for _, event := range events {
-				if eventStr, ok := event.(string); ok {
-					allowedEvents = append(allowedEvents, eventStr)
-				}
-			}
-			webhookConfig.GitHub.AllowedEvents = allowedEvents
-		}
-
-		// Warn if webhook is enabled but secret is missing
-		if webhookConfig.GitHub.Enabled && webhookConfig.GitHub.Secret == "" {
-			log.Printf("WARNING: GitHub webhook is enabled but no secret is configured. This is insecure!")
-		}
-	}
-
-	return webhookConfig
 }
 
 // parseWebSocketConfig parses WebSocket configuration

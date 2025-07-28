@@ -54,20 +54,7 @@ func setupMockServer(t *testing.T) *MockServer {
 		c.String(http.StatusOK, "# metrics data will be here")
 	})
 
-	// Add webhook endpoints for testing
-	webhookEndpoints := []string{
-		"/webhook/github",
-		"/webhook/harness",
-		"/webhook/sonarqube",
-		"/webhook/artifactory",
-		"/webhook/xray",
-	}
-
-	for _, endpoint := range webhookEndpoints {
-		router.POST(endpoint, func(c *gin.Context) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing signature"})
-		})
-	}
+	// Webhooks are handled by the REST API, not the MCP server
 
 	// Create minimal configuration
 	config := Config{
@@ -122,33 +109,6 @@ func TestMetricsHandler(t *testing.T) {
 	// Check response
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "metrics data")
-}
-
-func TestWebhookEndpoints(t *testing.T) {
-	server := setupMockServer(t)
-
-	endpoints := []string{
-		"/webhook/github",
-		"/webhook/harness",
-		"/webhook/sonarqube",
-		"/webhook/artifactory",
-		"/webhook/xray",
-	}
-
-	for _, endpoint := range endpoints {
-		t.Run("Endpoint "+endpoint, func(t *testing.T) {
-			// Test route registration is working
-			req := httptest.NewRequest(http.MethodPost, endpoint, nil)
-			w := httptest.NewRecorder()
-
-			// Serve the request
-			server.router.ServeHTTP(w, req)
-
-			// Should return 400 (bad request) but not 404 (not found)
-			assert.Equal(t, http.StatusBadRequest, w.Code)
-			assert.Contains(t, w.Body.String(), "Missing signature")
-		})
-	}
 }
 
 // Test the server shutdown behavior
