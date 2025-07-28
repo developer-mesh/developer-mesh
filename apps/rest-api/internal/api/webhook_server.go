@@ -1,10 +1,7 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
-
-	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/api/webhooks"
 
 	"github.com/gorilla/mux"
 )
@@ -19,52 +16,8 @@ type WebhookProvider struct {
 	Middleware func() mux.MiddlewareFunc // can be nil
 }
 
-// RegisterWebhookRoutes registers webhook routes for all providers on the given router
+// RegisterWebhookRoutes is deprecated - webhook routes are now handled by the dynamic webhook handler
+// This function is kept for backwards compatibility but does nothing
 func (s *Server) RegisterWebhookRoutes(router *mux.Router) {
-	// Add detailed debug logging
-	enabledValue := s.config.Webhook.Enabled()
-	s.logger.Info("Webhook registration debugging", map[string]interface{}{
-		"enabled":         enabledValue,
-		"github_endpoint": s.config.Webhook.GitHubEndpoint(),
-		"secret_length":   len(s.config.Webhook.GitHubSecret()),
-		"struct_type":     fmt.Sprintf("%T", s.config.Webhook),
-	})
-
-	if !enabledValue {
-		s.logger.Info("Webhook support is disabled", nil)
-		return
-	}
-
-	providers := []WebhookProvider{
-		{
-			Name:     "github",
-			Enabled:  func() bool { return s.config.Webhook.GitHubEndpoint() != "" },
-			Endpoint: func() string { return s.config.Webhook.GitHubEndpoint() },
-			Handler: func() http.HandlerFunc {
-				return webhooks.CreateMultiOrgHandler(&s.config.Webhook, s.webhookRepo, s.logger)
-			},
-			Middleware: func() mux.MiddlewareFunc {
-				ipValidator := webhooks.NewGitHubIPValidator(s.logger)
-				return webhooks.GitHubIPValidationMiddleware(ipValidator, &s.config.Webhook, s.logger)
-			},
-		},
-		// Add more providers here as needed
-	}
-
-	for _, provider := range providers {
-		if provider.Enabled() && provider.Endpoint() != "" {
-			pathPrefix := provider.Endpoint()
-			webhookRouter := router.PathPrefix(pathPrefix).Subrouter()
-
-			if provider.Middleware != nil {
-				webhookRouter.Use(provider.Middleware())
-			}
-
-			// Register both with and without trailing slash
-			webhookRouter.HandleFunc("", provider.Handler()).Methods(http.MethodPost)
-			webhookRouter.HandleFunc("/", provider.Handler()).Methods(http.MethodPost)
-
-			s.logger.Info("Registered webhook endpoint", map[string]interface{}{"provider": provider.Name, "path": pathPrefix})
-		}
-	}
+	s.logger.Info("RegisterWebhookRoutes called but is deprecated - using dynamic webhook handler instead", nil)
 }

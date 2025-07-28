@@ -66,7 +66,12 @@ func (r *DiscoveryPatternRepository) LoadPatterns() (map[string]*adapters.Discov
 	if err != nil {
 		return nil, fmt.Errorf("failed to query patterns: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			// Log error but don't fail the operation
+			_ = err
+		}
+	}()
 
 	patterns := make(map[string]*adapters.DiscoveryPattern)
 	for rows.Next() {

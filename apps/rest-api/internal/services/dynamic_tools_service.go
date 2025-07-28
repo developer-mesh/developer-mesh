@@ -47,6 +47,9 @@ type DynamicToolsServiceInterface interface {
 	// Multi-API Discovery operations
 	DiscoverMultipleAPIs(ctx context.Context, portalURL string) (*adapters.MultiAPIDiscoveryResult, error)
 	CreateToolsFromMultipleAPIs(ctx context.Context, tenantID string, result *adapters.MultiAPIDiscoveryResult, baseConfig tools.ToolConfig) ([]*models.DynamicTool, error)
+
+	// Repository access
+	GetDynamicToolRepository() pkgrepository.DynamicToolRepository
 }
 
 // DynamicToolsService implements the dynamic tools business logic
@@ -129,7 +132,13 @@ func (s *DynamicToolsService) ListTools(ctx context.Context, tenantID string, st
 	if err != nil {
 		return nil, fmt.Errorf("failed to query tools: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			s.logger.Warn("Failed to close rows", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	var tools []*models.DynamicTool
 	for rows.Next() {
@@ -338,35 +347,40 @@ func (s *DynamicToolsService) StartDiscovery(ctx context.Context, config tools.T
 
 	// Create discovery session in database
 	session := &models.DiscoverySession{
-		ID:             uuid.New().String(),
-		TenantID:       tenantID,
-		SessionID:      sessionID,
-		BaseURL:        config.BaseURL,
-		Status:         "discovering",
-		DiscoveredURLs: []string{},
+		ID:        uuid.New().String(),
+		TenantID:  tenantID,
+		SessionID: sessionID,
+		BaseURL:   config.BaseURL,
+		Status:    "discovering",
+		DiscoveryResult: &models.DiscoveryResult{
+			Status:         "in_progress",
+			DiscoveredURLs: []string{},
+		},
 		DiscoveryMetadata: map[string]interface{}{
 			"started_at": time.Now(),
 			"config":     config,
 		},
+		CreatedAt: time.Now(),
+		ExpiresAt: time.Now().Add(1 * time.Hour),
 	}
 
 	// Insert into database
 	query := `
 		INSERT INTO tool_discovery_sessions (
 			id, tenant_id, session_id, base_url, status,
-			discovered_urls, discovery_metadata, expires_at
+			discovery_result, discovery_metadata, created_at, expires_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8
+			$1, $2, $3, $4, $5, $6, $7, $8, $9
 		)
 	`
 
 	metadataJSON, _ := json.Marshal(session.DiscoveryMetadata)
-	urlsJSON, _ := json.Marshal(session.DiscoveredURLs)
-	expiresAt := time.Now().Add(1 * time.Hour)
+	discoveryResultJSON, _ := json.Marshal(session.DiscoveryResult)
 
 	_, err := s.db.ExecContext(ctx, query,
 		session.ID, tenantID, sessionID, config.BaseURL,
-		session.Status, urlsJSON, metadataJSON, expiresAt,
+		session.Status, discoveryResultJSON, metadataJSON,
+		session.CreatedAt, session.ExpiresAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create discovery session: %w", err)
@@ -388,21 +402,19 @@ func (s *DynamicToolsService) GetDiscoverySession(ctx context.Context, sessionID
 	query := `
 		SELECT 
 			id, tenant_id, session_id, base_url, status,
-			discovered_urls, selected_url, discovery_metadata,
-			error_message, created_at, expires_at
+			discovery_result, discovery_metadata,
+			created_at, expires_at
 		FROM tool_discovery_sessions
 		WHERE session_id = $1
 	`
 
 	var session models.DiscoverySession
-	var urlsJSON, metadataJSON []byte
-	var selectedURL, errorMsg sql.NullString
+	var discoveryResultJSON, metadataJSON []byte
 
 	err := s.db.QueryRowContext(ctx, query, sessionID).Scan(
 		&session.ID, &session.TenantID, &session.SessionID,
-		&session.BaseURL, &session.Status, &urlsJSON,
-		&selectedURL, &metadataJSON, &errorMsg,
-		&session.CreatedAt, &session.ExpiresAt,
+		&session.BaseURL, &session.Status, &discoveryResultJSON,
+		&metadataJSON, &session.CreatedAt, &session.ExpiresAt,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -412,18 +424,14 @@ func (s *DynamicToolsService) GetDiscoverySession(ctx context.Context, sessionID
 	}
 
 	// Parse JSON fields
-	if err := json.Unmarshal(urlsJSON, &session.DiscoveredURLs); err != nil {
-		session.DiscoveredURLs = []string{}
+	if discoveryResultJSON != nil {
+		var result models.DiscoveryResult
+		if err := json.Unmarshal(discoveryResultJSON, &result); err == nil {
+			session.DiscoveryResult = &result
+		}
 	}
 	if err := json.Unmarshal(metadataJSON, &session.DiscoveryMetadata); err != nil {
 		session.DiscoveryMetadata = map[string]interface{}{}
-	}
-
-	if selectedURL.Valid {
-		session.SelectedURL = selectedURL.String
-	}
-	if errorMsg.Valid {
-		session.ErrorMessage = errorMsg.String
 	}
 
 	return &session, nil
@@ -448,8 +456,8 @@ func (s *DynamicToolsService) ConfirmDiscovery(ctx context.Context, sessionID st
 	}
 
 	// Use the discovered OpenAPI URL if available
-	if session.SelectedURL != "" {
-		toolConfig.OpenAPIURL = session.SelectedURL
+	if session.DiscoveryResult != nil && session.DiscoveryResult.SpecURL != "" {
+		toolConfig.OpenAPIURL = session.DiscoveryResult.SpecURL
 	}
 
 	// Create the tool with discovered configuration
@@ -725,10 +733,18 @@ func (s *DynamicToolsService) performDiscovery(ctx context.Context, sessionID st
 		// Update with error
 		errorQuery := `
 			UPDATE tool_discovery_sessions
-			SET status = 'failed', error_message = $2
+			SET status = 'failed', discovery_result = $2
 			WHERE session_id = $1
 		`
-		_, _ = s.db.ExecContext(ctx, errorQuery, sessionID, err.Error())
+		errorResult := &models.DiscoveryResult{
+			Status:         "failed",
+			RequiresManual: true,
+			Metadata: map[string]interface{}{
+				"error": err.Error(),
+			},
+		}
+		errorResultJSON, _ := json.Marshal(errorResult)
+		_, _ = s.db.ExecContext(ctx, errorQuery, sessionID, errorResultJSON)
 		return
 	}
 
@@ -738,7 +754,7 @@ func (s *DynamicToolsService) performDiscovery(ctx context.Context, sessionID st
 		status = "partial"
 	}
 
-	discoveredURLsJSON, _ := json.Marshal(result.DiscoveredURLs)
+	discoveryResultJSON, _ := json.Marshal(result)
 	metadataJSON, _ := json.Marshal(map[string]interface{}{
 		"discovery_completed": time.Now(),
 		"result":              result,
@@ -748,15 +764,13 @@ func (s *DynamicToolsService) performDiscovery(ctx context.Context, sessionID st
 		UPDATE tool_discovery_sessions
 		SET 
 			status = $2,
-			discovered_urls = $3,
-			selected_url = $4,
-			discovery_metadata = discovery_metadata || $5
+			discovery_result = $3,
+			discovery_metadata = discovery_metadata || $4
 		WHERE session_id = $1
 	`
 
 	_, _ = s.db.ExecContext(ctx, finalQuery,
-		sessionID, status, discoveredURLsJSON,
-		result.SpecURL, metadataJSON,
+		sessionID, status, discoveryResultJSON, metadataJSON,
 	)
 }
 

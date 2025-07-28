@@ -563,15 +563,7 @@ func (api *DynamicToolsAPI) UpdateCredentials(c *gin.Context) {
 
 	// Audit log
 	if api.auditLogger != nil {
-		api.auditLogger.LogActivity(c.Request.Context(), auth.AuditActivity{
-			UserID:    c.GetString("user_id"),
-			Action:    "update_tool_credentials",
-			Resource:  fmt.Sprintf("tool:%s", toolID),
-			Result:    "success",
-			IP:        c.ClientIP(),
-			UserAgent: c.Request.UserAgent(),
-			TenantID:  tenantID,
-		})
+		api.auditLogger.LogToolCredentialUpdate(c.Request.Context(), tenantID, toolID, c.GetString("user_id"), true, nil)
 	}
 
 	c.JSON(http.StatusOK, gin.H{

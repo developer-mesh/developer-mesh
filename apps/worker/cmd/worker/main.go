@@ -11,6 +11,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/developer-mesh/developer-mesh/apps/worker/internal/worker"
+	"github.com/developer-mesh/developer-mesh/pkg/database"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/queue"
 	pkgworker "github.com/developer-mesh/developer-mesh/pkg/worker"
@@ -102,7 +104,11 @@ func runWorker(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to initialize queue client: %w", err)
 	}
-	defer queueClient.Close()
+	defer func() {
+		if err := queueClient.Close(); err != nil {
+			logger.Warn("Failed to close queue client", map[string]interface{}{"error": err.Error()})
+		}
+	}()
 
 	// Initialize Redis client for idempotency
 	redisAddr := os.Getenv("REDIS_ADDR")
@@ -136,11 +142,62 @@ func runWorker(ctx context.Context) error {
 
 	redisAdapter := &redisIdempotencyAdapter{client: redisClient}
 
+	// Get database connection
+	dbPort := 5432
+	if portStr := os.Getenv("DATABASE_PORT"); portStr != "" {
+		if _, err := fmt.Sscanf(portStr, "%d", &dbPort); err != nil {
+			logger.Error("Invalid database port", map[string]interface{}{
+				"port":  portStr,
+				"error": err.Error(),
+			})
+			dbPort = 5432 // Use default
+		}
+	}
+
+	dbConfig := database.Config{
+		Host:     os.Getenv("DATABASE_HOST"),
+		Port:     dbPort,
+		Database: os.Getenv("DATABASE_NAME"),
+		Username: os.Getenv("DATABASE_USER"),
+		Password: os.Getenv("DATABASE_PASSWORD"),
+		SSLMode:  os.Getenv("DATABASE_SSL_MODE"),
+	}
+
+	if dbConfig.Host == "" {
+		dbConfig.Host = "localhost"
+	}
+	if dbConfig.SSLMode == "" {
+		dbConfig.SSLMode = "disable"
+	}
+
+	db, err := database.NewDatabase(ctx, dbConfig)
+	if err != nil {
+		return fmt.Errorf("failed to connect to database: %w", err)
+	}
+	defer func() {
+		if err := db.Close(); err != nil {
+			logger.Error("Failed to close database connection", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
+
+	// Create event processor with retry and DLQ support
+	eventProcessor, err := worker.NewEventProcessor(logger, nil, db.GetDB(), queueClient)
+	if err != nil {
+		return fmt.Errorf("failed to create event processor: %w", err)
+	}
+
+	// Create processor function that uses the new event processor
+	processorFunc := func(event queue.Event) error {
+		return eventProcessor.ProcessEvent(ctx, event)
+	}
+
 	// Create Redis worker
-	worker, err := pkgworker.NewRedisWorker(&pkgworker.Config{
+	redisWorker, err := pkgworker.NewRedisWorker(&pkgworker.Config{
 		QueueClient:    queueClient,
 		RedisClient:    redisAdapter,
-		Processor:      pkgworker.ProcessEvent,
+		Processor:      processorFunc,
 		Logger:         logger,
 		ConsumerName:   fmt.Sprintf("worker-%s", os.Getenv("HOSTNAME")),
 		IdempotencyTTL: 24 * time.Hour,
@@ -149,8 +206,49 @@ func runWorker(ctx context.Context) error {
 		return fmt.Errorf("failed to create worker: %w", err)
 	}
 
-	log.Println("Starting Redis worker...")
-	return worker.Run(ctx)
+	// Create DLQ handler for periodic processing
+	dlqHandler := worker.NewDLQHandler(db.GetDB(), logger, nil, queueClient)
+	dlqWorker := worker.NewDLQWorker(dlqHandler, logger, 5*time.Minute)
+
+	// Create metrics collector and performance monitor
+	tracer := observability.GetTracer()
+	metricsClient := observability.NewMetricsClient()
+	metricsCollector := worker.NewMetricsCollector(metricsClient, tracer)
+
+	// Create performance monitor
+	perfMonitor := worker.NewPerformanceMonitor(metricsCollector, logger, 30*time.Second)
+
+	// Create health checker
+	healthChecker := worker.NewHealthChecker(db, redisClient, queueClient, metricsCollector, logger)
+
+	// Start health endpoint in background
+	go func() {
+		healthAddr := os.Getenv("HEALTH_ENDPOINT")
+		if healthAddr == "" {
+			healthAddr = ":8088"
+		}
+		if err := healthChecker.StartHealthEndpoint(healthAddr); err != nil {
+			log.Printf("Health endpoint error: %v", err)
+		}
+	}()
+
+	// Start performance monitor in background
+	go func() {
+		if err := perfMonitor.Run(ctx); err != nil {
+			log.Printf("Performance monitor error: %v", err)
+		}
+	}()
+
+	// Start DLQ worker in background
+	go func() {
+		if err := dlqWorker.Run(ctx); err != nil {
+			log.Printf("DLQ worker error: %v", err)
+		}
+	}()
+
+	log.Println("Starting Redis worker with retry and DLQ support...")
+	log.Printf("Health endpoint available at %s/health", os.Getenv("HEALTH_ENDPOINT"))
+	return redisWorker.Run(ctx)
 }
 
 // performHealthCheck performs a basic health check
@@ -178,7 +276,11 @@ func performHealthCheck() error {
 	}
 
 	redisClient := redis.NewClient(redisOptions)
-	defer redisClient.Close()
+	defer func() {
+		if err := redisClient.Close(); err != nil {
+			log.Printf("Failed to close redis client: %v", err)
+		}
+	}()
 
 	if err := redisClient.Ping(ctx).Err(); err != nil {
 		return fmt.Errorf("redis health check failed: %w", err)
@@ -189,7 +291,11 @@ func performHealthCheck() error {
 	if err != nil {
 		return fmt.Errorf("queue client health check failed: %w", err)
 	}
-	defer queueClient.Close()
+	defer func() {
+		if err := queueClient.Close(); err != nil {
+			log.Printf("Failed to close queue client: %v", err)
+		}
+	}()
 
 	if err := queueClient.Health(ctx); err != nil {
 		return fmt.Errorf("queue health check failed: %w", err)

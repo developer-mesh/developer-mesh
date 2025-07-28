@@ -15,22 +15,23 @@ import (
 
 	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
-	"github.com/developer-mesh/developer-mesh/pkg/repository"
+	"github.com/developer-mesh/developer-mesh/pkg/queue"
+	pkgrepository "github.com/developer-mesh/developer-mesh/pkg/repository"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
 // DynamicWebhookHandler handles webhooks for dynamically registered tools
 type DynamicWebhookHandler struct {
-	toolRepo  repository.DynamicToolRepository
-	eventRepo repository.WebhookEventRepository
+	toolRepo  pkgrepository.DynamicToolRepository
+	eventRepo pkgrepository.WebhookEventRepository
 	logger    observability.Logger
 }
 
 // NewDynamicWebhookHandler creates a new dynamic webhook handler
 func NewDynamicWebhookHandler(
-	toolRepo repository.DynamicToolRepository,
-	eventRepo repository.WebhookEventRepository,
+	toolRepo pkgrepository.DynamicToolRepository,
+	eventRepo pkgrepository.WebhookEventRepository,
 	logger observability.Logger,
 ) *DynamicWebhookHandler {
 	return &DynamicWebhookHandler{
@@ -57,7 +58,6 @@ func NewDynamicWebhookHandler(
 // @Router /api/webhooks/tools/{toolId} [post]
 func (h *DynamicWebhookHandler) HandleDynamicWebhook(c *gin.Context) {
 	toolID := c.Param("toolId")
-	tenantID := c.GetString("tenant_id") // May be empty for webhooks
 
 	// Get tool configuration
 	tool, err := h.toolRepo.GetByID(c.Request.Context(), toolID)
@@ -145,8 +145,67 @@ func (h *DynamicWebhookHandler) HandleDynamicWebhook(c *gin.Context) {
 		return
 	}
 
-	// TODO: Queue event for processing
-	// This would typically publish to a message queue for async processing
+	// Queue event for processing
+	ctx := c.Request.Context()
+	queueClient, err := queue.NewClient(ctx, &queue.Config{
+		Logger: h.logger,
+	})
+	if err != nil {
+		h.logger.Error("Failed to create queue client", map[string]interface{}{
+			"error": err.Error(),
+		})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to queue event"})
+		return
+	}
+	defer func() {
+		if err := queueClient.Close(); err != nil {
+			h.logger.Warn("Failed to close queue client", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
+
+	// Create queue event
+	queueEvent := queue.Event{
+		EventID:    event.ID,
+		EventType:  eventType,
+		RepoName:   tool.ToolName, // Using tool name as repo name
+		SenderName: tool.Provider, // Using provider as sender
+		Payload:    json.RawMessage(bodyBytes),
+		Timestamp:  receivedAt,
+		Metadata: map[string]interface{}{
+			"tool_id":     toolID,
+			"tool_name":   tool.ToolName,
+			"provider":    tool.Provider,
+			"tenant_id":   tool.TenantID,
+			"source_ip":   c.ClientIP(),
+			"webhook_url": c.Request.URL.String(),
+		},
+		AuthContext: &queue.EventAuthContext{
+			TenantID:      tool.TenantID,
+			PrincipalID:   toolID,
+			PrincipalType: "tool",
+			Metadata: map[string]interface{}{
+				"tool_config": tool.WebhookConfig,
+			},
+		},
+	}
+
+	if err := queueClient.EnqueueEvent(ctx, queueEvent); err != nil {
+		h.logger.Error("Failed to enqueue webhook event", map[string]interface{}{
+			"error":    err.Error(),
+			"event_id": event.ID,
+		})
+		// Update event status to failed
+		_ = h.eventRepo.UpdateStatus(ctx, event.ID, "failed", nil, err.Error())
+
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to queue event"})
+		return
+	}
+
+	// Update event status to queued
+	now := time.Now()
+	_ = h.eventRepo.UpdateStatus(ctx, event.ID, "queued", &now, "")
 
 	h.logger.Info("Webhook event received", map[string]interface{}{
 		"tool_id":    toolID,

@@ -26,7 +26,6 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/security"
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -364,19 +363,42 @@ func (s *Server) setupRoutes(ctx context.Context) {
 		})
 	})
 
-	// --- Webhook Integration: Mount Gorilla Mux for webhook endpoints ---
-	// Create a Gorilla Mux router and register webhook routes
-	muxRouter := mux.NewRouter()
-	s.RegisterWebhookRoutes(muxRouter)
+	// Webhook routes are now handled by the dynamic webhook handler
+	// GitHub-specific webhook handling has been removed in favor of the dynamic handler
 
-	// Mount the mux router for all /api/webhooks/* paths
-	// This allows the /api/webhooks/github endpoint to be handled by the correct handler
-	s.router.Any("/api/webhooks/github", gin.WrapH(muxRouter))
-	s.router.Any("/api/webhooks/github/", gin.WrapH(muxRouter))
+	// Dynamic Tools API - Enhanced discovery and management
+	patternRepo := storage.NewDiscoveryPatternRepository(s.db.DB)
+	// Create encryption service with a secure key from environment or config
+	encryptionKey := os.Getenv("DEVMESH_ENCRYPTION_KEY")
+	if encryptionKey == "" {
+		// Generate a random key if not provided, but log a warning
+		randomKey, err := security.GenerateSecureToken(32)
+		if err != nil {
+			s.logger.Error("Failed to generate encryption key", map[string]interface{}{
+				"error": err.Error(),
+			})
+			s.logger.Fatal("encryption key not provided and failed to generate", map[string]interface{}{
+				"error": err.Error(),
+			})
+			panic("Failed to generate encryption key")
+		}
+		encryptionKey = randomKey
+		s.logger.Warn("DEVMESH_ENCRYPTION_KEY not set - using randomly generated key. This is not suitable for production!", map[string]interface{}{
+			"recommendation": "Set DEVMESH_ENCRYPTION_KEY environment variable with a secure 32+ character key",
+		})
+	}
+	encryptionService := security.NewEncryptionService(encryptionKey)
+	dynamicToolsService := services.NewDynamicToolsService(
+		s.db,
+		s.logger,
+		s.metrics,
+		encryptionService,
+		patternRepo,
+	)
 
 	// Dynamic webhook routes for dynamic tools
 	// Create webhook event repository
-	webhookEventRepo := repository.NewWebhookEventRepository(s.db.DB)
+	webhookEventRepo := pkgrepository.NewWebhookEventRepository(s.db)
 
 	// Create dynamic webhook handler
 	dynamicWebhookHandler := webhooksAPI.NewDynamicWebhookHandler(
@@ -393,33 +415,6 @@ func (s *Server) setupRoutes(ctx context.Context) {
 		c.Next()
 	})
 	webhooks.POST("/tools/:toolId", dynamicWebhookHandler.HandleDynamicWebhook)
-
-	// Dynamic Tools API - Enhanced discovery and management
-	patternRepo := storage.NewDiscoveryPatternRepository(s.db.DB)
-	// Create encryption service with a secure key from environment or config
-	encryptionKey := os.Getenv("DEVMESH_ENCRYPTION_KEY")
-	if encryptionKey == "" {
-		// Generate a random key if not provided, but log a warning
-		randomKey, err := security.GenerateSecureToken(32)
-		if err != nil {
-			s.logger.Error("Failed to generate encryption key", map[string]interface{}{
-				"error": err.Error(),
-			})
-			return nil, fmt.Errorf("encryption key not provided and failed to generate: %w", err)
-		}
-		encryptionKey = randomKey
-		s.logger.Warn("DEVMESH_ENCRYPTION_KEY not set - using randomly generated key. This is not suitable for production!", map[string]interface{}{
-			"recommendation": "Set DEVMESH_ENCRYPTION_KEY environment variable with a secure 32+ character key",
-		})
-	}
-	encryptionService := security.NewEncryptionService(encryptionKey)
-	dynamicToolsService := services.NewDynamicToolsService(
-		s.db,
-		s.logger,
-		s.metrics,
-		encryptionService,
-		patternRepo,
-	)
 	dynamicToolsAPI := NewDynamicToolsAPI(
 		dynamicToolsService,
 		s.logger,

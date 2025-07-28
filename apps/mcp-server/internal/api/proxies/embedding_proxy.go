@@ -241,7 +241,7 @@ func (p *EmbeddingProxy) proxyRequest(c *gin.Context, path string, method string
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request"})
 		return
 	}
-	
+
 	// Now set the URL components directly on the request to avoid any string-based URL construction
 	req.URL = &url.URL{
 		Scheme:   p.restAPIScheme,

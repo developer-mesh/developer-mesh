@@ -130,16 +130,17 @@ type DiscoveryResult struct {
 
 // ToolWebhookConfig defines webhook configuration for a dynamic tool
 type ToolWebhookConfig struct {
-	Enabled            bool                   `json:"enabled"`
-	EndpointPath       string                 `json:"endpoint_path,omitempty"`       // e.g., /api/webhooks/tools/{toolId}
-	AuthType           string                 `json:"auth_type"`                     // hmac, bearer, basic, signature, none
-	AuthConfig         map[string]interface{} `json:"auth_config,omitempty"`         // Auth-specific config (e.g., secret, header names)
-	Events             []WebhookEventConfig   `json:"events,omitempty"`              // Supported events
-	Headers            map[string]string      `json:"headers,omitempty"`             // Expected headers
-	PayloadFormat      string                 `json:"payload_format,omitempty"`      // json, form, xml
-	SignatureHeader    string                 `json:"signature_header,omitempty"`    // Header containing signature
-	SignatureAlgorithm string                 `json:"signature_algorithm,omitempty"` // hmac-sha256, hmac-sha1, etc.
-	IPWhitelist        []string               `json:"ip_whitelist,omitempty"`        // Allowed source IPs
+	Enabled               bool                   `json:"enabled"`
+	EndpointPath          string                 `json:"endpoint_path,omitempty"`           // e.g., /api/webhooks/tools/{toolId}
+	AuthType              string                 `json:"auth_type"`                         // hmac, bearer, basic, signature, none
+	AuthConfig            map[string]interface{} `json:"auth_config,omitempty"`             // Auth-specific config (e.g., secret, header names)
+	Events                []WebhookEventConfig   `json:"events,omitempty"`                  // Supported events
+	Headers               map[string]string      `json:"headers,omitempty"`                 // Expected headers
+	PayloadFormat         string                 `json:"payload_format,omitempty"`          // json, form, xml
+	SignatureHeader       string                 `json:"signature_header,omitempty"`        // Header containing signature
+	SignatureAlgorithm    string                 `json:"signature_algorithm,omitempty"`     // hmac-sha256, hmac-sha1, etc.
+	IPWhitelist           []string               `json:"ip_whitelist,omitempty"`            // Allowed source IPs
+	DefaultProcessingMode string                 `json:"default_processing_mode,omitempty"` // Default processing mode for events
 }
 
 // WebhookEventConfig defines configuration for a specific webhook event type
@@ -149,6 +150,7 @@ type WebhookEventConfig struct {
 	SchemaURL      string                 `json:"schema_url,omitempty"`
 	TransformRules map[string]interface{} `json:"transform_rules,omitempty"` // Rules to transform payload
 	RequiredFields []string               `json:"required_fields,omitempty"` // Required fields in payload
+	ProcessingMode string                 `json:"processing_mode,omitempty"` // Processing mode for this event type
 }
 
 // WebhookEvent represents a received webhook event
