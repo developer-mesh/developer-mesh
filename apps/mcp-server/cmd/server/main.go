@@ -98,6 +98,10 @@ func main() {
 		"git_commit": gitCommit,
 	})
 
+	// Architecture Note: MCP Server handles the Model Context Protocol for AI agent interactions
+	// Webhooks are handled by the REST API service, not this MCP server
+	// Data flow: GitHub Webhooks → REST API → Redis Queue → Worker
+
 	// Setup root context with cancellation
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

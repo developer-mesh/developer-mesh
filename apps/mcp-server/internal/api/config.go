@@ -60,18 +60,10 @@ type PerformanceConfig struct {
 
 // AuthConfig holds authentication configuration
 type AuthConfig struct {
-	JWTSecret        string            `mapstructure:"jwt_secret"`
-	APIKeys          interface{}       `mapstructure:"api_keys"`
-	ServiceSecret    string            `mapstructure:"service_secret"`
-	DefaultRateLimit int               `mapstructure:"default_rate_limit"`
-	GitHubApps       []GitHubAppConfig `mapstructure:"github_apps"`
-}
-
-// GitHubAppConfig holds configuration for a GitHub App
-type GitHubAppConfig struct {
-	AppID          int64  `mapstructure:"app_id"`
-	PrivateKeyPath string `mapstructure:"private_key_path"`
-	WebhookSecret  string `mapstructure:"webhook_secret"`
+	JWTSecret        string      `mapstructure:"jwt_secret"`
+	APIKeys          interface{} `mapstructure:"api_keys"`
+	ServiceSecret    string      `mapstructure:"service_secret"`
+	DefaultRateLimit int         `mapstructure:"default_rate_limit"`
 }
 
 // RateLimitConfig holds rate limiting configuration

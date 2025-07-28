@@ -420,9 +420,13 @@ func (s *Server) Initialize(ctx context.Context) error {
 
 // setupRoutes sets up all API routes
 func (s *Server) setupRoutes() {
+	// MCP Server handles the Model Context Protocol (MCP) for AI agent interactions
+	// It does NOT handle webhooks - all webhook traffic should be directed to the REST API service
+	// All tools are dynamic and registered through the /api/v1/tools endpoints
+
 	// Setup base routes
 	s.router.GET("/", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "MCP REST API is running"})
+		c.JSON(http.StatusOK, gin.H{"status": "MCP Server is running"})
 	})
 	s.router.GET("/health", s.healthHandler)
 

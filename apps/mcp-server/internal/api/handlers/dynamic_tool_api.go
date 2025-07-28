@@ -38,10 +38,7 @@ func NewDynamicToolAPI(
 
 // RegisterRoutes registers all dynamic tool routes
 func (api *DynamicToolAPI) RegisterRoutes(router *gin.RouterGroup) {
-	// Apply compatibility middleware for legacy GitHub routes
-	router.Use(api.githubCompatibilityMiddleware())
-	router.Use(api.webhookCompatibilityMiddleware())
-
+	// All tools are now dynamic - no hardcoded paths or legacy compatibility needed
 	tools := router.Group("/tools")
 
 	// Collection endpoints
@@ -697,68 +694,6 @@ func (api *DynamicToolAPI) buildCredential(authConfig map[string]interface{}) (*
 	}
 
 	return cred, nil
-}
-
-// githubCompatibilityMiddleware handles legacy GitHub routes
-func (api *DynamicToolAPI) githubCompatibilityMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// Intercept old GitHub routes
-		if strings.Contains(c.Request.URL.Path, "/tools/github/") {
-			// Get tenant from context
-			tenantID := c.GetString("tenant_id")
-			if tenantID == "" {
-				c.Next()
-				return
-			}
-
-			// Look up migrated GitHub tool
-			tool, err := api.toolRegistry.GetToolByType(c.Request.Context(), tenantID, "github")
-			if err != nil {
-				c.JSON(http.StatusNotFound, gin.H{
-					"error":          "GitHub tool not found",
-					"migration_hint": "Please re-register your GitHub tool",
-					"code":           "TOOL_NOT_FOUND",
-				})
-				c.Abort()
-				return
-			}
-
-			// Rewrite path to use actual tool name
-			oldPath := c.Request.URL.Path
-			c.Request.URL.Path = strings.Replace(
-				c.Request.URL.Path,
-				"/tools/github/",
-				fmt.Sprintf("/tools/%s/", tool.Name),
-				1,
-			)
-
-			api.logger.Info("GitHub compatibility redirect", map[string]interface{}{
-				"tenant_id": tenantID,
-				"old_path":  oldPath,
-				"new_path":  c.Request.URL.Path,
-			})
-		}
-
-		c.Next()
-	}
-}
-
-// webhookCompatibilityMiddleware handles webhook endpoint migration
-func (api *DynamicToolAPI) webhookCompatibilityMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// Handle old webhook endpoints
-		if c.Request.URL.Path == "/webhooks/github" {
-			api.logger.Info("GitHub webhook compatibility redirect", map[string]interface{}{
-				"old_path": c.Request.URL.Path,
-				"method":   c.Request.Method,
-			})
-
-			// Process webhook through new system
-			c.Request.URL.Path = "/api/v1/tools/github-default/webhooks"
-		}
-
-		c.Next()
-	}
 }
 
 // GetToolRegistry returns the tool registry (for testing)
