@@ -276,7 +276,7 @@ func (api *DynamicToolAPI) startDiscovery(c *gin.Context) {
 		"session_id":  session.SessionID,
 		"status":      session.Status,
 		"suggestions": session.Suggestions,
-		"expires_in":  int(session.ExpiresAt.Sub(time.Now()).Seconds()),
+		"expires_in":  int(time.Until(session.ExpiresAt).Seconds()),
 	})
 }
 
@@ -759,4 +759,14 @@ func (api *DynamicToolAPI) webhookCompatibilityMiddleware() gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+// GetToolRegistry returns the tool registry (for testing)
+func (api *DynamicToolAPI) GetToolRegistry() *services.ToolRegistry {
+	return api.toolRegistry
+}
+
+// GetExecutionService returns the execution service (for testing)
+func (api *DynamicToolAPI) GetExecutionService() *services.ExecutionService {
+	return api.executionService
 }

@@ -136,7 +136,7 @@ func setupTestAPI(t *testing.T, db *sqlx.DB) (*gin.Engine, *handlers.DynamicTool
 
 func TestDynamicToolAPI_RegisterTool(t *testing.T) {
 	db := setupTestDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	router, _ := setupTestAPI(t, db)
 
@@ -214,7 +214,7 @@ func TestDynamicToolAPI_RegisterTool(t *testing.T) {
 
 func TestDynamicToolAPI_ListTools(t *testing.T) {
 	db := setupTestDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	router, api := setupTestAPI(t, db)
 
@@ -236,7 +236,7 @@ func TestDynamicToolAPI_ListTools(t *testing.T) {
 		HealthStatus: "unknown",
 	}
 
-	registry := api.(*handlers.DynamicToolAPI).ToolRegistry
+	registry := api.GetToolRegistry()
 	_, err := registry.RegisterTool(context.Background(), "test-tenant", config, "test-user")
 	require.NoError(t, err)
 
@@ -262,7 +262,7 @@ func TestDynamicToolAPI_ListTools(t *testing.T) {
 
 func TestDynamicToolAPI_ExecuteAction(t *testing.T) {
 	db := setupTestDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	router, _ := setupTestAPI(t, db)
 
@@ -289,7 +289,7 @@ func TestDynamicToolAPI_ExecuteAction(t *testing.T) {
 
 func TestDynamicToolAPI_HealthCheck(t *testing.T) {
 	db := setupTestDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	router, api := setupTestAPI(t, db)
 
@@ -311,7 +311,7 @@ func TestDynamicToolAPI_HealthCheck(t *testing.T) {
 		HealthStatus: "unknown",
 	}
 
-	registry := api.(*handlers.DynamicToolAPI).ToolRegistry
+	registry := api.GetToolRegistry()
 	_, err := registry.RegisterTool(context.Background(), "test-tenant", config, "test-user")
 	require.NoError(t, err)
 
@@ -333,7 +333,7 @@ func TestDynamicToolAPI_HealthCheck(t *testing.T) {
 
 func TestDynamicToolAPI_GitHubCompatibility(t *testing.T) {
 	db := setupTestDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	router, api := setupTestAPI(t, db)
 
@@ -356,7 +356,7 @@ func TestDynamicToolAPI_GitHubCompatibility(t *testing.T) {
 		HealthStatus: "unknown",
 	}
 
-	registry := api.(*handlers.DynamicToolAPI).ToolRegistry
+	registry := api.GetToolRegistry()
 	_, err := registry.RegisterTool(context.Background(), "test-tenant", config, "test-user")
 	require.NoError(t, err)
 

@@ -223,7 +223,7 @@ func (s *ExecutionService) executeHTTPRequest(req *http.Request) (interface{}, e
 	if err != nil {
 		return nil, s.retryHandler.ClassifyHTTPError(nil, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Read response body
 	body, err := io.ReadAll(resp.Body)
@@ -401,7 +401,7 @@ func (s *ExecutionService) GetExecutionHistory(
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	results := []map[string]interface{}{}
 

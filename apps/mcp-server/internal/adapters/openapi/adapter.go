@@ -223,7 +223,7 @@ func (a *OpenAPIAdapter) TestConnection(ctx context.Context, config tool.ToolCon
 	if err != nil {
 		return fmt.Errorf("connection failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
 		body, _ := io.ReadAll(resp.Body)
@@ -289,7 +289,7 @@ func (a *OpenAPIAdapter) loadOpenAPISpec(ctx context.Context, specURL string, cr
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to fetch OpenAPI spec: status %d", resp.StatusCode)

@@ -102,7 +102,7 @@ func (h *HealthChecker) CheckHealth(ctx context.Context, config *tool.ToolConfig
 		h.cacheHealthStatus(config.ID, status)
 		return status
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Check response status
 	isHealthy := resp.StatusCode >= 200 && resp.StatusCode < 400

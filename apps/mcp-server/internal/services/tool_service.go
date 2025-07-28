@@ -209,7 +209,7 @@ func (s *ToolService) UpdateTool(ctx context.Context, tenantID, toolName string,
 	if err != nil {
 		return fmt.Errorf("failed to start transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	// Update fields
 	if newConfig, ok := updates["config"].(map[string]interface{}); ok {

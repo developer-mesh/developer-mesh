@@ -58,7 +58,7 @@ func (c *CredentialManager) EncryptCredential(tenantID string, credential *tool.
 
 // DecryptCredential decrypts stored credentials
 func (c *CredentialManager) DecryptCredential(tenantID string, encryptedData []byte) (*tool.TokenCredential, error) {
-	if encryptedData == nil || len(encryptedData) == 0 {
+	if len(encryptedData) == 0 {
 		return nil, nil
 	}
 

@@ -59,7 +59,7 @@ type Server struct {
 	contextAPIProxy repository.ContextRepository   // Proxy for context operations
 	searchAPIProxy  repository.SearchRepository    // Proxy for search operations
 	// WebSocket server
-	wsServer        *websocket.Server
+	wsServer *websocket.Server
 	// Multi-agent services
 	taskService      pgservices.TaskService
 	workflowService  pgservices.WorkflowService

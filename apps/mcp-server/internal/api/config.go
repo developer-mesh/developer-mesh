@@ -8,20 +8,20 @@ import (
 
 // Config holds configuration for the API server
 type Config struct {
-	ListenAddress string                `mapstructure:"listen_address"`
-	ReadTimeout   time.Duration         `mapstructure:"read_timeout"`
-	WriteTimeout  time.Duration         `mapstructure:"write_timeout"`
-	IdleTimeout   time.Duration         `mapstructure:"idle_timeout"`
-	EnableCORS    bool                  `mapstructure:"enable_cors"`
-	EnableSwagger bool                  `mapstructure:"enable_swagger"`
-	TLSCertFile   string                `mapstructure:"tls_cert_file"`
-	TLSKeyFile    string                `mapstructure:"tls_key_file"`
-	Auth          AuthConfig            `mapstructure:"auth"`
-	RateLimit     RateLimitConfig       `mapstructure:"rate_limit"`
-	Versioning    VersioningConfig      `mapstructure:"versioning"`
-	Performance   PerformanceConfig     `mapstructure:"performance"`
-	RestAPI       RestAPIConfig         `mapstructure:"rest_api"`
-	WebSocket     WebSocketConfig       `mapstructure:"websocket"`
+	ListenAddress string            `mapstructure:"listen_address"`
+	ReadTimeout   time.Duration     `mapstructure:"read_timeout"`
+	WriteTimeout  time.Duration     `mapstructure:"write_timeout"`
+	IdleTimeout   time.Duration     `mapstructure:"idle_timeout"`
+	EnableCORS    bool              `mapstructure:"enable_cors"`
+	EnableSwagger bool              `mapstructure:"enable_swagger"`
+	TLSCertFile   string            `mapstructure:"tls_cert_file"`
+	TLSKeyFile    string            `mapstructure:"tls_key_file"`
+	Auth          AuthConfig        `mapstructure:"auth"`
+	RateLimit     RateLimitConfig   `mapstructure:"rate_limit"`
+	Versioning    VersioningConfig  `mapstructure:"versioning"`
+	Performance   PerformanceConfig `mapstructure:"performance"`
+	RestAPI       RestAPIConfig     `mapstructure:"rest_api"`
+	WebSocket     WebSocketConfig   `mapstructure:"websocket"`
 }
 
 // VersioningConfig holds API versioning configuration
