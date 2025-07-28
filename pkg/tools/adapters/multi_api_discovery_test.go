@@ -119,17 +119,17 @@ func TestMultiAPIDiscoveryService_DiscoverMultipleAPIs(t *testing.T) {
 			switch r.URL.Path {
 			case "/openapi.json":
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(platformSpec)
+				_ = json.NewEncoder(w).Encode(platformSpec)
 			case "/api/platform/swagger.json":
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(platformSpec)
+				_ = json.NewEncoder(w).Encode(platformSpec)
 			case "/api/ci/swagger.json":
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(cicdSpec)
+				_ = json.NewEncoder(w).Encode(cicdSpec)
 			case "/":
 				// Return HTML with links
 				w.Header().Set("Content-Type", "text/html")
-				w.Write([]byte(`
+				_, _ = w.Write([]byte(`
 					<html>
 						<body>
 							<a href="/api/platform/swagger.json">Platform API</a>
@@ -244,13 +244,13 @@ func TestMultiAPIDiscoveryService_DiscoverMultipleAPIs(t *testing.T) {
 			switch r.URL.Path {
 			case "/openapi.json":
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(openapi3Spec)
+				_ = json.NewEncoder(w).Encode(openapi3Spec)
 			case "/swagger.json":
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(swagger2Spec)
+				_ = json.NewEncoder(w).Encode(swagger2Spec)
 			case "/api-docs":
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(customSpec)
+				_ = json.NewEncoder(w).Encode(customSpec)
 			default:
 				http.NotFound(w, r)
 			}
@@ -313,13 +313,13 @@ func TestMultiAPIDiscoveryService_DiscoverMultipleAPIs(t *testing.T) {
 			switch r.URL.Path {
 			case "/api/catalog/list":
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(catalog)
+				_ = json.NewEncoder(w).Encode(catalog)
 			case "/apis/user/spec.json":
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(userSpec)
+				_ = json.NewEncoder(w).Encode(userSpec)
 			case "/apis/order/spec.json":
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(orderSpec)
+				_ = json.NewEncoder(w).Encode(orderSpec)
 			default:
 				http.NotFound(w, r)
 			}
@@ -544,14 +544,14 @@ func TestMultiAPIDiscoveryService_FindAPILinks(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
-		w.Write([]byte(htmlContent))
+		_, _ = w.Write([]byte(htmlContent))
 	}))
 	defer server.Close()
 
 	// Fetch and parse HTML
 	resp, err := http.Get(server.URL)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// This is a simplified test - in real implementation we'd use goquery
 	// For now, just verify the method exists and returns reasonable results
@@ -652,7 +652,7 @@ func TestMultiAPIDiscoveryService_Concurrency(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(spec)
+		_ = json.NewEncoder(w).Encode(spec)
 	}))
 	defer server.Close()
 
@@ -665,7 +665,7 @@ func TestMultiAPIDiscoveryService_Concurrency(t *testing.T) {
 			}
 			html += "</body></html>"
 			w.Header().Set("Content-Type", "text/html")
-			w.Write([]byte(html))
+			_, _ = w.Write([]byte(html))
 		} else {
 			http.NotFound(w, r)
 		}

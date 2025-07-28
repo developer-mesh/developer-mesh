@@ -249,8 +249,6 @@ webhooks:
     ip_validation: ${MCP_GITHUB_IP_VALIDATION:-true}
     # Allowed event types
     allowed_events: ${MCP_GITHUB_ALLOWED_EVENTS:-"issues,issue_comment,pull_request,push,release"}
-    # Queue for async processing
-    queue_url: "${SQS_QUEUE_URL}"
 
 # Adapters - Production endpoints
 adapters:

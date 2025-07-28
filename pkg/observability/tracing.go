@@ -294,3 +294,16 @@ func TraceTool(ctx context.Context, tool string, action string) (context.Context
 	}
 	return ctx, span
 }
+
+// tracerAdapter wraps the global tracer to implement the Tracer interface
+type tracerAdapter struct{}
+
+// NewTracer creates a new tracer adapter
+func NewTracer() Tracer {
+	return &tracerAdapter{}
+}
+
+// StartSpan implements the Tracer interface
+func (t *tracerAdapter) StartSpan(ctx context.Context, name string) (context.Context, Span) {
+	return StartSpan(ctx, name)
+}

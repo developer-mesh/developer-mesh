@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"encoding/json"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -9,15 +10,15 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/queue"
 )
 
-type mockSQSClient struct {
-	recvFunc   func(context.Context, int32, int32) ([]queue.SQSEvent, []string, error)
+type mockQueueClient struct {
+	recvFunc   func(context.Context, int32, int32) ([]queue.Event, []string, error)
 	deleteFunc func(context.Context, string) error
 }
 
-func (m *mockSQSClient) ReceiveEvents(ctx context.Context, maxMessages int32, waitSeconds int32) ([]queue.SQSEvent, []string, error) {
+func (m *mockQueueClient) ReceiveEvents(ctx context.Context, maxMessages int32, waitSeconds int32) ([]queue.Event, []string, error) {
 	return m.recvFunc(ctx, maxMessages, waitSeconds)
 }
-func (m *mockSQSClient) DeleteMessage(ctx context.Context, receiptHandle string) error {
+func (m *mockQueueClient) DeleteMessage(ctx context.Context, receiptHandle string) error {
 	return m.deleteFunc(ctx, receiptHandle)
 }
 
@@ -37,14 +38,20 @@ func TestRunWorker_ProcessesEvents(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	sqsCalled := int32(0)
+	queueCalled := int32(0)
 	redisCalled := int32(0)
 	processCalled := int32(0)
 
-	sqs := &mockSQSClient{
-		recvFunc: func(ctx context.Context, max, wait int32) ([]queue.SQSEvent, []string, error) {
-			atomic.AddInt32(&sqsCalled, 1)
-			return []queue.SQSEvent{{DeliveryID: "d1", EventType: "pull_request", Payload: []byte(`{"foo":1}`)}}, []string{"h1"}, nil
+	queueClient := &mockQueueClient{
+		recvFunc: func(ctx context.Context, max, wait int32) ([]queue.Event, []string, error) {
+			atomic.AddInt32(&queueCalled, 1)
+			event := queue.Event{
+				EventID:   "d1",
+				EventType: "pull_request",
+				Payload:   json.RawMessage(`{"foo":1}`),
+				Timestamp: time.Now(),
+			}
+			return []queue.Event{event}, []string{"h1"}, nil
 		},
 		deleteFunc: func(ctx context.Context, handle string) error {
 			return nil
@@ -59,16 +66,16 @@ func TestRunWorker_ProcessesEvents(t *testing.T) {
 			return nil
 		},
 	}
-	processFunc := func(ev queue.SQSEvent) error {
+	processFunc := func(ev queue.Event) error {
 		atomic.AddInt32(&processCalled, 1)
 		return nil
 	}
 	// Patch RunWorker to use our mocks
 	go func() {
-		_ = RunWorker(ctx, sqs, redis, processFunc)
+		_ = RunWorker(ctx, queueClient, redis, processFunc)
 	}()
 	time.Sleep(200 * time.Millisecond)
-	if atomic.LoadInt32(&sqsCalled) == 0 || atomic.LoadInt32(&redisCalled) == 0 || atomic.LoadInt32(&processCalled) == 0 {
+	if atomic.LoadInt32(&queueCalled) == 0 || atomic.LoadInt32(&redisCalled) == 0 || atomic.LoadInt32(&processCalled) == 0 {
 		t.Errorf("Expected all components to be called at least once")
 	}
 }

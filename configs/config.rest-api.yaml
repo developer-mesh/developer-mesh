@@ -51,9 +51,10 @@ adapters:
     secret_access_key: "${AWS_SECRET_ACCESS_KEY}"
 
 worker:
-  queue_type: "sqs"
-  sqs:
-    queue_url: "${SQS_QUEUE_URL}"
+  queue_type: "redis"
+  redis:
+    stream_name: "${REDIS_STREAM_NAME:-webhook-events}"
+    consumer_group: "${REDIS_CONSUMER_GROUP:-webhook-processors}"
 
 monitoring:
   logging:

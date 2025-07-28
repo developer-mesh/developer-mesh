@@ -159,26 +159,32 @@ func GitHubWebhookHandler(config interfaces.WebhookConfigInterface, logger obser
 		// Extract auth context from webhook payload
 		authContext := extractAuthContext(payload, eventType)
 
-		event := queue.SQSEvent{
-			DeliveryID:  r.Header.Get("X-GitHub-Delivery"),
+		event := queue.Event{
+			EventID:     r.Header.Get("X-GitHub-Delivery"),
 			EventType:   eventType,
 			RepoName:    repoName,
 			SenderName:  senderName,
 			Payload:     json.RawMessage(bodyBytes),
 			AuthContext: authContext,
+			Timestamp:   time.Now(),
 		}
 
 		ctx := r.Context()
-		sqsClient, err := queue.NewSQSClient(ctx)
+		// Create Redis queue client
+		queueClient, err := queue.NewClient(ctx, &queue.Config{
+			Logger: logger,
+		})
 		if err != nil {
-			http.Error(w, "Failed to create SQS client", http.StatusInternalServerError)
-			logger.Error("Failed to create SQS client", map[string]any{"error": err.Error()})
+			http.Error(w, "Failed to create queue client", http.StatusInternalServerError)
+			logger.Error("Failed to create queue client", map[string]any{"error": err.Error()})
 			return
 		}
-		err = sqsClient.EnqueueEvent(ctx, event)
+		defer queueClient.Close()
+
+		err = queueClient.EnqueueEvent(ctx, event)
 		if err != nil {
 			http.Error(w, "Failed to enqueue event", http.StatusInternalServerError)
-			logger.Error("Failed to enqueue event to SQS", map[string]any{"error": err.Error()})
+			logger.Error("Failed to enqueue event", map[string]any{"error": err.Error()})
 			return
 		}
 

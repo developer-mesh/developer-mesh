@@ -69,6 +69,7 @@ type Server struct {
 	conflictService  pgservices.ConflictResolutionService
 	// Dynamic tools
 	dynamicToolsAPI      *DynamicToolsAPI
+	dynamicToolsV2       *DynamicToolsV2Wrapper // New implementation
 	healthCheckScheduler *pkgtools.HealthCheckScheduler
 	encryptionService    *security.EncryptionService
 }
@@ -404,6 +405,19 @@ func (s *Server) Initialize(ctx context.Context) error {
 		// Don't fail server startup, but log the error
 	}
 
+	// Initialize new dynamic tools v2 implementation
+	if os.Getenv("ENABLE_DYNAMIC_TOOLS_V2") != "" {
+		dynamicToolsV2, err := InitializeDynamicToolsV2(ctx, s.db, s.logger)
+		if err != nil {
+			s.logger.Error("Failed to initialize dynamic tools v2", map[string]interface{}{
+				"error": err.Error(),
+			})
+		} else {
+			s.dynamicToolsV2 = NewDynamicToolsV2Wrapper(dynamicToolsV2, s.logger)
+			s.logger.Info("Dynamic Tools V2 initialized successfully", nil)
+		}
+	}
+
 	// Initialize routes
 	s.setupRoutes()
 
@@ -511,6 +525,12 @@ func (s *Server) setupRoutes() {
 		s.logger.Info("Dynamic Tools API routes registered", nil)
 	} else {
 		s.logger.Warn("Dynamic Tools API not available - initialization may have failed", nil)
+	}
+
+	// Register Dynamic Tools V2 routes if enabled
+	if s.dynamicToolsV2 != nil {
+		s.dynamicToolsV2.RegisterRoutes(v1)
+		s.logger.Info("Dynamic Tools V2 API routes registered", nil)
 	}
 
 	// Log API availability via proxies

@@ -73,65 +73,65 @@ func (a *DynamicToolAdapter) ListActions(ctx context.Context) ([]models.ToolActi
 	if spec.Paths != nil {
 		for path, pathItem := range spec.Paths.Map() {
 			for method, operation := range pathItem.Operations() {
-			if operation == nil {
-				continue
-			}
-
-			// Create action ID
-			actionID := operation.OperationID
-			if actionID == "" {
-				actionID = fmt.Sprintf("%s_%s", strings.ToLower(method), strings.ReplaceAll(path, "/", "_"))
-			}
-
-			// Extract parameters
-			var parameters []models.ActionParameter
-
-			// Path parameters
-			for _, param := range pathItem.Parameters {
-				if param.Value != nil {
-					parameters = append(parameters, a.convertParameter(param.Value))
+				if operation == nil {
+					continue
 				}
-			}
 
-			// Operation parameters
-			for _, param := range operation.Parameters {
-				if param.Value != nil {
-					parameters = append(parameters, a.convertParameter(param.Value))
+				// Create action ID
+				actionID := operation.OperationID
+				if actionID == "" {
+					actionID = fmt.Sprintf("%s_%s", strings.ToLower(method), strings.ReplaceAll(path, "/", "_"))
 				}
-			}
 
-			// Request body as parameter
-			if operation.RequestBody != nil && operation.RequestBody.Value != nil {
-				if content, ok := operation.RequestBody.Value.Content["application/json"]; ok {
-					param := models.ActionParameter{
-						Name:        "body",
-						In:          "body",
-						Required:    operation.RequestBody.Value.Required,
-						Description: operation.RequestBody.Value.Description,
-						Type:        "object",
+				// Extract parameters
+				var parameters []models.ActionParameter
+
+				// Path parameters
+				for _, param := range pathItem.Parameters {
+					if param.Value != nil {
+						parameters = append(parameters, a.convertParameter(param.Value))
 					}
-					if content.Schema != nil && content.Schema.Value != nil {
-						param.Description = content.Schema.Value.Description
-					}
-					parameters = append(parameters, param)
 				}
-			}
 
-			// Create action
-			action := models.ToolAction{
-				ID:          actionID,
-				Name:        operation.Summary,
-				Description: operation.Description,
-				Method:      method,
-				Path:        path,
-				Parameters:  parameters,
-			}
+				// Operation parameters
+				for _, param := range operation.Parameters {
+					if param.Value != nil {
+						parameters = append(parameters, a.convertParameter(param.Value))
+					}
+				}
 
-			if action.Name == "" {
-				action.Name = actionID
-			}
+				// Request body as parameter
+				if operation.RequestBody != nil && operation.RequestBody.Value != nil {
+					if content, ok := operation.RequestBody.Value.Content["application/json"]; ok {
+						param := models.ActionParameter{
+							Name:        "body",
+							In:          "body",
+							Required:    operation.RequestBody.Value.Required,
+							Description: operation.RequestBody.Value.Description,
+							Type:        "object",
+						}
+						if content.Schema != nil && content.Schema.Value != nil {
+							param.Description = content.Schema.Value.Description
+						}
+						parameters = append(parameters, param)
+					}
+				}
 
-			actions = append(actions, action)
+				// Create action
+				action := models.ToolAction{
+					ID:          actionID,
+					Name:        operation.Summary,
+					Description: operation.Description,
+					Method:      method,
+					Path:        path,
+					Parameters:  parameters,
+				}
+
+				if action.Name == "" {
+					action.Name = actionID
+				}
+
+				actions = append(actions, action)
 			}
 		}
 	}
@@ -176,7 +176,7 @@ func (a *DynamicToolAdapter) ExecuteAction(ctx context.Context, actionID string,
 			ExecutedAt: startTime,
 		}, nil
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Read response body
 	body, err := io.ReadAll(resp.Body)
@@ -236,7 +236,7 @@ func (a *DynamicToolAdapter) getOpenAPISpec(ctx context.Context) (*openapi3.T, e
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to fetch OpenAPI spec: HTTP %d", resp.StatusCode)

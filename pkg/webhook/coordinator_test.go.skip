@@ -1,0 +1,514 @@
+package webhook
+
+import (
+	"context"
+	"fmt"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/alicebob/miniredis/v2"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/redis"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func setupCoordinator(t *testing.T) (*ConsumerCoordinator, *miniredis.Miniredis, func()) {
+	mr, err := miniredis.Run()
+	require.NoError(t, err)
+
+	logger := observability.NewNoopLogger()
+	redisConfig := &redis.StreamsConfig{
+		Mode:    redis.ModeSingle,
+		Addrs:   []string{mr.Addr()},
+		Timeout: 5 * time.Second,
+	}
+
+	redisClient, err := redis.NewStreamsClient(redisConfig, logger)
+	require.NoError(t, err)
+
+	config := &CoordinatorConfig{
+		NodeID:            "test-node-1",
+		HeartbeatInterval: 100 * time.Millisecond,
+		LeaderTimeout:     500 * time.Millisecond,
+		ElectionTimeout:   200 * time.Millisecond,
+		MaxNodes:          10,
+		MinNodes:          1,
+		StreamPartitions:  4,
+		RebalanceInterval: 1 * time.Second,
+	}
+
+	coordinator, err := NewConsumerCoordinator(config, redisClient, logger)
+	require.NoError(t, err)
+
+	cleanup := func() {
+		coordinator.Stop()
+		redisClient.Close()
+		mr.Close()
+	}
+
+	return coordinator, mr, cleanup
+}
+
+func TestNewCoordinator(t *testing.T) {
+	t.Run("Creates coordinator with config", func(t *testing.T) {
+		coordinator, _, cleanup := setupCoordinator(t)
+		defer cleanup()
+
+		assert.NotNil(t, coordinator)
+		assert.Equal(t, "test-node-1", coordinator.config.NodeID)
+		assert.Equal(t, 4, coordinator.config.StreamPartitions)
+	})
+
+	t.Run("Uses default config when nil", func(t *testing.T) {
+		mr, err := miniredis.Run()
+		require.NoError(t, err)
+		defer mr.Close()
+
+		logger := observability.NewNoopLogger()
+		redisConfig := &redis.StreamsConfig{
+			Mode:    redis.ModeSingle,
+			Addrs:   []string{mr.Addr()},
+			Timeout: 5 * time.Second,
+		}
+
+		redisClient, err := redis.NewStreamsClient(redisConfig, logger)
+		require.NoError(t, err)
+		defer redisClient.Close()
+
+		coordinator, err := NewCoordinator(nil, redisClient, logger)
+		require.NoError(t, err)
+		defer coordinator.Stop()
+
+		assert.NotNil(t, coordinator.config)
+		assert.NotEmpty(t, coordinator.config.NodeID)
+		assert.Equal(t, DefaultCoordinatorConfig().StreamPartitions, coordinator.config.StreamPartitions)
+	})
+}
+
+func TestCoordinator_Start(t *testing.T) {
+	coordinator, _, cleanup := setupCoordinator(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	t.Run("Starts coordinator and sends heartbeats", func(t *testing.T) {
+		err := coordinator.Start(ctx)
+		assert.NoError(t, err)
+
+		// Wait for a few heartbeats
+		time.Sleep(300 * time.Millisecond)
+
+		// Check that node is registered
+		assert.True(t, coordinator.IsHealthy())
+
+		// Verify heartbeat was sent
+		redisClient := coordinator.redisClient.GetClient()
+		key := fmt.Sprintf("coordinator:node:%s", coordinator.config.NodeID)
+		exists := redisClient.Exists(ctx, key).Val()
+		assert.Equal(t, int64(1), exists)
+	})
+
+	t.Run("Elects leader when no leader exists", func(t *testing.T) {
+		// Wait for election
+		time.Sleep(coordinator.config.ElectionTimeout + 100*time.Millisecond)
+
+		// Should become leader since it's the only node
+		assert.True(t, coordinator.IsLeader())
+	})
+}
+
+func TestCoordinator_MultiNode(t *testing.T) {
+	// Create multiple coordinators
+	var coordinators []*ConsumerCoordinator
+	var cleanups []func()
+
+	mr, err := miniredis.Run()
+	require.NoError(t, err)
+
+	logger := observability.NewNoopLogger()
+	redisConfig := &redis.StreamsConfig{
+		Mode:    redis.ModeSingle,
+		Addrs:   []string{mr.Addr()},
+		Timeout: 5 * time.Second,
+	}
+
+	for i := 0; i < 3; i++ {
+		redisClient, err := redis.NewStreamsClient(redisConfig, logger)
+		require.NoError(t, err)
+
+		config := &CoordinatorConfig{
+			NodeID:            fmt.Sprintf("test-node-%d", i),
+			HeartbeatInterval: 100 * time.Millisecond,
+			LeaderTimeout:     500 * time.Millisecond,
+			ElectionTimeout:   200 * time.Millisecond,
+			MaxNodes:          10,
+			MinNodes:          1,
+			StreamPartitions:  4,
+			RebalanceInterval: 1 * time.Second,
+		}
+
+		coordinator, err := NewConsumerCoordinator(config, redisClient, logger)
+		require.NoError(t, err)
+
+		coordinators = append(coordinators, coordinator)
+		cleanups = append(cleanups, func() {
+			coordinator.Stop()
+			redisClient.Close()
+		})
+	}
+
+	// Cleanup all coordinators
+	defer func() {
+		for _, cleanup := range cleanups {
+			cleanup()
+		}
+		mr.Close()
+	}()
+
+	ctx := context.Background()
+
+	t.Run("Elects single leader among multiple nodes", func(t *testing.T) {
+		// Start all coordinators
+		for _, coord := range coordinators {
+			err := coord.Start(ctx)
+			require.NoError(t, err)
+		}
+
+		// Wait for election
+		time.Sleep(1 * time.Second)
+
+		// Count leaders
+		leaderCount := 0
+		var leaderID string
+		for _, coord := range coordinators {
+			if coord.IsLeader() {
+				leaderCount++
+				leaderID = coord.config.NodeID
+			}
+		}
+
+		assert.Equal(t, 1, leaderCount, "Should have exactly one leader")
+		assert.NotEmpty(t, leaderID)
+	})
+
+	t.Run("Re-elects leader when current leader fails", func(t *testing.T) {
+		// Find and stop the current leader
+		var leaderIndex int
+		for i, coord := range coordinators {
+			if coord.IsLeader() {
+				leaderIndex = i
+				coord.Stop()
+				break
+			}
+		}
+
+		// Wait for re-election
+		time.Sleep(1 * time.Second)
+
+		// Count leaders again (excluding stopped coordinator)
+		leaderCount := 0
+		for i, coord := range coordinators {
+			if i != leaderIndex && coord.IsLeader() {
+				leaderCount++
+			}
+		}
+
+		assert.Equal(t, 1, leaderCount, "Should have new leader after failure")
+	})
+}
+
+func TestCoordinator_PartitionAssignment(t *testing.T) {
+	coordinator, _, cleanup := setupCoordinator(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	t.Run("Assigns partitions to nodes", func(t *testing.T) {
+		err := coordinator.Start(ctx)
+		require.NoError(t, err)
+
+		// Wait to become leader
+		time.Sleep(coordinator.config.ElectionTimeout + 100*time.Millisecond)
+
+		// Get partition assignments
+		assignments := coordinator.GetPartitionAssignments()
+		assert.NotNil(t, assignments)
+		assert.Len(t, assignments, coordinator.config.StreamPartitions)
+
+		// Since there's only one node, all partitions should be assigned to it
+		for _, nodeID := range assignments {
+			assert.Equal(t, coordinator.config.NodeID, nodeID)
+		}
+	})
+
+	t.Run("Returns assigned partitions for node", func(t *testing.T) {
+		partitions := coordinator.GetAssignedPartitions()
+		assert.Len(t, partitions, coordinator.config.StreamPartitions)
+
+		// Should have all partitions
+		expectedPartitions := make(map[int]bool)
+		for i := 0; i < coordinator.config.StreamPartitions; i++ {
+			expectedPartitions[i] = true
+		}
+
+		for _, p := range partitions {
+			assert.True(t, expectedPartitions[p])
+		}
+	})
+}
+
+func TestCoordinator_NodeManagement(t *testing.T) {
+	coordinator, _, cleanup := setupCoordinator(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	t.Run("Tracks active nodes", func(t *testing.T) {
+		err := coordinator.Start(ctx)
+		require.NoError(t, err)
+
+		// Wait for node to register
+		time.Sleep(200 * time.Millisecond)
+
+		nodes := coordinator.GetActiveNodes()
+		assert.Len(t, nodes, 1)
+		assert.Equal(t, coordinator.config.NodeID, nodes[0])
+	})
+
+	t.Run("Removes inactive nodes", func(t *testing.T) {
+		// Simulate another node
+		redisClient := coordinator.redisClient.GetClient()
+		nodeKey := "coordinator:node:fake-node"
+		nodeInfo := map[string]interface{}{
+			"id":         "fake-node",
+			"heartbeat":  time.Now().Add(-2 * time.Minute).Unix(), // Old heartbeat
+			"partitions": []int{},
+		}
+		err := redisClient.HMSet(ctx, nodeKey, nodeInfo).Err()
+		require.NoError(t, err)
+
+		// Add to nodes set
+		err = redisClient.SAdd(ctx, "coordinator:nodes", "fake-node").Err()
+		require.NoError(t, err)
+
+		// Run cleanup
+		coordinator.cleanupInactiveNodes(ctx)
+
+		// Verify fake node was removed
+		nodes := coordinator.GetActiveNodes()
+		assert.Len(t, nodes, 1)
+		assert.Equal(t, coordinator.config.NodeID, nodes[0])
+	})
+}
+
+func TestCoordinator_Rebalancing(t *testing.T) {
+	// This test simulates partition rebalancing across multiple nodes
+	var coordinators []*ConsumerCoordinator
+	var cleanups []func()
+
+	mr, err := miniredis.Run()
+	require.NoError(t, err)
+
+	logger := observability.NewNoopLogger()
+	redisConfig := &redis.StreamsConfig{
+		Mode:    redis.ModeSingle,
+		Addrs:   []string{mr.Addr()},
+		Timeout: 5 * time.Second,
+	}
+
+	// Create 2 coordinators
+	for i := 0; i < 2; i++ {
+		redisClient, err := redis.NewStreamsClient(redisConfig, logger)
+		require.NoError(t, err)
+
+		config := &CoordinatorConfig{
+			NodeID:            fmt.Sprintf("rebalance-node-%d", i),
+			HeartbeatInterval: 100 * time.Millisecond,
+			LeaderTimeout:     500 * time.Millisecond,
+			ElectionTimeout:   200 * time.Millisecond,
+			MaxNodes:          10,
+			MinNodes:          1,
+			StreamPartitions:  4,
+			RebalanceInterval: 500 * time.Millisecond,
+		}
+
+		coordinator, err := NewConsumerCoordinator(config, redisClient, logger)
+		require.NoError(t, err)
+
+		coordinators = append(coordinators, coordinator)
+		cleanups = append(cleanups, func() {
+			coordinator.Stop()
+			redisClient.Close()
+		})
+	}
+
+	defer func() {
+		for _, cleanup := range cleanups {
+			cleanup()
+		}
+		mr.Close()
+	}()
+
+	ctx := context.Background()
+
+	t.Run("Rebalances partitions when new node joins", func(t *testing.T) {
+		// Start first coordinator
+		err := coordinators[0].Start(ctx)
+		require.NoError(t, err)
+
+		// Wait for it to become leader and take all partitions
+		time.Sleep(500 * time.Millisecond)
+
+		// Verify first node has all partitions
+		partitions1 := coordinators[0].GetAssignedPartitions()
+		assert.Len(t, partitions1, 4)
+
+		// Start second coordinator
+		err = coordinators[1].Start(ctx)
+		require.NoError(t, err)
+
+		// Wait for rebalancing
+		time.Sleep(1 * time.Second)
+
+		// Check partition distribution
+		partitions1 = coordinators[0].GetAssignedPartitions()
+		partitions2 := coordinators[1].GetAssignedPartitions()
+
+		// Each should have some partitions
+		assert.Greater(t, len(partitions1), 0)
+		assert.Greater(t, len(partitions2), 0)
+
+		// Total should be 4
+		assert.Equal(t, 4, len(partitions1)+len(partitions2))
+
+		// No overlap
+		for _, p1 := range partitions1 {
+			for _, p2 := range partitions2 {
+				assert.NotEqual(t, p1, p2)
+			}
+		}
+	})
+}
+
+func TestCoordinator_GetMetrics(t *testing.T) {
+	coordinator, _, cleanup := setupCoordinator(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	t.Run("Returns coordinator metrics", func(t *testing.T) {
+		err := coordinator.Start(ctx)
+		require.NoError(t, err)
+
+		// Wait for some activity
+		time.Sleep(500 * time.Millisecond)
+
+		metrics := coordinator.GetMetrics()
+		assert.Contains(t, metrics, "is_leader")
+		assert.Contains(t, metrics, "active_nodes")
+		assert.Contains(t, metrics, "assigned_partitions")
+		assert.Contains(t, metrics, "total_partitions")
+		assert.Contains(t, metrics, "heartbeats_sent")
+		assert.Contains(t, metrics, "elections_participated")
+		assert.Contains(t, metrics, "rebalances_triggered")
+
+		assert.Equal(t, 1, metrics["active_nodes"].(int))
+		assert.Equal(t, coordinator.config.StreamPartitions, metrics["total_partitions"].(int))
+		assert.Greater(t, metrics["heartbeats_sent"].(int64), int64(0))
+	})
+}
+
+func TestCoordinator_Stop(t *testing.T) {
+	coordinator, _, cleanup := setupCoordinator(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	t.Run("Gracefully stops coordinator", func(t *testing.T) {
+		err := coordinator.Start(ctx)
+		require.NoError(t, err)
+
+		// Let it run
+		time.Sleep(200 * time.Millisecond)
+
+		// Stop coordinator
+		coordinator.Stop()
+
+		// Verify it stopped
+		select {
+		case <-coordinator.stopChan:
+			// Channel is closed, good
+		default:
+			t.Fatal("Stop channel should be closed")
+		}
+
+		// Should no longer be healthy
+		assert.False(t, coordinator.IsHealthy())
+	})
+
+	t.Run("Releases leadership on stop", func(t *testing.T) {
+		// Create a new coordinator
+		coordinator2, _, cleanup2 := setupCoordinator(t)
+		defer cleanup2()
+
+		coordinator2.config.NodeID = "test-node-stop"
+		err := coordinator2.Start(ctx)
+		require.NoError(t, err)
+
+		// Wait to become leader
+		time.Sleep(coordinator2.config.ElectionTimeout + 100*time.Millisecond)
+		assert.True(t, coordinator2.IsLeader())
+
+		// Stop and verify leadership is released
+		coordinator2.Stop()
+
+		// Check Redis for leader key
+		redisClient := coordinator2.redisClient.GetClient()
+		leader, err := redisClient.Get(ctx, "coordinator:leader").Result()
+		assert.Error(t, err) // Key should not exist
+		assert.Empty(t, leader)
+	})
+}
+
+func TestCoordinator_ConcurrentOperations(t *testing.T) {
+	coordinator, _, cleanup := setupCoordinator(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	t.Run("Handles concurrent method calls safely", func(t *testing.T) {
+		err := coordinator.Start(ctx)
+		require.NoError(t, err)
+
+		// Wait to stabilize
+		time.Sleep(300 * time.Millisecond)
+
+		var wg sync.WaitGroup
+		errors := make(chan error, 100)
+
+		// Concurrent reads
+		for i := 0; i < 10; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				_ = coordinator.IsLeader()
+				_ = coordinator.IsHealthy()
+				_ = coordinator.GetActiveNodes()
+				_ = coordinator.GetAssignedPartitions()
+				_ = coordinator.GetPartitionAssignments()
+				_ = coordinator.GetMetrics()
+			}()
+		}
+
+		// Wait for all operations
+		wg.Wait()
+		close(errors)
+
+		// Check for errors
+		for err := range errors {
+			assert.NoError(t, err)
+		}
+	})
+}

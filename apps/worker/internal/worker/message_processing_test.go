@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/service/sqs/types"
+	"github.com/developer-mesh/developer-mesh/pkg/queue"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -44,14 +44,13 @@ func TestMessageOrdering(t *testing.T) {
 	processedOrder := make([]int, 0)
 	var mu sync.Mutex
 
-	processor.OnProcess = func(ctx context.Context, msg *types.Message) error {
-		var data MockMessage
-		if err := json.Unmarshal([]byte(*msg.Body), &data); err != nil {
+	processor.OnProcess = func(ctx context.Context, event queue.Event) error {
+		var data map[string]interface{}
+		if err := json.Unmarshal(event.Payload, &data); err != nil {
 			return err
 		}
 
-		orderData := data.Data.(map[string]any)
-		order := int(orderData["order"].(float64))
+		order := int(data["order"].(float64))
 
 		mu.Lock()
 		processedOrder = append(processedOrder, order)
@@ -62,7 +61,7 @@ func TestMessageOrdering(t *testing.T) {
 
 	// Process messages
 	for _, msg := range messages {
-		err := worker.ProcessMessage(ctx, createSQSMessage(msg))
+		err := worker.ProcessMessage(ctx, createEvent(msg))
 		require.NoError(t, err)
 	}
 
@@ -88,15 +87,15 @@ func TestPoisonMessageHandling(t *testing.T) {
 	}
 
 	failCount := 0
-	processor.OnProcess = func(ctx context.Context, msg *types.Message) error {
+	processor.OnProcess = func(ctx context.Context, event queue.Event) error {
 		failCount++
 		return errors.New("processing failed")
 	}
 
 	// Process message with retry logic
-	sqsMsg := createSQSMessage(poisonMsg)
+	event := createEvent(poisonMsg)
 
-	err := worker.ProcessMessageWithRetry(ctx, sqsMsg)
+	err := worker.ProcessMessageWithRetry(ctx, event)
 	assert.Error(t, err)
 
 	// Should have attempted exactly maxRetries times
@@ -118,7 +117,7 @@ func TestRetryLogic(t *testing.T) {
 	retryTimes := make([]time.Time, 0)
 	var mu sync.Mutex
 
-	processor.OnProcess = func(ctx context.Context, msg *types.Message) error {
+	processor.OnProcess = func(ctx context.Context, event queue.Event) error {
 		atomic.AddInt32(&attempts, 1)
 
 		mu.Lock()
@@ -138,7 +137,7 @@ func TestRetryLogic(t *testing.T) {
 		Data: map[string]string{"test": "retry"},
 	}
 
-	err := worker.ProcessMessageWithRetry(ctx, createSQSMessage(msg))
+	err := worker.ProcessMessageWithRetry(ctx, createEvent(msg))
 	require.NoError(t, err)
 
 	// Verify retry count
@@ -170,8 +169,8 @@ func TestIdempotencyGuarantees(t *testing.T) {
 	processedIDs := make(map[string]int)
 	var mu sync.Mutex
 
-	processor.OnProcess = func(ctx context.Context, msg *types.Message) error {
-		msgID := *msg.MessageId
+	processor.OnProcess = func(ctx context.Context, event queue.Event) error {
+		msgID := event.EventID
 
 		mu.Lock()
 		processedIDs[msgID]++
@@ -187,11 +186,11 @@ func TestIdempotencyGuarantees(t *testing.T) {
 		Data: map[string]string{"test": "idempotency"},
 	}
 
-	sqsMsg := createSQSMessage(msg)
+	event := createEvent(msg)
 
 	// Process 5 times
 	for range 5 {
-		err := worker.ProcessMessage(ctx, sqsMsg)
+		err := worker.ProcessMessage(ctx, event)
 		require.NoError(t, err)
 	}
 
@@ -210,7 +209,7 @@ func TestDuplicateDetection(t *testing.T) {
 	worker.deduplicationWindow = 5 * time.Minute
 
 	processCount := 0
-	processor.OnProcess = func(ctx context.Context, msg *types.Message) error {
+	processor.OnProcess = func(ctx context.Context, event queue.Event) error {
 		processCount++
 		return nil
 	}
@@ -229,13 +228,13 @@ func TestDuplicateDetection(t *testing.T) {
 
 	// Process the same message 3 times
 	for i := range 3 {
-		sqsMsg := createSQSMessage(msg)
-		sqsMsg.Attributes = map[string]string{
+		event := createEvent(msg)
+		event.Metadata = map[string]interface{}{
 			"MessageDeduplicationId":  dedupID,
 			"ApproximateReceiveCount": fmt.Sprintf("%d", i+1),
 		}
 
-		err := worker.ProcessMessage(ctx, sqsMsg)
+		err := worker.ProcessMessage(ctx, event)
 		require.NoError(t, err)
 	}
 
@@ -254,8 +253,8 @@ func TestAtLeastOnceDelivery(t *testing.T) {
 	deliveryAttempts := make(map[string]int)
 	var mu sync.Mutex
 
-	processor.OnProcess = func(ctx context.Context, msg *types.Message) error {
-		msgID := *msg.MessageId
+	processor.OnProcess = func(ctx context.Context, event queue.Event) error {
+		msgID := event.EventID
 
 		mu.Lock()
 		attempts := deliveryAttempts[msgID]
@@ -278,14 +277,14 @@ func TestAtLeastOnceDelivery(t *testing.T) {
 	}
 
 	for _, msg := range messages {
-		sqsMsg := createSQSMessage(msg)
+		event := createEvent(msg)
 
 		// First attempt fails
-		err := worker.ProcessMessage(ctx, sqsMsg)
+		err := worker.ProcessMessage(ctx, event)
 		assert.Error(t, err)
 
 		// Second attempt succeeds
-		err = worker.ProcessMessage(ctx, sqsMsg)
+		err = worker.ProcessMessage(ctx, event)
 		assert.NoError(t, err)
 	}
 
@@ -306,7 +305,7 @@ func TestJobTimeouts(t *testing.T) {
 	worker.jobTimeout = 100 * time.Millisecond
 
 	timeoutCount := 0
-	processor.OnProcess = func(ctx context.Context, msg *types.Message) error {
+	processor.OnProcess = func(ctx context.Context, event queue.Event) error {
 		// Simulate long-running job
 		select {
 		case <-time.After(200 * time.Millisecond):
@@ -324,7 +323,7 @@ func TestJobTimeouts(t *testing.T) {
 		Data: "slow job",
 	}
 
-	err := worker.ProcessMessage(ctx, createSQSMessage(msg))
+	err := worker.ProcessMessage(ctx, createEvent(msg))
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "deadline exceeded")
 	assert.Equal(t, 1, timeoutCount)
@@ -341,7 +340,7 @@ func TestGracefulJobCompletion(t *testing.T) {
 	jobsStarted := int32(0)
 	jobsCompleted := int32(0)
 
-	processor.OnProcess = func(ctx context.Context, msg *types.Message) error {
+	processor.OnProcess = func(ctx context.Context, event queue.Event) error {
 		atomic.AddInt32(&jobsStarted, 1)
 
 		// Simulate job processing
@@ -364,7 +363,7 @@ func TestGracefulJobCompletion(t *testing.T) {
 				Data: i,
 			}
 
-			_ = worker.ProcessMessage(ctx, createSQSMessage(msg))
+			_ = worker.ProcessMessage(ctx, createEvent(msg))
 		}
 	}()
 
@@ -392,9 +391,9 @@ func TestJobStatePersistence(t *testing.T) {
 	// Track job progress
 	jobProgress := make(map[string]int)
 
-	processor1.OnProcess = func(ctx context.Context, msg *types.Message) error {
+	processor1.OnProcess = func(ctx context.Context, event queue.Event) error {
 		var data MockMessage
-		if err := json.Unmarshal([]byte(*msg.Body), &data); err != nil {
+		if err := json.Unmarshal(event.Payload, &data); err != nil {
 			return err
 		}
 
@@ -412,7 +411,7 @@ func TestJobStatePersistence(t *testing.T) {
 		Data: map[string]string{"important": "data"},
 	}
 
-	err := worker1.ProcessMessage(ctx, createSQSMessage(msg))
+	err := worker1.ProcessMessage(ctx, createEvent(msg))
 	assert.Error(t, err)
 
 	// Simulate restart with new worker
@@ -422,23 +421,23 @@ func TestJobStatePersistence(t *testing.T) {
 	// Load persisted state
 	worker2.LoadPersistedState()
 
-	processor2.OnProcess = func(ctx context.Context, msg *types.Message) error {
-		var data MockMessage
-		if err := json.Unmarshal([]byte(*msg.Body), &data); err != nil {
+	processor2.OnProcess = func(ctx context.Context, event queue.Event) error {
+		var data map[string]interface{}
+		if err := json.Unmarshal(event.Payload, &data); err != nil {
 			return err
 		}
 
 		// Resume from persisted progress
-		startProgress := worker2.GetJobProgress(data.ID)
+		startProgress := worker2.GetJobProgress(event.EventID)
 		assert.Equal(t, 50, startProgress)
 
 		// Complete the job
-		jobProgress[data.ID] = 100
+		jobProgress[event.EventID] = 100
 		return nil
 	}
 
 	// Reprocess the message
-	err = worker2.ProcessMessage(ctx, createSQSMessage(msg))
+	err = worker2.ProcessMessage(ctx, createEvent(msg))
 	assert.NoError(t, err)
 	assert.Equal(t, 100, jobProgress[msg.ID])
 }
@@ -457,7 +456,7 @@ func TestBackpressure(t *testing.T) {
 	var currentConcurrency int32
 	maxObservedConcurrency := int32(0)
 
-	processor.OnProcess = func(ctx context.Context, msg *types.Message) error {
+	processor.OnProcess = func(ctx context.Context, event queue.Event) error {
 		current := atomic.AddInt32(&currentConcurrency, 1)
 
 		// Update max observed
@@ -494,7 +493,7 @@ func TestBackpressure(t *testing.T) {
 			}
 			defer worker.ReleaseConcurrencySlot()
 
-			_ = worker.ProcessMessage(ctx, createSQSMessage(msg))
+			_ = worker.ProcessMessage(ctx, createEvent(msg))
 		}(i)
 	}
 
@@ -507,16 +506,16 @@ func TestBackpressure(t *testing.T) {
 // Helper functions
 
 type TestProcessor struct {
-	OnProcess func(context.Context, *types.Message) error
+	OnProcess func(context.Context, queue.Event) error
 }
 
 func NewTestProcessor() *TestProcessor {
 	return &TestProcessor{}
 }
 
-func (p *TestProcessor) Process(ctx context.Context, msg *types.Message) error {
+func (p *TestProcessor) Process(ctx context.Context, event queue.Event) error {
 	if p.OnProcess != nil {
-		return p.OnProcess(ctx, msg)
+		return p.OnProcess(ctx, event)
 	}
 	return nil
 }
@@ -545,8 +544,8 @@ func NewTestWorker(processor *TestProcessor) *TestWorker {
 	}
 }
 
-func (w *TestWorker) ProcessMessage(ctx context.Context, msg *types.Message) error {
-	msgID := *msg.MessageId
+func (w *TestWorker) ProcessMessage(ctx context.Context, event queue.Event) error {
+	msgID := event.EventID
 
 	// Check for duplicates
 	w.mu.Lock()
@@ -566,10 +565,10 @@ func (w *TestWorker) ProcessMessage(ctx context.Context, msg *types.Message) err
 		defer cancel()
 	}
 
-	return w.processor.Process(ctx, msg)
+	return w.processor.Process(ctx, event)
 }
 
-func (w *TestWorker) ProcessMessageWithRetry(ctx context.Context, msg *types.Message) error {
+func (w *TestWorker) ProcessMessageWithRetry(ctx context.Context, event queue.Event) error {
 	var lastErr error
 
 	for attempt := range w.maxRetries {
@@ -579,7 +578,7 @@ func (w *TestWorker) ProcessMessageWithRetry(ctx context.Context, msg *types.Mes
 			time.Sleep(backoff)
 		}
 
-		lastErr = w.ProcessMessage(ctx, msg)
+		lastErr = w.ProcessMessage(ctx, event)
 		if lastErr == nil {
 			return nil
 		}
@@ -587,7 +586,7 @@ func (w *TestWorker) ProcessMessageWithRetry(ctx context.Context, msg *types.Mes
 
 	// Move to DLQ after max retries
 	w.mu.Lock()
-	w.dlq[*msg.MessageId] = true
+	w.dlq[event.EventID] = true
 	w.mu.Unlock()
 
 	return lastErr
@@ -630,15 +629,13 @@ func (w *TestWorker) ReleaseConcurrencySlot() {
 	atomic.AddInt32(&concurrentJobs, -1)
 }
 
-func createSQSMessage(msg MockMessage) *types.Message {
-	body, _ := json.Marshal(msg)
-	bodyStr := string(body)
+func createEvent(msg MockMessage) queue.Event {
+	payload, _ := json.Marshal(msg.Data)
 
-	return &types.Message{
-		MessageId: &msg.ID,
-		Body:      &bodyStr,
-		Attributes: map[string]string{
-			"ApproximateReceiveCount": "1",
-		},
+	return queue.Event{
+		EventID:   msg.ID,
+		EventType: msg.Type,
+		Payload:   payload,
+		Timestamp: msg.Timestamp,
 	}
 }

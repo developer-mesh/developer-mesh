@@ -318,24 +318,20 @@ embedding:
     selection_strategy: "round_robin"  # Simple strategy for dev
     cache_ttl: "1m"  # Shorter cache in dev
 
-# Worker Configuration - Real AWS SQS
+# Worker Configuration - Redis Streams
 worker:
-  queue_type: "${WORKER_QUEUE_TYPE:-sqs}"  # Use SQS by default
+  queue_type: redis  # Always use Redis
   concurrency: ${WORKER_CONCURRENCY:-10}
   
-  # Real AWS SQS configuration
-  sqs:
-    queue_url: "${SQS_QUEUE_URL:-https://sqs.us-east-1.amazonaws.com/594992249511/sean-mcp-test}"
-    region: "${AWS_REGION:-us-east-1}"
-    # AWS credentials (from environment or IAM role)
-    access_key_id: "${AWS_ACCESS_KEY_ID:-}"
-    secret_access_key: "${AWS_SECRET_ACCESS_KEY:-}"
-    session_token: "${AWS_SESSION_TOKEN:-}"  # For temporary credentials
+  # Redis Streams configuration
+  redis:
+    stream_name: "${REDIS_STREAM_NAME:-webhook-events}"
+    consumer_group: "${REDIS_CONSUMER_GROUP:-webhook-processors}"
     
-    # SQS settings
-    visibility_timeout: 30s
-    wait_time_seconds: 20  # Long polling
-    max_messages: 10  # Max messages per receive
+    # Redis settings
+    block_timeout: 5s  # Block duration for XREAD
+    batch_size: 100    # Max messages per batch
+    prefetch_count: 1000  # Prefetch for better throughput
     
   # Memory queue for local testing without AWS
   memory:
@@ -355,7 +351,6 @@ aws:
   # Service endpoints (empty for real AWS)
   endpoints:
     s3: "${S3_ENDPOINT:-}"
-    sqs: "${SQS_ENDPOINT:-}"
     bedrock: "${BEDROCK_ENDPOINT:-}"
     
   # ElastiCache specific configuration

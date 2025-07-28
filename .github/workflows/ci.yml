@@ -76,9 +76,9 @@ jobs:
           echo "Running unit tests..."
           go test -v -short ./apps/mcp-server/... ./apps/rest-api/... ./apps/worker/... ./pkg/...
         env:
-          AWS_REGION: us-east-1
-          AWS_ACCESS_KEY_ID: test
-          AWS_SECRET_ACCESS_KEY: test
+          REDIS_ADDR: localhost:6379
+          REDIS_PASSWORD: ""
+          REDIS_TLS_ENABLED: false
           BEDROCK_ENABLED: false
           LOG_LEVEL: debug
 

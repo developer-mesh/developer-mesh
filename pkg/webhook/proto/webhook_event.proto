@@ -1,0 +1,223 @@
+syntax = "proto3";
+
+package webhook.v1;
+
+option go_package = "github.com/developer-mesh/developer-mesh/pkg/webhook/proto;webhook";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/any.proto";
+import "google/protobuf/struct.proto";
+
+// WebhookEvent represents a webhook event in the system
+message WebhookEvent {
+  // Unique identifier for the event
+  string id = 1;
+  
+  // Version of the schema
+  int32 version = 2;
+  
+  // Tenant identifier
+  string tenant_id = 3;
+  
+  // Tool information
+  ToolInfo tool = 4;
+  
+  // Event metadata
+  EventMetadata metadata = 5;
+  
+  // Event payload (flexible structure)
+  google.protobuf.Any payload = 6;
+  
+  // Deduplication information
+  DeduplicationInfo deduplication = 7;
+  
+  // Processing information
+  ProcessingInfo processing = 8;
+  
+  // Security context
+  SecurityContext security = 9;
+}
+
+// ToolInfo contains information about the tool that generated the event
+message ToolInfo {
+  string tool_id = 1;
+  string tool_name = 2;
+  string tool_type = 3;  // github, gitlab, jira, etc.
+  string instance_url = 4;
+  map<string, string> metadata = 5;
+}
+
+// EventMetadata contains metadata about the event
+message EventMetadata {
+  string event_type = 1;  // push, pull_request, issue_created, etc.
+  string event_action = 2;  // opened, closed, merged, etc.
+  google.protobuf.Timestamp occurred_at = 3;
+  google.protobuf.Timestamp received_at = 4;
+  string source_ip = 5;
+  map<string, string> headers = 6;
+  string webhook_id = 7;  // ID of the webhook configuration
+  string delivery_id = 8;  // Unique delivery ID from the source
+}
+
+// DeduplicationInfo contains information for deduplication
+message DeduplicationInfo {
+  string message_id = 1;  // Composite ID: tool_id:event_type:payload_hash
+  string payload_hash = 2;
+  int64 dedup_window_seconds = 3;
+  bool is_duplicate = 4;
+  string original_event_id = 5;  // If duplicate, reference to original
+}
+
+// ProcessingInfo tracks the processing state of the event
+message ProcessingInfo {
+  enum Status {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_PENDING = 1;
+    STATUS_PROCESSING = 2;
+    STATUS_COMPLETED = 3;
+    STATUS_FAILED = 4;
+    STATUS_DEAD_LETTER = 5;
+  }
+  
+  Status status = 1;
+  int32 retry_count = 2;
+  google.protobuf.Timestamp last_attempt_at = 3;
+  string error_message = 4;
+  string consumer_group = 5;
+  string consumer_id = 6;
+  google.protobuf.Timestamp completed_at = 7;
+}
+
+// SecurityContext contains security-related information
+message SecurityContext {
+  string signature = 1;  // HMAC signature from webhook
+  string signature_algorithm = 2;  // sha256, sha1, etc.
+  bool signature_valid = 3;
+  bool pii_detected = 4;
+  repeated string pii_fields = 5;  // Fields that contain PII
+  map<string, string> encryption_info = 6;
+}
+
+// ContextUpdate represents an update to be made to the context
+message ContextUpdate {
+  string context_id = 1;
+  string tenant_id = 2;
+  
+  enum UpdateType {
+    UPDATE_TYPE_UNSPECIFIED = 0;
+    UPDATE_TYPE_CREATE = 1;
+    UPDATE_TYPE_UPDATE = 2;
+    UPDATE_TYPE_DELETE = 3;
+    UPDATE_TYPE_APPEND = 4;
+  }
+  
+  UpdateType update_type = 3;
+  google.protobuf.Struct data = 4;
+  map<string, string> metadata = 5;
+  float importance_score = 6;  // 0.0 to 1.0
+  repeated string tags = 7;
+}
+
+// WebhookEventBatch for batch processing
+message WebhookEventBatch {
+  repeated WebhookEvent events = 1;
+  string batch_id = 2;
+  google.protobuf.Timestamp created_at = 3;
+}
+
+// Common event payloads
+
+// GitHubPushEvent represents a GitHub push event
+message GitHubPushEvent {
+  string ref = 1;
+  string before = 2;
+  string after = 3;
+  Repository repository = 4;
+  User pusher = 5;
+  repeated Commit commits = 6;
+  bool created = 7;
+  bool deleted = 8;
+  bool forced = 9;
+  string compare = 10;
+}
+
+// GitHubPullRequestEvent represents a GitHub pull request event
+message GitHubPullRequestEvent {
+  string action = 1;
+  int32 number = 2;
+  PullRequest pull_request = 3;
+  Repository repository = 4;
+  User sender = 5;
+}
+
+// Repository represents a git repository
+message Repository {
+  int64 id = 1;
+  string name = 2;
+  string full_name = 3;
+  string html_url = 4;
+  string description = 5;
+  bool private = 6;
+  User owner = 7;
+  string default_branch = 8;
+}
+
+// User represents a user in the system
+message User {
+  int64 id = 1;
+  string login = 2;
+  string email = 3;
+  string name = 4;
+  string avatar_url = 5;
+  string type = 6;  // User, Organization
+}
+
+// Commit represents a git commit
+message Commit {
+  string id = 1;
+  string message = 2;
+  google.protobuf.Timestamp timestamp = 3;
+  string url = 4;
+  User author = 5;
+  User committer = 6;
+  repeated string added = 7;
+  repeated string removed = 8;
+  repeated string modified = 9;
+}
+
+// PullRequest represents a pull request
+message PullRequest {
+  int64 id = 1;
+  int32 number = 2;
+  string state = 3;  // open, closed
+  string title = 4;
+  string body = 5;
+  User user = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+  google.protobuf.Timestamp closed_at = 9;
+  google.protobuf.Timestamp merged_at = 10;
+  string merge_commit_sha = 11;
+  Branch head = 12;
+  Branch base = 13;
+  repeated string labels = 14;
+  repeated User assignees = 15;
+  repeated User reviewers = 16;
+}
+
+// Branch represents a git branch
+message Branch {
+  string label = 1;
+  string ref = 2;
+  string sha = 3;
+  User user = 4;
+  Repository repo = 5;
+}
+
+// Generic event payload for extensibility
+message GenericEventPayload {
+  string event_type = 1;
+  string event_version = 2;
+  google.protobuf.Struct data = 3;
+  map<string, string> metadata = 4;
+}

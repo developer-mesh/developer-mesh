@@ -139,7 +139,7 @@ func (h *HintBasedDiscovery) DiscoverWithHints(ctx context.Context, config tools
 
 					resp, err := h.detector.httpClient.Do(req)
 					if err == nil && resp.StatusCode == http.StatusOK {
-						defer resp.Body.Close()
+						defer func() { _ = resp.Body.Close() }()
 						content, err := io.ReadAll(resp.Body)
 						if err == nil {
 							// Detect format
@@ -192,7 +192,7 @@ func (h *HintBasedDiscovery) DiscoverWithHints(ctx context.Context, config tools
 
 					resp, err := h.detector.httpClient.Do(req)
 					if err == nil && resp.StatusCode == http.StatusOK {
-						defer resp.Body.Close()
+						defer func() { _ = resp.Body.Close() }()
 						content, err := io.ReadAll(resp.Body)
 						if err == nil {
 							// Detect format

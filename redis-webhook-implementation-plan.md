@@ -1,7 +1,7 @@
 # Redis Webhook Pipeline Implementation Plan
 
 ## Overview
-This document outlines the implementation plan for migrating from SQS to Redis Streams for webhook event processing, with focus on cloud-agnostic architecture, deduplication, and intelligent context integration for AI agents.
+This document outlines the implementation plan for migrating from SQS to Redis Streams for webhook event processing, with focus on cloud-agnostic architecture, deduplication, and intelligent context integration for AI agents. A key component is implementing a sophisticated hot/warm/cold lifecycle for context management that benefits both webhook events and AI agent memory optimization.
 
 ## Architecture
 ```
@@ -9,6 +9,9 @@ External Service → REST API → Redis Streams → Worker Service → MCP Serve
                       ↓                           ↓
                   PostgreSQL                Context Updates
                 (metadata/audit)            (via WebSocket)
+                      ↓
+                Context Lifecycle Manager
+                (Hot → Warm → Cold → Archive)
 ```
 
 ## Critical Components Checklist
@@ -35,13 +38,36 @@ External Service → REST API → Redis Streams → Worker Service → MCP Serve
 - [ ] Bloom filter persistence and rotation
 - [ ] Deduplication metrics and monitoring
 
-### 4. Event Lifecycle Management
-- [ ] Hot storage (0-2 hours) - Full payload in Redis
-- [ ] Warm storage (2-24 hours) - Compressed in Redis
-- [ ] Cold storage (24+ hours) - Archive to S3/blob storage
-- [ ] Daily summary generation for contexts
-- [ ] Configurable TTLs per tool type
-- [ ] Storage transition job scheduling
+### 4. Context Lifecycle Management (Core Feature)
+This sophisticated lifecycle system optimizes AI agent memory and performance:
+
+#### Hot Storage (0-2 hours)
+- [ ] Full context data in Redis with instant access
+- [ ] Uncompressed for minimal latency
+- [ ] All webhook events and context items available
+- [ ] Automatic relevance scoring for AI queries
+- [ ] Sub-millisecond retrieval times
+
+#### Warm Storage (2-24 hours)  
+- [ ] Compressed context data in Redis
+- [ ] Smart compression preserving semantic meaning
+- [ ] On-demand decompression for agent access
+- [ ] Reduced memory footprint (60-80% savings)
+- [ ] Millisecond retrieval with decompression
+
+#### Cold Storage (24+ hours)
+- [ ] Archive to S3/blob storage with metadata index
+- [ ] AI-generated summaries stored in PostgreSQL
+- [ ] Semantic search capabilities via embeddings
+- [ ] Context reconstruction from summaries
+- [ ] Batch retrieval for historical analysis
+
+#### Intelligence Features
+- [ ] AI-powered summarization during transitions
+- [ ] Automatic importance scoring for retention
+- [ ] Context relevance decay algorithms
+- [ ] Semantic deduplication across contexts
+- [ ] Predictive pre-warming based on usage patterns
 
 ### 5. Worker Service Updates
 - [ ] Redis Streams consumer implementation
@@ -59,13 +85,16 @@ External Service → REST API → Redis Streams → Worker Service → MCP Serve
 - [ ] Manual intervention tools (CLI/UI)
 - [ ] Event replay mechanism
 
-### 7. Context Integration
-- [ ] Webhook-to-context mapping service
-- [ ] Context priority levels for webhook delivery
-- [ ] Rate limiting per context
-- [ ] Event summarization service
-- [ ] Summary templates per tool type
-- [ ] Summary caching strategy
+### 7. Context Integration with AI Optimization
+- [ ] Webhook-to-context intelligent mapping
+- [ ] Context priority scoring based on agent activity
+- [ ] Adaptive rate limiting based on context importance
+- [ ] AI-powered event summarization service
+- [ ] Tool-specific summarization templates
+- [ ] Embedding-based summary caching
+- [ ] Context window optimization algorithms
+- [ ] Real-time relevance scoring
+- [ ] Predictive context loading
 
 ### 8. Monitoring & Observability
 - [ ] Redis Streams lag monitoring
@@ -105,13 +134,134 @@ External Service → REST API → Redis Streams → Worker Service → MCP Serve
 - [ ] Multi-region latency tests
 - [ ] Deduplication effectiveness tests
 
+## Context Lifecycle Implementation Details
+
+### Storage Tiers Architecture
+
+```go
+type ContextLifecycle struct {
+    redis         *redis.Client
+    s3            S3Client
+    embeddings    EmbeddingService
+    summarizer    AIService
+    hotDuration   time.Duration // 2 hours
+    warmDuration  time.Duration // 22 hours
+    compression   CompressionService
+}
+
+type ContextState string
+
+const (
+    StateHot  ContextState = "hot"
+    StateWarm ContextState = "warm"
+    StateCold ContextState = "cold"
+)
+
+type ContextMetadata struct {
+    ID            string
+    State         ContextState
+    CreatedAt     time.Time
+    LastAccessed  time.Time
+    AccessCount   int
+    Importance    float64
+    Size          int64
+    CompressionRatio float64
+}
+```
+
+### Lifecycle Transitions
+
+```go
+// Hot → Warm Transition (2 hours)
+func (cl *ContextLifecycle) TransitionToWarm(ctx context.Context, contextID string) error {
+    // 1. Retrieve from hot storage
+    data, err := cl.redis.Get(ctx, fmt.Sprintf("context:hot:%s", contextID)).Bytes()
+    
+    // 2. Compress intelligently (preserve semantic structure)
+    compressed, ratio := cl.compression.CompressWithSemantics(data)
+    
+    // 3. Store in warm tier with metadata
+    warmKey := fmt.Sprintf("context:warm:%s", contextID)
+    err = cl.redis.Set(ctx, warmKey, compressed, cl.warmDuration).Err()
+    
+    // 4. Update metadata
+    metadata.State = StateWarm
+    metadata.CompressionRatio = ratio
+    
+    // 5. Remove from hot storage
+    cl.redis.Del(ctx, fmt.Sprintf("context:hot:%s", contextID))
+    
+    return nil
+}
+
+// Warm → Cold Transition (24 hours)
+func (cl *ContextLifecycle) TransitionToCold(ctx context.Context, contextID string) error {
+    // 1. Generate AI summary
+    summary, embeddings := cl.summarizer.GenerateContextSummary(ctx, contextID)
+    
+    // 2. Archive full context to S3
+    archiveKey := fmt.Sprintf("contexts/%s/%s.json.gz", 
+        time.Now().Format("2006/01/02"), contextID)
+    err := cl.s3.Upload(ctx, archiveKey, compressedData)
+    
+    // 3. Store summary and embeddings in PostgreSQL
+    err = cl.storeSummary(ctx, contextID, summary, embeddings)
+    
+    // 4. Create searchable index entry
+    cl.updateSearchIndex(ctx, contextID, summary, embeddings)
+    
+    // 5. Remove from warm storage
+    cl.redis.Del(ctx, fmt.Sprintf("context:warm:%s", contextID))
+    
+    return nil
+}
+```
+
+### AI-Optimized Features
+
+```go
+// Intelligent Context Loading
+func (cl *ContextLifecycle) LoadContextForAgent(ctx context.Context, agentID string, query string) (*Context, error) {
+    // 1. Generate query embedding
+    queryEmbedding := cl.embeddings.Generate(query)
+    
+    // 2. Search across all tiers based on relevance
+    relevantContexts := cl.searchContexts(ctx, agentID, queryEmbedding)
+    
+    // 3. Pre-warm cold contexts if needed
+    for _, ctx := range relevantContexts {
+        if ctx.State == StateCold && ctx.RelevanceScore > 0.8 {
+            go cl.preWarmContext(ctx.ID)
+        }
+    }
+    
+    // 4. Compose optimal context window
+    return cl.composeContextWindow(relevantContexts)
+}
+
+// Predictive Pre-warming
+func (cl *ContextLifecycle) PredictivePrewarm(ctx context.Context, agentID string) {
+    // Analyze agent's usage patterns
+    patterns := cl.analyzeUsagePatterns(ctx, agentID)
+    
+    // Pre-warm contexts likely to be needed
+    for _, prediction := range patterns.Predictions {
+        if prediction.Probability > 0.7 {
+            cl.preWarmContext(prediction.ContextID)
+        }
+    }
+}
+```
+
 ## Implementation Phases
 
-### Phase 1: Foundation (Week 1)
+### Phase 1: Foundation & Context Lifecycle (Week 1)
 1. Redis Streams client implementation
-2. Basic publish/consume functionality
-3. Message schema definition
-4. Unit tests
+2. Context lifecycle manager core
+3. Hot/Warm/Cold storage tiers
+4. Basic compression service
+5. Message schema definition
+6. Unit tests
 
 ### Phase 2: Reliability (Week 2)
 1. Consumer groups and coordination
@@ -119,11 +269,13 @@ External Service → REST API → Redis Streams → Worker Service → MCP Serve
 3. Health checks and monitoring
 4. Integration tests
 
-### Phase 3: Intelligence (Week 3)
-1. Deduplication system
-2. Context-aware routing
-3. Event summarization
-4. Performance optimization
+### Phase 3: AI Intelligence Layer (Week 3)
+1. Embedding generation service integration
+2. AI-powered summarization service
+3. Semantic compression algorithms
+4. Context relevance scoring
+5. Predictive pre-warming engine
+6. Context window optimization
 
 ### Phase 4: Lifecycle (Week 4)
 1. Hot/warm/cold storage implementation

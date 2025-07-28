@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/aws/aws-sdk-go-v2/service/sqs"
-	"github.com/aws/aws-sdk-go-v2/service/sqs/types"
 	"github.com/go-redis/redis/v8"
 	"github.com/pkg/errors"
 
@@ -316,41 +314,47 @@ func (s *S3HealthCheck) Check(ctx context.Context) error {
 	return nil
 }
 
-// SQSHealthCheck checks SQS queue accessibility
-type SQSHealthCheck struct {
-	client   *sqs.Client
-	queueURL string
-	name     string
-}
-
-// NewSQSHealthCheck creates a new SQS health check
-func NewSQSHealthCheck(name string, client *sqs.Client, queueURL string) *SQSHealthCheck {
-	return &SQSHealthCheck{
-		client:   client,
-		queueURL: queueURL,
-		name:     name,
+// QueueHealthCheck checks Redis queue accessibility
+type QueueHealthCheck struct {
+	name  string
+	queue interface {
+		Health(context.Context) error
+		GetQueueDepth(context.Context) (int64, error)
 	}
 }
 
-func (s *SQSHealthCheck) Name() string {
-	return s.name
+// NewQueueHealthCheck creates a new queue health check
+func NewQueueHealthCheck(name string, queue interface {
+	Health(context.Context) error
+	GetQueueDepth(context.Context) (int64, error)
+}) *QueueHealthCheck {
+	return &QueueHealthCheck{
+		name:  name,
+		queue: queue,
+	}
 }
 
-func (s *SQSHealthCheck) Check(ctx context.Context) error {
-	// Get queue attributes
-	result, err := s.client.GetQueueAttributes(ctx, &sqs.GetQueueAttributesInput{
-		QueueUrl:       &s.queueURL,
-		AttributeNames: []types.QueueAttributeName{types.QueueAttributeNameApproximateNumberOfMessages},
-	})
+func (q *QueueHealthCheck) Name() string {
+	return q.name
+}
 
+func (q *QueueHealthCheck) Check(ctx context.Context) error {
+	// Check basic health
+	if err := q.queue.Health(ctx); err != nil {
+		return errors.Wrapf(err, "queue health check failed")
+	}
+
+	// Check queue depth
+	depth, err := q.queue.GetQueueDepth(ctx)
 	if err != nil {
-		return errors.Wrapf(err, "failed to get queue attributes for %s", s.queueURL)
+		// Log but don't fail health check
+		fmt.Printf("Failed to get queue depth: %v\n", err)
+		return nil
 	}
 
-	// Check if queue depth is reasonable (warn if > 10000)
-	if msgCount, ok := result.Attributes["ApproximateNumberOfMessages"]; ok {
-		// Just log if queue depth is high, don't fail the health check
-		fmt.Printf("SQS queue depth: %s messages\n", msgCount)
+	// Just log if queue depth is high, don't fail the health check
+	if depth > 10000 {
+		fmt.Printf("Queue depth is high: %d messages\n", depth)
 	}
 
 	return nil

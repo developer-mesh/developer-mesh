@@ -106,13 +106,14 @@ jobs:
           REDIS_ADDR=${{ secrets.REDIS_ENDPOINT }}
           REDIS_TLS_ENABLED=true
           USE_SSH_TUNNEL_FOR_REDIS=false
+          REDIS_STREAM_NAME=webhooks
+          REDIS_CONSUMER_GROUP=webhook-workers
           
           # AWS
           AWS_REGION=${{ env.AWS_REGION }}
           AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
           S3_BUCKET=${{ secrets.S3_BUCKET }}
-          SQS_QUEUE_URL=${{ secrets.SQS_QUEUE_URL }}
           
           # AWS Bedrock
           BEDROCK_ENABLED=true
@@ -208,11 +209,12 @@ jobs:
               "REDIS_ADDR=${{ secrets.REDIS_ENDPOINT }}",
               "REDIS_TLS_ENABLED=true",
               "USE_SSH_TUNNEL_FOR_REDIS=false",
+              "REDIS_STREAM_NAME=webhooks",
+              "REDIS_CONSUMER_GROUP=webhook-workers",
               "AWS_REGION=${{ env.AWS_REGION }}",
               "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}",
               "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}",
               "S3_BUCKET=${{ secrets.S3_BUCKET }}",
-              "SQS_QUEUE_URL=${{ secrets.SQS_QUEUE_URL }}",
               "BEDROCK_ENABLED=true",
               "BEDROCK_SESSION_LIMIT=0.10",
               "GLOBAL_COST_LIMIT=10.0",

@@ -164,9 +164,10 @@ func (e *WebhookExtractor) parseWebhookSecurity(components *openapi3.Components,
 					config.AuthConfig["header_name"] = scheme.Value.Name
 				}
 			case "http":
-				if scheme.Value.Scheme == "bearer" {
+				switch scheme.Value.Scheme {
+				case "bearer":
 					config.AuthType = "bearer"
-				} else if scheme.Value.Scheme == "basic" {
+				case "basic":
 					config.AuthType = "basic"
 				}
 			}

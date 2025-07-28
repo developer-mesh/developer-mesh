@@ -161,11 +161,12 @@ adapters:
 
 # Worker Configuration for Docker
 worker:
-  queue_type: "${WORKER_QUEUE_TYPE}"  # 'memory' or 'sqs'
+  queue_type: "redis"  # Always use Redis
   concurrency: ${WORKER_CONCURRENCY:-5}
   
-  sqs:
-    queue_url: "${SQS_QUEUE_URL}"  # Real AWS SQS URL
+  redis:
+    stream_name: "${REDIS_STREAM_NAME:-webhook-events}"
+    consumer_group: "${REDIS_CONSUMER_GROUP:-webhook-processors}"
     
 # Feature Flags for Docker
 features:

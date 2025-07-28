@@ -158,6 +158,24 @@ func (p *EventProcessor) ProcessSQSEvent(ctx context.Context, event queue.SQSEve
 	return nil
 }
 
+// ProcessEvent processes a GitHub webhook event
+// Returns error if processing fails (to trigger retry).
+func ProcessEvent(event queue.Event) error {
+	// Convert Event to SQSEvent for backward compatibility
+	sqsEvent := queue.SQSEvent{
+		DeliveryID:  event.EventID,
+		EventType:   event.EventType,
+		RepoName:    event.RepoName,
+		SenderName:  event.SenderName,
+		Payload:     event.Payload,
+		AuthContext: event.AuthContext,
+	}
+
+	ctx := context.Background()
+	processor := NewEventProcessor(nil, nil)
+	return processor.ProcessSQSEvent(ctx, sqsEvent)
+}
+
 // ProcessSQSEvent contains the actual business logic for handling webhook events.
 // Returns error if processing fails (to trigger SQS retry).
 // This function remains for backward compatibility

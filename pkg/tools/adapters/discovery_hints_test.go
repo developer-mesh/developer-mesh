@@ -23,7 +23,7 @@ func TestHintBasedDiscovery_DiscoverWithHints(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/api-docs" {
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(spec)
+				_ = json.NewEncoder(w).Encode(spec)
 			} else {
 				http.NotFound(w, r)
 			}
@@ -52,7 +52,7 @@ func TestHintBasedDiscovery_DiscoverWithHints(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Header.Get("Authorization") == expectedToken {
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(spec)
+				_ = json.NewEncoder(w).Encode(spec)
 			} else {
 				w.WriteHeader(http.StatusUnauthorized)
 			}
@@ -82,7 +82,7 @@ func TestHintBasedDiscovery_DiscoverWithHints(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/v2/spec.json" {
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(spec)
+				_ = json.NewEncoder(w).Encode(spec)
 			} else {
 				http.NotFound(w, r)
 			}
@@ -118,7 +118,7 @@ func TestHintBasedDiscovery_DiscoverWithHints(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/api-definition" {
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(customSpec)
+				_ = json.NewEncoder(w).Encode(customSpec)
 			} else {
 				http.NotFound(w, r)
 			}
@@ -192,7 +192,7 @@ paths:
       responses:
         '200':
           description: Success`
-				w.Write([]byte(yamlSpec))
+				_, _ = w.Write([]byte(yamlSpec))
 			} else {
 				http.NotFound(w, r)
 			}
@@ -301,7 +301,7 @@ paths:
 			t.Run(tt.name, func(t *testing.T) {
 				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.Header().Set("Content-Type", tt.contentType)
-					json.NewEncoder(w).Encode(tt.content)
+					_ = json.NewEncoder(w).Encode(tt.content)
 				}))
 				defer server.Close()
 
@@ -332,7 +332,7 @@ paths:
 			if r.Header.Get("Authorization") == "Bearer config-token" &&
 				r.Header.Get("X-Custom-Header") == "hint-value" {
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(spec)
+				_ = json.NewEncoder(w).Encode(spec)
 			} else {
 				w.WriteHeader(http.StatusUnauthorized)
 			}

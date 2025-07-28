@@ -123,3 +123,8 @@ type Span interface {
 
 // StartSpanFunc is a function that creates and starts a new span
 type StartSpanFunc func(ctx context.Context, name string, attrs ...attribute.KeyValue) (context.Context, Span)
+
+// Tracer defines the interface for distributed tracing
+type Tracer interface {
+	StartSpan(ctx context.Context, name string) (context.Context, Span)
+}

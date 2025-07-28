@@ -159,7 +159,7 @@ func TestLearningDiscoveryService_GetSuggestedPaths(t *testing.T) {
 			SuccessfulPaths: []string{"/openapi.json", "/swagger.yaml"},
 			LastUpdated:     time.Now(),
 		}
-		store.SavePattern(pattern)
+		_ = store.SavePattern(pattern)
 
 		service := NewLearningDiscoveryService(store)
 
@@ -187,7 +187,7 @@ func TestLearningDiscoveryService_GetSuggestedPaths(t *testing.T) {
 		}
 
 		for _, p := range patterns {
-			store.SavePattern(p)
+			_ = store.SavePattern(p)
 		}
 
 		service := NewLearningDiscoveryService(store)
@@ -224,7 +224,7 @@ func TestLearningDiscoveryService_GetSuggestedPaths(t *testing.T) {
 		}
 
 		for _, p := range patterns {
-			store.SavePattern(p)
+			_ = store.SavePattern(p)
 		}
 
 		service := NewLearningDiscoveryService(store)
@@ -246,7 +246,7 @@ func TestLearningDiscoveryService_GetLearnedAuthMethod(t *testing.T) {
 			Domain:     "api.example.com",
 			AuthMethod: "oauth2",
 		}
-		store.SavePattern(pattern)
+		_ = store.SavePattern(pattern)
 
 		service := NewLearningDiscoveryService(store)
 
@@ -283,7 +283,7 @@ func TestLearningDiscoveryService_GetPopularPatterns(t *testing.T) {
 	}
 
 	for _, p := range patterns {
-		store.SavePattern(p)
+		_ = store.SavePattern(p)
 	}
 
 	// Now create service - it will load the patterns
@@ -419,13 +419,13 @@ func TestInMemoryPatternStore(t *testing.T) {
 			Domain:       "test.com",
 			SuccessCount: 1,
 		}
-		store.SavePattern(pattern1)
+		_ = store.SavePattern(pattern1)
 
 		pattern2 := &DiscoveryPattern{
 			Domain:       "test.com",
 			SuccessCount: 2,
 		}
-		store.SavePattern(pattern2)
+		_ = store.SavePattern(pattern2)
 
 		retrieved, err := store.GetPatternByDomain("test.com")
 		require.NoError(t, err)
@@ -450,7 +450,7 @@ func TestInMemoryPatternStore(t *testing.T) {
 		}
 
 		for _, p := range patterns {
-			store.SavePattern(p)
+			_ = store.SavePattern(p)
 		}
 
 		loaded, err := store.LoadPatterns()
@@ -474,7 +474,7 @@ func TestInMemoryPatternStore(t *testing.T) {
 					Domain:       fmt.Sprintf("test%d.com", n),
 					SuccessCount: n,
 				}
-				store.SavePattern(pattern)
+				_ = store.SavePattern(pattern)
 			}(i)
 		}
 
@@ -483,7 +483,7 @@ func TestInMemoryPatternStore(t *testing.T) {
 			wg.Add(1)
 			go func(n int) {
 				defer wg.Done()
-				store.GetPatternByDomain(fmt.Sprintf("test%d.com", n))
+				_, _ = store.GetPatternByDomain(fmt.Sprintf("test%d.com", n))
 			}(i)
 		}
 

@@ -18,14 +18,31 @@ var (
 )
 
 // ProcessSQSEvent contains the actual business logic for handling webhook events.
-// Returns error if processing fails (to trigger SQS retry).
+// Returns error if processing fails (to trigger retry).
+// Kept for backward compatibility - new code should use ProcessEvent
 func ProcessSQSEvent(event queue.SQSEvent) error {
+	// Convert to new Event format
+	newEvent := queue.Event{
+		EventID:     event.DeliveryID,
+		EventType:   event.EventType,
+		RepoName:    event.RepoName,
+		SenderName:  event.SenderName,
+		Payload:     event.Payload,
+		AuthContext: event.AuthContext,
+		Timestamp:   time.Now(),
+	}
+	return ProcessEvent(newEvent)
+}
+
+// ProcessEvent contains the actual business logic for handling webhook events.
+// Returns error if processing fails (to trigger retry).
+func ProcessEvent(event queue.Event) error {
 	start := time.Now()
-	logger.Info("Processing SQS event", map[string]interface{}{
-		"delivery_id": event.DeliveryID,
-		"event_type":  event.EventType,
-		"repo":        event.RepoName,
-		"sender":      event.SenderName,
+	logger.Info("Processing event", map[string]interface{}{
+		"event_id":   event.EventID,
+		"event_type": event.EventType,
+		"repo":       event.RepoName,
+		"sender":     event.SenderName,
 	})
 
 	// Unmarshal payload for further processing
@@ -33,8 +50,8 @@ func ProcessSQSEvent(event queue.SQSEvent) error {
 	if err := json.Unmarshal(event.Payload, &payload); err != nil {
 		atomic.AddInt64(&failureCount, 1)
 		logger.Error("Failed to unmarshal payload", map[string]interface{}{
-			"delivery_id": event.DeliveryID,
-			"error":       err.Error(),
+			"event_id": event.EventID,
+			"error":    err.Error(),
 		})
 		return fmt.Errorf("failed to unmarshal payload: %w", err)
 	}
@@ -45,7 +62,7 @@ func ProcessSQSEvent(event queue.SQSEvent) error {
 	if event.EventType == "push" {
 		atomic.AddInt64(&failureCount, 1)
 		logger.Warn("Push event processing failed (simulated)", map[string]interface{}{
-			"delivery_id": event.DeliveryID,
+			"event_id": event.EventID,
 		})
 		return fmt.Errorf("simulated failure for push event")
 	}
@@ -57,7 +74,7 @@ func ProcessSQSEvent(event queue.SQSEvent) error {
 	dur := time.Since(start).Nanoseconds()
 	atomic.AddInt64(&totalDuration, dur)
 	logger.Info("Successfully processed event", map[string]interface{}{
-		"delivery_id": event.DeliveryID,
+		"event_id":    event.EventID,
 		"duration_ms": float64(dur) / 1e6,
 		"successes":   atomic.LoadInt64(&successCount),
 		"failures":    atomic.LoadInt64(&failureCount),

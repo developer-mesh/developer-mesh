@@ -16,6 +16,8 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/tools"
 	"github.com/getkin/kin-openapi/openapi3"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 // MultiAPIDiscoveryResult contains all discovered APIs from a portal
@@ -302,7 +304,7 @@ func (s *MultiAPIDiscoveryService) discoverByCrawling(ctx context.Context, porta
 		errors <- err
 		return
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return
@@ -454,7 +456,7 @@ func (s *MultiAPIDiscoveryService) discoverByCatalogEndpoints(ctx context.Contex
 		if err != nil {
 			continue
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode == http.StatusOK {
 			// Try to parse as JSON catalog
@@ -525,7 +527,7 @@ func (s *MultiAPIDiscoveryService) tryDiscoverAPI(ctx context.Context, specURL s
 	if err != nil {
 		return
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return
@@ -596,7 +598,7 @@ func (s *MultiAPIDiscoveryService) extractAPIName(spec *openapi3.T, fallbackURL 
 	parts := strings.Split(fallbackURL, "/")
 	for i := len(parts) - 1; i >= 0; i-- {
 		if parts[i] != "" && !strings.Contains(parts[i], ".") {
-			return strings.Title(parts[i])
+			return cases.Title(language.English).String(parts[i])
 		}
 	}
 
@@ -656,7 +658,7 @@ func extractGoogleCategory(specURL string) string {
 	parts := strings.Split(specURL, "/")
 	for i, part := range parts {
 		if strings.HasPrefix(part, "v") && i > 0 {
-			return strings.Title(parts[i-1])
+			return cases.Title(language.English).String(parts[i-1])
 		}
 	}
 	return "Google Cloud Service"

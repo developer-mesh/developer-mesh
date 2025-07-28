@@ -381,9 +381,10 @@ aws:
     elasticache:
       enabled: ${ELASTICACHE_ENABLED:-false}
       
-    # SQS defaults  
-    sqs:
-      enabled: ${SQS_ENABLED:-false}
+    # Queue defaults (Redis)
+    queue:
+      type: redis
+      redis_stream: webhook-events
       
     # S3 defaults
     s3:
