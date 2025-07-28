@@ -55,17 +55,113 @@ func (m *MockAdapter) GetData(ctx context.Context, query interface{}) (interface
 }
 
 func TestExecuteToolAction(t *testing.T) {
-	t.Skip("Skipping test due to mock expectation issues - to be fixed in a follow-up PR")
+	// Set up mocks
+	mockContextManager := new(MockContextManager)
+	mockAdapter := new(MockAdapter)
+
+	// Create the bridge
+	adapters := map[string]Adapter{
+		"test-tool": mockAdapter,
+	}
+
+	bridge := NewAdapterContextBridge(mockContextManager, adapters)
+
+	// Test data
+	ctx := context.Background()
+	contextID := "context-123"
+	tool := "test-tool"
+	action := "test-action"
+	params := map[string]interface{}{
+		"param1": "value1",
+		"param2": 123,
+	}
+
+	// Expected result
+	expectedResult := map[string]interface{}{
+		"result": "success",
+		"data":   "test-data",
+	}
+
+	// Mock context
+	mockContext := &models.Context{
+		ID:        contextID,
+		AgentID:   "agent-123",
+		SessionID: "session-123",
+		Content:   []models.ContextItem{},
+	}
+
+	// Set up expectations
+	mockContextManager.On("GetContext", ctx, contextID).Return(mockContext, nil)
+	mockContextManager.On("UpdateContext", ctx, contextID, mock.Anything, mock.Anything).Return(mockContext, nil).Times(2)
+	mockAdapter.On("ExecuteAction", ctx, contextID, action, params).Return(expectedResult, nil)
+
+	// Execute the action
+	result, err := bridge.ExecuteToolAction(ctx, contextID, tool, action, params)
+
+	// Assertions
+	assert.NoError(t, err)
+	assert.Equal(t, expectedResult, result)
+
+	// Verify all expectations were met
+	mockContextManager.AssertExpectations(t)
+	mockAdapter.AssertExpectations(t)
 }
 
 func TestGetToolData(t *testing.T) {
-	t.Skip("Skipping test due to mock expectation issues - to be fixed in a follow-up PR")
+	// Set up mocks
+	mockContextManager := new(MockContextManager)
+	mockAdapter := new(MockAdapter)
+
+	// Create the bridge
+	adapters := map[string]Adapter{
+		"test-tool": mockAdapter,
+	}
+
+	bridge := NewAdapterContextBridge(mockContextManager, adapters)
+
+	// Test data
+	ctx := context.Background()
+	contextID := "context-123"
+	tool := "test-tool"
+	query := map[string]interface{}{
+		"type": "search",
+		"term": "test",
+	}
+
+	// Expected result
+	expectedResult := map[string]interface{}{
+		"results": []interface{}{
+			map[string]interface{}{"id": "1", "name": "test1"},
+			map[string]interface{}{"id": "2", "name": "test2"},
+		},
+	}
+
+	// Mock context
+	mockContext := &models.Context{
+		ID:        contextID,
+		AgentID:   "agent-123",
+		SessionID: "session-123",
+		Content:   []models.ContextItem{},
+	}
+
+	// Set up expectations
+	mockContextManager.On("GetContext", ctx, contextID).Return(mockContext, nil)
+	mockContextManager.On("UpdateContext", ctx, contextID, mock.Anything, mock.Anything).Return(mockContext, nil).Times(2)
+	// GetToolData internally calls ExecuteAction with "getData" action
+	mockAdapter.On("ExecuteAction", ctx, contextID, "getData", query).Return(expectedResult, nil)
+
+	// Execute the query
+	result, err := bridge.GetToolData(ctx, contextID, tool, query)
+
+	// Assertions
+	assert.NoError(t, err)
+	assert.Equal(t, expectedResult, result)
+
+	// Verify all expectations were met
+	mockAdapter.AssertExpectations(t)
 }
 
 func TestHandleToolWebhook(t *testing.T) {
-	// This test requires specific mock signature matching for UpdateContext
-	// Let's skip this test for now and mark it as a TODO
-	t.Skip("Skipping webhook test due to mock expectation issues - to be fixed in a follow-up PR")
 
 	// Set up mocks
 	mockContextManager := new(MockContextManager)
@@ -126,7 +222,6 @@ func TestHandleToolWebhook(t *testing.T) {
 	mockContextManager.On("UpdateContext", ctx, "context-2", mock.Anything, mock.Anything).Return(testContext2, nil)
 
 	// Set up expectations for adapter
-	mockAdapter.On("Type").Return("test-tool").Once()
 	mockAdapter.On("HandleWebhook", ctx, eventType, jsonPayload).Return(nil)
 
 	// Handle the webhook
@@ -141,9 +236,63 @@ func TestHandleToolWebhook(t *testing.T) {
 }
 
 func TestExecuteToolAction_Error(t *testing.T) {
-	t.Skip("Skipping test due to mock expectation issues - to be fixed in a follow-up PR")
+	// Set up mocks
+	mockContextManager := new(MockContextManager)
+	mockAdapter := new(MockAdapter)
+
+	// Create the bridge
+	adapters := map[string]Adapter{
+		"test-tool": mockAdapter,
+	}
+
+	bridge := NewAdapterContextBridge(mockContextManager, adapters)
+
+	// Test data
+	ctx := context.Background()
+	contextID := "context-123"
+	tool := "test-tool"
+	action := "test-action"
+	params := map[string]interface{}{"param": "value"}
+
+	// Test context not found error
+	mockContextManager.On("GetContext", ctx, contextID).Return(nil, assert.AnError)
+
+	// Execute the action
+	result, err := bridge.ExecuteToolAction(ctx, contextID, tool, action, params)
+
+	// Assertions
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "failed to get context")
+
+	// Verify expectations
+	mockContextManager.AssertExpectations(t)
 }
 
 func TestGetToolData_Error(t *testing.T) {
-	t.Skip("Skipping test due to mock expectation issues - to be fixed in a follow-up PR")
+	// Set up mocks
+	mockContextManager := new(MockContextManager)
+	mockAdapter := new(MockAdapter)
+
+	// Create the bridge
+	adapters := map[string]Adapter{
+		"test-tool": mockAdapter,
+	}
+
+	bridge := NewAdapterContextBridge(mockContextManager, adapters)
+
+	// Test data
+	ctx := context.Background()
+	contextID := "context-123"
+	query := map[string]interface{}{"query": "test"}
+
+	// Test adapter not found error
+	result, err := bridge.GetToolData(ctx, contextID, "unknown-tool", query)
+
+	// Assertions
+	assert.Error(t, err)
+	assert.Nil(t, result)
+
+	// Verify expectations
+	mockAdapter.AssertExpectations(t)
 }

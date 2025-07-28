@@ -80,9 +80,6 @@ func main() {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	// DEBUG: Print loaded webhook config
-	fmt.Printf("[DEBUG] Loaded webhook config: %+v\n", cfg.API.Webhook)
-
 	// Validate critical configuration
 	if err := validateConfiguration(cfg); err != nil {
 		log.Fatalf("Invalid configuration: %v", err)

@@ -134,11 +134,6 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 
 	// Handle content updates
 	if updateData.Content != nil {
-		// DEBUG: Print content before update
-		println("[DEBUG] existingContext.Content before update:", len(existingContext.Content))
-		for i, item := range existingContext.Content {
-			println("[DEBUG]  ", i, item.Role, item.Content)
-		}
 		// If ReplaceContent is true, replace the entire content
 		if options != nil && options.ReplaceContent {
 			existingContext.Content = updateData.Content
@@ -155,12 +150,6 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 				existingContext.CurrentTokens += item.Tokens
 			}
 		}
-	}
-
-	// DEBUG: Print content after update
-	println("[DEBUG] existingContext.Content after update:", len(existingContext.Content))
-	for i, item := range existingContext.Content {
-		println("[DEBUG]  ", i, item.Role, item.Content)
 	}
 	// Update timestamp
 	existingContext.UpdatedAt = time.Now()

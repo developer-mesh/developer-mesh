@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -169,6 +170,12 @@ func (s *Service) logError(msg string, fields map[string]interface{}) {
 func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, error) {
 	if apiKey == "" {
 		return nil, ErrNoAPIKey
+	}
+
+	// Validate API key format - only allow alphanumeric, dash, and underscore
+	// This prevents any potential injection attacks even though we use parameterized queries
+	if !isValidAPIKeyFormat(apiKey) {
+		return nil, ErrInvalidAPIKey
 	}
 
 	s.logDebug("ValidateAPIKey called", map[string]interface{}{
@@ -897,4 +904,14 @@ func (s *Service) persistAPIKey(ctx context.Context, apiKey *APIKey) error {
 	)
 
 	return err
+}
+
+// isValidAPIKeyFormat validates that the API key contains only safe characters
+// This prevents any potential injection attacks even though we use parameterized queries
+var apiKeyRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+
+func isValidAPIKeyFormat(apiKey string) bool {
+	// Allow alphanumeric characters, underscore, and dash
+	// Most API keys use base64 or similar encoding
+	return len(apiKey) > 0 && len(apiKey) <= 256 && apiKeyRegex.MatchString(apiKey)
 }
