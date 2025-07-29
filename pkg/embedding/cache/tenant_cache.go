@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/developer-mesh/developer-mesh/pkg/auth"
+	"github.com/developer-mesh/developer-mesh/pkg/embedding/cache/eviction"
+	"github.com/developer-mesh/developer-mesh/pkg/embedding/cache/lru"
 	"github.com/developer-mesh/developer-mesh/pkg/embedding/cache/tenant"
 	"github.com/developer-mesh/developer-mesh/pkg/middleware"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
@@ -36,6 +38,9 @@ type TenantAwareCache struct {
 
 	// Cache mode for migration
 	mode CacheMode
+	
+	// LRU manager for eviction
+	lruManager        *lru.Manager
 }
 
 // NewTenantAwareCache creates a new tenant-aware cache instance
@@ -51,7 +56,7 @@ func NewTenantAwareCache(
 		logger = observability.NewLogger("embedding.cache.tenant")
 	}
 
-	return &TenantAwareCache{
+	cache := &TenantAwareCache{
 		baseCache:         baseCache,
 		tenantConfigRepo:  configRepo,
 		rateLimiter:       rateLimiter,
@@ -60,6 +65,20 @@ func NewTenantAwareCache(
 		metrics:           metrics,
 		mode:              ModeTenantOnly, // Default to tenant-only mode
 	}
+	
+	// Initialize LRU manager if we have Redis
+	if baseCache != nil && baseCache.redis != nil {
+		lruConfig := lru.DefaultConfig()
+		cache.lruManager = lru.NewManager(
+			baseCache.redis,
+			lruConfig,
+			baseCache.config.Prefix,
+			logger,
+			metrics,
+		)
+	}
+	
+	return cache
 }
 
 // SetMode sets the cache mode for migration support
@@ -104,6 +123,11 @@ func (tc *TenantAwareCache) Get(ctx context.Context, query string, embedding []f
 	entry, err := tc.getWithTenantKey(ctx, key, query, embedding)
 	if err != nil {
 		return nil, err
+	}
+
+	// Track access for LRU
+	if entry != nil && tc.lruManager != nil {
+		tc.lruManager.TrackAccess(ctx, tenantID, key)
 	}
 
 	// Decrypt sensitive data if needed
@@ -402,4 +426,21 @@ func (tc *TenantAwareCache) scanKeys(ctx context.Context, pattern string) ([]str
 	}
 
 	return keys, nil
+}
+
+// StartLRUEviction starts the background LRU eviction process
+func (tc *TenantAwareCache) StartLRUEviction(ctx context.Context, vectorStore eviction.VectorStore) {
+	if tc.lruManager == nil {
+		tc.logger.Warn("LRU manager not initialized, skipping eviction", nil)
+		return
+	}
+	
+	go tc.lruManager.Run(ctx, vectorStore)
+}
+
+// StopLRUEviction stops the LRU eviction process
+func (tc *TenantAwareCache) StopLRUEviction() {
+	if tc.lruManager != nil {
+		tc.lruManager.Stop()
+	}
 }
