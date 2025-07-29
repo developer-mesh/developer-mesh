@@ -33,7 +33,7 @@ func TestIntegration_CacheLifecycle(t *testing.T) {
 	config := cache.DefaultConfig()
 	config.Prefix = "integration_test"
 	logger := observability.NewLogger("integration_test")
-	
+
 	c, err := cache.NewSemanticCache(redisClient, config, logger)
 	require.NoError(t, err)
 
@@ -100,7 +100,7 @@ func TestIntegration_CacheWarmer(t *testing.T) {
 	config := cache.DefaultConfig()
 	config.Prefix = "warmer_test"
 	logger := observability.NewLogger("warmer_test")
-	
+
 	c, err := cache.NewSemanticCache(redisClient, config, logger)
 	require.NoError(t, err)
 
@@ -137,7 +137,7 @@ func TestIntegration_CacheWarmer(t *testing.T) {
 	// Run again - should be from cache
 	results2, err := warmer.Warm(ctx, queries)
 	require.NoError(t, err)
-	
+
 	for _, result := range results2 {
 		assert.True(t, result.Success)
 		assert.True(t, result.FromCache) // Second time, from cache
@@ -164,15 +164,15 @@ func TestIntegration_CacheAnalytics(t *testing.T) {
 	config := cache.DefaultConfig()
 	config.Prefix = "analytics_test"
 	logger := observability.NewLogger("analytics_test")
-	
+
 	c, err := cache.NewSemanticCache(redisClient, config, logger)
 	require.NoError(t, err)
 
 	// Populate cache with data
 	ctx := context.Background()
 	queries := []struct {
-		query    string
-		hits     int
+		query     string
+		hits      int
 		embedding []float32
 	}{
 		{"machine learning model", 10, []float32{0.1, 0.2, 0.3}},
@@ -202,7 +202,7 @@ func TestIntegration_CacheAnalytics(t *testing.T) {
 	// Test query pattern analysis
 	patterns, err := analytics.AnalyzeQueryPatterns(ctx)
 	require.NoError(t, err)
-	
+
 	// "machine" and "learning" should be the most common terms
 	assert.Greater(t, patterns["machine"], patterns["data"])
 	assert.Greater(t, patterns["learning"], patterns["science"])
@@ -210,7 +210,7 @@ func TestIntegration_CacheAnalytics(t *testing.T) {
 	// Test efficiency analysis
 	report, err := analytics.AnalyzeCacheEfficiency(ctx)
 	require.NoError(t, err)
-	
+
 	assert.Greater(t, report.HitRate, 0.0)
 	assert.Equal(t, 5, report.CacheSize)
 	assert.Greater(t, report.AverageHitsPerEntry, 0.0)
@@ -237,7 +237,7 @@ func TestIntegration_PrometheusMetrics(t *testing.T) {
 	config.Prefix = "metrics_test"
 	config.EnableMetrics = true
 	logger := observability.NewLogger("metrics_test")
-	
+
 	c, err := cache.NewSemanticCache(redisClient, config, logger)
 	require.NoError(t, err)
 
@@ -249,7 +249,7 @@ func TestIntegration_PrometheusMetrics(t *testing.T) {
 		results := []cache.CachedSearchResult{
 			{ID: "1", Content: "Test", Score: 0.9},
 		}
-		
+
 		_ = c.Set(ctx, query, embedding, results)
 		_, _ = c.Get(ctx, query, embedding)
 	}

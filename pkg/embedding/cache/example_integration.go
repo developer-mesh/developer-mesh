@@ -16,19 +16,19 @@ import (
 type IntegratedCache struct {
 	// Core cache with tenant awareness
 	tenantCache *TenantAwareCache
-	
+
 	// Vector store for pgvector operations
 	vectorStore *VectorStore
-	
+
 	// LRU eviction manager
 	evictor *eviction.LRUEvictor
-	
+
 	// Compression service
 	compression *CompressionService
-	
+
 	// Observability manager
 	observability *ObservabilityManager
-	
+
 	// Lifecycle manager
 	lifecycle *Lifecycle
 }
@@ -129,7 +129,7 @@ func (ic *IntegratedCache) ExampleUsage(ctx context.Context) error {
 		results := []CachedSearchResult{
 			{ID: "1", Content: "Large content here...", Score: 0.95},
 		}
-		
+
 		entry := &CacheEntry{
 			Query:     query,
 			Embedding: embedding,

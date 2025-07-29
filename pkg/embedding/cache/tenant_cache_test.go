@@ -73,10 +73,10 @@ func setupTestTenantCache(t *testing.T) (*cache.TenantAwareCache, *mockTenantCon
 	// Create base cache
 	config := cache.DefaultConfig()
 	config.Prefix = "test_cache"
-	
+
 	logger := observability.NewLogger("test")
 	metrics := observability.NewMetricsClient()
-	
+
 	baseCache, err := cache.NewSemanticCache(redisClient, config, logger)
 	require.NoError(t, err)
 
@@ -85,10 +85,10 @@ func setupTestTenantCache(t *testing.T) (*cache.TenantAwareCache, *mockTenantCon
 
 	// Create rate limiter
 	rateLimitConfig := middleware.RateLimitConfig{
-		GlobalRPS:   100,
-		GlobalBurst: 200,
-		TenantRPS:   50,
-		TenantBurst: 100,
+		GlobalRPS:       100,
+		GlobalBurst:     200,
+		TenantRPS:       50,
+		TenantBurst:     100,
 		CleanupInterval: time.Minute,
 		MaxAge:          time.Hour,
 	}
@@ -182,7 +182,7 @@ func TestTenantFeatureDisabled(t *testing.T) {
 	defer redisClient.Close()
 
 	tenantID := uuid.New()
-	
+
 	// Setup mock - cache disabled for this tenant
 	tenantConfig := &models.TenantConfig{
 		TenantID: tenantID.String(),
@@ -228,7 +228,7 @@ func TestEncryption(t *testing.T) {
 	defer redisClient.Close()
 
 	tenantID := uuid.New()
-	
+
 	// Setup mock
 	tenantConfig := &models.TenantConfig{
 		TenantID: tenantID.String(),
@@ -271,7 +271,7 @@ func TestRateLimiting(t *testing.T) {
 	defer redisClient.Close()
 
 	tenantID := uuid.New()
-	
+
 	// Setup mock
 	tenantConfig := &models.TenantConfig{
 		TenantID: tenantID.String(),
@@ -285,12 +285,12 @@ func TestRateLimiting(t *testing.T) {
 
 	// Note: The actual rate limiting implementation needs to be added to TenantAwareCache
 	// This test demonstrates the expected behavior
-	
+
 	// Make many rapid requests
 	for i := 0; i < 150; i++ {
 		query := fmt.Sprintf("query %d", i)
 		_, _ = tenantCache.Get(ctx, query, []float32{0.1})
-		
+
 		// After hitting rate limit, subsequent requests should fail
 		// This would be implemented in the actual TenantAwareCache
 	}
@@ -373,7 +373,7 @@ func TestTenantConfigCaching(t *testing.T) {
 	defer redisClient.Close()
 
 	tenantID := uuid.New()
-	
+
 	// Setup mock - should only be called once due to caching
 	tenantConfig := &models.TenantConfig{
 		TenantID: tenantID.String(),

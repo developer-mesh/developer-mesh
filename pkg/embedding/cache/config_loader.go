@@ -72,25 +72,25 @@ func LoadConfigFromViper() (*Config, error) {
 
 // SemanticCacheConfig represents the full configuration for semantic cache
 type SemanticCacheConfig struct {
-	Enabled bool                      `mapstructure:"enabled"`
-	Mode    string                    `mapstructure:"mode"`
-	Redis   RedisCacheConfig          `mapstructure:"redis"`
+	Enabled        bool                 `mapstructure:"enabled"`
+	Mode           string               `mapstructure:"mode"`
+	Redis          RedisCacheConfig     `mapstructure:"redis"`
 	CircuitBreaker CircuitBreakerConfig `mapstructure:"circuit_breaker"`
-	Retry   RetryConfig               `mapstructure:"retry"`
-	Validation ValidationConfig       `mapstructure:"validation"`
-	Tenant  TenantConfig              `mapstructure:"tenant"`
-	Warmup  WarmupConfig              `mapstructure:"warmup"`
-	Monitoring MonitoringConfig       `mapstructure:"monitoring"`
-	Eviction EvictionConfig           `mapstructure:"eviction"`
+	Retry          RetryConfig          `mapstructure:"retry"`
+	Validation     ValidationConfig     `mapstructure:"validation"`
+	Tenant         TenantConfig         `mapstructure:"tenant"`
+	Warmup         WarmupConfig         `mapstructure:"warmup"`
+	Monitoring     MonitoringConfig     `mapstructure:"monitoring"`
+	Eviction       EvictionConfig       `mapstructure:"eviction"`
 }
 
 // RedisCacheConfig represents Redis-specific cache configuration
 type RedisCacheConfig struct {
-	Prefix              string        `mapstructure:"prefix"`
-	TTL                 int           `mapstructure:"ttl"`
-	MaxEntries          int           `mapstructure:"max_entries"`
-	MaxMemoryMB         int           `mapstructure:"max_memory_mb"`
-	CompressionEnabled  bool          `mapstructure:"compression_enabled"`
+	Prefix             string `mapstructure:"prefix"`
+	TTL                int    `mapstructure:"ttl"`
+	MaxEntries         int    `mapstructure:"max_entries"`
+	MaxMemoryMB        int    `mapstructure:"max_memory_mb"`
+	CompressionEnabled bool   `mapstructure:"compression_enabled"`
 }
 
 // CircuitBreakerConfig represents circuit breaker configuration
@@ -103,10 +103,10 @@ type CircuitBreakerConfig struct {
 
 // RetryConfig represents retry configuration
 type RetryConfig struct {
-	MaxAttempts      int           `mapstructure:"max_attempts"`
-	InitialInterval  time.Duration `mapstructure:"initial_interval"`
-	MaxInterval      time.Duration `mapstructure:"max_interval"`
-	Multiplier       float64       `mapstructure:"multiplier"`
+	MaxAttempts     int           `mapstructure:"max_attempts"`
+	InitialInterval time.Duration `mapstructure:"initial_interval"`
+	MaxInterval     time.Duration `mapstructure:"max_interval"`
+	Multiplier      float64       `mapstructure:"multiplier"`
 }
 
 // ValidationConfig represents validation configuration
@@ -118,9 +118,9 @@ type ValidationConfig struct {
 
 // TenantConfig represents tenant-specific configuration
 type TenantConfig struct {
-	DefaultMaxEntries  int  `mapstructure:"default_max_entries"`
-	DefaultTTL         int  `mapstructure:"default_ttl"`
-	EncryptionEnabled  bool `mapstructure:"encryption_enabled"`
+	DefaultMaxEntries int  `mapstructure:"default_max_entries"`
+	DefaultTTL        int  `mapstructure:"default_ttl"`
+	EncryptionEnabled bool `mapstructure:"encryption_enabled"`
 }
 
 // WarmupConfig represents cache warmup configuration
@@ -133,8 +133,8 @@ type WarmupConfig struct {
 
 // MonitoringConfig represents monitoring configuration
 type MonitoringConfig struct {
-	MetricsInterval      time.Duration `mapstructure:"metrics_interval"`
-	SlowQueryThreshold   time.Duration `mapstructure:"slow_query_threshold"`
+	MetricsInterval    time.Duration `mapstructure:"metrics_interval"`
+	SlowQueryThreshold time.Duration `mapstructure:"slow_query_threshold"`
 }
 
 // EvictionConfig represents eviction configuration
@@ -147,7 +147,7 @@ type EvictionConfig struct {
 // LoadSemanticCacheConfig loads the complete semantic cache configuration
 func LoadSemanticCacheConfig() (*SemanticCacheConfig, error) {
 	var config SemanticCacheConfig
-	
+
 	// Load from viper
 	if err := viper.UnmarshalKey("cache.semantic", &config); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal semantic cache config: %w", err)

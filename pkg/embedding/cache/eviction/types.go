@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/google/uuid"
 )
 
 // VectorStore defines the interface for vector store operations needed by eviction

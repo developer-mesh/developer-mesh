@@ -12,10 +12,10 @@ import (
 
 // ObservabilityManager manages metrics, logging, and tracing for the cache
 type ObservabilityManager struct {
-	logger         observability.Logger
-	metrics        *MetricsCollector
-	globalMetrics  *GlobalMetrics
-	tracer         trace.Tracer
+	logger        observability.Logger
+	metrics       *MetricsCollector
+	globalMetrics *GlobalMetrics
+	tracer        trace.Tracer
 }
 
 // NewObservabilityManager creates a new observability manager
@@ -63,7 +63,7 @@ func (o *ObservabilityManager) TrackCacheOperation(ctx context.Context, operatio
 // LogCacheHit logs and records metrics for a cache hit
 func (o *ObservabilityManager) LogCacheHit(ctx context.Context, query string, similarity float32) {
 	o.metrics.RecordHit("semantic")
-	
+
 	o.logger.Debug("Cache hit", map[string]interface{}{
 		"query":      query,
 		"similarity": similarity,
@@ -80,7 +80,7 @@ func (o *ObservabilityManager) LogCacheHit(ctx context.Context, query string, si
 // LogCacheMiss logs and records metrics for a cache miss
 func (o *ObservabilityManager) LogCacheMiss(ctx context.Context, query string, reason string) {
 	o.metrics.RecordMiss("semantic")
-	
+
 	o.logger.Debug("Cache miss", map[string]interface{}{
 		"query":  query,
 		"reason": reason,
@@ -97,11 +97,11 @@ func (o *ObservabilityManager) LogCacheMiss(ctx context.Context, query string, r
 // TrackSimilaritySearch tracks similarity search metrics
 func (o *ObservabilityManager) TrackSimilaritySearch(ctx context.Context, resultCount int, threshold float32, duration time.Duration) {
 	o.metrics.RecordSimilaritySearch(resultCount, float64(threshold))
-	
+
 	o.logger.Debug("Similarity search completed", map[string]interface{}{
-		"result_count":      resultCount,
-		"threshold":         threshold,
-		"duration_ms":       duration.Milliseconds(),
+		"result_count": resultCount,
+		"threshold":    threshold,
+		"duration_ms":  duration.Milliseconds(),
 	})
 
 	if span := trace.SpanFromContext(ctx); span != nil {
@@ -121,7 +121,7 @@ func (o *ObservabilityManager) TrackCompression(ctx context.Context, originalSiz
 	}
 
 	o.metrics.RecordCompression(ratio, duration.Seconds(), operation)
-	
+
 	o.logger.Debug("Compression completed", map[string]interface{}{
 		"operation":       operation,
 		"original_size":   originalSize,
@@ -145,7 +145,7 @@ func (o *ObservabilityManager) TrackEviction(ctx context.Context, count int, rea
 	for i := 0; i < count; i++ {
 		o.metrics.RecordEviction(reason, strategy)
 	}
-	
+
 	o.logger.Info("Cache eviction completed", map[string]interface{}{
 		"count":    count,
 		"reason":   reason,
@@ -170,7 +170,7 @@ func (o *ObservabilityManager) UpdateCacheStats(entries int, sizeBytes int64) {
 // TrackRateLimitExceeded tracks rate limit exceeded events
 func (o *ObservabilityManager) TrackRateLimitExceeded(ctx context.Context) {
 	o.metrics.RecordRateLimitExceeded()
-	
+
 	o.logger.Warn("Rate limit exceeded", map[string]interface{}{})
 
 	if span := trace.SpanFromContext(ctx); span != nil {
@@ -231,11 +231,11 @@ type DashboardConfig struct {
 
 // PanelConfig defines a dashboard panel
 type PanelConfig struct {
-	Title   string
-	Query   string
-	Type    string // graph, gauge, table, etc.
-	Unit    string
-	Legend  []string
+	Title  string
+	Query  string
+	Type   string // graph, gauge, table, etc.
+	Unit   string
+	Legend []string
 }
 
 // GetDefaultDashboardConfig returns the default Grafana dashboard configuration

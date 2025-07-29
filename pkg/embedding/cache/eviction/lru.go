@@ -188,7 +188,7 @@ func (e *LRUEvictor) runEvictionCycle(ctx context.Context) {
 	// Use recovery middleware to handle panics
 	RecoverMiddleware(e.logger, "eviction_cycle")(func() {
 		startTime := time.Now()
-		
+
 		// First, cleanup globally stale entries
 		if e.config.StaleThreshold > 0 {
 			deleted, err := e.vectorStore.CleanupStaleEntries(ctx, e.config.StaleThreshold)
@@ -254,7 +254,7 @@ func (e *LRUEvictor) runEvictionCycle(ctx context.Context) {
 		})
 
 		e.logger.Info("Completed eviction cycle", map[string]interface{}{
-			"duration_seconds": duration,
+			"duration_seconds":  duration,
 			"tenants_processed": tenantsProcessed,
 			"total_evicted":     totalEvicted,
 		})
@@ -271,7 +271,7 @@ func (e *LRUEvictor) evictGlobalLRU(ctx context.Context, toEvict int) {
 	// For global eviction, we need to get LRU entries across all tenants
 	// This would require a different query that doesn't filter by tenant
 	// For now, log the warning
-	
+
 	e.metrics.IncrementCounterWithLabels("cache.evictions.global", float64(toEvict), map[string]string{
 		"reason": "global_limit",
 	})

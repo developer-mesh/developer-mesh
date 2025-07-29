@@ -45,7 +45,6 @@ type SimilarQueryResult struct {
 	LastAccessedAt time.Time `db:"last_accessed_at"`
 }
 
-
 // StoreCacheEmbedding stores query embedding in pgvector
 func (v *VectorStore) StoreCacheEmbedding(ctx context.Context, tenantID uuid.UUID, cacheKey, queryHash string, embedding []float32) error {
 	// Start span for tracing
@@ -280,13 +279,13 @@ func (v *VectorStore) CleanupStaleEntries(ctx context.Context, staleDuration tim
 	}
 
 	rowsDeleted, _ := result.RowsAffected()
-	
+
 	if rowsDeleted > 0 {
 		v.logger.Info("Cleaned up stale cache entries", map[string]interface{}{
 			"rows_deleted": rowsDeleted,
 			"cutoff_time":  cutoffTime,
 		})
-		
+
 		v.metrics.IncrementCounterWithLabels("cache.cleanup.stale_entries", float64(rowsDeleted), map[string]string{
 			"type": "stale",
 		})
@@ -323,9 +322,9 @@ func (v *VectorStore) GetGlobalCacheStats(ctx context.Context) (map[string]inter
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return map[string]interface{}{
-				"tenant_count":    0,
-				"total_entries":   0,
-				"total_hits":      0,
+				"tenant_count":       0,
+				"total_entries":      0,
+				"total_hits":         0,
 				"avg_hits_per_entry": 0,
 			}, nil
 		}
@@ -333,12 +332,12 @@ func (v *VectorStore) GetGlobalCacheStats(ctx context.Context) (map[string]inter
 	}
 
 	return map[string]interface{}{
-		"tenant_count":             stats.TenantCount,
-		"total_entries":            stats.TotalEntries,
-		"total_hits":               stats.TotalHits,
-		"avg_hits_per_entry":       stats.AvgHitsPerEntry,
-		"oldest_entry":             stats.OldestEntry,
-		"newest_entry":             stats.NewestEntry,
-		"least_recently_accessed":  stats.LeastRecentlyAccessed,
+		"tenant_count":            stats.TenantCount,
+		"total_entries":           stats.TotalEntries,
+		"total_hits":              stats.TotalHits,
+		"avg_hits_per_entry":      stats.AvgHitsPerEntry,
+		"oldest_entry":            stats.OldestEntry,
+		"newest_entry":            stats.NewestEntry,
+		"least_recently_accessed": stats.LeastRecentlyAccessed,
 	}, nil
 }

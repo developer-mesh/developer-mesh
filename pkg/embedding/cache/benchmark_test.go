@@ -36,7 +36,7 @@ func setupBenchmarkCache(b *testing.B) *cache.SemanticCache {
 	}
 
 	logger := observability.NewLogger("benchmark")
-	
+
 	c, err := cache.NewSemanticCache(redisClient, config, logger)
 	require.NoError(b, err)
 
@@ -71,7 +71,7 @@ func generateResults(n int) []cache.CachedSearchResult {
 func BenchmarkCacheSet(b *testing.B) {
 	cache := setupBenchmarkCache(b)
 	ctx := context.Background()
-	
+
 	// Pre-generate data
 	embeddings := make([][]float32, 1000)
 	for i := range embeddings {
@@ -96,7 +96,7 @@ func BenchmarkCacheSet(b *testing.B) {
 func BenchmarkCacheGet(b *testing.B) {
 	cache := setupBenchmarkCache(b)
 	ctx := context.Background()
-	
+
 	// Pre-populate cache
 	numQueries := 1000
 	embeddings := make([][]float32, numQueries)
@@ -105,7 +105,7 @@ func BenchmarkCacheGet(b *testing.B) {
 		embedding := generateEmbedding()
 		embedding[0] = float32(i) / float32(numQueries)
 		embeddings[i] = embedding
-		
+
 		results := generateResults(10)
 		err := cache.Set(ctx, query, embedding, results)
 		require.NoError(b, err)
@@ -126,7 +126,7 @@ func BenchmarkCacheGet(b *testing.B) {
 func BenchmarkCacheGetMiss(b *testing.B) {
 	cache := setupBenchmarkCache(b)
 	ctx := context.Background()
-	
+
 	// Pre-populate with different queries
 	for i := 0; i < 100; i++ {
 		query := fmt.Sprintf("existing query %d", i)
@@ -157,19 +157,19 @@ func BenchmarkCacheGetMiss(b *testing.B) {
 func BenchmarkSimilaritySearch(b *testing.B) {
 	cache := setupBenchmarkCache(b)
 	ctx := context.Background()
-	
+
 	// Pre-populate with queries
 	baseEmbedding := generateEmbedding()
 	for i := 0; i < 1000; i++ {
 		query := fmt.Sprintf("similar query %d", i)
 		embedding := make([]float32, len(baseEmbedding))
 		copy(embedding, baseEmbedding)
-		
+
 		// Slightly modify embedding
 		for j := 0; j < 10; j++ {
 			embedding[j] = baseEmbedding[j] + float32(i)*0.0001
 		}
-		
+
 		results := generateResults(5)
 		_ = cache.Set(ctx, query, embedding, results)
 	}
@@ -179,7 +179,7 @@ func BenchmarkSimilaritySearch(b *testing.B) {
 	for i := range testEmbeddings {
 		testEmbeddings[i] = make([]float32, len(baseEmbedding))
 		copy(testEmbeddings[i], baseEmbedding)
-		
+
 		// Vary similarity
 		for j := 0; j < i*10; j++ {
 			testEmbeddings[i][j] = baseEmbedding[j] + float32(i)*0.001
@@ -196,7 +196,7 @@ func BenchmarkSimilaritySearch(b *testing.B) {
 func BenchmarkConcurrentAccess(b *testing.B) {
 	cache := setupBenchmarkCache(b)
 	ctx := context.Background()
-	
+
 	// Pre-populate
 	for i := 0; i < 100; i++ {
 		query := fmt.Sprintf("concurrent query %d", i)
@@ -235,15 +235,15 @@ func BenchmarkConcurrentAccess(b *testing.B) {
 func BenchmarkLargeResults(b *testing.B) {
 	cache := setupBenchmarkCache(b)
 	ctx := context.Background()
-	
+
 	// Test with varying result sizes
 	resultSizes := []int{1, 10, 50, 100}
-	
+
 	for _, size := range resultSizes {
 		b.Run(fmt.Sprintf("results_%d", size), func(b *testing.B) {
 			results := generateResults(size)
 			embedding := generateEmbedding()
-			
+
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				query := fmt.Sprintf("large result query %d", i)
@@ -257,7 +257,7 @@ func BenchmarkTenantIsolation(b *testing.B) {
 	// This would benchmark the tenant-aware cache
 	// For now, we'll benchmark with different key prefixes to simulate tenants
 	cache := setupBenchmarkCache(b)
-	
+
 	numTenants := 10
 	tenants := make([]uuid.UUID, numTenants)
 	for i := range tenants {
@@ -277,10 +277,10 @@ func BenchmarkTenantIsolation(b *testing.B) {
 		for pb.Next() {
 			tenantID := tenants[i%numTenants]
 			ctx := auth.WithTenantID(context.Background(), tenantID)
-			
+
 			query := fmt.Sprintf("tenant query %d", i%100)
 			embedding := embeddings[i%len(embeddings)]
-			
+
 			if i%3 == 0 {
 				_ = cache.Set(ctx, query, embedding, results)
 			} else {
@@ -294,7 +294,7 @@ func BenchmarkTenantIsolation(b *testing.B) {
 func BenchmarkStats(b *testing.B) {
 	cache := setupBenchmarkCache(b)
 	ctx := context.Background()
-	
+
 	// Pre-populate with many entries
 	for i := 0; i < 10000; i++ {
 		query := fmt.Sprintf("stats query %d", i)
@@ -302,7 +302,7 @@ func BenchmarkStats(b *testing.B) {
 		embedding[0] = float32(i) / 10000.0
 		results := generateResults(3)
 		_ = cache.Set(ctx, query, embedding, results)
-		
+
 		// Simulate some hits
 		if i%10 == 0 {
 			for j := 0; j < i%5; j++ {
@@ -320,7 +320,7 @@ func BenchmarkStats(b *testing.B) {
 func BenchmarkGetTopQueries(b *testing.B) {
 	cache := setupBenchmarkCache(b)
 	ctx := context.Background()
-	
+
 	// Pre-populate with entries having different hit counts
 	for i := 0; i < 1000; i++ {
 		query := fmt.Sprintf("top query %d", i)
@@ -328,7 +328,7 @@ func BenchmarkGetTopQueries(b *testing.B) {
 		embedding[0] = float32(i) / 1000.0
 		results := generateResults(3)
 		_ = cache.Set(ctx, query, embedding, results)
-		
+
 		// Simulate varying hit counts
 		hits := (1000 - i) / 10
 		for j := 0; j < hits; j++ {

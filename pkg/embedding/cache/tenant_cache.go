@@ -2,22 +2,25 @@ package cache
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/developer-mesh/developer-mesh/pkg/auth"
+	"github.com/developer-mesh/developer-mesh/pkg/embedding/cache/tenant"
 	"github.com/developer-mesh/developer-mesh/pkg/middleware"
-	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/repository"
 	"github.com/developer-mesh/developer-mesh/pkg/security"
 	"github.com/google/uuid"
 )
 
-var (
-	ErrFeatureDisabled = errors.New("semantic cache feature is disabled for tenant")
+type CacheMode string
+
+const (
+	ModeLegacy     CacheMode = "legacy"      // No tenant isolation
+	ModeMigrating  CacheMode = "migrating"   // Dual write/read
+	ModeTenantOnly CacheMode = "tenant_only" // Full isolation
 )
 
 // TenantAwareCache provides tenant-isolated semantic caching with encryption support
@@ -30,6 +33,9 @@ type TenantAwareCache struct {
 	metrics           observability.MetricsClient
 	configCache       sync.Map // For tenant config caching
 	configCacheMu     sync.RWMutex
+
+	// Cache mode for migration
+	mode CacheMode
 }
 
 // NewTenantAwareCache creates a new tenant-aware cache instance
@@ -52,7 +58,16 @@ func NewTenantAwareCache(
 		encryptionService: security.NewEncryptionService(encryptionKey),
 		logger:            logger,
 		metrics:           metrics,
+		mode:              ModeTenantOnly, // Default to tenant-only mode
 	}
+}
+
+// SetMode sets the cache mode for migration support
+func (tc *TenantAwareCache) SetMode(mode CacheMode) {
+	tc.mode = mode
+	tc.logger.Info("Cache mode changed", map[string]interface{}{
+		"mode": string(mode),
+	})
 }
 
 // Get retrieves from cache with tenant isolation
@@ -60,15 +75,16 @@ func (tc *TenantAwareCache) Get(ctx context.Context, query string, embedding []f
 	// Extract tenant ID using auth package
 	tenantID := auth.GetTenantID(ctx)
 	if tenantID == uuid.Nil {
+		if tc.mode == ModeLegacy {
+			// Fallback to global cache for backward compatibility
+			return tc.baseCache.Get(ctx, query, embedding)
+		}
 		return nil, ErrNoTenantID
 	}
 
-	// Apply rate limiting if configured
-	if tc.rateLimiter != nil {
-		// Note: The middleware RateLimiter doesn't expose a simple Allow method
-		// We'll need to enhance it or use a different approach
-		// For now, skip rate limiting here
-	}
+	// Apply rate limiting using existing middleware
+	// Note: The current RateLimiter is designed for gin middleware
+	// For now, we'll skip inline rate limiting and rely on middleware
 
 	// Get tenant config
 	config, err := tc.getTenantConfig(ctx, tenantID)
@@ -76,11 +92,9 @@ func (tc *TenantAwareCache) Get(ctx context.Context, query string, embedding []f
 		return nil, fmt.Errorf("failed to get tenant config: %w", err)
 	}
 
-	// Check if cache is enabled for tenant
-	if config != nil && config.Features != nil {
-		if enabled, ok := config.Features["semantic_cache"].(bool); ok && !enabled {
-			return nil, ErrFeatureDisabled
-		}
+	// Check if semantic cache is enabled
+	if !config.EnabledFeatures.EnableSemanticCache {
+		return nil, ErrFeatureDisabled
 	}
 
 	// Build tenant-specific key
@@ -135,11 +149,9 @@ func (tc *TenantAwareCache) Set(ctx context.Context, query string, embedding []f
 		return fmt.Errorf("failed to get tenant config: %w", err)
 	}
 
-	// Check if cache is enabled
-	if config != nil && config.Features != nil {
-		if enabled, ok := config.Features["semantic_cache"].(bool); ok && !enabled {
-			return ErrFeatureDisabled
-		}
+	// Check if semantic cache is enabled
+	if !config.EnabledFeatures.EnableSemanticCache {
+		return ErrFeatureDisabled
 	}
 
 	// Check if results contain sensitive data
@@ -242,7 +254,7 @@ func (tc *TenantAwareCache) getCacheKey(tenantID uuid.UUID, query string) string
 		sanitized)
 }
 
-func (tc *TenantAwareCache) getTenantConfig(ctx context.Context, tenantID uuid.UUID) (*models.TenantConfig, error) {
+func (tc *TenantAwareCache) getTenantConfig(ctx context.Context, tenantID uuid.UUID) (*tenant.CacheTenantConfig, error) {
 	// Try local cache first
 	cacheKey := fmt.Sprintf("tenant_config:%s", tenantID.String())
 	if cached, found := tc.configCache.Load(cacheKey); found {
@@ -258,27 +270,35 @@ func (tc *TenantAwareCache) getTenantConfig(ctx context.Context, tenantID uuid.U
 
 	// Load from repository if available
 	if tc.tenantConfigRepo == nil {
-		// Return nil config if no repository
-		return nil, nil
+		// Return default config if no repository
+		return tenant.DefaultCacheTenantConfig(), nil
 	}
 
-	config, err := tc.tenantConfigRepo.GetByTenantID(ctx, tenantID.String())
+	baseConfig, err := tc.tenantConfigRepo.GetByTenantID(ctx, tenantID.String())
 	if err != nil {
-		return nil, err
+		// Return default config on error
+		tc.logger.Warn("Failed to get tenant config, using defaults", map[string]interface{}{
+			"error":     err.Error(),
+			"tenant_id": tenantID.String(),
+		})
+		return tenant.DefaultCacheTenantConfig(), nil
 	}
+
+	// Parse cache-specific configuration
+	cacheConfig := tenant.ParseFromTenantConfig(baseConfig)
 
 	// Cache for 5 minutes
 	tc.configCache.Store(cacheKey, &tenantConfigCacheEntry{
-		config:    config,
+		config:    cacheConfig,
 		timestamp: time.Now(),
 	})
 
-	return config, nil
+	return cacheConfig, nil
 }
 
 // tenantConfigCacheEntry wraps a tenant config with timestamp
 type tenantConfigCacheEntry struct {
-	config    *models.TenantConfig
+	config    *tenant.CacheTenantConfig
 	timestamp time.Time
 }
 

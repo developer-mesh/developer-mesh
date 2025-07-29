@@ -15,9 +15,9 @@ func TestCompressionService_CompressAndEncrypt(t *testing.T) {
 	tenantID := "test-tenant"
 
 	tests := []struct {
-		name     string
-		data     []byte
-		wantErr  bool
+		name    string
+		data    []byte
+		wantErr bool
 	}{
 		{
 			name:    "small data (no compression)",
@@ -39,15 +39,15 @@ func TestCompressionService_CompressAndEncrypt(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			encrypted, err := service.CompressAndEncrypt(tt.data, tenantID)
-			
+
 			if tt.wantErr {
 				assert.Error(t, err)
 				return
 			}
-			
+
 			assert.NoError(t, err)
 			assert.NotEmpty(t, encrypted)
-			
+
 			// Verify it's base64
 			assert.NotPanics(t, func() {
 				_, _ = service.DecryptAndDecompress(encrypted, tenantID)
@@ -62,7 +62,7 @@ func TestCompressionService_DecryptAndDecompress(t *testing.T) {
 
 	// Test round trip
 	originalData := []byte(strings.Repeat("test data for compression ", 50))
-	
+
 	encrypted, err := service.CompressAndEncrypt(originalData, tenantID)
 	require.NoError(t, err)
 
