@@ -1,0 +1,138 @@
+# Example configuration for integrated cache with all features
+
+cache:
+  semantic:
+    enabled: true
+    mode: "tenant_only"  # legacy, migrating, tenant_only
+    
+    redis:
+      prefix: "devmesh:cache"
+      ttl: 3600  # 1 hour
+      max_entries: 10000
+      compression_enabled: true
+      
+    # Circuit breaker for Redis operations
+    circuit_breaker:
+      failure_threshold: 5
+      failure_ratio: 0.6
+      reset_timeout: 30s
+      max_requests_half_open: 5
+      
+    # Retry configuration
+    retry:
+      max_attempts: 3
+      initial_interval: 100ms
+      max_interval: 5s
+      multiplier: 2.0
+      
+    # Validation settings
+    validation:
+      max_query_length: 1000
+      rate_limit_rps: 100
+      rate_limit_burst: 200
+      
+    # Tenant-specific defaults
+    tenant:
+      default_max_entries: 10000
+      default_ttl: 3600
+      encryption_enabled: true
+      
+    # LRU eviction settings
+    lru:
+      eviction_interval: 300  # 5 minutes
+      eviction_batch_size: 100
+      tracking_batch_size: 1000
+      flush_interval: 10  # seconds
+      
+      # Global limits
+      global:
+        max_entries: 1000000
+        max_bytes: 10737418240  # 10GB
+        
+      # Per-tenant defaults
+      tenant_defaults:
+        max_entries: 10000
+        max_bytes: 104857600  # 100MB
+        
+    # Cache-specific rate limiting
+    rate_limiting:
+      cache_read_rps: 100
+      cache_read_burst: 200
+      cache_write_rps: 50
+      cache_write_burst: 100
+      cleanup_interval: 5m
+      max_age: 1h
+      
+    # Monitoring and metrics
+    monitoring:
+      metrics_interval: 30s
+      slow_query_threshold: 100ms
+      export_prometheus: true
+      export_interval: 30s
+      
+    # Vector store settings (pgvector)
+    vector_store:
+      similarity_threshold: 0.8
+      max_results: 10
+      index_type: "ivfflat"
+      lists: 100  # for ivfflat index
+      
+    # Migration settings (if applicable)
+    migration:
+      dual_write: false
+      copy_on_miss: false
+      batch_size: 100
+      
+# Auth integration
+auth:
+  tenant_header: "X-Tenant-ID"
+  auth_header: "Authorization"
+  require_tenant_for_cache: true
+  
+# Middleware configuration
+middleware:
+  # Global rate limiting (separate from cache-specific)
+  rate_limit:
+    global_rps: 1000
+    global_burst: 2000
+    tenant_rps: 100
+    tenant_burst: 200
+    
+  # CORS settings for cache endpoints
+  cors:
+    allow_origins: ["*"]
+    allow_methods: ["GET", "POST", "DELETE"]
+    allow_headers: ["Content-Type", "Authorization", "X-Tenant-ID"]
+    expose_headers: ["X-Cache-Hit", "X-Cache-Hit-Rate", "X-RateLimit-Limit"]
+    
+# Prometheus metrics
+monitoring:
+  metrics:
+    enabled: true
+    endpoint: "/metrics"
+    namespace: "devmesh"
+    subsystem: "cache"
+    
+  # Custom buckets for histograms
+  histograms:
+    operation_duration_buckets: [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5]
+    eviction_duration_buckets: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
+    
+# Example tenant-specific configuration
+# This would be stored in the tenant configuration repository
+tenant_configs:
+  "123e4567-e89b-12d3-a456-426614174000":
+    features:
+      cache:
+        enabled: true
+        max_entries: 5000
+        max_bytes: 52428800  # 50MB
+        ttl_seconds: 1800    # 30 minutes
+        cache_warming: true
+        async_eviction: true
+        metrics_enabled: true
+        
+  "987f6543-e21b-12d3-a456-426614174999":
+    features:
+      cache:
+        enabled: false  # Cache disabled for this tenant
