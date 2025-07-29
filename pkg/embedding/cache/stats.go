@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"container/heap"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -15,32 +16,30 @@ func (c *SemanticCache) Stats(ctx context.Context) (*CacheStats, error) {
 	// Start span for tracing
 	ctx, span := observability.StartSpan(ctx, "semantic_cache.stats")
 	defer span.End()
-	
+
 	stats := &CacheStats{
 		Timestamp: time.Now(),
 	}
-	
-	// Get hit/miss stats
-	c.mu.RLock()
-	stats.TotalHits = int(c.stats.hits)
-	stats.TotalMisses = int(c.stats.misses)
-	c.mu.RUnlock()
-	
+
+	// Get hit/miss stats using atomic counters
+	stats.TotalHits = int(c.hitCount.Load())
+	stats.TotalMisses = int(c.missCount.Load())
+
 	// Calculate hit rate
 	total := stats.TotalHits + stats.TotalMisses
 	if total > 0 {
 		stats.HitRate = float64(stats.TotalHits) / float64(total)
 	}
-	
+
 	// Get cache entries
 	pattern := fmt.Sprintf("%s:query:*", c.config.Prefix)
 	keys, err := c.scanKeys(ctx, pattern)
 	if err != nil {
 		return nil, fmt.Errorf("failed to scan keys: %w", err)
 	}
-	
+
 	stats.TotalEntries = len(keys)
-	
+
 	// Analyze cache entries
 	if len(keys) > 0 {
 		err = c.analyzeEntries(ctx, keys, stats)
@@ -50,10 +49,10 @@ func (c *SemanticCache) Stats(ctx context.Context) (*CacheStats, error) {
 			})
 		}
 	}
-	
+
 	// Estimate memory usage
 	stats.MemoryUsageBytes = c.estimateMemoryUsage(ctx)
-	
+
 	return stats, nil
 }
 
@@ -63,39 +62,82 @@ func (c *SemanticCache) GetEntryStats(ctx context.Context, query string) (*Cache
 	return c.getExactMatch(ctx, normalized)
 }
 
-// GetTopQueries returns the most frequently accessed queries
+// GetTopQueries returns the most frequently accessed queries using efficient heap for top-K selection
 func (c *SemanticCache) GetTopQueries(ctx context.Context, limit int) ([]*CacheEntry, error) {
+	// First check local cache for efficiency
+	// sync.Map always exists, so check if it has entries
+	hasEntries := false
+	c.entries.Range(func(key, value interface{}) bool {
+		hasEntries = true
+		return false // Stop after finding first entry
+	})
+
+	if hasEntries {
+		return c.getTopQueriesFromLocalCache(ctx, limit)
+	}
+
+	// Fallback to Redis scan
 	pattern := fmt.Sprintf("%s:query:*", c.config.Prefix)
 	keys, err := c.scanKeys(ctx, pattern)
 	if err != nil {
 		return nil, fmt.Errorf("failed to scan keys: %w", err)
 	}
-	
-	// Load all entries
-	entries := make([]*CacheEntry, 0, len(keys))
+
+	// Use min heap for efficient top-K selection
+	h := &entryHeap{}
+	heap.Init(h)
+
+	// Process entries
 	for _, key := range keys {
 		entry, err := c.getCacheEntry(ctx, key)
 		if err != nil {
 			continue
 		}
-		entries = append(entries, entry)
-	}
-	
-	// Sort by hit count (descending)
-	for i := 0; i < len(entries)-1; i++ {
-		for j := 0; j < len(entries)-i-1; j++ {
-			if entries[j].HitCount < entries[j+1].HitCount {
-				entries[j], entries[j+1] = entries[j+1], entries[j]
-			}
+
+		if h.Len() < limit {
+			heap.Push(h, entry)
+		} else if entry.HitCount > (*h)[0].HitCount {
+			heap.Pop(h)
+			heap.Push(h, entry)
 		}
 	}
-	
-	// Return top N
-	if limit > 0 && limit < len(entries) {
-		entries = entries[:limit]
+
+	// Extract results in descending order
+	results := make([]*CacheEntry, h.Len())
+	for i := len(results) - 1; i >= 0; i-- {
+		results[i] = heap.Pop(h).(*CacheEntry)
 	}
-	
-	return entries, nil
+
+	return results, nil
+}
+
+// getTopQueriesFromLocalCache uses local cache for efficiency
+func (c *SemanticCache) getTopQueriesFromLocalCache(ctx context.Context, limit int) ([]*CacheEntry, error) {
+	// Create min heap for top K entries
+	h := &entryHeap{}
+	heap.Init(h)
+
+	// Iterate through entries
+	c.entries.Range(func(key, value interface{}) bool {
+		entry := value.(*CacheEntry)
+
+		if h.Len() < limit {
+			heap.Push(h, entry)
+		} else if entry.HitCount > (*h)[0].HitCount {
+			heap.Pop(h)
+			heap.Push(h, entry)
+		}
+
+		return true
+	})
+
+	// Extract results in descending order
+	results := make([]*CacheEntry, h.Len())
+	for i := len(results) - 1; i >= 0; i-- {
+		results[i] = heap.Pop(h).(*CacheEntry)
+	}
+
+	return results, nil
 }
 
 // GetStaleEntries returns entries that haven't been accessed recently
@@ -105,21 +147,21 @@ func (c *SemanticCache) GetStaleEntries(ctx context.Context, staleDuration time.
 	if err != nil {
 		return nil, fmt.Errorf("failed to scan keys: %w", err)
 	}
-	
+
 	staleTime := time.Now().Add(-staleDuration)
 	staleEntries := make([]*CacheEntry, 0)
-	
+
 	for _, key := range keys {
 		entry, err := c.getCacheEntry(ctx, key)
 		if err != nil {
 			continue
 		}
-		
+
 		if entry.LastAccessedAt.Before(staleTime) {
 			staleEntries = append(staleEntries, entry)
 		}
 	}
-	
+
 	return staleEntries, nil
 }
 
@@ -129,7 +171,7 @@ func (c *SemanticCache) ExportStats(ctx context.Context, format string) ([]byte,
 	if err != nil {
 		return nil, err
 	}
-	
+
 	switch format {
 	case "json":
 		return json.MarshalIndent(stats, "", "  ")
@@ -144,16 +186,16 @@ func (c *SemanticCache) ExportStats(ctx context.Context, format string) ([]byte,
 
 func (c *SemanticCache) scanKeys(ctx context.Context, pattern string) ([]string, error) {
 	var keys []string
-	
+
 	iter := c.redis.Scan(ctx, 0, pattern, 100).Iterator()
 	for iter.Next(ctx) {
 		keys = append(keys, iter.Val())
 	}
-	
+
 	if err := iter.Err(); err != nil {
 		return nil, err
 	}
-	
+
 	return keys, nil
 }
 
@@ -163,7 +205,7 @@ func (c *SemanticCache) analyzeEntries(ctx context.Context, keys []string, stats
 		totalResults int
 		oldestEntry  time.Time
 	)
-	
+
 	// Process in batches to avoid timeout
 	batchSize := 100
 	for i := 0; i < len(keys); i += batchSize {
@@ -171,22 +213,22 @@ func (c *SemanticCache) analyzeEntries(ctx context.Context, keys []string, stats
 		if end > len(keys) {
 			end = len(keys)
 		}
-		
+
 		batch := keys[i:end]
 		for _, key := range batch {
 			entry, err := c.getCacheEntry(ctx, key)
 			if err != nil {
 				continue
 			}
-			
+
 			totalHits += entry.HitCount
 			totalResults += len(entry.Results)
-			
+
 			if oldestEntry.IsZero() || entry.CachedAt.Before(oldestEntry) {
 				oldestEntry = entry.CachedAt
 			}
 		}
-		
+
 		// Check context cancellation
 		select {
 		case <-ctx.Done():
@@ -194,35 +236,35 @@ func (c *SemanticCache) analyzeEntries(ctx context.Context, keys []string, stats
 		default:
 		}
 	}
-	
+
 	if stats.TotalEntries > 0 {
 		stats.AverageHitsPerEntry = float64(totalHits) / float64(stats.TotalEntries)
 		stats.AverageResultsPerEntry = float64(totalResults) / float64(stats.TotalEntries)
 	}
-	
+
 	if !oldestEntry.IsZero() {
 		stats.OldestEntry = time.Since(oldestEntry)
 	}
-	
+
 	return nil
 }
 
 func (c *SemanticCache) estimateMemoryUsage(ctx context.Context) int64 {
 	// Get Redis memory usage for our keys
 	pattern := fmt.Sprintf("%s:*", c.config.Prefix)
-	
+
 	// Use Redis MEMORY USAGE command if available
 	var totalBytes int64
-	
+
 	keys, _ := c.scanKeys(ctx, pattern)
 	for _, key := range keys {
 		// Redis MEMORY USAGE is available in Redis 4.0+
-		usage, err := c.redis.MemoryUsage(ctx, key).Result()
+		usage, err := c.redis.MemoryUsage(ctx, key)
 		if err == nil {
 			totalBytes += usage
 		}
 	}
-	
+
 	return totalBytes
 }
 
@@ -268,7 +310,7 @@ semantic_cache_oldest_entry_seconds %f
 		stats.AverageResultsPerEntry,
 		stats.OldestEntry.Seconds(),
 	)
-	
+
 	return []byte(metrics)
 }
 
@@ -283,7 +325,7 @@ func NewCacheAnalytics(cache *SemanticCache, logger observability.Logger) *Cache
 	if logger == nil {
 		logger = observability.NewLogger("embedding.cache.analytics")
 	}
-	
+
 	return &CacheAnalytics{
 		cache:  cache,
 		logger: logger,
@@ -296,10 +338,10 @@ func (ca *CacheAnalytics) AnalyzeQueryPatterns(ctx context.Context) (map[string]
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Extract common terms
 	termFrequency := make(map[string]int)
-	
+
 	for _, entry := range entries {
 		// Tokenize normalized query
 		tokens := tokenize(entry.NormalizedQuery)
@@ -307,7 +349,7 @@ func (ca *CacheAnalytics) AnalyzeQueryPatterns(ctx context.Context) (map[string]
 			termFrequency[token] += entry.HitCount
 		}
 	}
-	
+
 	return termFrequency, nil
 }
 
@@ -317,55 +359,74 @@ func (ca *CacheAnalytics) AnalyzeCacheEfficiency(ctx context.Context) (*CacheEff
 	if err != nil {
 		return nil, err
 	}
-	
+
 	report := &CacheEfficiencyReport{
-		HitRate:              stats.HitRate,
-		TotalQueries:         stats.TotalHits + stats.TotalMisses,
-		CacheSize:            stats.TotalEntries,
-		MemoryUsageBytes:     stats.MemoryUsageBytes,
-		AverageHitsPerEntry:  stats.AverageHitsPerEntry,
-		Timestamp:            time.Now(),
+		HitRate:             stats.HitRate,
+		TotalQueries:        stats.TotalHits + stats.TotalMisses,
+		CacheSize:           stats.TotalEntries,
+		MemoryUsageBytes:    stats.MemoryUsageBytes,
+		AverageHitsPerEntry: stats.AverageHitsPerEntry,
+		Timestamp:           time.Now(),
 	}
-	
+
 	// Calculate memory efficiency
 	if stats.TotalEntries > 0 {
 		report.BytesPerEntry = stats.MemoryUsageBytes / int64(stats.TotalEntries)
 	}
-	
+
 	// Check for inefficiencies
 	if stats.HitRate < 0.5 {
 		report.Recommendations = append(report.Recommendations,
 			"Low hit rate detected. Consider warming cache with more common queries.")
 	}
-	
+
 	if stats.AverageHitsPerEntry < 2 {
 		report.Recommendations = append(report.Recommendations,
 			"Many entries have low hit counts. Consider reducing cache size or TTL.")
 	}
-	
+
 	staleEntries, _ := ca.cache.GetStaleEntries(ctx, 7*24*time.Hour)
 	if len(staleEntries) > stats.TotalEntries/2 {
 		report.Recommendations = append(report.Recommendations,
 			"Over 50% of entries are stale. Consider implementing more aggressive eviction.")
 	}
-	
+
 	return report, nil
 }
 
 // CacheEfficiencyReport contains cache efficiency analysis
 type CacheEfficiencyReport struct {
-	HitRate              float64   `json:"hit_rate"`
-	TotalQueries         int       `json:"total_queries"`
-	CacheSize            int       `json:"cache_size"`
-	MemoryUsageBytes     int64     `json:"memory_usage_bytes"`
-	BytesPerEntry        int64     `json:"bytes_per_entry"`
-	AverageHitsPerEntry  float64   `json:"average_hits_per_entry"`
-	Recommendations      []string  `json:"recommendations"`
-	Timestamp            time.Time `json:"timestamp"`
+	HitRate             float64   `json:"hit_rate"`
+	TotalQueries        int       `json:"total_queries"`
+	CacheSize           int       `json:"cache_size"`
+	MemoryUsageBytes    int64     `json:"memory_usage_bytes"`
+	BytesPerEntry       int64     `json:"bytes_per_entry"`
+	AverageHitsPerEntry float64   `json:"average_hits_per_entry"`
+	Recommendations     []string  `json:"recommendations"`
+	Timestamp           time.Time `json:"timestamp"`
 }
 
 // Helper function to tokenize queries
 func tokenize(text string) []string {
 	// Simple whitespace tokenization
 	return strings.Fields(text)
+}
+
+// Min heap implementation for top-K selection
+type entryHeap []*CacheEntry
+
+func (h entryHeap) Len() int           { return len(h) }
+func (h entryHeap) Less(i, j int) bool { return h[i].HitCount < h[j].HitCount }
+func (h entryHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
+
+func (h *entryHeap) Push(x interface{}) {
+	*h = append(*h, x.(*CacheEntry))
+}
+
+func (h *entryHeap) Pop() interface{} {
+	old := *h
+	n := len(old)
+	x := old[n-1]
+	*h = old[0 : n-1]
+	return x
 }

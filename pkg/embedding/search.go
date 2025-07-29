@@ -41,6 +41,18 @@ type SearchOptions struct {
 	MinSimilarity float32 `json:"min_similarity"`
 	// WeightFactors defines how to weight different scoring factors
 	WeightFactors map[string]float32 `json:"weight_factors,omitempty"`
+	// UseReranking enables reranking of results
+	UseReranking bool `json:"use_reranking,omitempty"`
+	// RerankModel specifies which reranking model to use
+	RerankModel string `json:"rerank_model,omitempty"`
+	// RerankQuery allows overriding the query used for reranking
+	RerankQuery string `json:"rerank_query,omitempty"`
+	// UseQueryExpansion enables query expansion
+	UseQueryExpansion bool `json:"use_query_expansion,omitempty"`
+	// QueryExpansionTypes specifies which expansion types to use
+	QueryExpansionTypes []string `json:"query_expansion_types,omitempty"`
+	// MaxExpansions limits the number of query expansions
+	MaxExpansions int `json:"max_expansions,omitempty"`
 }
 
 // SearchResult represents a single search result

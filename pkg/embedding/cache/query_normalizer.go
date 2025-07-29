@@ -14,11 +14,11 @@ type QueryNormalizer interface {
 // DefaultQueryNormalizer implements standard query normalization
 type DefaultQueryNormalizer struct {
 	// Regular expressions for normalization
-	whitespaceRegex   *regexp.Regexp
-	punctuationRegex  *regexp.Regexp
-	stopWords         map[string]bool
-	enableStopWords   bool
-	preserveNumbers   bool
+	whitespaceRegex  *regexp.Regexp
+	punctuationRegex *regexp.Regexp
+	stopWords        map[string]bool
+	enableStopWords  bool
+	preserveNumbers  bool
 }
 
 // NewQueryNormalizer creates a new query normalizer with default settings
@@ -173,10 +173,10 @@ func getDefaultStopWords() map[string]bool {
 // AdvancedQueryNormalizer provides more sophisticated normalization
 type AdvancedQueryNormalizer struct {
 	*DefaultQueryNormalizer
-	synonymMap      map[string]string
-	stemmer         func(string) string
-	enableStemming  bool
-	enableSynonyms  bool
+	synonymMap     map[string]string
+	stemmer        func(string) string
+	enableStemming bool
+	enableSynonyms bool
 }
 
 // NewAdvancedQueryNormalizer creates an advanced normalizer
@@ -199,7 +199,7 @@ func NewAdvancedQueryNormalizer() *AdvancedQueryNormalizer {
 func (n *AdvancedQueryNormalizer) Normalize(query string) string {
 	// First apply basic normalization
 	normalized := n.DefaultQueryNormalizer.Normalize(query)
-	
+
 	if normalized == "" {
 		return ""
 	}
@@ -236,25 +236,25 @@ func getDefaultSynonyms() map[string]string {
 		"ruby":       "rb",
 		"csharp":     "c#",
 		"cpp":        "c++",
-		
+
 		// Common abbreviations
-		"application": "app",
-		"database":    "db",
-		"configuration": "config",
+		"application":    "app",
+		"database":       "db",
+		"configuration":  "config",
 		"authentication": "auth",
-		"authorization": "authz",
-		"kubernetes": "k8s",
-		"development": "dev",
-		"production": "prod",
-		"environment": "env",
-		
+		"authorization":  "authz",
+		"kubernetes":     "k8s",
+		"development":    "dev",
+		"production":     "prod",
+		"environment":    "env",
+
 		// Plural to singular (basic cases)
-		"databases": "database",
+		"databases":    "database",
 		"applications": "app", // Map to abbreviation directly
-		"services": "service",
-		"containers": "container",
-		"documents": "document",
-		"queries": "query",
-		"results": "result",
+		"services":     "service",
+		"containers":   "container",
+		"documents":    "document",
+		"queries":      "query",
+		"results":      "result",
 	}
 }

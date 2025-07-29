@@ -181,6 +181,55 @@ cache:
   key_prefixes:
     context: "context:%s"
     vector: "vector:%s"
+  
+  # Semantic Cache Configuration
+  semantic:
+    enabled: true
+    mode: "tenant_aware"  # legacy, tenant_aware
+    
+    redis:
+      prefix: "devmesh:cache"
+      ttl: 3600
+      max_entries: 10000
+      max_memory_mb: 1024
+      compression_enabled: true
+      
+    circuit_breaker:
+      failure_threshold: 5
+      failure_ratio: 0.6
+      reset_timeout: 30s
+      max_requests_half_open: 5
+      
+    retry:
+      max_attempts: 3
+      initial_interval: 100ms
+      max_interval: 5s
+      multiplier: 2.0
+      
+    validation:
+      max_query_length: 1000
+      rate_limit_rps: 100
+      rate_limit_burst: 200
+      
+    tenant:
+      default_max_entries: 1000
+      default_ttl: 3600
+      encryption_enabled: true
+      
+    warmup:
+      enabled: true
+      schedule: "0 */6 * * *"  # Every 6 hours
+      batch_size: 100
+      concurrent_requests: 5
+      
+    monitoring:
+      metrics_interval: 30s
+      slow_query_threshold: 100ms
+      
+    eviction:
+      strategy: "lru"  # lru, lfu, ttl
+      check_interval: 300s
+      batch_size: 100
 
 # Monitoring Configuration
 monitoring:

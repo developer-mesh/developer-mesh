@@ -12,6 +12,9 @@ import (
 	"time"
 
 	"github.com/developer-mesh/developer-mesh/pkg/auth"
+	"github.com/developer-mesh/developer-mesh/pkg/embedding/expansion"
+	"github.com/developer-mesh/developer-mesh/pkg/embedding/hybrid"
+	"github.com/developer-mesh/developer-mesh/pkg/embedding/rerank"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	repositorySearch "github.com/developer-mesh/developer-mesh/pkg/repository/search"
 	"github.com/google/uuid"
@@ -25,6 +28,9 @@ type UnifiedSearchService struct {
 	searchRepository repositorySearch.Repository
 	embeddingService EmbeddingService
 	dimensionAdapter *DimensionAdapter
+	hybridSearch     *hybrid.HybridSearchService
+	reranker         rerank.Reranker
+	queryExpander    expansion.QueryExpander
 	logger           observability.Logger
 	metrics          observability.MetricsClient
 }
@@ -36,6 +42,9 @@ type UnifiedSearchConfig struct {
 	SearchRepository repositorySearch.Repository
 	EmbeddingService EmbeddingService
 	DimensionAdapter *DimensionAdapter
+	HybridSearch     *hybrid.HybridSearchService
+	Reranker         rerank.Reranker
+	QueryExpander    expansion.QueryExpander
 	Logger           observability.Logger
 	Metrics          observability.MetricsClient
 }
@@ -60,12 +69,33 @@ func NewUnifiedSearchService(config *UnifiedSearchConfig) (*UnifiedSearchService
 		config.Metrics = observability.NewMetricsClient()
 	}
 
+	// Create hybrid search service if not provided
+	if config.HybridSearch == nil && config.DB != nil && config.EmbeddingService != nil {
+		// Create an adapter to convert between embedding types
+		adapter := &embeddingServiceAdapter{service: config.EmbeddingService}
+
+		hybridConfig := &hybrid.Config{
+			DB:               config.DB,
+			EmbeddingService: adapter,
+			Logger:           config.Logger,
+			Metrics:          config.Metrics,
+		}
+		var err error
+		config.HybridSearch, err = hybrid.NewHybridSearchService(hybridConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create hybrid search service: %w", err)
+		}
+	}
+
 	return &UnifiedSearchService{
 		db:               config.DB,
 		repository:       config.Repository,
 		searchRepository: config.SearchRepository,
 		embeddingService: config.EmbeddingService,
 		dimensionAdapter: config.DimensionAdapter,
+		hybridSearch:     config.HybridSearch,
+		reranker:         config.Reranker,
+		queryExpander:    config.QueryExpander,
 		logger:           config.Logger,
 		metrics:          config.Metrics,
 	}, nil
@@ -111,6 +141,26 @@ func (s *UnifiedSearchService) Search(ctx context.Context, text string, options 
 		return nil, err
 	}
 
+	// Apply query expansion if configured
+	queries := []string{text}
+	if s.queryExpander != nil && options != nil && options.UseQueryExpansion {
+		expandedQueries, err := s.expandQuery(ctx, text, options)
+		if err != nil {
+			// Log error but continue with original query
+			s.logger.Warn("Query expansion failed", map[string]interface{}{
+				"error": err.Error(),
+				"query": text,
+			})
+		} else if len(expandedQueries) > 0 {
+			queries = expandedQueries
+		}
+	}
+
+	// Perform searches with all queries
+	if len(queries) > 1 {
+		return s.multiQuerySearch(ctx, queries, options)
+	}
+
 	// Generate embedding for the search text
 	s.logger.Debug("Generating embedding for search text", map[string]interface{}{
 		"tenant_id":      tenantID.String(),
@@ -131,7 +181,17 @@ func (s *UnifiedSearchService) Search(ctx context.Context, text string, options 
 	}
 
 	// Search with the generated vector
-	return s.SearchByVector(ctx, embedding.Vector, options)
+	results, err := s.SearchByVector(ctx, embedding.Vector, options)
+	if err != nil {
+		return nil, err
+	}
+
+	// Apply reranking if configured
+	if s.reranker != nil && options != nil && options.UseReranking {
+		return s.applyReranking(ctx, text, results, options)
+	}
+
+	return results, nil
 }
 
 // SearchByVector performs a vector search with a pre-computed vector
@@ -207,6 +267,11 @@ func (s *UnifiedSearchService) SearchByVector(ctx context.Context, vector []floa
 		"tenant_id":      tenantID.String(),
 		"correlation_id": correlationID,
 	})
+
+	// Apply reranking if configured for vector search
+	if s.reranker != nil && options != nil && options.UseReranking && options.RerankQuery != "" {
+		return s.applyReranking(ctx, options.RerankQuery, searchResults, options)
+	}
 
 	return searchResults, nil
 }
@@ -973,4 +1038,268 @@ func (s *UnifiedSearchService) buildTsQuery(keywords []string) string {
 		query += kw
 	}
 	return query
+}
+
+// applyReranking applies reranking to search results
+func (s *UnifiedSearchService) applyReranking(ctx context.Context, query string, results *SearchResults, options *SearchOptions) (*SearchResults, error) {
+	// Start span for tracing
+	ctx, span := observability.StartSpan(ctx, "unified.search.rerank")
+	defer span.End()
+
+	span.SetAttribute("query", query)
+	span.SetAttribute("input_count", len(results.Results))
+
+	// Convert SearchResults to rerank.SearchResult
+	rerankInput := make([]rerank.SearchResult, 0, len(results.Results))
+	for _, result := range results.Results {
+		if result.Content == nil {
+			continue
+		}
+
+		// Get content text from metadata or use content ID
+		contentText := ""
+		if content, ok := result.Content.Metadata["content"].(string); ok {
+			contentText = content
+		} else if text, ok := result.Content.Metadata["text"].(string); ok {
+			contentText = text
+		} else {
+			// Fallback to content ID
+			contentText = result.Content.ContentID
+		}
+
+		rerankInput = append(rerankInput, rerank.SearchResult{
+			ID:       result.Content.ContentID,
+			Content:  contentText,
+			Score:    result.Score,
+			Metadata: result.Content.Metadata,
+		})
+	}
+
+	// Configure reranking options
+	rerankOpts := &rerank.RerankOptions{
+		TopK: options.Limit,
+	}
+
+	// Perform reranking
+	reranked, err := s.reranker.Rerank(ctx, query, rerankInput, rerankOpts)
+	if err != nil {
+		s.logger.Error("Reranking failed", map[string]interface{}{
+			"error": err.Error(),
+			"query": query,
+		})
+		span.RecordError(err)
+		// Return original results on error
+		return results, nil
+	}
+
+	// Convert back to SearchResults
+	rerankedResults := &SearchResults{
+		Results: make([]*SearchResult, len(reranked)),
+		Total:   len(reranked),
+		HasMore: false,
+	}
+
+	for i, r := range reranked {
+		// Find original result to preserve all metadata
+		var originalResult *SearchResult
+		for _, orig := range results.Results {
+			if orig.Content != nil && orig.Content.ContentID == r.ID {
+				originalResult = orig
+				break
+			}
+		}
+
+		if originalResult != nil {
+			// Update score and metadata
+			originalResult.Score = r.Score
+			if r.Metadata != nil {
+				for k, v := range r.Metadata {
+					originalResult.Content.Metadata[k] = v
+				}
+			}
+			rerankedResults.Results[i] = originalResult
+		} else {
+			// Create new result if original not found
+			rerankedResults.Results[i] = &SearchResult{
+				Content: &EmbeddingVector{
+					ContentID: r.ID,
+					Metadata:  r.Metadata,
+				},
+				Score: r.Score,
+				Matches: map[string]interface{}{
+					"reranked": true,
+				},
+			}
+		}
+	}
+
+	span.SetAttribute("output_count", len(rerankedResults.Results))
+	s.logger.Debug("Reranking completed", map[string]interface{}{
+		"input_count":  len(results.Results),
+		"output_count": len(rerankedResults.Results),
+	})
+
+	return rerankedResults, nil
+}
+
+// expandQuery expands the query using configured strategies
+func (s *UnifiedSearchService) expandQuery(ctx context.Context, query string, options *SearchOptions) ([]string, error) {
+	// Convert expansion types
+	expansionTypes := make([]expansion.ExpansionType, 0, len(options.QueryExpansionTypes))
+	for _, t := range options.QueryExpansionTypes {
+		expansionTypes = append(expansionTypes, expansion.ExpansionType(t))
+	}
+
+	// Set default expansion types if none specified
+	if len(expansionTypes) == 0 {
+		expansionTypes = []expansion.ExpansionType{
+			expansion.ExpansionTypeSynonym,
+			expansion.ExpansionTypeDecompose,
+		}
+	}
+
+	expansionOpts := &expansion.ExpansionOptions{
+		MaxExpansions:   options.MaxExpansions,
+		IncludeOriginal: true,
+		ExpansionTypes:  expansionTypes,
+	}
+
+	expanded, err := s.queryExpander.Expand(ctx, query, expansionOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	// Extract text from expansions
+	queries := make([]string, 0, len(expanded.Expansions))
+	for _, exp := range expanded.Expansions {
+		queries = append(queries, exp.Text)
+	}
+
+	return queries, nil
+}
+
+// multiQuerySearch performs search with multiple queries and merges results
+func (s *UnifiedSearchService) multiQuerySearch(ctx context.Context, queries []string, options *SearchOptions) (*SearchResults, error) {
+	// Start span for tracing
+	ctx, span := observability.StartSpan(ctx, "unified.search.multi_query")
+	defer span.End()
+
+	span.SetAttribute("query_count", len(queries))
+
+	// Perform searches in parallel
+	type searchResult struct {
+		results *SearchResults
+		err     error
+		query   string
+		weight  float32
+	}
+
+	resultChan := make(chan searchResult, len(queries))
+
+	for i, query := range queries {
+		weight := float32(1.0)
+		if i > 0 {
+			// Lower weight for expanded queries
+			weight = 1.0 / float32(i+1)
+		}
+
+		go func(q string, w float32) {
+			// Clone options to avoid race conditions
+			queryOpts := *options
+			// Disable expansion for individual queries
+			queryOpts.UseQueryExpansion = false
+
+			results, err := s.Search(ctx, q, &queryOpts)
+			resultChan <- searchResult{
+				results: results,
+				err:     err,
+				query:   q,
+				weight:  w,
+			}
+		}(query, weight)
+	}
+
+	// Collect results
+	allResults := make([]*SearchResult, 0)
+	resultMap := make(map[string]*SearchResult)
+	var firstError error
+
+	for i := 0; i < len(queries); i++ {
+		result := <-resultChan
+		if result.err != nil {
+			if firstError == nil {
+				firstError = result.err
+			}
+			s.logger.Warn("Query failed in multi-query search", map[string]interface{}{
+				"query": result.query,
+				"error": result.err.Error(),
+			})
+			continue
+		}
+
+		// Merge results with weighting
+		for _, r := range result.results.Results {
+			if r.Content == nil {
+				continue
+			}
+
+			key := r.Content.ContentID
+			if existing, exists := resultMap[key]; exists {
+				// Combine scores
+				existing.Score = existing.Score + (r.Score * result.weight)
+			} else {
+				// Apply weight to score
+				r.Score *= result.weight
+				resultMap[key] = r
+			}
+		}
+	}
+
+	// If all queries failed, return error
+	if len(resultMap) == 0 && firstError != nil {
+		return nil, firstError
+	}
+
+	// Convert map to slice
+	for _, r := range resultMap {
+		allResults = append(allResults, r)
+	}
+
+	// Sort by score
+	sort.Slice(allResults, func(i, j int) bool {
+		return allResults[i].Score > allResults[j].Score
+	})
+
+	// Apply limit
+	if options.Limit > 0 && len(allResults) > options.Limit {
+		allResults = allResults[:options.Limit]
+	}
+
+	return &SearchResults{
+		Results: allResults,
+		Total:   len(allResults),
+		HasMore: false,
+	}, nil
+}
+
+// embeddingServiceAdapter adapts EmbeddingService to hybrid.EmbeddingService
+type embeddingServiceAdapter struct {
+	service EmbeddingService
+}
+
+func (a *embeddingServiceAdapter) GenerateEmbedding(ctx context.Context, text, contentType, model string) (*hybrid.EmbeddingVector, error) {
+	embedding, err := a.service.GenerateEmbedding(ctx, text, contentType, model)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to hybrid.EmbeddingVector
+	return &hybrid.EmbeddingVector{
+		ContentID:   embedding.ContentID,
+		ContentType: embedding.ContentType,
+		Vector:      embedding.Vector,
+		Metadata:    embedding.Metadata,
+		ModelName:   embedding.ModelID, // Use ModelID as ModelName
+		CreatedAt:   time.Now(),        // Set current time
+	}, nil
 }

@@ -7,15 +7,15 @@ import (
 
 // CacheEntry represents a cached query result
 type CacheEntry struct {
-	Query           string                  `json:"query"`
-	NormalizedQuery string                  `json:"normalized_query"`
-	Embedding       []float32               `json:"embedding"`
-	Results         []CachedSearchResult    `json:"results"`
-	Metadata        map[string]interface{}  `json:"metadata"`
-	CachedAt        time.Time               `json:"cached_at"`
-	HitCount        int                     `json:"hit_count"`
-	LastAccessedAt  time.Time               `json:"last_accessed_at"`
-	TTL             time.Duration           `json:"ttl"`
+	Query           string                 `json:"query"`
+	NormalizedQuery string                 `json:"normalized_query"`
+	Embedding       []float32              `json:"embedding"`
+	Results         []CachedSearchResult   `json:"results"`
+	Metadata        map[string]interface{} `json:"metadata"`
+	CachedAt        time.Time              `json:"cached_at"`
+	HitCount        int                    `json:"hit_count"`
+	LastAccessedAt  time.Time              `json:"last_accessed_at"`
+	TTL             time.Duration          `json:"ttl"`
 }
 
 // CachedSearchResult represents a simplified search result for caching

@@ -158,7 +158,7 @@ func TestIsNumber(t *testing.T) {
 		{"abc", false},
 		{"123abc", false},
 		{"", false},
-		{".", true}, // Single dot is considered numeric due to simple implementation
+		{".", true},     // Single dot is considered numeric due to simple implementation
 		{"1.2.3", true}, // This passes as we check char by char
 	}
 
