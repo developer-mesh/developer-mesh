@@ -1,8 +1,9 @@
 package tenant
 
 import (
-	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"time"
+
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 )
 
 // CacheTenantConfig extends the base tenant config with cache-specific settings

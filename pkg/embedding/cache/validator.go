@@ -60,10 +60,9 @@ func (v *QueryValidator) ValidateWithContext(ctx context.Context, query string) 
 		return ErrNoTenantID
 	}
 
-	// Apply rate limiting if configured
-	// Note: Since the middleware RateLimiter doesn't have a simple Allow method,
-	// we'll skip rate limiting in the validator for now.
-	// TODO: Add a proper rate limiting interface or use the getLimiter method
+	// Note: Rate limiting is handled at the HTTP middleware layer
+	// using pkg/middleware/rate_limit.go, not at the cache level.
+	// This follows the project's separation of concerns.
 
 	// Validate query
 	return v.Validate(query)

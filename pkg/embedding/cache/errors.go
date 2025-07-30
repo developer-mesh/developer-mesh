@@ -14,9 +14,6 @@ var (
 	ErrQuotaExceeded  = errors.New("cache quota exceeded")
 	ErrEvictionFailed = errors.New("failed to evict entries")
 
-	// Migration errors
-	ErrMigrationFailed = errors.New("migration failed")
-
 	// Cache operation errors
 	ErrCacheMiss             = errors.New("cache miss")
 	ErrInvalidQuery          = errors.New("invalid query")

@@ -16,10 +16,10 @@ type EvictionPolicy interface {
 
 // TenantStats contains cache statistics for a tenant
 type TenantStats struct {
-	EntryCount    int
-	TotalBytes    int64
-	LastEviction  time.Time
-	HitRate       float64
+	EntryCount   int
+	TotalBytes   int64
+	LastEviction time.Time
+	HitRate      float64
 }
 
 // SizeBasedPolicy evicts based on entry count and byte size
@@ -47,7 +47,7 @@ func (p *SizeBasedPolicy) GetEvictionTarget(ctx context.Context, tenantID uuid.U
 	if stats.EntryCount > p.maxEntries {
 		return int(float64(p.maxEntries) * 0.9)
 	}
-	
+
 	if stats.TotalBytes > p.maxBytes {
 		// Estimate entries to remove based on average size
 		if stats.EntryCount == 0 {
@@ -61,7 +61,7 @@ func (p *SizeBasedPolicy) GetEvictionTarget(ctx context.Context, tenantID uuid.U
 		entriesToRemove := int(bytesToRemove / avgSize)
 		return stats.EntryCount - entriesToRemove
 	}
-	
+
 	return stats.EntryCount
 }
 
@@ -219,12 +219,12 @@ func (p *TenantQuotaPolicy) GetEvictionTarget(ctx context.Context, tenantID uuid
 	if !ok {
 		return stats.EntryCount
 	}
-	
+
 	// Target 90% of quota
 	if stats.EntryCount > quota.MaxEntries {
 		return int(float64(quota.MaxEntries) * 0.9)
 	}
-	
+
 	if stats.TotalBytes > quota.MaxBytes {
 		avgSize := stats.TotalBytes / int64(stats.EntryCount)
 		if avgSize == 0 {
@@ -234,6 +234,6 @@ func (p *TenantQuotaPolicy) GetEvictionTarget(ctx context.Context, tenantID uuid
 		entriesToRemove := int(bytesToRemove / avgSize)
 		return stats.EntryCount - entriesToRemove
 	}
-	
+
 	return stats.EntryCount
 }

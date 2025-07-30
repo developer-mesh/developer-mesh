@@ -109,7 +109,7 @@ func setupTestTenantCache(t *testing.T) (*cache.TenantAwareCache, *mockTenantCon
 
 func TestTenantIsolation(t *testing.T) {
 	tenantCache, mockRepo, redisClient := setupTestTenantCache(t)
-	defer redisClient.Close()
+	defer func() { _ = redisClient.Close() }()
 
 	tenant1 := uuid.New()
 	tenant2 := uuid.New()
@@ -179,7 +179,7 @@ func TestTenantIsolation(t *testing.T) {
 
 func TestTenantFeatureDisabled(t *testing.T) {
 	tenantCache, mockRepo, redisClient := setupTestTenantCache(t)
-	defer redisClient.Close()
+	defer func() { _ = redisClient.Close() }()
 
 	tenantID := uuid.New()
 
@@ -207,7 +207,7 @@ func TestTenantFeatureDisabled(t *testing.T) {
 
 func TestNoTenantID(t *testing.T) {
 	tenantCache, _, redisClient := setupTestTenantCache(t)
-	defer redisClient.Close()
+	defer func() { _ = redisClient.Close() }()
 
 	// Context without tenant ID
 	ctx := context.Background()
@@ -225,7 +225,7 @@ func TestNoTenantID(t *testing.T) {
 
 func TestEncryption(t *testing.T) {
 	tenantCache, mockRepo, redisClient := setupTestTenantCache(t)
-	defer redisClient.Close()
+	defer func() { _ = redisClient.Close() }()
 
 	tenantID := uuid.New()
 
@@ -268,7 +268,7 @@ func TestEncryption(t *testing.T) {
 
 func TestRateLimiting(t *testing.T) {
 	tenantCache, mockRepo, redisClient := setupTestTenantCache(t)
-	defer redisClient.Close()
+	defer func() { _ = redisClient.Close() }()
 
 	tenantID := uuid.New()
 
@@ -298,7 +298,7 @@ func TestRateLimiting(t *testing.T) {
 
 func TestConcurrentTenantAccess(t *testing.T) {
 	tenantCache, mockRepo, redisClient := setupTestTenantCache(t)
-	defer redisClient.Close()
+	defer func() { _ = redisClient.Close() }()
 
 	numTenants := 5
 	numOperations := 20
@@ -370,7 +370,7 @@ func TestConcurrentTenantAccess(t *testing.T) {
 
 func TestTenantConfigCaching(t *testing.T) {
 	tenantCache, mockRepo, redisClient := setupTestTenantCache(t)
-	defer redisClient.Close()
+	defer func() { _ = redisClient.Close() }()
 
 	tenantID := uuid.New()
 

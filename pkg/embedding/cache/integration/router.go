@@ -2,9 +2,9 @@ package integration
 
 import (
 	"time"
-	
+
 	"github.com/gin-gonic/gin"
-	
+
 	"github.com/developer-mesh/developer-mesh/pkg/auth"
 	"github.com/developer-mesh/developer-mesh/pkg/embedding/cache"
 	"github.com/developer-mesh/developer-mesh/pkg/embedding/cache/eviction"
@@ -77,8 +77,8 @@ func (cr *CacheRouter) SetupRoutes(router *gin.RouterGroup) {
 	// Cache write endpoints
 	writeGroup := router.Group("/cache")
 	writeGroup.Use(
-		middleware.RequireTenantMiddleware(),   // Require tenant for writes
-		cr.rateLimiter.CacheWriteLimit(),       // Apply write rate limits
+		middleware.RequireTenantMiddleware(), // Require tenant for writes
+		cr.rateLimiter.CacheWriteLimit(),     // Apply write rate limits
 	)
 	{
 		writeGroup.POST("/entry", cr.handleCacheSet)
@@ -110,7 +110,7 @@ func (cr *CacheRouter) handleCacheSearch(c *gin.Context) {
 	// Track operation
 	err := monitoring.TrackCacheOperation(
 		c.Request.Context(),
-		cr.metricsExporter.metrics,
+		cr.metricsExporter.GetMetrics(),
 		"search",
 		tenantID,
 		func() error {
@@ -122,8 +122,8 @@ func (cr *CacheRouter) handleCacheSearch(c *gin.Context) {
 			if entry != nil {
 				c.Set("cache_hit", true)
 				c.JSON(200, gin.H{
-					"hit":     true,
-					"results": entry.Results,
+					"hit":       true,
+					"results":   entry.Results,
 					"cached_at": entry.CachedAt,
 					"hit_count": entry.HitCount,
 				})
@@ -158,7 +158,7 @@ func (cr *CacheRouter) handleCacheSet(c *gin.Context) {
 
 	err := monitoring.TrackCacheOperation(
 		c.Request.Context(),
-		cr.metricsExporter.metrics,
+		cr.metricsExporter.GetMetrics(),
 		"set",
 		tenantID,
 		func() error {
@@ -192,7 +192,7 @@ func (cr *CacheRouter) handleGetStats(c *gin.Context) {
 	rlStats := cr.rateLimiter.GetStats()
 
 	c.JSON(200, gin.H{
-		"cache_stats":       stats,
+		"cache_stats":      stats,
 		"rate_limit_stats": rlStats,
 	})
 }
@@ -203,7 +203,7 @@ func (cr *CacheRouter) handleHealthCheck(c *gin.Context) {
 	c.JSON(200, gin.H{
 		"status": "healthy",
 		"components": gin.H{
-			"redis":       "ok",
+			"redis":        "ok",
 			"vector_store": "ok",
 			"rate_limiter": "ok",
 		},
@@ -222,4 +222,91 @@ type CacheSetRequest struct {
 	Results   []cache.CachedSearchResult `json:"results" binding:"required"`
 }
 
-// Additional handlers would be implemented similarly...
+// handleCacheDelete handles cache entry deletion
+func (cr *CacheRouter) handleCacheDelete(c *gin.Context) {
+	var req CacheDeleteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "invalid request", "details": err.Error()})
+		return
+	}
+
+	tenantID := auth.GetTenantID(c.Request.Context())
+
+	err := monitoring.TrackCacheOperation(
+		c.Request.Context(),
+		cr.metricsExporter.GetMetrics(),
+		"delete",
+		tenantID,
+		func() error {
+			return cr.tenantCache.Delete(c.Request.Context(), req.Query)
+		},
+	)
+
+	if err != nil {
+		cr.logger.Error("Cache delete failed", map[string]interface{}{
+			"error":     err.Error(),
+			"tenant_id": tenantID.String(),
+		})
+		c.JSON(500, gin.H{"error": "delete failed", "details": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{"success": true})
+}
+
+// handleCacheClear clears all cache entries for a tenant
+func (cr *CacheRouter) handleCacheClear(c *gin.Context) {
+	tenantID := auth.GetTenantID(c.Request.Context())
+
+	err := cr.tenantCache.ClearTenant(c.Request.Context(), tenantID)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "clear failed", "details": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{"success": true, "tenant_id": tenantID.String()})
+}
+
+// handleGetConfig returns tenant cache configuration
+func (cr *CacheRouter) handleGetConfig(c *gin.Context) {
+	tenantID := auth.GetTenantID(c.Request.Context())
+
+	// This would need to be implemented in TenantAwareCache
+	config, err := cr.tenantCache.GetTenantConfig(c.Request.Context(), tenantID)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "failed to get config", "details": err.Error()})
+		return
+	}
+
+	c.JSON(200, config)
+}
+
+// handleUpdateConfig updates tenant cache configuration
+func (cr *CacheRouter) handleUpdateConfig(c *gin.Context) {
+	// Admin only - would need proper authorization
+	c.JSON(501, gin.H{"error": "not implemented"})
+}
+
+// handleManualEviction triggers manual cache eviction
+func (cr *CacheRouter) handleManualEviction(c *gin.Context) {
+	tenantID := auth.GetTenantID(c.Request.Context())
+
+	if cr.tenantCache.GetLRUManager() == nil {
+		c.JSON(400, gin.H{"error": "LRU manager not configured"})
+		return
+	}
+
+	// Trigger eviction
+	err := cr.tenantCache.GetLRUManager().EvictForTenant(c.Request.Context(), tenantID, 0)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "eviction failed", "details": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{"success": true, "message": "Eviction triggered"})
+}
+
+// Request types
+type CacheDeleteRequest struct {
+	Query string `json:"query" binding:"required"`
+}

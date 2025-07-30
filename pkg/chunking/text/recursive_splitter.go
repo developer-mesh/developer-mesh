@@ -48,7 +48,7 @@ func NewRecursiveCharacterSplitter(config *RecursiveCharacterSplitterConfig) *Re
 		config = &RecursiveCharacterSplitterConfig{}
 	}
 
-	if config.Separators == nil || len(config.Separators) == 0 {
+	if len(config.Separators) == 0 {
 		config.Separators = DefaultSeparators()
 	}
 

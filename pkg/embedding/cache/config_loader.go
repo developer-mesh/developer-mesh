@@ -42,9 +42,7 @@ func LoadConfigFromViper() (*Config, error) {
 	}
 
 	// Load validation configuration
-	if maxQueryLength := viper.GetInt("cache.semantic.validation.max_query_length"); maxQueryLength > 0 {
-		// This would be used by the validator, not stored in base config
-	}
+	_ = viper.GetInt("cache.semantic.validation.max_query_length") // Available for use by validator
 
 	// Load monitoring configuration
 	if metricsEnabled := viper.GetBool("monitoring.metrics.enabled"); metricsEnabled {

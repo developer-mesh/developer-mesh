@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -17,13 +18,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type CacheMode string
-
-const (
-	ModeLegacy     CacheMode = "legacy"      // No tenant isolation
-	ModeMigrating  CacheMode = "migrating"   // Dual write/read
-	ModeTenantOnly CacheMode = "tenant_only" // Full isolation
-)
+// CacheMode has been removed - the cache now always operates in tenant-isolated mode
 
 // TenantAwareCache provides tenant-isolated semantic caching with encryption support
 type TenantAwareCache struct {
@@ -34,13 +29,11 @@ type TenantAwareCache struct {
 	logger            observability.Logger
 	metrics           observability.MetricsClient
 	configCache       sync.Map // For tenant config caching
-	configCacheMu     sync.RWMutex
 
-	// Cache mode for migration
-	mode CacheMode
-	
+	// mode field removed - always tenant isolated
+
 	// LRU manager for eviction
-	lruManager        *lru.Manager
+	lruManager *lru.Manager
 }
 
 // NewTenantAwareCache creates a new tenant-aware cache instance
@@ -63,9 +56,9 @@ func NewTenantAwareCache(
 		encryptionService: security.NewEncryptionService(encryptionKey),
 		logger:            logger,
 		metrics:           metrics,
-		mode:              ModeTenantOnly, // Default to tenant-only mode
+		// mode removed - always tenant isolated
 	}
-	
+
 	// Initialize LRU manager if we have Redis
 	if baseCache != nil && baseCache.redis != nil {
 		lruConfig := lru.DefaultConfig()
@@ -77,27 +70,17 @@ func NewTenantAwareCache(
 			metrics,
 		)
 	}
-	
+
 	return cache
 }
 
-// SetMode sets the cache mode for migration support
-func (tc *TenantAwareCache) SetMode(mode CacheMode) {
-	tc.mode = mode
-	tc.logger.Info("Cache mode changed", map[string]interface{}{
-		"mode": string(mode),
-	})
-}
+// SetMode removed - cache always operates in tenant-isolated mode
 
 // Get retrieves from cache with tenant isolation
 func (tc *TenantAwareCache) Get(ctx context.Context, query string, embedding []float32) (*CacheEntry, error) {
 	// Extract tenant ID using auth package
 	tenantID := auth.GetTenantID(ctx)
 	if tenantID == uuid.Nil {
-		if tc.mode == ModeLegacy {
-			// Fallback to global cache for backward compatibility
-			return tc.baseCache.Get(ctx, query, embedding)
-		}
 		return nil, ErrNoTenantID
 	}
 
@@ -384,25 +367,48 @@ func (tc *TenantAwareCache) setWithEncryption(ctx context.Context, key, query st
 }
 
 func (tc *TenantAwareCache) extractSensitiveData(results []CachedSearchResult) interface{} {
-	// Extract any fields that might contain sensitive data
-	// This is a placeholder - actual implementation would depend on your data model
+	// Define sensitive field patterns following project standards
+	sensitiveFields := []string{
+		"api_key", "apikey", "api-key",
+		"secret", "secret_key", "secret-key",
+		"password", "passwd", "pwd",
+		"token", "access_token", "refresh_token",
+		"private_key", "private-key", "privatekey",
+		"credential", "credentials",
+		"auth", "authorization",
+		"ssn", "social_security_number",
+		"credit_card", "card_number",
+		"cvv", "cvc",
+	}
+
 	var sensitive []map[string]interface{}
 
 	for _, result := range results {
-		if result.Metadata != nil {
-			// Look for fields that might be sensitive
-			if val, ok := result.Metadata["api_key"]; ok {
-				sensitive = append(sensitive, map[string]interface{}{
-					"id":      result.ID,
-					"api_key": val,
-				})
+		if result.Metadata == nil {
+			continue
+		}
+
+		sensitiveData := make(map[string]interface{})
+		foundSensitive := false
+
+		// Check each field in metadata
+		for key, value := range result.Metadata {
+			lowerKey := strings.ToLower(key)
+
+			// Check if field name matches sensitive patterns
+			for _, pattern := range sensitiveFields {
+				if strings.Contains(lowerKey, pattern) {
+					sensitiveData[key] = value
+					foundSensitive = true
+					// Remove from original metadata
+					delete(result.Metadata, key)
+				}
 			}
-			if val, ok := result.Metadata["secret"]; ok {
-				sensitive = append(sensitive, map[string]interface{}{
-					"id":     result.ID,
-					"secret": val,
-				})
-			}
+		}
+
+		if foundSensitive {
+			sensitiveData["_result_id"] = result.ID
+			sensitive = append(sensitive, sensitiveData)
 		}
 	}
 
@@ -434,7 +440,7 @@ func (tc *TenantAwareCache) StartLRUEviction(ctx context.Context, vectorStore ev
 		tc.logger.Warn("LRU manager not initialized, skipping eviction", nil)
 		return
 	}
-	
+
 	go tc.lruManager.Run(ctx, vectorStore)
 }
 
@@ -443,4 +449,14 @@ func (tc *TenantAwareCache) StopLRUEviction() {
 	if tc.lruManager != nil {
 		tc.lruManager.Stop()
 	}
+}
+
+// GetLRUManager returns the LRU manager instance
+func (tc *TenantAwareCache) GetLRUManager() *lru.Manager {
+	return tc.lruManager
+}
+
+// GetTenantConfig returns the configuration for a specific tenant
+func (tc *TenantAwareCache) GetTenantConfig(ctx context.Context, tenantID uuid.UUID) (*tenant.CacheTenantConfig, error) {
+	return tc.getTenantConfig(ctx, tenantID)
 }

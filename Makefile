@@ -206,10 +206,10 @@ lint: ## Run linters
 	@cd apps/mockserver && golangci-lint run ./...
 
 .PHONY: fmt
-fmt: ## Format code
-	$(GOFMT) -w -s .
+fmt: ## Format code (excludes .claude templates which are not valid Go)
+	@find . -name "*.go" -not -path "./.claude/*" -not -path "./vendor/*" -not -path "./.git/*" | xargs $(GOFMT) -w -s
 	@which goimports > /dev/null || go install golang.org/x/tools/cmd/goimports@latest
-	goimports -w .
+	@find . -name "*.go" -not -path "./.claude/*" -not -path "./vendor/*" -not -path "./.git/*" | xargs goimports -w
 
 .PHONY: vet
 vet: ## Run go vet

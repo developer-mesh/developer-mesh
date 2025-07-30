@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"golang.org/x/time/rate"
-	
+
 	"github.com/developer-mesh/developer-mesh/pkg/auth"
 	"github.com/developer-mesh/developer-mesh/pkg/middleware"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
@@ -28,11 +28,11 @@ type CacheRateLimiter struct {
 // CacheRateLimitConfig defines cache-specific rate limit configuration
 type CacheRateLimitConfig struct {
 	// Cache-specific limits
-	CacheReadRPS   int // Reads per second per tenant
-	CacheReadBurst int // Burst size for reads
-	CacheWriteRPS  int // Writes per second per tenant
+	CacheReadRPS    int // Reads per second per tenant
+	CacheReadBurst  int // Burst size for reads
+	CacheWriteRPS   int // Writes per second per tenant
 	CacheWriteBurst int // Burst size for writes
-	
+
 	// Cleanup
 	CleanupInterval time.Duration
 	MaxAge          time.Duration
@@ -186,7 +186,7 @@ func (rl *CacheRateLimiter) recordRateLimitHit(limitType, path string, tenantID 
 		"path":      path,
 		"tenant_id": tenantID.String(),
 	})
-	
+
 	rl.logger.Warn("Cache rate limit hit", map[string]interface{}{
 		"type":      limitType,
 		"path":      path,

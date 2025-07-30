@@ -32,7 +32,9 @@ configs/*.local.yaml
 configs/config.*.local.yaml
 
 # Claude configuration
-# CLAUDE.md - Now tracked for AI context   
+# CLAUDE.md - Now tracked for AI context
+# Exclude template files from processing
+.claude/templates/*.go   
 
 # Built binaries
 /mcp-server

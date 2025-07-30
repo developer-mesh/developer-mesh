@@ -35,7 +35,7 @@ func NewObservabilityManager(tenantID string, logger observability.Logger) *Obse
 // TrackCacheOperation tracks a cache operation with metrics and tracing
 func (o *ObservabilityManager) TrackCacheOperation(ctx context.Context, operation string, fn func() error) error {
 	// Start span
-	ctx, span := trace.SpanFromContext(ctx).TracerProvider().Tracer("semantic-cache").Start(ctx, fmt.Sprintf("cache.%s", operation))
+	_, span := trace.SpanFromContext(ctx).TracerProvider().Tracer("semantic-cache").Start(ctx, fmt.Sprintf("cache.%s", operation))
 	defer span.End()
 
 	startTime := time.Now()

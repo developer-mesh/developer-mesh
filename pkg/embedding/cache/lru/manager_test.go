@@ -84,42 +84,42 @@ func TestManager_EvictForTenant(t *testing.T) {
 	ctx := context.Background()
 	tenantID := uuid.New()
 	prefix := "test"
-	
+
 	// Setup Redis client mock
 	redisClient := redis.NewClient(&redis.Options{
 		Addr: "localhost:6379",
 		DB:   15,
 	})
-	
+
 	mockRedis := &MockRedisClient{client: redisClient}
 	mockRedis.On("Execute", mock.Anything, mock.Anything).Return(nil, nil)
-	
+
 	// Create manager
 	config := &Config{
 		MaxTenantEntries:  100,
 		EvictionBatchSize: 10,
 	}
 	manager := NewManager(mockRedis, config, prefix, nil, nil)
-	
+
 	t.Run("NoEvictionNeeded", func(t *testing.T) {
 		// Mock key count less than target
 		mockRedis.On("Execute", mock.Anything, mock.Anything).Return(int64(50), nil).Once()
-		
+
 		err := manager.EvictForTenant(ctx, tenantID, 100)
 		assert.NoError(t, err)
 	})
-	
+
 	t.Run("EvictionSuccess", func(t *testing.T) {
 		// Mock key count exceeds target
 		mockRedis.On("Execute", mock.Anything, mock.Anything).Return(int64(150), nil).Once()
-		
+
 		// Mock getting LRU candidates
 		candidates := []string{"key1", "key2", "key3"}
 		mockRedis.On("Execute", mock.Anything, mock.Anything).Return(candidates, nil).Once()
-		
+
 		// Mock batch delete
 		mockRedis.On("Execute", mock.Anything, mock.Anything).Return(nil, nil).Once()
-		
+
 		err := manager.EvictForTenant(ctx, tenantID, 100)
 		assert.NoError(t, err)
 	})
@@ -128,22 +128,22 @@ func TestManager_EvictForTenant(t *testing.T) {
 func TestEvictionPolicies(t *testing.T) {
 	ctx := context.Background()
 	tenantID := uuid.New()
-	
+
 	t.Run("SizeBasedPolicy", func(t *testing.T) {
 		policy := NewSizeBasedPolicy(100, 1024*1024) // 100 entries, 1MB
-		
+
 		// Under limits
 		stats := TenantStats{
 			EntryCount: 50,
 			TotalBytes: 512 * 1024, // 512KB
 		}
 		assert.False(t, policy.ShouldEvict(ctx, tenantID, stats))
-		
+
 		// Over entry limit
 		stats.EntryCount = 150
 		assert.True(t, policy.ShouldEvict(ctx, tenantID, stats))
 		assert.Equal(t, 90, policy.GetEvictionTarget(ctx, tenantID, stats))
-		
+
 		// Over byte limit
 		stats = TenantStats{
 			EntryCount: 50,
@@ -153,45 +153,45 @@ func TestEvictionPolicies(t *testing.T) {
 		target := policy.GetEvictionTarget(ctx, tenantID, stats)
 		assert.Less(t, target, 50)
 	})
-	
+
 	t.Run("AdaptivePolicy", func(t *testing.T) {
 		basePolicy := NewSizeBasedPolicy(100, 1024*1024)
 		config := DefaultConfig()
 		adaptivePolicy := NewAdaptivePolicy(basePolicy, 0.5, config)
-		
+
 		// High hit rate - use base policy
 		stats := TenantStats{
 			EntryCount: 90,
 			HitRate:    0.8,
 		}
 		assert.False(t, adaptivePolicy.ShouldEvict(ctx, tenantID, stats))
-		
+
 		// Low hit rate - more aggressive
 		stats.HitRate = 0.3
 		stats.EntryCount = 85
 		assert.True(t, adaptivePolicy.ShouldEvict(ctx, tenantID, stats))
 		assert.Equal(t, 70, adaptivePolicy.GetEvictionTarget(ctx, tenantID, stats))
 	})
-	
+
 	t.Run("TimeBasedPolicy", func(t *testing.T) {
 		policy := NewTimeBasedPolicy(24*time.Hour, 1*time.Hour)
-		
+
 		// Recent eviction
 		stats := TenantStats{
 			LastEviction: time.Now().Add(-30 * time.Minute),
 		}
 		assert.False(t, policy.ShouldEvict(ctx, tenantID, stats))
-		
+
 		// Old eviction
 		stats.LastEviction = time.Now().Add(-2 * time.Hour)
 		assert.True(t, policy.ShouldEvict(ctx, tenantID, stats))
 	})
-	
+
 	t.Run("CompositePolicy", func(t *testing.T) {
 		sizePolicy := NewSizeBasedPolicy(100, 1024*1024)
 		timePolicy := NewTimeBasedPolicy(24*time.Hour, 1*time.Hour)
 		composite := NewCompositePolicy(sizePolicy, timePolicy)
-		
+
 		// Neither policy triggers
 		stats := TenantStats{
 			EntryCount:   50,
@@ -199,38 +199,38 @@ func TestEvictionPolicies(t *testing.T) {
 			LastEviction: time.Now(),
 		}
 		assert.False(t, composite.ShouldEvict(ctx, tenantID, stats))
-		
+
 		// Size policy triggers
 		stats.EntryCount = 150
 		assert.True(t, composite.ShouldEvict(ctx, tenantID, stats))
-		
+
 		// Time policy triggers
 		stats.EntryCount = 50
 		stats.LastEviction = time.Now().Add(-2 * time.Hour)
 		assert.True(t, composite.ShouldEvict(ctx, tenantID, stats))
 	})
-	
+
 	t.Run("TenantQuotaPolicy", func(t *testing.T) {
 		policy := NewTenantQuotaPolicy()
-		
+
 		// Set quota for tenant
 		policy.SetQuota(tenantID, TenantQuota{
 			MaxEntries: 50,
 			MaxBytes:   500 * 1024,
 		})
-		
+
 		// Under quota
 		stats := TenantStats{
 			EntryCount: 30,
 			TotalBytes: 300 * 1024,
 		}
 		assert.False(t, policy.ShouldEvict(ctx, tenantID, stats))
-		
+
 		// Over quota
 		stats.EntryCount = 60
 		assert.True(t, policy.ShouldEvict(ctx, tenantID, stats))
 		assert.Equal(t, 45, policy.GetEvictionTarget(ctx, tenantID, stats))
-		
+
 		// No quota set for different tenant
 		otherTenant := uuid.New()
 		assert.False(t, policy.ShouldEvict(ctx, otherTenant, stats))
@@ -243,21 +243,21 @@ func TestLRUManager_Integration(t *testing.T) {
 		Addr: "localhost:6379",
 		DB:   15,
 	})
-	defer redisClient.Close()
-	
+	defer func() { _ = redisClient.Close() }()
+
 	ctx := context.Background()
 	if err := redisClient.Ping(ctx).Err(); err != nil {
 		t.Skip("Redis not available")
 	}
-	
+
 	// Clear test database
 	redisClient.FlushDB(ctx)
-	
+
 	// Create real Redis wrapper (would need to implement this)
 	// For now, using mock
 	mockRedis := &MockRedisClient{client: redisClient}
 	mockRedis.On("Execute", mock.Anything, mock.Anything).Return(nil, nil)
-	
+
 	// Create manager with real components
 	config := &Config{
 		MaxTenantEntries:  10,
@@ -266,22 +266,22 @@ func TestLRUManager_Integration(t *testing.T) {
 		TrackingBatchSize: 5,
 		FlushInterval:     50 * time.Millisecond,
 	}
-	
+
 	logger := observability.NewLogger("test")
 	metrics := observability.NewMetricsClient()
-	
+
 	manager := NewManager(mockRedis, config, "test", logger, metrics)
-	
+
 	// Test tracking access
 	tenantID := uuid.New()
 	for i := 0; i < 15; i++ {
 		key := fmt.Sprintf("key%d", i)
 		manager.TrackAccess(ctx, tenantID, key)
 	}
-	
+
 	// Wait for flush
 	time.Sleep(100 * time.Millisecond)
-	
+
 	// Mock vector store
 	mockVectorStore := &MockVectorStore{}
 	mockVectorStore.On("GetTenantsWithCache", ctx).Return([]uuid.UUID{tenantID}, nil)
@@ -290,18 +290,18 @@ func TestLRUManager_Integration(t *testing.T) {
 		EntryCount: 15,
 		TotalHits:  100,
 	}, nil)
-	
+
 	// Run eviction cycle
 	runCtx, cancel := context.WithCancel(ctx)
 	go manager.Run(runCtx, mockVectorStore)
-	
+
 	// Wait for eviction
 	time.Sleep(200 * time.Millisecond)
-	
+
 	// Stop manager
 	cancel()
 	manager.Stop()
-	
+
 	// Verify eviction was attempted
 	mockVectorStore.AssertCalled(t, "GetTenantCacheStats", ctx, tenantID)
 }

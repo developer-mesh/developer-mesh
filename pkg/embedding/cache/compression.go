@@ -130,8 +130,8 @@ func (c *CompressionService) compress(data []byte) ([]byte, error) {
 	}
 
 	if _, err := gz.Write(data); err != nil {
-		gz.Close()
-		return nil, err
+		_ = gz.Close()
+		return nil, fmt.Errorf("compression write failed: %w", err)
 	}
 
 	if err := gz.Close(); err != nil {
@@ -146,7 +146,9 @@ func (c *CompressionService) decompress(data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer gz.Close()
+	defer func() {
+		_ = gz.Close()
+	}()
 
 	// Limit reader to prevent decompression bombs
 	limitedReader := io.LimitReader(gz, 100*1024*1024) // 100MB max

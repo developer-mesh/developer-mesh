@@ -5,17 +5,17 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	
+
 	"github.com/developer-mesh/developer-mesh/pkg/embedding/cache/eviction"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 // CacheMetricsExporter exports cache metrics to Prometheus
 type CacheMetricsExporter struct {
-	metrics      observability.MetricsClient
-	vectorStore  eviction.VectorStore
-	interval     time.Duration
-	stopCh       chan struct{}
+	metrics     observability.MetricsClient
+	vectorStore eviction.VectorStore
+	interval    time.Duration
+	stopCh      chan struct{}
 }
 
 // NewCacheMetricsExporter creates a new cache metrics exporter
@@ -37,6 +37,11 @@ func NewCacheMetricsExporter(
 		interval:    interval,
 		stopCh:      make(chan struct{}),
 	}
+}
+
+// GetMetrics returns the metrics client
+func (e *CacheMetricsExporter) GetMetrics() observability.MetricsClient {
+	return e.metrics
 }
 
 // Start begins exporting metrics
@@ -83,19 +88,19 @@ func (e *CacheMetricsExporter) exportMetrics(ctx context.Context) {
 // exportGlobalStats exports global cache statistics
 func (e *CacheMetricsExporter) exportGlobalStats(stats map[string]interface{}) {
 	if tenantCount, ok := stats["tenant_count"].(int); ok {
-		e.metrics.SetGauge("cache.global.tenant_count", float64(tenantCount))
+		e.metrics.RecordGauge("cache.global.tenant_count", float64(tenantCount), nil)
 	}
 
 	if totalEntries, ok := stats["total_entries"].(int); ok {
-		e.metrics.SetGauge("cache.global.total_entries", float64(totalEntries))
+		e.metrics.RecordGauge("cache.global.total_entries", float64(totalEntries), nil)
 	}
 
 	if totalHits, ok := stats["total_hits"].(int64); ok {
-		e.metrics.SetGauge("cache.global.total_hits", float64(totalHits))
+		e.metrics.RecordGauge("cache.global.total_hits", float64(totalHits), nil)
 	}
 
 	if avgHitsPerEntry, ok := stats["avg_hits_per_entry"].(float64); ok {
-		e.metrics.SetGauge("cache.global.avg_hits_per_entry", avgHitsPerEntry)
+		e.metrics.RecordGauge("cache.global.avg_hits_per_entry", avgHitsPerEntry, nil)
 	}
 }
 
@@ -110,14 +115,14 @@ func (e *CacheMetricsExporter) exportTenantStats(ctx context.Context, tenantID u
 		"tenant_id": tenantID.String(),
 	}
 
-	e.metrics.SetGaugeWithLabels("cache.entries", float64(stats.EntryCount), labels)
-	e.metrics.SetGaugeWithLabels("cache.hits", float64(stats.TotalHits), labels)
+	e.metrics.RecordGauge("cache.entries", float64(stats.EntryCount), labels)
+	e.metrics.RecordGauge("cache.hits", float64(stats.TotalHits), labels)
 
 	// Calculate hit rate if we have the data
 	if stats.EntryCount > 0 {
 		// This is a simplified calculation - in production you'd track attempts
 		hitRate := float64(stats.TotalHits) / float64(stats.EntryCount)
-		e.metrics.SetGaugeWithLabels("cache.hit_rate", hitRate, labels)
+		e.metrics.RecordGauge("cache.hit_rate", hitRate, labels)
 	}
 }
 

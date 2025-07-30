@@ -61,8 +61,7 @@ func (m *metricsClient) RecordDuration(name string, duration time.Duration) {
 	if !m.enabled {
 		return
 	}
-	durationSeconds := duration.Seconds()
-	m.RecordHistogram(name, durationSeconds, m.labels)
+	m.RecordHistogram(name, duration.Seconds(), m.labels)
 }
 
 // RecordEvent records an event metric

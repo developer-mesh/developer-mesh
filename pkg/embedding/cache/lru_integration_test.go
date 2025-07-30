@@ -23,7 +23,7 @@ func TestTenantAwareCache_WithLRU(t *testing.T) {
 		Addr: "localhost:6379",
 		DB:   15,
 	})
-	defer redisClient.Close()
+	defer func() { _ = redisClient.Close() }()
 
 	ctx := context.Background()
 	if err := redisClient.Ping(ctx).Err(); err != nil {
@@ -101,7 +101,7 @@ func TestLRUEviction_Integration(t *testing.T) {
 		Addr: "localhost:6379",
 		DB:   15,
 	})
-	defer redisClient.Close()
+	defer func() { _ = redisClient.Close() }()
 
 	ctx := context.Background()
 	if err := redisClient.Ping(ctx).Err(); err != nil {
@@ -129,9 +129,10 @@ func TestLRUEviction_Integration(t *testing.T) {
 	)
 
 	// Override LRU config for faster testing
-	if tenantCache.lruManager != nil {
-		tenantCache.lruManager.config.MaxTenantEntries = 5
-		tenantCache.lruManager.config.EvictionBatchSize = 2
+	if tenantCache.lruManager != nil && tenantCache.lruManager.GetConfig() != nil {
+		config := tenantCache.lruManager.GetConfig()
+		config.MaxTenantEntries = 5
+		config.EvictionBatchSize = 2
 	}
 
 	tenantID := uuid.New()
@@ -146,7 +147,7 @@ func TestLRUEviction_Integration(t *testing.T) {
 		}
 		err := tenantCache.Set(ctx, query, embedding, results)
 		require.NoError(t, err)
-		
+
 		// Small delay to ensure different timestamps
 		time.Sleep(10 * time.Millisecond)
 	}
@@ -177,7 +178,7 @@ func TestLRUEviction_Integration(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		query := fmt.Sprintf("evict_query_%d", i)
 		embedding := []float32{float32(i), float32(i + 1), float32(i + 2)}
-		entry, err := tenantCache.Get(ctx, query, embedding)
+		entry, _ := tenantCache.Get(ctx, query, embedding)
 		if entry != nil {
 			t.Logf("Entry %d still in cache", i)
 		}

@@ -63,10 +63,12 @@ func TestTenantIsolation(t *testing.T) {
 		Addr: "localhost:6379",
 		DB:   15, // Use test database
 	})
-	defer redisClient.Close()
+	defer func() { _ = redisClient.Close() }()
 
 	// Clear test database
-	redisClient.FlushDB(context.Background())
+	if err := redisClient.FlushDB(context.Background()).Err(); err != nil {
+		t.Fatalf("Failed to flush Redis: %v", err)
+	}
 
 	// Create base cache
 	config := DefaultConfig()
@@ -158,10 +160,12 @@ func TestCacheModes(t *testing.T) {
 		Addr: "localhost:6379",
 		DB:   15, // Use test database
 	})
-	defer redisClient.Close()
+	defer func() { _ = redisClient.Close() }()
 
 	// Clear test database
-	redisClient.FlushDB(context.Background())
+	if err := redisClient.FlushDB(context.Background()).Err(); err != nil {
+		t.Fatalf("Failed to flush Redis: %v", err)
+	}
 
 	// Create base cache
 	config := DefaultConfig()
@@ -186,26 +190,23 @@ func TestCacheModes(t *testing.T) {
 		{ID: "1", Content: "Legacy Result", Score: 0.95},
 	}
 
-	t.Run("LegacyMode", func(t *testing.T) {
-		// Set to legacy mode
-		cache.SetMode(ModeLegacy)
-
+	t.Run("NoTenantID", func(t *testing.T) {
 		// Context without tenant ID
 		ctx := context.Background()
 
-		// Should work without tenant ID in legacy mode
+		// Should fail without tenant ID (cache is always tenant-isolated)
 		err = cache.Set(ctx, query, embedding, results)
-		require.NoError(t, err)
+		require.Error(t, err)
+		assert.Equal(t, ErrNoTenantID, err)
 
 		entry, err := cache.Get(ctx, query, embedding)
-		require.NoError(t, err)
-		assert.NotNil(t, entry)
-		assert.Equal(t, "Legacy Result", entry.Results[0].Content)
+		require.Error(t, err)
+		assert.Equal(t, ErrNoTenantID, err)
+		assert.Nil(t, entry)
 	})
 
-	t.Run("TenantOnlyMode", func(t *testing.T) {
-		// Set to tenant-only mode
-		cache.SetMode(ModeTenantOnly)
+	t.Run("WithTenantID", func(t *testing.T) {
+		// Cache is always tenant-isolated now
 
 		// Context without tenant ID
 		ctx := context.Background()
@@ -226,10 +227,12 @@ func TestFeatureFlags(t *testing.T) {
 		Addr: "localhost:6379",
 		DB:   15, // Use test database
 	})
-	defer redisClient.Close()
+	defer func() { _ = redisClient.Close() }()
 
 	// Clear test database
-	redisClient.FlushDB(context.Background())
+	if err := redisClient.FlushDB(context.Background()).Err(); err != nil {
+		t.Fatalf("Failed to flush Redis: %v", err)
+	}
 
 	// Create base cache
 	config := DefaultConfig()
@@ -310,10 +313,12 @@ func TestClearTenant(t *testing.T) {
 		Addr: "localhost:6379",
 		DB:   15, // Use test database
 	})
-	defer redisClient.Close()
+	defer func() { _ = redisClient.Close() }()
 
 	// Clear test database
-	redisClient.FlushDB(context.Background())
+	if err := redisClient.FlushDB(context.Background()).Err(); err != nil {
+		t.Fatalf("Failed to flush Redis: %v", err)
+	}
 
 	// Create base cache
 	config := DefaultConfig()

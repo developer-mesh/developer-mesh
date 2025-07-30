@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/developer-mesh/developer-mesh/pkg/auth"
 	"github.com/developer-mesh/developer-mesh/pkg/embedding/cache"
 	"github.com/developer-mesh/developer-mesh/pkg/embedding/cache/integration"
 	cache_middleware "github.com/developer-mesh/developer-mesh/pkg/embedding/cache/middleware"
@@ -32,7 +31,7 @@ func TestCacheIntegration_WithMiddleware(t *testing.T) {
 		Addr: "localhost:6379",
 		DB:   15,
 	})
-	defer redisClient.Close()
+	defer func() { _ = redisClient.Close() }()
 
 	ctx := context.Background()
 	if err := redisClient.Ping(ctx).Err(); err != nil {
@@ -40,7 +39,9 @@ func TestCacheIntegration_WithMiddleware(t *testing.T) {
 	}
 
 	// Clear test database
-	redisClient.FlushDB(ctx)
+	if err := redisClient.FlushDB(ctx).Err(); err != nil {
+		t.Fatalf("Failed to flush Redis: %v", err)
+	}
 
 	// Setup cache
 	config := cache.DefaultConfig()
@@ -102,9 +103,9 @@ func TestCacheIntegration_WithMiddleware(t *testing.T) {
 		req := httptest.NewRequest("GET", "/api/v1/cache/health", nil)
 		req.Header.Set("X-Tenant-ID", tenantID.String())
 		w := httptest.NewRecorder()
-		
+
 		router.ServeHTTP(w, req)
-		
+
 		assert.Equal(t, http.StatusOK, w.Code)
 		assert.Equal(t, tenantID.String(), w.Header().Get("X-Tenant-ID"))
 	})
@@ -117,17 +118,19 @@ func TestCacheIntegration_WithMiddleware(t *testing.T) {
 			"results":   []interface{}{},
 		}
 		body, _ := json.Marshal(payload)
-		
+
 		req := httptest.NewRequest("POST", "/api/v1/cache/entry", bytes.NewBuffer(body))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
-		
+
 		router.ServeHTTP(w, req)
-		
+
 		assert.Equal(t, http.StatusUnauthorized, w.Code)
-		
+
 		var resp map[string]interface{}
-		json.Unmarshal(w.Body.Bytes(), &resp)
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("Failed to unmarshal response: %v", err)
+		}
 		assert.Equal(t, "tenant authentication required", resp["error"])
 	})
 
@@ -145,32 +148,34 @@ func TestCacheIntegration_WithMiddleware(t *testing.T) {
 			},
 		}
 		setBody, _ := json.Marshal(setPayload)
-		
+
 		setReq := httptest.NewRequest("POST", "/api/v1/cache/entry", bytes.NewBuffer(setBody))
 		setReq.Header.Set("Content-Type", "application/json")
 		setReq.Header.Set("X-Tenant-ID", tenantID.String())
 		setW := httptest.NewRecorder()
-		
+
 		router.ServeHTTP(setW, setReq)
 		assert.Equal(t, http.StatusOK, setW.Code)
-		
+
 		// Get cache entry
 		getPayload := map[string]interface{}{
 			"query":     "integration test query",
 			"embedding": []float32{1.0, 2.0, 3.0},
 		}
 		getBody, _ := json.Marshal(getPayload)
-		
+
 		getReq := httptest.NewRequest("GET", "/api/v1/cache/search", bytes.NewBuffer(getBody))
 		getReq.Header.Set("Content-Type", "application/json")
 		getReq.Header.Set("X-Tenant-ID", tenantID.String())
 		getW := httptest.NewRecorder()
-		
+
 		router.ServeHTTP(getW, getReq)
 		assert.Equal(t, http.StatusOK, getW.Code)
-		
+
 		var getResp map[string]interface{}
-		json.Unmarshal(getW.Body.Bytes(), &getResp)
+		if err := json.Unmarshal(getW.Body.Bytes(), &getResp); err != nil {
+			t.Fatalf("Failed to unmarshal response: %v", err)
+		}
 		assert.True(t, getResp["hit"].(bool))
 		assert.Equal(t, "true", getW.Header().Get("X-Cache-Hit"))
 	})
@@ -179,13 +184,15 @@ func TestCacheIntegration_WithMiddleware(t *testing.T) {
 		req := httptest.NewRequest("GET", "/api/v1/cache/stats", nil)
 		req.Header.Set("X-Tenant-ID", tenantID.String())
 		w := httptest.NewRecorder()
-		
+
 		router.ServeHTTP(w, req)
-		
+
 		assert.Equal(t, http.StatusOK, w.Code)
-		
+
 		var resp map[string]interface{}
-		json.Unmarshal(w.Body.Bytes(), &resp)
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("Failed to unmarshal response: %v", err)
+		}
 		assert.Contains(t, resp, "cache_stats")
 		assert.Contains(t, resp, "rate_limit_stats")
 	})
@@ -195,7 +202,7 @@ func TestCacheRateLimiter_Allow(t *testing.T) {
 	config := cache_middleware.DefaultCacheRateLimitConfig()
 	config.CacheReadRPS = 2
 	config.CacheReadBurst = 2
-	
+
 	rateLimiter := cache_middleware.NewCacheRateLimiter(
 		nil,
 		config,
@@ -240,11 +247,11 @@ func TestMetricsIntegration(t *testing.T) {
 	)
 
 	require.NoError(t, err)
-	
+
 	// Check metrics were recorded
 	assert.Contains(t, metrics.histograms, "cache.operation.duration")
 	assert.Greater(t, metrics.histograms["cache.operation.duration"][0], 0.01)
-	
+
 	assert.Contains(t, metrics.counters, "cache.operation.count")
 	assert.Equal(t, float64(1), metrics.counters["cache.operation.count"])
 }
@@ -327,10 +334,27 @@ func (m *mockMetricsClient) SetGaugeWithLabels(name string, value float64, label
 	m.gauges[name] = value
 }
 
+// Additional methods to implement observability.MetricsClient interface
+func (m *mockMetricsClient) RecordEvent(source, eventType string)                   {}
+func (m *mockMetricsClient) RecordLatency(operation string, duration time.Duration) {}
+func (m *mockMetricsClient) RecordCounter(name string, value float64, labels map[string]string) {
+	m.IncrementCounterWithLabels(name, value, labels)
+}
 func (m *mockMetricsClient) RecordGauge(name string, value float64, labels map[string]string) {
 	m.SetGaugeWithLabels(name, value, labels)
 }
-
-func (m *mockMetricsClient) Close() error {
-	return nil
+func (m *mockMetricsClient) RecordTimer(name string, duration time.Duration, labels map[string]string) {
 }
+func (m *mockMetricsClient) RecordCacheOperation(operation string, success bool, durationSeconds float64) {
+}
+func (m *mockMetricsClient) RecordOperation(component string, operation string, success bool, durationSeconds float64, labels map[string]string) {
+}
+func (m *mockMetricsClient) RecordAPIOperation(api string, operation string, success bool, durationSeconds float64) {
+}
+func (m *mockMetricsClient) RecordDatabaseOperation(operation string, success bool, durationSeconds float64) {
+}
+func (m *mockMetricsClient) StartTimer(name string, labels map[string]string) func() {
+	return func() {}
+}
+func (m *mockMetricsClient) RecordDuration(name string, duration time.Duration) {}
+func (m *mockMetricsClient) Close() error                                       { return nil }

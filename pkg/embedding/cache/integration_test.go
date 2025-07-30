@@ -23,7 +23,7 @@ func TestIntegration_CacheLifecycle(t *testing.T) {
 		Addr: "localhost:6379",
 		DB:   3, // Use DB 3 for integration tests
 	})
-	defer redisClient.Close()
+	defer func() { _ = redisClient.Close() }()
 
 	// Clear test database
 	err := redisClient.FlushDB(context.Background()).Err()
@@ -90,7 +90,7 @@ func TestIntegration_CacheWarmer(t *testing.T) {
 		Addr: "localhost:6379",
 		DB:   3,
 	})
-	defer redisClient.Close()
+	defer func() { _ = redisClient.Close() }()
 
 	// Clear test database
 	err := redisClient.FlushDB(context.Background()).Err()
@@ -154,7 +154,7 @@ func TestIntegration_CacheAnalytics(t *testing.T) {
 		Addr: "localhost:6379",
 		DB:   3,
 	})
-	defer redisClient.Close()
+	defer func() { _ = redisClient.Close() }()
 
 	// Clear test database
 	err := redisClient.FlushDB(context.Background()).Err()
@@ -226,7 +226,7 @@ func TestIntegration_PrometheusMetrics(t *testing.T) {
 		Addr: "localhost:6379",
 		DB:   3,
 	})
-	defer redisClient.Close()
+	defer func() { _ = redisClient.Close() }()
 
 	// Clear test database
 	err := redisClient.FlushDB(context.Background()).Err()

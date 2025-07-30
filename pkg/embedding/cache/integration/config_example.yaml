@@ -3,7 +3,7 @@
 cache:
   semantic:
     enabled: true
-    mode: "tenant_only"  # legacy, migrating, tenant_only
+    # No mode configuration - always tenant isolated
     
     redis:
       prefix: "devmesh:cache"
@@ -77,11 +77,7 @@ cache:
       index_type: "ivfflat"
       lists: 100  # for ivfflat index
       
-    # Migration settings (if applicable)
-    migration:
-      dual_write: false
-      copy_on_miss: false
-      batch_size: 100
+    # No migration settings - direct deployment with tenant isolation
       
 # Auth integration
 auth:

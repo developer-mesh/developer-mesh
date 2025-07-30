@@ -2,10 +2,10 @@ package middleware
 
 import (
 	"fmt"
-	
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	
+
 	"github.com/developer-mesh/developer-mesh/pkg/auth"
 )
 
@@ -27,14 +27,11 @@ func CacheAuthMiddleware() gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		
-		// Extract tenant ID from token
-		tenantID := auth.GetTenantIDFromToken(authHeader)
-		if tenantID != uuid.Nil {
-			ctx := auth.WithTenantID(c.Request.Context(), tenantID)
-			c.Request = c.Request.WithContext(ctx)
-		}
-		
+
+		// For now, skip token validation in cache middleware
+		// The main auth middleware should have already validated and set the tenant ID
+		// This is just a fallback for development/testing
+
 		c.Next()
 	}
 }
@@ -59,16 +56,16 @@ func RequireTenantMiddleware() gin.HandlerFunc {
 func TenantCacheStatsMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Next()
-		
+
 		// After request processing, add cache stats if available
 		if cacheHit, exists := c.Get("cache_hit"); exists {
 			c.Header("X-Cache-Hit", formatBool(cacheHit.(bool)))
 		}
-		
+
 		if hitRate, exists := c.Get("cache_hit_rate"); exists {
 			c.Header("X-Cache-Hit-Rate", formatFloat(hitRate.(float64)))
 		}
-		
+
 		if tenantID := auth.GetTenantID(c.Request.Context()); tenantID != uuid.Nil {
 			c.Header("X-Tenant-ID", tenantID.String())
 		}

@@ -124,7 +124,13 @@ func (v *VectorStore) FindSimilarQueries(ctx context.Context, tenantID uuid.UUID
 		})
 		return nil, fmt.Errorf("vector search failed: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			v.logger.Warn("Failed to close rows", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	var results []SimilarQueryResult
 	for rows.Next() {

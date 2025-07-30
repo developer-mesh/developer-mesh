@@ -8,8 +8,8 @@ import (
 var (
 	// Cache operation metrics
 	cacheOperationDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "devmesh_cache_operation_duration_seconds",
-		Help: "Duration of cache operations in seconds",
+		Name:    "devmesh_cache_operation_duration_seconds",
+		Help:    "Duration of cache operations in seconds",
 		Buckets: []float64{0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5},
 	}, []string{"operation", "tenant_id", "status"})
 
@@ -52,8 +52,8 @@ var (
 	}, []string{"tenant_id", "reason"})
 
 	lruEvictionDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "devmesh_cache_eviction_duration_seconds",
-		Help: "Duration of cache eviction operations",
+		Name:    "devmesh_cache_eviction_duration_seconds",
+		Help:    "Duration of cache eviction operations",
 		Buckets: []float64{0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10},
 	}, []string{"tenant_id"})
 
@@ -76,15 +76,9 @@ var (
 
 	// Vector store metrics
 	vectorSimilaritySearchDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "devmesh_cache_vector_search_duration_seconds",
-		Help: "Duration of vector similarity searches",
+		Name:    "devmesh_cache_vector_search_duration_seconds",
+		Help:    "Duration of vector similarity searches",
 		Buckets: []float64{0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1},
-	}, []string{"tenant_id"})
-
-	vectorSimilaritySearchResults = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "devmesh_cache_vector_search_results",
-		Help: "Number of results returned by vector similarity search",
-		Buckets: []float64{0, 1, 2, 5, 10, 20, 50, 100},
 	}, []string{"tenant_id"})
 )
 
@@ -105,7 +99,7 @@ func (p *PrometheusMetricsCollector) IncrementCounter(name string, value float64
 // IncrementCounterWithLabels increments a counter metric with labels
 func (p *PrometheusMetricsCollector) IncrementCounterWithLabels(name string, value float64, labels map[string]string) {
 	tenantID := labels["tenant_id"]
-	
+
 	switch name {
 	case "cache.tenant.hit":
 		cacheHits.WithLabelValues(tenantID).Add(value)
@@ -140,7 +134,7 @@ func (p *PrometheusMetricsCollector) IncrementCounterWithLabels(name string, val
 // RecordHistogram records a histogram metric
 func (p *PrometheusMetricsCollector) RecordHistogram(name string, value float64, labels map[string]string) {
 	tenantID := labels["tenant_id"]
-	
+
 	switch name {
 	case "cache.operation.duration":
 		operation := labels["operation"]
@@ -167,7 +161,7 @@ func (p *PrometheusMetricsCollector) SetGauge(name string, value float64) {
 // SetGaugeWithLabels sets a gauge metric with labels
 func (p *PrometheusMetricsCollector) SetGaugeWithLabels(name string, value float64, labels map[string]string) {
 	tenantID := labels["tenant_id"]
-	
+
 	switch name {
 	case "cache.entries":
 		cacheEntries.WithLabelValues(tenantID).Set(value)

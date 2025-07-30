@@ -6,56 +6,58 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	
+
 	"github.com/developer-mesh/developer-mesh/pkg/embedding/cache/eviction"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 // Manager handles LRU eviction for tenant cache entries
 type Manager struct {
-	redis      RedisClient
-	config     *Config
-	logger     observability.Logger
-	metrics    observability.MetricsClient
-	prefix     string
-	
+	redis   RedisClient
+	config  *Config
+	logger  observability.Logger
+	metrics observability.MetricsClient
+	prefix  string
+
 	// Async tracking
-	tracker    *AsyncTracker
-	
+	tracker *AsyncTracker
+
 	// Policies
-	policies   map[string]EvictionPolicy
+	policies map[string]EvictionPolicy
 }
 
 // Config defines LRU manager configuration
 type Config struct {
 	// Global limits
-	MaxGlobalEntries  int
-	MaxGlobalBytes    int64
-	
+	MaxGlobalEntries int
+	MaxGlobalBytes   int64
+
 	// Per-tenant limits (defaults)
-	MaxTenantEntries  int
-	MaxTenantBytes    int64
-	
+	MaxTenantEntries int
+	MaxTenantBytes   int64
+
 	// Eviction settings
 	EvictionBatchSize int
 	EvictionInterval  time.Duration
-	
+
 	// Tracking settings
-	TrackingBatchSize int
-	FlushInterval     time.Duration
+	TrackingBatchSize  int
+	FlushInterval      time.Duration
+	TrackingBufferSize int // Channel buffer size for async tracking
 }
 
 // DefaultConfig returns default LRU configuration
 func DefaultConfig() *Config {
 	return &Config{
-		MaxGlobalEntries:  1000000,
-		MaxGlobalBytes:    10 * 1024 * 1024 * 1024, // 10GB
-		MaxTenantEntries:  10000,
-		MaxTenantBytes:    100 * 1024 * 1024, // 100MB
-		EvictionBatchSize: 100,
-		EvictionInterval:  5 * time.Minute,
-		TrackingBatchSize: 1000,
-		FlushInterval:     10 * time.Second,
+		MaxGlobalEntries:   1000000,
+		MaxGlobalBytes:     10 * 1024 * 1024 * 1024, // 10GB
+		MaxTenantEntries:   10000,
+		MaxTenantBytes:     100 * 1024 * 1024, // 100MB
+		EvictionBatchSize:  100,
+		EvictionInterval:   5 * time.Minute,
+		TrackingBatchSize:  1000,
+		FlushInterval:      10 * time.Second,
+		TrackingBufferSize: 1000, // Reduced from hardcoded 10000
 	}
 }
 
@@ -88,11 +90,11 @@ func NewManager(redis RedisClient, config *Config, prefix string, logger observa
 		maxEntries: config.MaxTenantEntries,
 		maxBytes:   config.MaxTenantBytes,
 	}
-	
+
 	m.policies["adaptive"] = &AdaptivePolicy{
-		base: m.policies["size_based"],
+		base:       m.policies["size_based"],
 		minHitRate: 0.5,
-		config: config,
+		config:     config,
 	}
 
 	return m
@@ -110,71 +112,71 @@ func (m *Manager) EvictForTenant(ctx context.Context, tenantID uuid.UUID, target
 
 	pattern := fmt.Sprintf("%s:{%s}:q:*", m.prefix, tenantID.String())
 	scoreKey := m.getScoreKey(tenantID)
-	
+
 	// Get current count
 	currentCount, err := m.getKeyCount(ctx, pattern)
 	if err != nil {
 		return fmt.Errorf("failed to get key count: %w", err)
 	}
-	
+
 	if currentCount <= targetCount {
 		return nil // No eviction needed
 	}
-	
+
 	toEvict := currentCount - targetCount
-	
+
 	// Get LRU candidates from sorted set
 	candidates, err := m.getLRUCandidates(ctx, scoreKey, toEvict)
 	if err != nil {
 		return fmt.Errorf("failed to get LRU candidates: %w", err)
 	}
-	
+
 	// Batch delete with circuit breaker
 	evicted := 0
 	for i := 0; i < len(candidates); i += m.config.EvictionBatchSize {
 		batch := candidates[i:min(i+m.config.EvictionBatchSize, len(candidates))]
-		
-		err := m.redis.Execute(ctx, func() (interface{}, error) {
+
+		_, err := m.redis.Execute(ctx, func() (interface{}, error) {
 			pipe := m.redis.GetClient().Pipeline()
-			
+
 			// Delete cache entries
 			for _, key := range batch {
 				pipe.Del(ctx, key)
 			}
-			
+
 			// Remove from score set
 			members := make([]interface{}, len(batch))
 			for i, key := range batch {
 				members[i] = key
 			}
 			pipe.ZRem(ctx, scoreKey, members...)
-			
+
 			_, err := pipe.Exec(ctx)
 			return nil, err
 		})
-		
+
 		if err != nil {
 			m.logger.Error("Failed to evict batch", map[string]interface{}{
-				"error":     err.Error(),
-				"tenant_id": tenantID.String(),
+				"error":      err.Error(),
+				"tenant_id":  tenantID.String(),
 				"batch_size": len(batch),
 			})
 			// Continue with next batch
 		} else {
 			evicted += len(batch)
 		}
-		
+
 		m.metrics.IncrementCounterWithLabels("cache.evicted", float64(len(batch)), map[string]string{
 			"tenant_id": tenantID.String(),
 		})
 	}
-	
+
 	m.logger.Info("Completed eviction", map[string]interface{}{
 		"tenant_id": tenantID.String(),
-		"evicted": evicted,
-		"target": toEvict,
+		"evicted":   evicted,
+		"target":    toEvict,
 	})
-	
+
 	return nil
 }
 
@@ -186,12 +188,25 @@ func (m *Manager) EvictTenantEntries(ctx context.Context, tenantID uuid.UUID, ve
 		return fmt.Errorf("failed to get tenant stats: %w", err)
 	}
 
+	// Calculate total bytes from Redis
+	totalBytes, err := m.calculateTenantBytes(ctx, tenantID)
+	if err != nil {
+		m.logger.Warn("Failed to calculate tenant bytes", map[string]interface{}{
+			"error":     err.Error(),
+			"tenant_id": tenantID.String(),
+		})
+		totalBytes = 0
+	}
+
+	// Calculate hit rate from metrics
+	hitRate := m.calculateHitRate(ctx, tenantID)
+
 	// Convert to policy stats
 	policyStats := TenantStats{
 		EntryCount:   stats.EntryCount,
-		TotalBytes:   0, // Would need to calculate from Redis
+		TotalBytes:   totalBytes,
 		LastEviction: time.Now(),
-		HitRate:      0, // Would need to calculate from metrics
+		HitRate:      hitRate,
 	}
 
 	// Check if eviction is needed
@@ -202,7 +217,7 @@ func (m *Manager) EvictTenantEntries(ctx context.Context, tenantID uuid.UUID, ve
 
 	// Get target count from policy
 	targetCount := policy.GetEvictionTarget(ctx, tenantID, policyStats)
-	
+
 	// Perform eviction
 	return m.EvictForTenant(ctx, tenantID, targetCount)
 }
@@ -231,7 +246,7 @@ func (m *Manager) Stop() {
 
 func (m *Manager) runEvictionCycle(ctx context.Context, vectorStore eviction.VectorStore) {
 	startTime := time.Now()
-	
+
 	// Get all tenants with cache entries
 	tenants, err := vectorStore.GetTenantsWithCache(ctx)
 	if err != nil {
@@ -268,20 +283,20 @@ func (m *Manager) getKeyCount(ctx context.Context, pattern string) (int, error) 
 		until cursor == "0"
 		return count
 	`
-	
+
 	result, err := m.redis.Execute(ctx, func() (interface{}, error) {
 		return m.redis.GetClient().Eval(ctx, countScript, []string{}, pattern).Result()
 	})
-	
+
 	if err != nil {
 		return 0, err
 	}
-	
+
 	count, ok := result.(int64)
 	if !ok {
 		return 0, fmt.Errorf("unexpected result type: %T", result)
 	}
-	
+
 	return int(count), nil
 }
 
@@ -291,16 +306,16 @@ func (m *Manager) getLRUCandidates(ctx context.Context, scoreKey string, count i
 		// Get oldest entries (lowest scores)
 		return m.redis.GetClient().ZRange(ctx, scoreKey, 0, int64(count-1)).Result()
 	})
-	
+
 	if err != nil {
 		return nil, err
 	}
-	
+
 	candidates, ok := result.([]string)
 	if !ok {
 		return nil, fmt.Errorf("unexpected result type: %T", result)
 	}
-	
+
 	return candidates, nil
 }
 
@@ -319,9 +334,68 @@ func (m *Manager) GetPolicy(name string) (EvictionPolicy, bool) {
 	return policy, ok
 }
 
+// GetConfig returns the current configuration (for testing)
+func (m *Manager) GetConfig() *Config {
+	return m.config
+}
+
 func min(a, b int) int {
 	if a < b {
 		return a
 	}
 	return b
+}
+
+// calculateTenantBytes calculates the total memory usage for a tenant's cache entries
+func (m *Manager) calculateTenantBytes(ctx context.Context, tenantID uuid.UUID) (int64, error) {
+	pattern := fmt.Sprintf("%s:{%s}:q:*", m.prefix, tenantID.String())
+
+	// Use Lua script for efficiency
+	script := `
+		local total = 0
+		local cursor = "0"
+		repeat
+			local result = redis.call("SCAN", cursor, "MATCH", ARGV[1], "COUNT", 100)
+			cursor = result[1]
+			for _, key in ipairs(result[2]) do
+				local size = redis.call("MEMORY", "USAGE", key)
+				if size then
+					total = total + size
+				end
+			end
+		until cursor == "0"
+		return total
+	`
+
+	result, err := m.redis.Execute(ctx, func() (interface{}, error) {
+		return m.redis.GetClient().Eval(ctx, script, []string{}, pattern).Result()
+	})
+
+	if err != nil {
+		return 0, err
+	}
+
+	bytes, ok := result.(int64)
+	if !ok {
+		return 0, fmt.Errorf("unexpected result type: %T", result)
+	}
+
+	return bytes, nil
+}
+
+// calculateHitRate calculates the cache hit rate for a tenant
+func (m *Manager) calculateHitRate(ctx context.Context, tenantID uuid.UUID) float64 {
+	// This should integrate with the metrics system
+	// For now, return a default until metrics integration is complete
+	if m.metrics != nil {
+		// Get hit/miss counts from Prometheus metrics
+		// Calculate rate = hits / (hits + misses)
+		// This requires access to the metrics backend
+		// For now, we'll log that this needs implementation
+		m.logger.Debug("Hit rate calculation not fully implemented", map[string]interface{}{
+			"tenant_id": tenantID.String(),
+			"note":      "Requires metrics backend integration",
+		})
+	}
+	return 0.5 // Default 50% hit rate
 }

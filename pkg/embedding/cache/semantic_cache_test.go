@@ -39,7 +39,7 @@ func setupTestCache(t *testing.T) (*SemanticCache, *miniredis.Miniredis, func())
 	require.NoError(t, err)
 
 	cleanup := func() {
-		client.Close()
+		_ = client.Close()
 		mr.Close()
 	}
 
@@ -70,7 +70,7 @@ func TestNewSemanticCache(t *testing.T) {
 		defer mr.Close()
 
 		client := redis.NewClient(&redis.Options{Addr: mr.Addr()})
-		defer client.Close()
+		defer func() { _ = client.Close() }()
 
 		config := &Config{
 			SimilarityThreshold: 1.5, // Invalid
@@ -88,7 +88,7 @@ func TestNewSemanticCache(t *testing.T) {
 		defer mr.Close()
 
 		client := redis.NewClient(&redis.Options{Addr: mr.Addr()})
-		defer client.Close()
+		defer func() { _ = client.Close() }()
 
 		cache, err := NewSemanticCache(client, nil, nil)
 		require.NoError(t, err)
@@ -321,7 +321,7 @@ func TestSemanticCache_TTL(t *testing.T) {
 	defer mr.Close()
 
 	client := redis.NewClient(&redis.Options{Addr: mr.Addr()})
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	config := &Config{
 		SimilarityThreshold: 0.95,

@@ -26,7 +26,7 @@ func setupMockDB(t *testing.T) (*sqlx.DB, sqlmock.Sqlmock) {
 
 func TestVectorStore_StoreCacheEmbedding(t *testing.T) {
 	db, mock := setupMockDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	logger := observability.NewLogger("test")
 	metrics := observability.NewMetricsClient()
@@ -51,7 +51,7 @@ func TestVectorStore_StoreCacheEmbedding(t *testing.T) {
 
 func TestVectorStore_FindSimilarQueries(t *testing.T) {
 	db, mock := setupMockDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	logger := observability.NewLogger("test")
 	metrics := observability.NewMetricsClient()
@@ -83,7 +83,7 @@ func TestVectorStore_FindSimilarQueries(t *testing.T) {
 
 func TestVectorStore_GetTenantCacheStats(t *testing.T) {
 	db, mock := setupMockDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	logger := observability.NewLogger("test")
 	metrics := observability.NewMetricsClient()
@@ -119,7 +119,7 @@ func TestVectorStore_GetTenantCacheStats(t *testing.T) {
 
 func TestVectorStore_GetLRUEntries(t *testing.T) {
 	db, mock := setupMockDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	logger := observability.NewLogger("test")
 	metrics := observability.NewMetricsClient()
@@ -148,7 +148,7 @@ func TestVectorStore_GetLRUEntries(t *testing.T) {
 
 func TestVectorStore_DeleteCacheEntry(t *testing.T) {
 	db, mock := setupMockDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	logger := observability.NewLogger("test")
 	metrics := observability.NewMetricsClient()
@@ -170,7 +170,7 @@ func TestVectorStore_DeleteCacheEntry(t *testing.T) {
 
 func TestVectorStore_CleanupStaleEntries(t *testing.T) {
 	db, mock := setupMockDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	logger := observability.NewLogger("test")
 	metrics := observability.NewMetricsClient()

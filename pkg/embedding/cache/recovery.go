@@ -2,8 +2,9 @@ package cache
 
 import (
 	"fmt"
-	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"runtime/debug"
+
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 // RecoverMiddleware wraps functions with panic recovery
