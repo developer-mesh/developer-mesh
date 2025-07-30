@@ -239,10 +239,7 @@ func TestEvictionPolicies(t *testing.T) {
 
 func TestLRUManager_Integration(t *testing.T) {
 	// Skip if Redis is not available
-	redisClient := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-		DB:   15,
-	})
+	redisClient := GetTestRedisClient(t)
 	defer func() { _ = redisClient.Close() }()
 
 	ctx := context.Background()

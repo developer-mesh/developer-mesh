@@ -17,7 +17,7 @@ import (
 func setupBenchmarkCache(b *testing.B) *cache.SemanticCache {
 	// Setup Redis client
 	redisClient := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
+		Addr: cache.GetTestRedisAddr(),
 		DB:   2, // Use DB 2 for benchmarks
 	})
 

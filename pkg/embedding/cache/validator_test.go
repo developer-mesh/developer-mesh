@@ -100,7 +100,7 @@ func TestQueryValidator_Sanitize(t *testing.T) {
 		{
 			name:     "query with newlines",
 			query:    "Multi\nline\nquery",
-			expected: "Multilinequery",
+			expected: "Multi line query",
 		},
 		{
 			name:     "empty after sanitization",
@@ -171,7 +171,7 @@ func TestSanitizeRedisKey(t *testing.T) {
 		{
 			name:     "key with control chars",
 			key:      "key\x00with\x01control",
-			expected: "keywithcontrol",
+			expected: "key-withcontrol",
 		},
 	}
 

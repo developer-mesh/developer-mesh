@@ -35,8 +35,8 @@ type QueryValidator struct {
 func NewQueryValidator() *QueryValidator {
 	return &QueryValidator{
 		maxLength:       1000,
-		allowedPattern:  regexp.MustCompile(`^[\p{L}\p{N}\s\-_.,!?'"()\[\]{}/@#$%^&*+=<>:;|\\~` + "`" + `]+$`),
-		sanitizePattern: regexp.MustCompile(`[^\p{L}\p{N}\s\-_.,!?'"()\[\]{}/@#$%^&*+=<>:;|\\~` + "`" + `]+`),
+		allowedPattern:  nil, // Allow all characters, rely on sanitization for safety
+		sanitizePattern: regexp.MustCompile(`[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]`), // Remove control chars except \t\n\r
 	}
 }
 
@@ -44,9 +44,9 @@ func NewQueryValidator() *QueryValidator {
 func NewQueryValidatorWithRateLimiter(rateLimiter *middleware.RateLimiter, logger observability.Logger) *QueryValidator {
 	return &QueryValidator{
 		maxLength: 1000,
-		// Use project's standard validation pattern
-		allowedPattern:  regexp.MustCompile(`^[\p{L}\p{N}\s\-_.,!?'"@#$%^&*()+=/\\<>{}[\]|~` + "`" + `]+$`),
-		sanitizePattern: regexp.MustCompile(`[^\p{L}\p{N}\s\-_.,!?'"@#$%^&*()+=/\\<>{}[\]|~` + "`" + `]+`),
+		// Use project's standard validation pattern - allow most Unicode characters including emojis
+		allowedPattern:  nil, // Allow all characters, rely on sanitization for safety
+		sanitizePattern: regexp.MustCompile(`[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]`), // Remove control chars except \t\n\r
 		rateLimiter:     rateLimiter,
 		logger:          logger,
 	}

@@ -300,7 +300,7 @@ func setupRedis(b *testing.B) lru.RedisClient {
 	b.Helper()
 
 	client := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
+		Addr: cache.GetTestRedisAddr(),
 		DB:   15, // Test DB
 	})
 

@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -59,10 +58,7 @@ func (m *mockTenantConfigRepo) Exists(ctx context.Context, tenantID string) (boo
 
 func TestTenantIsolation(t *testing.T) {
 	// Setup Redis client for testing
-	redisClient := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-		DB:   15, // Use test database
-	})
+	redisClient := GetTestRedisClient(t)
 	defer func() { _ = redisClient.Close() }()
 
 	// Clear test database
@@ -156,10 +152,7 @@ func TestTenantIsolation(t *testing.T) {
 
 func TestCacheModes(t *testing.T) {
 	// Setup Redis client for testing
-	redisClient := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-		DB:   15, // Use test database
-	})
+	redisClient := GetTestRedisClient(t)
 	defer func() { _ = redisClient.Close() }()
 
 	// Clear test database
@@ -223,10 +216,7 @@ func TestCacheModes(t *testing.T) {
 
 func TestFeatureFlags(t *testing.T) {
 	// Setup Redis client for testing
-	redisClient := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-		DB:   15, // Use test database
-	})
+	redisClient := GetTestRedisClient(t)
 	defer func() { _ = redisClient.Close() }()
 
 	// Clear test database
@@ -309,10 +299,7 @@ func TestTenantConfigParsing(t *testing.T) {
 
 func TestClearTenant(t *testing.T) {
 	// Setup Redis client for testing
-	redisClient := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-		DB:   15, // Use test database
-	})
+	redisClient := GetTestRedisClient(t)
 	defer func() { _ = redisClient.Close() }()
 
 	// Clear test database

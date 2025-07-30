@@ -28,7 +28,7 @@ import (
 func TestCacheIntegration_WithMiddleware(t *testing.T) {
 	// Skip if Redis is not available
 	redisClient := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
+		Addr: cache.GetTestRedisAddr(),
 		DB:   15,
 	})
 	defer func() { _ = redisClient.Close() }()

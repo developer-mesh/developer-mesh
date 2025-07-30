@@ -20,7 +20,7 @@ import (
 func TestTenantAwareCache_WithLRU(t *testing.T) {
 	// Skip if Redis is not available
 	redisClient := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
+		Addr: GetTestRedisAddr(),
 		DB:   15,
 	})
 	defer func() { _ = redisClient.Close() }()
@@ -98,7 +98,7 @@ func TestTenantAwareCache_WithLRU(t *testing.T) {
 func TestLRUEviction_Integration(t *testing.T) {
 	// Skip if Redis is not available
 	redisClient := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
+		Addr: GetTestRedisAddr(),
 		DB:   15,
 	})
 	defer func() { _ = redisClient.Close() }()

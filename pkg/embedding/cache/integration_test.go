@@ -20,7 +20,7 @@ func TestIntegration_CacheLifecycle(t *testing.T) {
 
 	// Setup Redis
 	redisClient := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
+		Addr: cache.GetTestRedisAddr(),
 		DB:   3, // Use DB 3 for integration tests
 	})
 	defer func() { _ = redisClient.Close() }()
@@ -87,7 +87,7 @@ func TestIntegration_CacheWarmer(t *testing.T) {
 
 	// Setup Redis
 	redisClient := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
+		Addr: cache.GetTestRedisAddr(),
 		DB:   3,
 	})
 	defer func() { _ = redisClient.Close() }()
@@ -151,7 +151,7 @@ func TestIntegration_CacheAnalytics(t *testing.T) {
 
 	// Setup Redis
 	redisClient := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
+		Addr: cache.GetTestRedisAddr(),
 		DB:   3,
 	})
 	defer func() { _ = redisClient.Close() }()
@@ -223,7 +223,7 @@ func TestIntegration_PrometheusMetrics(t *testing.T) {
 
 	// Setup Redis
 	redisClient := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
+		Addr: cache.GetTestRedisAddr(),
 		DB:   3,
 	})
 	defer func() { _ = redisClient.Close() }()

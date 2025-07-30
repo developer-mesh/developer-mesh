@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -154,10 +153,7 @@ func TestAsyncTracker_GetAccessScore(t *testing.T) {
 	ctx := context.Background()
 
 	// Setup Redis client for real operations
-	redisClient := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-		DB:   15,
-	})
+	redisClient := GetTestRedisClient(t)
 	defer func() { _ = redisClient.Close() }()
 
 	if err := redisClient.Ping(ctx).Err(); err != nil {
@@ -206,10 +202,7 @@ func TestAsyncTracker_GetLRUKeys(t *testing.T) {
 	ctx := context.Background()
 
 	// Setup Redis client for real operations
-	redisClient := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-		DB:   15,
-	})
+	redisClient := GetTestRedisClient(t)
 	defer func() { _ = redisClient.Close() }()
 
 	if err := redisClient.Ping(ctx).Err(); err != nil {

@@ -62,10 +62,7 @@ func (m *mockTenantConfigRepo) Exists(ctx context.Context, tenantID string) (boo
 
 func setupTestTenantCache(t *testing.T) (*cache.TenantAwareCache, *mockTenantConfigRepo, *redis.Client) {
 	// Setup Redis client
-	redisClient := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-		DB:   1, // Use DB 1 for tests
-	})
+	redisClient := cache.GetTestRedisClient(t)
 
 	// Clear test database
 	redisClient.FlushDB(context.Background())
