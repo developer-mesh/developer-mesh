@@ -51,8 +51,16 @@ jobs:
 
       - name: Run go mod download for all modules
         run: |
+          # Download dependencies for workspace
           go mod download
-          go work use -r .
+          # Download dependencies for each module
+          cd apps/mcp-server && go mod download && cd ../..
+          cd apps/rest-api && go mod download && cd ../..
+          cd apps/worker && go mod download && cd ../..
+          cd apps/mockserver && go mod download && cd ../..
+          cd pkg && go mod download && cd ..
+          # Ensure work sync
+          go work sync
 
       - name: Run go fmt
         run: |

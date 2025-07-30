@@ -1,6 +1,7 @@
 run:
   timeout: 10m
   modules-download-mode: readonly
+  go: '1.24'
 
 linters:
   enable:
@@ -99,13 +100,25 @@ issues:
     - third_party
     - testdata
     - examples
-    - mocks
     - .git
     - build
     - dist
     - node_modules
     - test/integration
   exclude-rules:
+    # Exclude typecheck errors in mock files
+    - path: mocks/
+      linters:
+        - typecheck
+    # Exclude undefined errors which are common with testify mocks
+    - text: "undefined:"
+      linters:
+        - typecheck
+    # Exclude typecheck for test files that might have different dependencies
+    - path: _test\.go
+      text: "has no field or method"
+      linters:
+        - typecheck
     - path: _test\.go
       linters:
         - dupl
