@@ -233,8 +233,9 @@ func (s *CacheTestSuite) TestLRUEviction() {
 	}
 
 	// Trigger eviction manually
-	if s.vectorStore != nil {
-		err := s.tenantCache.GetLRUManager().EvictTenantEntries(ctx, s.tenantIDs[1], s.vectorStore)
+	if s.tenantCache.GetLRUManager() != nil {
+		// Use a large target bytes to force eviction
+		err := s.tenantCache.GetLRUManager().EvictForTenant(ctx, s.tenantIDs[1], 1024*1024*10) // 10MB target
 		s.NoError(err)
 	}
 

@@ -35,7 +35,7 @@ type QueryValidator struct {
 func NewQueryValidator() *QueryValidator {
 	return &QueryValidator{
 		maxLength:       1000,
-		allowedPattern:  nil, // Allow all characters, rely on sanitization for safety
+		allowedPattern:  nil,                                                     // Allow all characters, rely on sanitization for safety
 		sanitizePattern: regexp.MustCompile(`[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]`), // Remove control chars except \t\n\r
 	}
 }
@@ -45,7 +45,7 @@ func NewQueryValidatorWithRateLimiter(rateLimiter *middleware.RateLimiter, logge
 	return &QueryValidator{
 		maxLength: 1000,
 		// Use project's standard validation pattern - allow most Unicode characters including emojis
-		allowedPattern:  nil, // Allow all characters, rely on sanitization for safety
+		allowedPattern:  nil,                                                     // Allow all characters, rely on sanitization for safety
 		sanitizePattern: regexp.MustCompile(`[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]`), // Remove control chars except \t\n\r
 		rateLimiter:     rateLimiter,
 		logger:          logger,
@@ -89,7 +89,14 @@ func (v *QueryValidator) Validate(query string) error {
 	return nil
 }
 
-// Sanitize removes potentially dangerous characters from a query
+// Sanitize removes potentially dangerous characters from a query.
+// It performs the following transformations:
+//   - Trims leading/trailing whitespace
+//   - Ensures valid UTF-8 encoding
+//   - Removes control characters (configurable via sanitizePattern)
+//   - Normalizes internal whitespace
+//
+// The sanitized query is safe for storage and comparison.
 func (v *QueryValidator) Sanitize(query string) string {
 	// Trim whitespace
 	query = strings.TrimSpace(query)

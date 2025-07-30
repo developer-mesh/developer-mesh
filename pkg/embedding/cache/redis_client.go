@@ -62,6 +62,69 @@ func NewResilientRedisClient(
 	}
 }
 
+// NewResilientRedisClientWithConfig creates a new resilient Redis client with performance config
+func NewResilientRedisClientWithConfig(
+	client *redis.Client,
+	perfConfig *PerformanceConfig,
+	logger observability.Logger,
+	metrics observability.MetricsClient,
+) *ResilientRedisClient {
+	if logger == nil {
+		logger = observability.NewLogger("embedding.cache.redis")
+	}
+
+	if metrics == nil {
+		metrics = observability.NewMetricsClient()
+	}
+
+	if perfConfig == nil {
+		perfConfig = GetPerformanceProfile(ProfileBalanced)
+	}
+
+	// Configure circuit breaker based on performance config
+	var cbConfig resilience.CircuitBreakerConfig
+	if perfConfig.CircuitBreakerEnabled {
+		cbConfig = resilience.CircuitBreakerConfig{
+			FailureThreshold:    perfConfig.CircuitBreakerThreshold,
+			FailureRatio:        0.6,
+			ResetTimeout:        perfConfig.CircuitBreakerResetTimeout,
+			SuccessThreshold:    2,
+			TimeoutThreshold:    perfConfig.CircuitBreakerTimeout,
+			MaxRequestsHalfOpen: 5,
+			MinimumRequestCount: 10,
+		}
+	} else {
+		// Disabled circuit breaker
+		cbConfig = resilience.CircuitBreakerConfig{
+			FailureThreshold: 999999, // Effectively disabled
+		}
+	}
+
+	// Configure retry policy based on performance config
+	var retryConfig retry.Config
+	if perfConfig.RetryEnabled {
+		retryConfig = retry.Config{
+			InitialInterval: perfConfig.RetryInitialDelay,
+			MaxInterval:     perfConfig.RetryMaxDelay,
+			MaxRetries:      perfConfig.RetryMaxAttempts,
+			Multiplier:      perfConfig.RetryMultiplier,
+			MaxElapsedTime:  perfConfig.RetryMaxDelay * time.Duration(perfConfig.RetryMaxAttempts),
+		}
+	} else {
+		retryConfig = retry.Config{
+			MaxRetries: 0, // No retries
+		}
+	}
+
+	return &ResilientRedisClient{
+		client:         client,
+		circuitBreaker: resilience.NewCircuitBreaker("redis_cache", cbConfig, logger, metrics),
+		logger:         logger,
+		metrics:        metrics,
+		retryPolicy:    retry.NewExponentialBackoff(retryConfig),
+	}
+}
+
 // Get retrieves a value from Redis with circuit breaker protection
 func (r *ResilientRedisClient) Get(ctx context.Context, key string) (string, error) {
 	result, err := r.circuitBreaker.Execute(ctx, func() (interface{}, error) {

@@ -9,6 +9,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -39,7 +40,7 @@ func TestVectorStore_StoreCacheEmbedding(t *testing.T) {
 
 	// Mock the INSERT/UPDATE query
 	mock.ExpectExec("INSERT INTO cache_metadata").
-		WithArgs(tenantID, cacheKey, queryHash, sqlmock.AnyArg()).
+		WithArgs(tenantID, cacheKey, queryHash, pq.Array(embedding)).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	err := store.StoreCacheEmbedding(context.Background(), tenantID, cacheKey, queryHash, embedding)
@@ -68,7 +69,7 @@ func TestVectorStore_FindSimilarQueries(t *testing.T) {
 		AddRow("key2", "hash2", 0.85, 5, time.Now())
 
 	mock.ExpectQuery("SELECT").
-		WithArgs(tenantID, sqlmock.AnyArg(), threshold, limit).
+		WithArgs(tenantID, pq.Array(embedding), threshold, limit).
 		WillReturnRows(rows)
 
 	results, err := store.FindSimilarQueries(context.Background(), tenantID, embedding, threshold, limit)

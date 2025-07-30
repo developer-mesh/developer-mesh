@@ -273,7 +273,7 @@ func TestLRUManager_Integration(t *testing.T) {
 	tenantID := uuid.New()
 	for i := 0; i < 15; i++ {
 		key := fmt.Sprintf("key%d", i)
-		manager.TrackAccess(ctx, tenantID, key)
+		manager.TrackAccess(tenantID, key)
 	}
 
 	// Wait for flush
@@ -297,7 +297,8 @@ func TestLRUManager_Integration(t *testing.T) {
 
 	// Stop manager
 	cancel()
-	manager.Stop()
+	err := manager.Stop(ctx)
+	assert.NoError(t, err)
 
 	// Verify eviction was attempted
 	mockVectorStore.AssertCalled(t, "GetTenantCacheStats", ctx, tenantID)

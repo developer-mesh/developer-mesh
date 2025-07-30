@@ -179,7 +179,7 @@ func BenchmarkLRU_TrackAccess(b *testing.B) {
 		i := 0
 		for pb.Next() {
 			key := fmt.Sprintf("bench:key:%d", i%1000)
-			manager.TrackAccess(context.Background(), tenantID, key)
+			manager.TrackAccess(tenantID, key)
 			i++
 		}
 	})
@@ -218,7 +218,7 @@ func BenchmarkLRU_Eviction(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				// Evict 10% of entries
 				targetCount := entries - (entries / 10)
-				err := manager.EvictForTenant(ctx, tenantID, targetCount)
+				err := manager.EvictForTenant(ctx, tenantID, int64(targetCount)*1024)
 				if err != nil {
 					b.Fatal(err)
 				}
@@ -287,6 +287,153 @@ func BenchmarkCache_Memory(b *testing.B) {
 
 		b.ReportAllocs()
 	})
+}
+
+// Benchmark similarity search performance
+func BenchmarkCache_SimilaritySearch(b *testing.B) {
+	redisClient := setupRedis(b)
+	config := cache.DefaultConfig()
+	config.Prefix = "bench_sim"
+
+	baseCache, err := cache.NewSemanticCache(redisClient.GetClient(), config, nil)
+	require.NoError(b, err)
+
+	ctx := context.Background()
+
+	// Pre-populate with queries
+	baseEmbedding := makeBenchmarkEmbedding(0)
+	for i := 0; i < 1000; i++ {
+		query := fmt.Sprintf("similar query %d", i)
+		embedding := make([]float32, len(baseEmbedding))
+		copy(embedding, baseEmbedding)
+
+		// Slightly modify embedding
+		for j := 0; j < 10; j++ {
+			embedding[j] = baseEmbedding[j] + float32(i)*0.0001
+		}
+
+		results := makeBenchmarkResults(i, 5)
+		_ = baseCache.Set(ctx, query, embedding, results)
+	}
+
+	// Create test embeddings with varying similarity
+	testEmbeddings := make([][]float32, 10)
+	for i := range testEmbeddings {
+		testEmbeddings[i] = make([]float32, len(baseEmbedding))
+		copy(testEmbeddings[i], baseEmbedding)
+
+		// Vary similarity
+		for j := 0; j < i*10; j++ {
+			testEmbeddings[i][j] = baseEmbedding[j] + float32(i)*0.001
+		}
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		embedding := testEmbeddings[i%len(testEmbeddings)]
+		_, _ = baseCache.Get(ctx, "test query", embedding)
+	}
+}
+
+// Benchmark tenant isolation performance
+func BenchmarkCache_TenantIsolation(b *testing.B) {
+	redisClient := setupRedis(b)
+	config := cache.DefaultConfig()
+	config.Prefix = "bench_tenant"
+
+	baseCache, err := cache.NewSemanticCache(redisClient.GetClient(), config, nil)
+	require.NoError(b, err)
+
+	numTenants := 10
+	tenants := make([]uuid.UUID, numTenants)
+	for i := range tenants {
+		tenants[i] = uuid.New()
+	}
+
+	embeddings := make([][]float32, 100)
+	for i := range embeddings {
+		embeddings[i] = makeBenchmarkEmbedding(i)
+	}
+	results := makeBenchmarkResults(0, 5)
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		i := 0
+		for pb.Next() {
+			tenantID := tenants[i%numTenants]
+			ctx := auth.WithTenantID(context.Background(), tenantID)
+
+			query := fmt.Sprintf("tenant query %d", i%100)
+			embedding := embeddings[i%len(embeddings)]
+
+			if i%3 == 0 {
+				_ = baseCache.Set(ctx, query, embedding, results)
+			} else {
+				_, _ = baseCache.Get(ctx, query, embedding)
+			}
+			i++
+		}
+	})
+}
+
+// Benchmark cache stats collection
+func BenchmarkCache_Stats(b *testing.B) {
+	redisClient := setupRedis(b)
+	config := cache.DefaultConfig()
+	config.Prefix = "bench_stats"
+
+	baseCache, err := cache.NewSemanticCache(redisClient.GetClient(), config, nil)
+	require.NoError(b, err)
+
+	ctx := context.Background()
+
+	// Pre-populate with many entries
+	for i := 0; i < 10000; i++ {
+		query := fmt.Sprintf("stats query %d", i)
+		embedding := makeBenchmarkEmbedding(i)
+		results := makeBenchmarkResults(i, 3)
+		_ = baseCache.Set(ctx, query, embedding, results)
+
+		// Simulate some hits
+		if i%10 == 0 {
+			for j := 0; j < i%5; j++ {
+				_, _ = baseCache.Get(ctx, query, embedding)
+			}
+		}
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = baseCache.GetStats()
+	}
+}
+
+// Benchmark getting top queries
+func BenchmarkCache_GetTopQueries(b *testing.B) {
+	ctx := setupBenchmark(b)
+	tenantCache, _ := setupTenantCache(b)
+
+	// Pre-populate with entries having different hit counts
+	for i := 0; i < 1000; i++ {
+		query := fmt.Sprintf("top query %d", i)
+		embedding := makeBenchmarkEmbedding(i)
+		results := makeBenchmarkResults(i, 3)
+		_ = tenantCache.Set(ctx, query, embedding, results)
+
+		// Simulate varying hit counts
+		hits := (1000 - i) / 10
+		for j := 0; j < hits; j++ {
+			_, _ = tenantCache.Get(ctx, query, embedding)
+		}
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		// Since GetTopQueries is not implemented in TenantAwareCache,
+		// we'll use GetStats instead for now
+		stats := tenantCache.GetStats()
+		_ = stats
+	}
 }
 
 // Helper functions

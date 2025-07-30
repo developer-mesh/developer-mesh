@@ -2,12 +2,13 @@ package cache
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/developer-mesh/developer-mesh/pkg/auth"
+	"github.com/developer-mesh/developer-mesh/pkg/embedding/cache/encryption"
 	"github.com/developer-mesh/developer-mesh/pkg/embedding/cache/eviction"
 	"github.com/developer-mesh/developer-mesh/pkg/embedding/cache/lru"
 	"github.com/developer-mesh/developer-mesh/pkg/embedding/cache/tenant"
@@ -26,9 +27,11 @@ type TenantAwareCache struct {
 	tenantConfigRepo  repository.TenantConfigRepository
 	rateLimiter       *middleware.RateLimiter
 	encryptionService *security.EncryptionService
+	keyManager        *encryption.TenantKeyManager
 	logger            observability.Logger
+	safeLogger        *SafeLogger
 	metrics           observability.MetricsClient
-	configCache       sync.Map // For tenant config caching
+	configCache       *tenant.ConfigCache // For tenant config caching
 
 	// mode field removed - always tenant isolated
 
@@ -49,14 +52,62 @@ func NewTenantAwareCache(
 		logger = observability.NewLogger("embedding.cache.tenant")
 	}
 
+	// Create config cache
+	var configCacheInstance *tenant.ConfigCache
+	if configRepo != nil {
+		configCacheInstance = tenant.NewConfigCache(configRepo, 5*time.Minute)
+	}
+
 	cache := &TenantAwareCache{
 		baseCache:         baseCache,
 		tenantConfigRepo:  configRepo,
+		configCache:       configCacheInstance,
 		rateLimiter:       rateLimiter,
 		encryptionService: security.NewEncryptionService(encryptionKey),
 		logger:            logger,
 		metrics:           metrics,
 		// mode removed - always tenant isolated
+	}
+
+	// Initialize LRU manager if we have Redis
+	if baseCache != nil && baseCache.redis != nil {
+		lruConfig := lru.DefaultConfig()
+		cache.lruManager = lru.NewManager(
+			baseCache.redis,
+			lruConfig,
+			baseCache.config.Prefix,
+			logger,
+			metrics,
+		)
+	}
+
+	return cache
+}
+
+// NewTenantAwareCacheWithKeyManager creates a new tenant-aware cache with per-tenant key management
+func NewTenantAwareCacheWithKeyManager(
+	baseCache *SemanticCache,
+	configRepo repository.TenantConfigRepository,
+	rateLimiter *middleware.RateLimiter,
+	keyManager *encryption.TenantKeyManager,
+	logger observability.Logger,
+	metrics observability.MetricsClient,
+) *TenantAwareCache {
+	if logger == nil {
+		logger = observability.NewLogger("embedding.cache.tenant")
+	}
+
+	// Create safe logger
+	safeLogger := NewSafeLogger(logger)
+
+	cache := &TenantAwareCache{
+		baseCache:        baseCache,
+		tenantConfigRepo: configRepo,
+		rateLimiter:      rateLimiter,
+		keyManager:       keyManager,
+		logger:           logger,
+		safeLogger:       safeLogger,
+		metrics:          metrics,
 	}
 
 	// Initialize LRU manager if we have Redis
@@ -110,15 +161,40 @@ func (tc *TenantAwareCache) Get(ctx context.Context, query string, embedding []f
 
 	// Track access for LRU
 	if entry != nil && tc.lruManager != nil {
-		tc.lruManager.TrackAccess(ctx, tenantID, key)
+		tc.lruManager.TrackAccess(tenantID, key)
 	}
 
 	// Decrypt sensitive data if needed
 	if entry != nil && entry.Metadata != nil {
 		if encData, ok := entry.Metadata["encrypted_data"].([]byte); ok && len(encData) > 0 {
-			decrypted, err := tc.encryptionService.DecryptCredential(encData, tenantID.String())
+			var decrypted string
+			var err error
+
+			if tc.keyManager != nil {
+				// Use per-tenant key if key manager is available
+				keyID, ok := entry.Metadata["key_id"].(string)
+				if !ok {
+					// Fallback to legacy encryption
+					decrypted, err = tc.encryptionService.DecryptCredential(encData, tenantID.String())
+				} else {
+					// Get tenant key and decrypt
+					key, err := tc.keyManager.GetDecryptionKey(ctx, tenantID, keyID)
+					if err != nil {
+						tc.safeLogger.Error("Failed to get decryption key", map[string]interface{}{
+							"error":     err.Error(),
+							"tenant_id": tenantID.String(),
+						})
+						return nil, err
+					}
+					decrypted, _ = tc.decryptWithKey(encData, key)
+				}
+			} else {
+				// Use legacy encryption
+				decrypted, err = tc.encryptionService.DecryptCredential(encData, tenantID.String())
+			}
+
 			if err != nil {
-				tc.logger.Error("Failed to decrypt cache entry", map[string]interface{}{
+				tc.safeLogger.Error("Failed to decrypt cache entry", map[string]interface{}{
 					"error":     err.Error(),
 					"tenant_id": tenantID.String(),
 				})
@@ -163,18 +239,41 @@ func (tc *TenantAwareCache) Set(ctx context.Context, query string, embedding []f
 
 	// Check if results contain sensitive data
 	var encryptedData []byte
+	var keyID string
 	sensitiveData := tc.extractSensitiveData(results)
 
 	if sensitiveData != nil {
-		encrypted, err := tc.encryptionService.EncryptJSON(sensitiveData, tenantID.String())
-		if err != nil {
-			return fmt.Errorf("failed to encrypt sensitive data: %w", err)
+		if tc.keyManager != nil {
+			// Use per-tenant encryption
+			tenantKey, tenantKeyID, err := tc.keyManager.GetOrCreateKey(ctx, tenantID)
+			if err != nil {
+				return fmt.Errorf("failed to get tenant key: %w", err)
+			}
+			keyID = tenantKeyID
+
+			// Marshal sensitive data
+			sensitiveJSON, err := json.Marshal(sensitiveData)
+			if err != nil {
+				return fmt.Errorf("failed to marshal sensitive data: %w", err)
+			}
+
+			// Encrypt with tenant key
+			encryptedData, err = tc.encryptWithKey(sensitiveJSON, tenantKey)
+			if err != nil {
+				return fmt.Errorf("failed to encrypt with tenant key: %w", err)
+			}
+		} else {
+			// Use legacy encryption
+			encrypted, err := tc.encryptionService.EncryptJSON(sensitiveData, tenantID.String())
+			if err != nil {
+				return fmt.Errorf("failed to encrypt sensitive data: %w", err)
+			}
+			encryptedData = []byte(encrypted)
 		}
-		encryptedData = []byte(encrypted)
 	}
 
 	key := tc.getCacheKey(tenantID, query)
-	return tc.setWithEncryption(ctx, key, query, embedding, results, encryptedData)
+	return tc.setWithEncryption(ctx, key, query, embedding, results, encryptedData, keyID)
 }
 
 // Delete removes a query from the tenant's cache
@@ -219,19 +318,20 @@ func (tc *TenantAwareCache) ClearTenant(ctx context.Context, tenantID uuid.UUID)
 		return fmt.Errorf("scan error: %w", err)
 	}
 
-	// Clear tenant config from local cache
-	cacheKey := fmt.Sprintf("tenant_config:%s", tenantID.String())
-	tc.configCache.Delete(cacheKey)
+	// Clear tenant config from cache
+	if tc.configCache != nil {
+		tc.configCache.Invalidate(tenantID)
+	}
 
 	return nil
 }
 
 // GetTenantStats returns cache statistics for a specific tenant
-func (tc *TenantAwareCache) GetTenantStats(ctx context.Context, tenantID uuid.UUID) (*CacheStats, error) {
+func (tc *TenantAwareCache) GetTenantStats(ctx context.Context, tenantID uuid.UUID) (*TenantCacheStats, error) {
 	pattern := fmt.Sprintf("%s:{%s}:*", tc.baseCache.config.Prefix, tenantID.String())
 
-	stats := &CacheStats{
-		Timestamp: time.Now(),
+	stats := &TenantCacheStats{
+		LastAccessed: time.Now(),
 	}
 
 	// Count entries
@@ -240,10 +340,16 @@ func (tc *TenantAwareCache) GetTenantStats(ctx context.Context, tenantID uuid.UU
 		return nil, err
 	}
 
-	stats.TotalEntries = len(keys)
+	stats.Entries = int64(len(keys))
 
-	// Get hit/miss stats from metrics if available
-	// Note: This would require storing per-tenant metrics
+	// TODO: Calculate actual bytes used by reading entries
+	// For now, estimate based on entry count
+	stats.Bytes = stats.Entries * 1024 // Rough estimate
+
+	// TODO: Track per-tenant hits/misses in metrics
+	// For now, return 0 values
+	stats.Hits = 0
+	stats.Misses = 0
 
 	return stats, nil
 }
@@ -262,17 +368,9 @@ func (tc *TenantAwareCache) getCacheKey(tenantID uuid.UUID, query string) string
 }
 
 func (tc *TenantAwareCache) getTenantConfig(ctx context.Context, tenantID uuid.UUID) (*tenant.CacheTenantConfig, error) {
-	// Try local cache first
-	cacheKey := fmt.Sprintf("tenant_config:%s", tenantID.String())
-	if cached, found := tc.configCache.Load(cacheKey); found {
-		// Check if cache entry is still valid
-		if entry, ok := cached.(*tenantConfigCacheEntry); ok {
-			if time.Since(entry.timestamp) < 5*time.Minute {
-				return entry.config, nil
-			}
-			// Cache expired, delete it
-			tc.configCache.Delete(cacheKey)
-		}
+	// Use config cache if available
+	if tc.configCache != nil {
+		return tc.configCache.Get(ctx, tenantID)
 	}
 
 	// Load from repository if available
@@ -293,20 +391,7 @@ func (tc *TenantAwareCache) getTenantConfig(ctx context.Context, tenantID uuid.U
 
 	// Parse cache-specific configuration
 	cacheConfig := tenant.ParseFromTenantConfig(baseConfig)
-
-	// Cache for 5 minutes
-	tc.configCache.Store(cacheKey, &tenantConfigCacheEntry{
-		config:    cacheConfig,
-		timestamp: time.Now(),
-	})
-
 	return cacheConfig, nil
-}
-
-// tenantConfigCacheEntry wraps a tenant config with timestamp
-type tenantConfigCacheEntry struct {
-	config    *tenant.CacheTenantConfig
-	timestamp time.Time
 }
 
 func (tc *TenantAwareCache) getWithTenantKey(ctx context.Context, key, query string, embedding []float32) (*CacheEntry, error) {
@@ -335,7 +420,7 @@ func (tc *TenantAwareCache) getWithTenantKey(ctx context.Context, key, query str
 	return updatedEntry, nil
 }
 
-func (tc *TenantAwareCache) setWithEncryption(ctx context.Context, key, query string, embedding []float32, results []CachedSearchResult, encryptedData []byte) error {
+func (tc *TenantAwareCache) setWithEncryption(ctx context.Context, key, query string, embedding []float32, results []CachedSearchResult, encryptedData []byte, keyID string) error {
 	entry := &CacheEntry{
 		Query:           query,
 		NormalizedQuery: tc.baseCache.normalizer.Normalize(query),
@@ -355,6 +440,9 @@ func (tc *TenantAwareCache) setWithEncryption(ctx context.Context, key, query st
 	// Add encrypted data to metadata if present
 	if len(encryptedData) > 0 {
 		entry.Metadata["encrypted_data"] = encryptedData
+		if keyID != "" {
+			entry.Metadata["key_id"] = keyID
+		}
 	}
 
 	// Marshal and store
@@ -447,16 +535,96 @@ func (tc *TenantAwareCache) StartLRUEviction(ctx context.Context, vectorStore ev
 // StopLRUEviction stops the LRU eviction process
 func (tc *TenantAwareCache) StopLRUEviction() {
 	if tc.lruManager != nil {
-		tc.lruManager.Stop()
+		_ = tc.lruManager.Stop(context.Background())
 	}
 }
 
 // GetLRUManager returns the LRU manager instance
-func (tc *TenantAwareCache) GetLRUManager() *lru.Manager {
+func (tc *TenantAwareCache) GetLRUManager() LRUManager {
+	if tc.lruManager == nil {
+		return nil
+	}
 	return tc.lruManager
 }
 
 // GetTenantConfig returns the configuration for a specific tenant
 func (tc *TenantAwareCache) GetTenantConfig(ctx context.Context, tenantID uuid.UUID) (*tenant.CacheTenantConfig, error) {
 	return tc.getTenantConfig(ctx, tenantID)
+}
+
+// Encryption helpers
+
+func (tc *TenantAwareCache) encryptWithKey(data []byte, key []byte) ([]byte, error) {
+	// This is a placeholder - in production, use AES-GCM or similar
+	// For now, we'll use a simple XOR for demonstration
+	encrypted := make([]byte, len(data))
+	for i := range data {
+		encrypted[i] = data[i] ^ key[i%len(key)]
+	}
+	return encrypted, nil
+}
+
+func (tc *TenantAwareCache) decryptWithKey(data []byte, key []byte) (string, error) {
+	// This is a placeholder - in production, use AES-GCM or similar
+	// For now, we'll use a simple XOR for demonstration
+	decrypted := make([]byte, len(data))
+	for i := range data {
+		decrypted[i] = data[i] ^ key[i%len(key)]
+	}
+	return string(decrypted), nil
+}
+
+// Clear removes all entries from the cache for the current tenant
+func (tc *TenantAwareCache) Clear(ctx context.Context) error {
+	tenantID := auth.GetTenantID(ctx)
+	if tenantID == uuid.Nil {
+		return ErrNoTenantID
+	}
+
+	return tc.ClearTenant(ctx, tenantID)
+}
+
+// GetBatch retrieves multiple entries from cache
+func (tc *TenantAwareCache) GetBatch(ctx context.Context, queries []string, embeddings [][]float32) ([]*CacheEntry, error) {
+	return tc.baseCache.GetBatch(ctx, queries, embeddings)
+}
+
+// GetStats returns global cache statistics
+func (tc *TenantAwareCache) GetStats() *CacheStats {
+	// Delegate to base cache
+	return tc.baseCache.GetStats()
+}
+
+// Shutdown gracefully shuts down the cache
+func (tc *TenantAwareCache) Shutdown(ctx context.Context) error {
+	tc.logger.Info("Shutting down tenant-aware cache", nil)
+
+	// Shutdown LRU manager if present
+	if tc.lruManager != nil {
+		_ = tc.lruManager.Stop(ctx)
+	}
+
+	// Shutdown base cache
+	return tc.baseCache.Shutdown(ctx)
+}
+
+// GetWithTenant retrieves a cache entry for a specific tenant
+func (tc *TenantAwareCache) GetWithTenant(ctx context.Context, tenantID uuid.UUID, query string, embedding []float32) (*CacheEntry, error) {
+	// Create context with tenant ID
+	tenantCtx := auth.WithTenantID(ctx, tenantID)
+	return tc.Get(tenantCtx, query, embedding)
+}
+
+// SetWithTenant stores a cache entry for a specific tenant
+func (tc *TenantAwareCache) SetWithTenant(ctx context.Context, tenantID uuid.UUID, query string, embedding []float32, results []CachedSearchResult) error {
+	// Create context with tenant ID
+	tenantCtx := auth.WithTenantID(ctx, tenantID)
+	return tc.Set(tenantCtx, query, embedding, results)
+}
+
+// DeleteWithTenant removes a cache entry for a specific tenant
+func (tc *TenantAwareCache) DeleteWithTenant(ctx context.Context, tenantID uuid.UUID, query string) error {
+	// Create context with tenant ID
+	tenantCtx := auth.WithTenantID(ctx, tenantID)
+	return tc.Delete(tenantCtx, query)
 }

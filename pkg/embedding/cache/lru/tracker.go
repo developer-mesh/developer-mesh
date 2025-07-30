@@ -270,3 +270,19 @@ func (t *AsyncTracker) RemoveKeys(ctx context.Context, tenantID uuid.UUID, keys 
 
 	return nil
 }
+
+// GetStats returns tracker statistics
+func (t *AsyncTracker) GetStats() map[string]interface{} {
+	return map[string]interface{}{
+		"buffer_size":    len(t.updates),
+		"batch_size":     t.batchSize,
+		"flush_interval": t.flushInterval.String(),
+		"total_tracked":  0, // TODO: Add counter
+	}
+}
+
+// Run starts the tracker background process
+func (t *AsyncTracker) Run(ctx context.Context) {
+	// Already started in NewAsyncTracker
+	// This method exists for interface compatibility
+}

@@ -5,11 +5,21 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 
 	"github.com/developer-mesh/developer-mesh/pkg/embedding/cache/eviction"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
+
+// LRUStats represents LRU manager statistics
+type LRUStats struct {
+	TotalKeys        int64         `json:"total_keys"`
+	TotalBytes       int64         `json:"total_bytes"`
+	EvictionCount    int64         `json:"eviction_count"`
+	LastEviction     time.Time     `json:"last_eviction"`
+	AverageAccessAge time.Duration `json:"average_access_age"`
+}
 
 // Manager handles LRU eviction for tenant cache entries
 type Manager struct {
@@ -101,17 +111,111 @@ func NewManager(redis RedisClient, config *Config, prefix string, logger observa
 }
 
 // TrackAccess records cache access for LRU tracking
-func (m *Manager) TrackAccess(ctx context.Context, tenantID uuid.UUID, key string) {
+func (m *Manager) TrackAccess(tenantID uuid.UUID, key string) {
 	m.tracker.Track(tenantID, key)
 }
 
+// GetAccessScore returns the access score for a cache key
+func (m *Manager) GetAccessScore(ctx context.Context, tenantID uuid.UUID, key string) (float64, error) {
+	scoreKey := m.getScoreKey(tenantID)
+
+	score, err := m.redis.GetClient().ZScore(ctx, scoreKey, key).Result()
+	if err != nil {
+		if err == redis.Nil {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("failed to get access score: %w", err)
+	}
+
+	return score, nil
+}
+
+// GetLRUKeys returns the least recently used keys for a tenant
+func (m *Manager) GetLRUKeys(ctx context.Context, tenantID uuid.UUID, limit int) ([]string, error) {
+	scoreKey := m.getScoreKey(tenantID)
+
+	// Get keys with lowest scores (oldest access times)
+	results, err := m.redis.GetClient().ZRangeWithScores(ctx, scoreKey, 0, int64(limit-1)).Result()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get LRU keys: %w", err)
+	}
+
+	keys := make([]string, 0, len(results))
+	for _, result := range results {
+		keys = append(keys, result.Member.(string))
+	}
+
+	return keys, nil
+}
+
+// GetStats returns global LRU manager statistics
+func (m *Manager) GetStats() map[string]interface{} {
+	// Get tracker stats
+	trackerStats := m.tracker.GetStats()
+
+	return map[string]interface{}{
+		"config": map[string]interface{}{
+			"max_global_entries": m.config.MaxGlobalEntries,
+			"max_global_bytes":   m.config.MaxGlobalBytes,
+			"eviction_interval":  m.config.EvictionInterval.String(),
+		},
+		"tracker":  trackerStats,
+		"policies": len(m.policies),
+	}
+}
+
+// GetTenantStats returns LRU statistics for a specific tenant
+func (m *Manager) GetTenantStats(ctx context.Context, tenantID uuid.UUID) (*LRUStats, error) {
+	scoreKey := m.getScoreKey(tenantID)
+
+	// Get total keys
+	totalKeys, err := m.redis.GetClient().ZCard(ctx, scoreKey).Result()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get key count: %w", err)
+	}
+
+	// Get average access age
+	now := time.Now()
+	oldestScore, err := m.redis.GetClient().ZRangeWithScores(ctx, scoreKey, 0, 0).Result()
+	var avgAge time.Duration
+	if err == nil && len(oldestScore) > 0 {
+		oldestTime := time.Unix(0, int64(oldestScore[0].Score))
+		avgAge = now.Sub(oldestTime)
+	}
+
+	return &LRUStats{
+		TotalKeys:        totalKeys,
+		TotalBytes:       totalKeys * 1024, // Estimate
+		EvictionCount:    0,                // TODO: Track this
+		LastEviction:     time.Time{},      // TODO: Track this
+		AverageAccessAge: avgAge,
+	}, nil
+}
+
+// Start starts the LRU manager background processes
+func (m *Manager) Start(ctx context.Context) error {
+	// Start async tracker
+	go m.tracker.Run(ctx)
+
+	// Start eviction process
+	go m.Run(ctx, nil)
+
+	return nil
+}
+
 // EvictForTenant performs LRU eviction for a specific tenant
-func (m *Manager) EvictForTenant(ctx context.Context, tenantID uuid.UUID, targetCount int) error {
+func (m *Manager) EvictForTenant(ctx context.Context, tenantID uuid.UUID, targetBytes int64) error {
 	ctx, span := observability.StartSpan(ctx, "lru.evict_for_tenant")
 	defer span.End()
 
 	pattern := fmt.Sprintf("%s:{%s}:q:*", m.prefix, tenantID.String())
 	scoreKey := m.getScoreKey(tenantID)
+
+	// Convert target bytes to entry count (estimate 1KB per entry)
+	targetCount := int(targetBytes / 1024)
+	if targetCount <= 0 {
+		targetCount = 1
+	}
 
 	// Get current count
 	currentCount, err := m.getKeyCount(ctx, pattern)
@@ -218,8 +322,85 @@ func (m *Manager) EvictTenantEntries(ctx context.Context, tenantID uuid.UUID, ve
 	// Get target count from policy
 	targetCount := policy.GetEvictionTarget(ctx, tenantID, policyStats)
 
-	// Perform eviction
-	return m.EvictForTenant(ctx, tenantID, targetCount)
+	// Perform eviction (convert count to bytes estimate)
+	return m.EvictForTenant(ctx, tenantID, int64(targetCount)*1024)
+}
+
+// EvictGlobal performs global LRU eviction across all tenants
+func (m *Manager) EvictGlobal(ctx context.Context, targetBytes int64) error {
+	ctx, span := observability.StartSpan(ctx, "lru.evict_global")
+	defer span.End()
+
+	// Convert target bytes to entry count (estimate 1KB per entry)
+	targetCount := int(targetBytes / 1024)
+	if targetCount <= 0 {
+		targetCount = 1
+	}
+
+	// Get all tenant IDs
+	tenantPattern := fmt.Sprintf("%s:{*}:q:*", m.prefix)
+	currentCount, err := m.getKeyCount(ctx, tenantPattern)
+	if err != nil {
+		return fmt.Errorf("failed to get global key count: %w", err)
+	}
+
+	if currentCount <= targetCount {
+		return nil // No eviction needed
+	}
+
+	toEvict := currentCount - targetCount
+
+	// Get global LRU candidates
+	globalScoreKey := fmt.Sprintf("%s:global:lru_scores", m.prefix)
+	candidates, err := m.getLRUCandidates(ctx, globalScoreKey, toEvict)
+	if err != nil {
+		return fmt.Errorf("failed to get global LRU candidates: %w", err)
+	}
+
+	// Batch delete
+	evicted := 0
+	for i := 0; i < len(candidates); i += m.config.EvictionBatchSize {
+		batch := candidates[i:min(i+m.config.EvictionBatchSize, len(candidates))]
+
+		_, err := m.redis.Execute(ctx, func() (interface{}, error) {
+			pipe := m.redis.GetClient().Pipeline()
+
+			// Delete cache entries
+			for _, key := range batch {
+				pipe.Del(ctx, key)
+			}
+
+			// Remove from global score set
+			pipe.ZRem(ctx, globalScoreKey, batch)
+
+			_, execErr := pipe.Exec(ctx)
+			return nil, execErr
+		})
+
+		if err != nil {
+			m.logger.Error("Failed to evict batch", map[string]interface{}{
+				"error":      err.Error(),
+				"batch_size": len(batch),
+			})
+			continue
+		}
+
+		evicted += len(batch)
+	}
+
+	// Record metrics
+	if m.metrics != nil {
+		m.metrics.IncrementCounterWithLabels("cache.eviction.global", float64(evicted), map[string]string{
+			"type": "lru",
+		})
+	}
+
+	m.logger.Info("Global eviction completed", map[string]interface{}{
+		"evicted":      evicted,
+		"target_count": targetCount,
+	})
+
+	return nil
 }
 
 // Run starts the background eviction process
@@ -240,8 +421,9 @@ func (m *Manager) Run(ctx context.Context, vectorStore eviction.VectorStore) {
 }
 
 // Stop gracefully stops the LRU manager
-func (m *Manager) Stop() {
+func (m *Manager) Stop(ctx context.Context) error {
 	m.tracker.Stop()
+	return nil
 }
 
 func (m *Manager) runEvictionCycle(ctx context.Context, vectorStore eviction.VectorStore) {
