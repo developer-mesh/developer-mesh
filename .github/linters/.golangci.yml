@@ -3,6 +3,7 @@ run:
   modules-download-mode: readonly
   go: '1.24.4'
   skip-dirs:
+    - .claude
     - vendor
     - third_party
     - testdata
@@ -104,6 +105,8 @@ linters-settings:
       - name: unreachable-code
 
 issues:
+  exclude-dirs:
+    - .claude
   exclude-rules:
     - path: _test\.go
       linters:

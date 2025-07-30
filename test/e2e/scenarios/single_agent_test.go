@@ -271,17 +271,17 @@ var _ = Describe("Single Agent E2E Tests", func() {
 				if githubToken == "" {
 					githubToken = os.Getenv("E2E_GITHUB_TOKEN")
 				}
-				
+
 				var credentials map[string]interface{}
 				authType := "none"
-				
+
 				if githubToken != "" {
 					authType = "token"
 					credentials = map[string]interface{}{
 						"token": githubToken,
 					}
 				}
-				
+
 				regResp, err := devopsAgent.ExecuteMethod(ctx, "tool.register_dynamic", map[string]interface{}{
 					"name":        "github",
 					"base_url":    "https://api.github.com",
