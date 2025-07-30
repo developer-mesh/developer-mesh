@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/developer-mesh/developer-mesh/test/e2e/agent"
-	"github.com/developer-mesh/developer-mesh/test/e2e/data"
 	"github.com/developer-mesh/developer-mesh/test/e2e/reporting"
 	"github.com/developer-mesh/developer-mesh/test/e2e/utils"
 
@@ -21,17 +20,13 @@ var _ = Describe("Dynamic Tools E2E Tests", func() {
 	var (
 		config    *utils.Config
 		reporter  *reporting.StreamingReporter
-		testData  *data.TestData
 		isolation *utils.TestIsolation
-		logger    *utils.TestLogger
 	)
 
 	BeforeEach(func() {
 		config = utils.LoadConfig()
 		reporter = reporting.NewStreamingReporter(config.ReportDir, []string{"json", "html", "junit"})
-		testData = data.DefaultTestData()
 		isolation = utils.NewTestIsolation()
-		logger = utils.NewTestLogger("dynamic-tools", config.EnableDebug)
 
 		reporter.StartSuite("Dynamic Tools Tests")
 	})

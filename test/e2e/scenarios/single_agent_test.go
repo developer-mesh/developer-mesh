@@ -3,6 +3,7 @@ package scenarios
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -265,14 +266,28 @@ var _ = Describe("Single Agent E2E Tests", func() {
 			if !githubAvailable {
 				// If GitHub tool is not available, try to register it dynamically
 				// This assumes GitHub API is available with OpenAPI spec
+				// Check if GitHub token is available in environment
+				githubToken := os.Getenv("GITHUB_TOKEN")
+				if githubToken == "" {
+					githubToken = os.Getenv("E2E_GITHUB_TOKEN")
+				}
+				
+				var credentials map[string]interface{}
+				authType := "none"
+				
+				if githubToken != "" {
+					authType = "token"
+					credentials = map[string]interface{}{
+						"token": githubToken,
+					}
+				}
+				
 				regResp, err := devopsAgent.ExecuteMethod(ctx, "tool.register_dynamic", map[string]interface{}{
 					"name":        "github",
 					"base_url":    "https://api.github.com",
 					"openapi_url": "https://api.github.com/openapi.json", // This might not exist
-					"auth_type":   "token",
-					"credentials": map[string]interface{}{
-						"token": config.GitHubToken, // Assuming config has GitHub token
-					},
+					"auth_type":   authType,
+					"credentials": credentials,
 				})
 
 				if err != nil || regResp.Error != nil {
