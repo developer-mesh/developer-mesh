@@ -69,7 +69,7 @@ jobs:
 
       - name: Run golangci-lint
         run: |
-          golangci-lint run --timeout=10m ./...
+          golangci-lint run --timeout=10m ./apps/... ./pkg/... ./scripts/...
 
       - name: Run tests
         run: |
