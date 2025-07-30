@@ -19,3 +19,4 @@ issues:
     - .claude
     - vendor
     - .git
+    - test/integration

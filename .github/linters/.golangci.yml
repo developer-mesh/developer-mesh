@@ -104,6 +104,7 @@ issues:
     - build
     - dist
     - node_modules
+    - test/integration
   exclude-rules:
     - path: _test\.go
       linters:
