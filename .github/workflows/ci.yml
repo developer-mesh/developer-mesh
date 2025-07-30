@@ -73,7 +73,12 @@ jobs:
 
       - name: Run go vet
         run: |
-          go vet ./...
+          # Run go vet for each module in the workspace
+          cd apps/mcp-server && go vet ./... && cd ../..
+          cd apps/rest-api && go vet ./... && cd ../..
+          cd apps/worker && go vet ./... && cd ../..
+          cd apps/mockserver && go vet ./... && cd ../..
+          cd pkg && go vet ./... && cd ..
 
       - name: Run golangci-lint
         run: |
