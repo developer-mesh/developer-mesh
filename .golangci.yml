@@ -1,11 +1,10 @@
-version: "2"
+# This file configures golangci-lint
+# Run with: golangci-lint run
+
+version: '2'
 
 run:
   timeout: 5m
-  skip-dirs:
-    - .claude
-    - vendor
-    - .git
 
 linters:
   enable:
@@ -19,3 +18,4 @@ issues:
   exclude-dirs:
     - .claude
     - vendor
+    - .git

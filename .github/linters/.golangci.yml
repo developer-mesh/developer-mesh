@@ -1,18 +1,6 @@
 run:
   timeout: 10m
   modules-download-mode: readonly
-  go: '1.24.4'
-  skip-dirs:
-    - .claude
-    - vendor
-    - third_party
-    - testdata
-    - examples
-    - mocks
-    - .git
-    - build
-    - dist
-    - node_modules
 
 linters:
   enable:
@@ -107,6 +95,15 @@ linters-settings:
 issues:
   exclude-dirs:
     - .claude
+    - vendor
+    - third_party
+    - testdata
+    - examples
+    - mocks
+    - .git
+    - build
+    - dist
+    - node_modules
   exclude-rules:
     - path: _test\.go
       linters:
