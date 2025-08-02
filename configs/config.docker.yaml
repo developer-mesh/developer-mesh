@@ -126,6 +126,20 @@ storage:
     force_path_style: false
     disable_ssl: false
 
+# Embedding Configuration for Docker
+embedding:
+  providers:
+    openai:
+      enabled: ${OPENAI_ENABLED:-false}
+      api_key: "${OPENAI_API_KEY}"
+    bedrock:
+      enabled: ${BEDROCK_ENABLED:-true}
+      region: "${AWS_REGION:-us-east-1}"
+      endpoint: "${BEDROCK_ENDPOINT:-}"
+    google:
+      enabled: ${GOOGLE_AI_ENABLED:-false}
+      api_key: "${GOOGLE_AI_API_KEY}"
+
 # Monitoring Configuration
 monitoring:
   logging:
