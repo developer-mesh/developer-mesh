@@ -51,6 +51,9 @@ type Config struct {
 	AutoMigrate          bool
 	MigrationsPath       string
 	FailOnMigrationError bool
+
+	// Schema settings
+	SearchPath string
 }
 
 // NewConfig creates config with sensible defaults

@@ -88,7 +88,7 @@ services:
     volumes:
       - ./configs:/app/configs:ro
       - ./apps/mcp-server/configs:/app/server-configs:ro
-      - ./migrations/sql:/app/migrations:ro
+      - ./apps/rest-api/migrations:/app/migrations:ro
     depends_on:
       database:
         condition: service_healthy
@@ -183,7 +183,7 @@ services:
     volumes:
       - ./configs:/app/configs:ro
       - ./apps/rest-api/configs:/app/api-configs:ro
-      - ./migrations/sql:/app/migrations:ro
+      - ./apps/rest-api/migrations:/app/migrations:ro
     depends_on:
       database:
         condition: service_healthy
@@ -209,6 +209,7 @@ services:
       - DATABASE_USER=dev
       - DATABASE_PASSWORD=dev
       - DATABASE_DSN=postgresql://dev:dev@database:5432/dev?sslmode=disable&search_path=mcp,public
+      - DATABASE_SEARCH_PATH=mcp,public
       # Redis (using service names)
       - REDIS_HOST=redis
       - REDIS_PORT=6379

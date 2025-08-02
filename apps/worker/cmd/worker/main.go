@@ -155,12 +155,13 @@ func runWorker(ctx context.Context) error {
 	}
 
 	dbConfig := database.Config{
-		Host:     os.Getenv("DATABASE_HOST"),
-		Port:     dbPort,
-		Database: os.Getenv("DATABASE_NAME"),
-		Username: os.Getenv("DATABASE_USER"),
-		Password: os.Getenv("DATABASE_PASSWORD"),
-		SSLMode:  os.Getenv("DATABASE_SSL_MODE"),
+		Host:       os.Getenv("DATABASE_HOST"),
+		Port:       dbPort,
+		Database:   os.Getenv("DATABASE_NAME"),
+		Username:   os.Getenv("DATABASE_USER"),
+		Password:   os.Getenv("DATABASE_PASSWORD"),
+		SSLMode:    os.Getenv("DATABASE_SSL_MODE"),
+		SearchPath: os.Getenv("DATABASE_SEARCH_PATH"),
 	}
 
 	if dbConfig.Host == "" {
@@ -168,6 +169,9 @@ func runWorker(ctx context.Context) error {
 	}
 	if dbConfig.SSLMode == "" {
 		dbConfig.SSLMode = "disable"
+	}
+	if dbConfig.SearchPath == "" {
+		dbConfig.SearchPath = "mcp,public"
 	}
 
 	db, err := database.NewDatabase(ctx, dbConfig)

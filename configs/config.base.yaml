@@ -124,6 +124,7 @@ auth:
 # Database Configuration
 database:
   driver: "postgres"
+  search_path: "mcp,public"
   max_open_conns: 25
   max_idle_conns: 5
   conn_max_lifetime: 30m

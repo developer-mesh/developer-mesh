@@ -2,7 +2,6 @@ package database
 
 import (
 	"context"
-	"fmt"
 	"log"
 )
 
@@ -10,21 +9,9 @@ import (
 func (db *Database) InitializeTables(ctx context.Context) error {
 	log.Println("Initializing database tables...")
 
-	// Ensure context tables
-	if err := db.ensureContextTables(ctx); err != nil {
-		return fmt.Errorf("failed to initialize context tables: %w", err)
-	}
-
-	// Ensure GitHub content tables
-	if err := db.ensureGitHubContentTables(ctx); err != nil {
-		return fmt.Errorf("failed to initialize GitHub content tables: %w", err)
-	}
-
-	// Ensure entity relationship tables
-	if err := db.EnsureRelationshipTables(ctx); err != nil {
-		return fmt.Errorf("failed to initialize entity relationship tables: %w", err)
-	}
-
-	log.Println("Database tables initialized successfully")
+	// Skip table creation - tables are created by migrations
+	// The previous implementation had hardcoded table definitions that didn't match our schema
+	
+	log.Println("Database tables initialized successfully (using migrations)")
 	return nil
 }

@@ -130,6 +130,7 @@ func main() {
 		Username:        cfg.Database.Username,
 		Password:        cfg.Database.Password,
 		SSLMode:         cfg.Database.SSLMode,
+		SearchPath:      cfg.Database.SearchPath,
 		MaxOpenConns:    cfg.Database.MaxOpenConns,
 		MaxIdleConns:    cfg.Database.MaxIdleConns,
 		ConnMaxLifetime: cfg.Database.ConnMaxLifetime,

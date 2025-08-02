@@ -274,7 +274,7 @@ ps: ## Show running Docker services
 
 .PHONY: db-shell
 db-shell: ## Open PostgreSQL shell
-	psql "postgresql://${DATABASE_USER:-postgres}:${DATABASE_PASSWORD:-postgres}@${DATABASE_HOST:-localhost}:${DATABASE_PORT:-5432}/${DATABASE_NAME:-devops_mcp_dev}?sslmode=${DATABASE_SSL_MODE:-disable}"
+	psql "postgresql://${DATABASE_USER:-dev}:${DATABASE_PASSWORD:-dev}@${DATABASE_HOST:-localhost}:${DATABASE_PORT:-5432}/${DATABASE_NAME:-dev}?sslmode=${DATABASE_SSL_MODE:-disable}"
 
 .PHONY: migrate-create
 migrate-create: ## Create new migration (name=migration_name)
@@ -284,23 +284,30 @@ migrate-create: ## Create new migration (name=migration_name)
 .PHONY: migrate-up
 migrate-up: ## Run all pending migrations
 	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
-	migrate -database "postgresql://${DATABASE_USER:-postgres}:${DATABASE_PASSWORD:-postgres}@${DATABASE_HOST:-localhost}:${DATABASE_PORT:-5432}/${DATABASE_NAME:-devops_mcp_dev}?sslmode=${DATABASE_SSL_MODE:-disable}" -path migrations up
+	migrate -database "postgresql://${DATABASE_USER:-dev}:${DATABASE_PASSWORD:-dev}@${DATABASE_HOST:-localhost}:${DATABASE_PORT:-5432}/${DATABASE_NAME:-dev}?sslmode=${DATABASE_SSL_MODE:-disable}" -path apps/rest-api/migrations/sql up
+
+.PHONY: migrate-up-docker
+migrate-up-docker: ## Run migrations for Docker environment
+	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
+	migrate -database "postgresql://dev:dev@localhost:5432/dev?sslmode=disable" -path apps/rest-api/migrations/sql up
 
 .PHONY: migrate-down
 migrate-down: ## Rollback last migration
 	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
-	migrate -database "postgresql://${DATABASE_USER:-postgres}:${DATABASE_PASSWORD:-postgres}@${DATABASE_HOST:-localhost}:${DATABASE_PORT:-5432}/${DATABASE_NAME:-devops_mcp_dev}?sslmode=${DATABASE_SSL_MODE:-disable}" -path migrations down 1
+	migrate -database "postgresql://${DATABASE_USER:-dev}:${DATABASE_PASSWORD:-dev}@${DATABASE_HOST:-localhost}:${DATABASE_PORT:-5432}/${DATABASE_NAME:-dev}?sslmode=${DATABASE_SSL_MODE:-disable}" -path apps/rest-api/migrations/sql down 1
 
 .PHONY: migrate-status
 migrate-status: ## Show migration status
 	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
-	migrate -database "postgresql://${DATABASE_USER:-postgres}:${DATABASE_PASSWORD:-postgres}@${DATABASE_HOST:-localhost}:${DATABASE_PORT:-5432}/${DATABASE_NAME:-devops_mcp_dev}?sslmode=${DATABASE_SSL_MODE:-disable}" -path migrations version
+	migrate -database "postgresql://${DATABASE_USER:-dev}:${DATABASE_PASSWORD:-dev}@${DATABASE_HOST:-localhost}:${DATABASE_PORT:-5432}/${DATABASE_NAME:-dev}?sslmode=${DATABASE_SSL_MODE:-disable}" -path apps/rest-api/migrations/sql version
 # ==============================================================================
 # Development Helpers
 # ==============================================================================
 
 # Include .env file if it exists
 -include .env
+# Include .env.local if it exists (overrides .env)
+-include .env.local
 export
 
 .PHONY: run-mcp-server
@@ -510,7 +517,7 @@ wait-for-healthy: ## Wait for all services to become healthy (TIMEOUT=60)
 		ELAPSED=$$((ELAPSED + 1)); \
 	done; \
 	echo "❌ Services failed to become healthy after $${TIMEOUT}s"; \
-	$(MAKE) validate-services; \
+	$(MAKE) health; \
 	exit 1
 
 # ==============================================================================
@@ -780,7 +787,7 @@ reset-test-data: ## Reset test data to clean state
 # ==============================================================================
 
 .PHONY: local-docker
-local-docker: env-local docker-clean wait-for-healthy seed-test-data test-e2e-setup ## Complete local Docker setup with E2E tests
+local-docker: docker-clean wait-for-healthy migrate-up-docker seed-test-data test-e2e-setup ## Complete local Docker setup with E2E tests
 	@echo ""
 	@echo "🚀 Local Docker environment ready!"
 	@echo "================================="

@@ -114,6 +114,23 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 		rdsClient:  rdsClient,
 	}
 
+	// Set search_path if configured
+	log.Printf("Database config SearchPath: '%s'", cfg.SearchPath)
+	if cfg.SearchPath != "" {
+		if _, err := db.ExecContext(ctx, fmt.Sprintf("SET search_path TO %s", cfg.SearchPath)); err != nil {
+			log.Printf("Warning: Failed to set search_path to %s: %v", cfg.SearchPath, err)
+		} else {
+			log.Printf("Set search_path to: %s", cfg.SearchPath)
+		}
+	} else {
+		// Default search path
+		if _, err := db.ExecContext(ctx, "SET search_path TO mcp,public"); err != nil {
+			log.Printf("Warning: Failed to set default search_path: %v", err)
+		} else {
+			log.Printf("Set default search_path to: mcp,public")
+		}
+	}
+
 	// Check current search_path
 	var searchPath string
 	if err := db.QueryRowContext(ctx, "SHOW search_path").Scan(&searchPath); err == nil {
@@ -165,14 +182,14 @@ func (d *Database) prepareStatements(ctx context.Context) error {
 	// This is a placeholder implementation - add actual statements as needed
 	queries := map[string]string{
 		"get_event":                 "SELECT * FROM mcp.events WHERE id = $1",
-		"insert_event":              "INSERT INTO mcp.events (source, type, data, timestamp) VALUES ($1, $2, $3, $4) RETURNING id",
+		"insert_event":              "INSERT INTO mcp.events (tenant_id, aggregate_id, aggregate_type, event_type, event_data, source, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
 		"get_context":               "SELECT * FROM mcp.contexts WHERE id = $1",
-		"insert_context":            "INSERT INTO mcp.contexts (id, agent_id, model_id, session_id, current_tokens, max_tokens, metadata, created_at, updated_at, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
-		"update_context":            "UPDATE mcp.contexts SET agent_id = $1, model_id = $2, session_id = $3, current_tokens = $4, max_tokens = $5, metadata = $6, updated_at = $7, expires_at = $8 WHERE id = $9",
+		"insert_context":            "INSERT INTO mcp.contexts (id, tenant_id, agent_id, model_id, type, status, metadata, token_count, max_tokens, created_at, updated_at, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
+		"update_context":            "UPDATE mcp.contexts SET agent_id = $1, model_id = $2, type = $3, status = $4, metadata = $5, token_count = $6, max_tokens = $7, updated_at = $8, expires_at = $9 WHERE id = $10",
 		"delete_context":            "DELETE FROM mcp.contexts WHERE id = $1",
 		"list_contexts":             "SELECT * FROM mcp.contexts WHERE agent_id = $1 ORDER BY updated_at DESC",
-		"get_context_items":         "SELECT * FROM mcp.context_items WHERE context_id = $1 ORDER BY timestamp",
-		"insert_context_item":       "INSERT INTO mcp.context_items (id, context_id, role, content, tokens, timestamp, metadata) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+		"get_context_items":         "SELECT * FROM mcp.context_items WHERE context_id = $1 ORDER BY sequence_number",
+		"insert_context_item":       "INSERT INTO mcp.context_items (id, context_id, type, role, content, token_count, sequence_number, metadata, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
 		"check_context_item_exists": "SELECT EXISTS(SELECT 1 FROM mcp.context_items WHERE id = $1)",
 		"get_integration":           "SELECT * FROM mcp.integrations WHERE id = $1",
 	}

@@ -374,6 +374,7 @@ func initializeDatabase(ctx context.Context, cfg *commonconfig.Config, logger ob
 		Username:        cfg.Database.Username,
 		Password:        cfg.Database.Password,
 		SSLMode:         cfg.Database.SSLMode,
+		SearchPath:      cfg.Database.SearchPath,
 		UseAWS:          cfg.Database.UseIAMAuth,
 		UseIAM:          cfg.Database.UseIAMAuth,
 		MaxOpenConns:    25,               // Maintain a healthy connection pool
