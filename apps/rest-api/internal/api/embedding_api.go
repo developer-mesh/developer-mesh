@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/developer-mesh/developer-mesh/pkg/agents"
+	"github.com/developer-mesh/developer-mesh/pkg/common/util"
 	"github.com/developer-mesh/developer-mesh/pkg/embedding"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/gin-gonic/gin"
@@ -80,8 +81,8 @@ func (api *EmbeddingAPI) generateEmbedding(c *gin.Context) {
 	}
 
 	// Inject tenant ID from auth context
-	if tenantID, exists := c.Get("tenant_id"); exists {
-		req.TenantID = tenantID.(uuid.UUID)
+	if tenantID, err := util.GetTenantIDFromGinContext(c); err == nil {
+		req.TenantID = tenantID
 	}
 
 	// Default task type if not specified
@@ -132,10 +133,9 @@ func (api *EmbeddingAPI) batchGenerateEmbeddings(c *gin.Context) {
 	}
 
 	// Inject tenant ID for all requests
-	if tenantID, exists := c.Get("tenant_id"); exists {
-		tid := tenantID.(uuid.UUID)
+	if tenantID, err := util.GetTenantIDFromGinContext(c); err == nil {
 		for i := range reqs {
-			reqs[i].TenantID = tid
+			reqs[i].TenantID = tenantID
 			if reqs[i].TaskType == "" {
 				reqs[i].TaskType = agents.TaskTypeGeneralQA
 			}
@@ -190,8 +190,8 @@ func (api *EmbeddingAPI) searchEmbeddings(c *gin.Context) {
 
 	// Inject tenant ID from auth context if not provided
 	if req.TenantID == uuid.Nil {
-		if tenantID, exists := c.Get("tenant_id"); exists {
-			req.TenantID = tenantID.(uuid.UUID)
+		if tenantID, err := util.GetTenantIDFromGinContext(c); err == nil {
+			req.TenantID = tenantID
 		}
 	}
 

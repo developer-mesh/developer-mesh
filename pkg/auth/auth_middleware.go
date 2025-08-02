@@ -73,8 +73,8 @@ func (m *AuthMiddleware) ValidateAPIKeyWithMetrics(ctx context.Context, apiKey s
 		IPAddress: ipAddress,
 	}
 	if user != nil {
-		auditEvent.UserID = user.ID
-		auditEvent.TenantID = user.TenantID
+		auditEvent.UserID = user.ID.String()
+		auditEvent.TenantID = user.TenantID.String()
 	}
 	if err != nil {
 		auditEvent.Error = err.Error()
@@ -122,8 +122,8 @@ func (m *AuthMiddleware) ValidateJWTWithMetrics(ctx context.Context, tokenString
 		IPAddress: ipAddress,
 	}
 	if user != nil {
-		auditEvent.UserID = user.ID
-		auditEvent.TenantID = user.TenantID
+		auditEvent.UserID = user.ID.String()
+		auditEvent.TenantID = user.TenantID.String()
 	}
 	if err != nil {
 		auditEvent.Error = err.Error()

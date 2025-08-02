@@ -16,6 +16,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
@@ -41,11 +42,17 @@ const (
 	TypeNone   Type = "none"
 )
 
+// Default UUIDs for system entities
+var (
+	DefaultTenantID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	SystemUserID    = uuid.MustParse("00000000-0000-0000-0000-000000000000")
+)
+
 // Claims represents JWT claims
 type Claims struct {
 	jwt.RegisteredClaims
-	UserID   string   `json:"user_id"`
-	TenantID string   `json:"tenant_id"`
+	UserID   string   `json:"user_id"`   // Keep as string for JWT compatibility
+	TenantID string   `json:"tenant_id"` // Keep as string for JWT compatibility
 	Scopes   []string `json:"scopes,omitempty"`
 	Email    string   `json:"email,omitempty"`
 }
@@ -55,8 +62,8 @@ type APIKey struct {
 	Key       string     `db:"key"`
 	KeyHash   string     `db:"key_hash"`
 	KeyPrefix string     `db:"key_prefix"`
-	TenantID  string     `db:"tenant_id"`
-	UserID    string     `db:"user_id"`
+	TenantID  uuid.UUID  `db:"tenant_id"`
+	UserID    uuid.UUID  `db:"user_id"`
 	Name      string     `db:"name"`
 	KeyType   KeyType    `db:"key_type"` // NEW
 	Scopes    []string   `db:"scopes"`
@@ -76,8 +83,8 @@ type APIKey struct {
 
 // User represents an authenticated user
 type User struct {
-	ID       string                 `json:"id"`
-	TenantID string                 `json:"tenant_id"`
+	ID       uuid.UUID              `json:"id"`
+	TenantID uuid.UUID              `json:"tenant_id"`
 	Email    string                 `json:"email,omitempty"`
 	Scopes   []string               `json:"scopes,omitempty"`
 	AuthType Type                   `json:"auth_type"`
@@ -263,14 +270,23 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 		}
 
 		// Build user object
-		userID := ""
-		if dbKey.UserID.Valid {
-			userID = dbKey.UserID.String
+		var userUUID uuid.UUID
+		if dbKey.UserID.Valid && dbKey.UserID.String != "" {
+			userUUID, _ = uuid.Parse(dbKey.UserID.String)
+		}
+
+		tenantUUID, err := uuid.Parse(dbKey.TenantID)
+		if err != nil {
+			s.logError("Invalid tenant ID in database", map[string]interface{}{
+				"tenant_id": dbKey.TenantID,
+				"error":     err.Error(),
+			})
+			return nil, ErrInvalidAPIKey
 		}
 
 		user := &User{
-			ID:       userID,
-			TenantID: dbKey.TenantID,
+			ID:       userUUID,
+			TenantID: tenantUUID,
 			Scopes:   []string(dbKey.Scopes),
 			AuthType: TypeAPIKey,
 			Metadata: map[string]interface{}{
@@ -404,14 +420,27 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 		}
 
 		// Default user ID if not set - use a system user UUID
-		userID := "00000000-0000-0000-0000-000000000000" // System user UUID
-		if dbKey.UserID != nil {
-			userID = *dbKey.UserID
+		var userUUID uuid.UUID = SystemUserID
+		if dbKey.UserID != nil && *dbKey.UserID != "" {
+			var err error
+			userUUID, err = uuid.Parse(*dbKey.UserID)
+			if err != nil {
+				userUUID = SystemUserID
+			}
+		}
+
+		tenantUUID, err := uuid.Parse(dbKey.TenantID)
+		if err != nil {
+			s.logError("Invalid tenant ID in database", map[string]interface{}{
+				"tenant_id": dbKey.TenantID,
+				"error":     err.Error(),
+			})
+			return nil, ErrInvalidAPIKey
 		}
 
 		user := &User{
-			ID:       userID,
-			TenantID: dbKey.TenantID,
+			ID:       userUUID,
+			TenantID: tenantUUID,
 			Scopes:   dbKey.Scopes,
 			AuthType: TypeAPIKey,
 			Metadata: map[string]interface{}{
@@ -485,10 +514,10 @@ func (s *Service) storeAPIKeyInDB(rawKey string, apiKey *APIKey) error {
 		)
 	`
 
-	// Handle user_id - use NULL if it's "system" or empty
+	// Handle user_id - use NULL if it's the system user
 	var userID sql.NullString
-	if apiKey.UserID != "" && apiKey.UserID != "system" {
-		userID = sql.NullString{String: apiKey.UserID, Valid: true}
+	if apiKey.UserID != SystemUserID && apiKey.UserID != uuid.Nil {
+		userID = sql.NullString{String: apiKey.UserID.String(), Valid: true}
 	}
 
 	_, err := s.db.Exec(insertQuery,
@@ -528,10 +557,21 @@ func (s *Service) ValidateJWT(ctx context.Context, tokenString string) (*User, e
 		return nil, ErrTokenExpired
 	}
 
+	// Parse UUIDs from JWT claims
+	userID, err := uuid.Parse(claims.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid user ID in JWT: %w", err)
+	}
+
+	tenantID, err := uuid.Parse(claims.TenantID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid tenant ID in JWT: %w", err)
+	}
+
 	// Create user from claims
 	user := &User{
-		ID:       claims.UserID,
-		TenantID: claims.TenantID,
+		ID:       userID,
+		TenantID: tenantID,
 		Email:    claims.Email,
 		Scopes:   claims.Scopes,
 		AuthType: TypeJWT,
@@ -554,8 +594,8 @@ func (s *Service) GenerateJWT(ctx context.Context, user *User) (string, error) {
 			NotBefore: jwt.NewNumericDate(now),
 			ID:        generateID(), // You would implement this
 		},
-		UserID:   user.ID,
-		TenantID: user.TenantID,
+		UserID:   user.ID.String(),
+		TenantID: user.TenantID.String(),
 		Email:    user.Email,
 		Scopes:   user.Scopes,
 	}
@@ -565,7 +605,7 @@ func (s *Service) GenerateJWT(ctx context.Context, user *User) (string, error) {
 }
 
 // CreateAPIKey creates a new API key
-func (s *Service) CreateAPIKey(ctx context.Context, tenantID, userID, name string, scopes []string, expiresAt *time.Time) (*APIKey, error) {
+func (s *Service) CreateAPIKey(ctx context.Context, tenantID, userID uuid.UUID, name string, scopes []string, expiresAt *time.Time) (*APIKey, error) {
 	// Generate a secure random key
 	keyStr := generateAPIKey() // You would implement this
 
@@ -700,8 +740,8 @@ func (s *Service) InitializeDefaultAPIKeys(keys map[string]string) {
 
 		s.apiKeys[key] = &APIKey{
 			Key:       key,
-			TenantID:  "default",
-			UserID:    "system",
+			TenantID:  DefaultTenantID,
+			UserID:    SystemUserID,
 			Name:      fmt.Sprintf("Default %s key", role),
 			Scopes:    scopes,
 			CreatedAt: time.Now(),
@@ -741,8 +781,8 @@ func (s *Service) InitializeAPIKeysWithConfig(keysConfig map[string]interface{})
 
 			apiKey = &APIKey{
 				Key:       key,
-				TenantID:  "default",
-				UserID:    "system",
+				TenantID:  DefaultTenantID,
+				UserID:    SystemUserID,
 				Name:      fmt.Sprintf("Default %s key", v),
 				Scopes:    scopes,
 				CreatedAt: time.Now(),
@@ -752,9 +792,20 @@ func (s *Service) InitializeAPIKeysWithConfig(keysConfig map[string]interface{})
 		case map[string]interface{}:
 			// Full configuration with tenant_id, scopes, etc.
 			role, _ := v["role"].(string)
-			tenantID, _ := v["tenant_id"].(string)
-			if tenantID == "" {
-				tenantID = "default"
+			tenantIDStr, _ := v["tenant_id"].(string)
+			var tenantUUID uuid.UUID
+			if tenantIDStr == "" {
+				tenantUUID = DefaultTenantID
+			} else {
+				var err error
+				tenantUUID, err = uuid.Parse(tenantIDStr)
+				if err != nil {
+					s.logError("Invalid tenant ID in config, using default", map[string]interface{}{
+						"tenant_id": tenantIDStr,
+						"error":     err.Error(),
+					})
+					tenantUUID = DefaultTenantID
+				}
 			}
 
 			// Get scopes from config or derive from role
@@ -780,18 +831,25 @@ func (s *Service) InitializeAPIKeysWithConfig(keysConfig map[string]interface{})
 			}
 
 			// Check if user_id is provided in config
-			userID, _ := v["user_id"].(string)
-			if userID == "" {
-				// Generate a unique user ID based on the key
-				// This ensures each API key has a unique agent ID
-				userID = fmt.Sprintf("user-%s", key)
+			userIDStr, _ := v["user_id"].(string)
+			var userUUID uuid.UUID
+			if userIDStr == "" {
+				// Generate a deterministic UUID for this key
+				userUUID = uuid.NewSHA1(uuid.NameSpaceURL, []byte(fmt.Sprintf("user-%s", key)))
+			} else {
+				var err error
+				userUUID, err = uuid.Parse(userIDStr)
+				if err != nil {
+					// If it's not a valid UUID, generate one from the string
+					userUUID = uuid.NewSHA1(uuid.NameSpaceURL, []byte(userIDStr))
+				}
 			}
 
 			apiKey = &APIKey{
 				Key:       key,
-				TenantID:  tenantID,
-				UserID:    userID,
-				Name:      fmt.Sprintf("%s key for %s", role, tenantID),
+				TenantID:  tenantUUID,
+				UserID:    userUUID,
+				Name:      fmt.Sprintf("%s key for %s", role, tenantUUID.String()),
 				Scopes:    scopes,
 				CreatedAt: time.Now(),
 				Active:    true,
@@ -822,20 +880,27 @@ func (s *Service) AddAPIKey(key string, settings APIKeySettings) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	// Parse tenant ID
+	var tenantUUID uuid.UUID
+	if settings.TenantID == "" {
+		tenantUUID = DefaultTenantID
+	} else {
+		var err error
+		tenantUUID, err = uuid.Parse(settings.TenantID)
+		if err != nil {
+			return fmt.Errorf("invalid tenant ID: %w", err)
+		}
+	}
+
 	// Create API key object
 	apiKey := &APIKey{
 		Key:       key,
-		TenantID:  settings.TenantID,
-		UserID:    "system",
+		TenantID:  tenantUUID,
+		UserID:    SystemUserID,
 		Name:      fmt.Sprintf("%s API key", settings.Role),
 		Scopes:    settings.Scopes,
 		Active:    true,
 		CreatedAt: time.Now(),
-	}
-
-	// Apply defaults
-	if apiKey.TenantID == "" {
-		apiKey.TenantID = "default"
 	}
 	if len(apiKey.Scopes) == 0 {
 		apiKey.Scopes = []string{"read"} // Minimum scope

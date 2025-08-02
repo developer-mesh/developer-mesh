@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"gopkg.in/yaml.v3"
 )
 
@@ -67,11 +68,30 @@ func (s *Service) loadDevelopmentKeys(keys map[string]APIKeySettings) error {
 	defer s.mu.Unlock()
 
 	for key, settings := range keys {
+		// Parse tenant ID
+		var tenantUUID uuid.UUID
+		if settings.TenantID == "" {
+			tenantUUID = DefaultTenantID
+		} else {
+			var err error
+			tenantUUID, err = uuid.Parse(settings.TenantID)
+			if err != nil {
+				s.logger.Warn("Invalid tenant ID in config, using default", map[string]interface{}{
+					"tenant_id": settings.TenantID,
+					"error":     err.Error(),
+				})
+				tenantUUID = DefaultTenantID
+			}
+		}
+
+		// Generate deterministic user ID for development
+		userUUID := uuid.NewSHA1(uuid.NameSpaceURL, []byte(fmt.Sprintf("dev-user-%s", key)))
+
 		// Generate deterministic key for development
 		apiKey := &APIKey{
 			Key:       fmt.Sprintf("dev_%s", key),
-			TenantID:  settings.TenantID,
-			UserID:    "dev-user",
+			TenantID:  tenantUUID,
+			UserID:    userUUID,
 			Name:      fmt.Sprintf("Development %s key", settings.Role),
 			KeyType:   getKeyTypeFromRole(settings.Role),
 			Scopes:    settings.Scopes,
@@ -136,12 +156,16 @@ func (s *Service) loadKeysFromEnv() error {
 		})
 		if keyValue != "" {
 			// Use a fixed UUID for default tenant in docker environment
-			defaultTenantID := getEnvOrDefault("DEFAULT_TENANT_ID", "00000000-0000-0000-0000-000000000001")
+			defaultTenantIDStr := getEnvOrDefault("DEFAULT_TENANT_ID", "00000000-0000-0000-0000-000000000001")
+			defaultTenantUUID, err := uuid.Parse(defaultTenantIDStr)
+			if err != nil {
+				defaultTenantUUID = DefaultTenantID
+			}
 
 			apiKey := &APIKey{
 				Key:       keyValue,
-				TenantID:  defaultTenantID,
-				UserID:    "system",
+				TenantID:  defaultTenantUUID,
+				UserID:    SystemUserID,
 				Name:      sk.name,
 				KeyType:   getKeyTypeFromRole(sk.role),
 				Scopes:    getRoleScopes(sk.role),
@@ -196,12 +220,16 @@ func (s *Service) loadKeysFromEnv() error {
 			name := strings.Join(keyParts[:len(keyParts)-1], "_")
 
 			// Use a fixed UUID for default tenant in docker environment
-			defaultTenantID := getEnvOrDefault("DEFAULT_TENANT_ID", "00000000-0000-0000-0000-000000000001")
+			defaultTenantIDStr := getEnvOrDefault("DEFAULT_TENANT_ID", "00000000-0000-0000-0000-000000000001")
+			defaultTenantUUID, err := uuid.Parse(defaultTenantIDStr)
+			if err != nil {
+				defaultTenantUUID = DefaultTenantID
+			}
 
 			apiKey := &APIKey{
 				Key:       keyValue,
-				TenantID:  defaultTenantID,
-				UserID:    "system",
+				TenantID:  defaultTenantUUID,
+				UserID:    SystemUserID,
 				Name:      name,
 				KeyType:   getKeyTypeFromRole(role),
 				Scopes:    getRoleScopes(role),

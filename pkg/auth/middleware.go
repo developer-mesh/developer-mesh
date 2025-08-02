@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 // contextKey is a type for context keys to avoid collisions
@@ -171,13 +172,16 @@ func GetUserFromContext(c *gin.Context) (*User, bool) {
 func GetTenantFromContext(c *gin.Context) (string, bool) {
 	// Try to get from user first
 	if user, ok := GetUserFromContext(c); ok {
-		return user.TenantID, true
+		return user.TenantID.String(), true
 	}
 
 	// Fall back to direct tenant_id key
 	if tenantID, exists := c.Get("tenant_id"); exists {
-		if tid, ok := tenantID.(string); ok {
-			return tid, true
+		switch v := tenantID.(type) {
+		case uuid.UUID:
+			return v.String(), true
+		case string:
+			return v, true
 		}
 	}
 
