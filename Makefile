@@ -7,18 +7,44 @@ help: ## Show this help message
 	@echo "Developer Mesh - Available Commands"
 	@echo "==============================="
 	@echo ""
-	@echo "Common workflows:"
-	@echo "  make help           # Show all available commands"
-	@echo "  make dev            # Start development environment with Docker"
-	@echo "  make test           # Run all tests"
+	@echo "🚀 Quick Start:"
+	@echo "  make local-docker   # Complete local Docker environment setup"
+	@echo "  make local-aws      # Local development with AWS services"
+	@echo "  make test-e2e-local # Run E2E tests against local services"
+	@echo ""
+	@echo "📦 Common Workflows:"
+	@echo "  make dev            # Start Docker environment (basic)"
+	@echo "  make test           # Run all unit tests"
 	@echo "  make pre-commit     # Run all checks before committing"
 	@echo "  make build          # Build all applications"
 	@echo ""
-	@echo "All commands:"
+	@echo "🧪 Testing:"
+	@echo "  make test-e2e       # Run all E2E tests"
+	@echo "  make quick-test     # Quick single agent test"
+	@echo "  make fix-multiagent # Test multi-agent workflow fix"
+	@echo ""
+	@echo "🔧 Environment Management:"
+	@echo "  make env-check      # Check current environment"
+	@echo "  make env-local      # Switch to local Docker environment"
+	@echo "  make env-aws        # Switch to AWS environment"
+	@echo ""
+	@echo "🌐 SSH Tunnels (AWS):"
+	@echo "  make tunnel-all     # Create all SSH tunnels"
+	@echo "  make tunnel-status  # Check tunnel status"
+	@echo "  make tunnel-kill    # Terminate all tunnels"
+	@echo ""
+	@echo "📚 Documentation:"
+	@echo "  docs/TROUBLESHOOTING.md      # Common issues and solutions"
+	@echo "  docs/ENVIRONMENT_SWITCHING.md # How to switch environments"
+	@echo "  docs/LOCAL_DEVELOPMENT.md     # Local development guide"
+	@echo ""
+	@echo "📊 All Commands:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 # ==============================================================================
 # Variables
+# ==============================================================================
+# See docs/ENVIRONMENT_SWITCHING.md for environment configuration details
 # ==============================================================================
 
 # Go parameters
@@ -394,6 +420,13 @@ load-test: ## Run load tests (requires k6)
 # ==============================================================================
 # E2E Testing Commands
 # ==============================================================================
+# Examples:
+#   make test-e2e-local                    # Run all tests against local Docker
+#   make test-e2e-single                   # Run only single agent tests
+#   make test-e2e-multi                    # Run only multi-agent tests
+#   make quick-test                        # Run a quick smoke test
+#   E2E_DEBUG=true make test-e2e-local    # Run with debug logging
+# ==============================================================================
 
 .PHONY: test-e2e
 test-e2e: ## Run E2E tests against running services
@@ -455,6 +488,15 @@ test-e2e-setup: ## Setup E2E test environment configuration
 # ==============================================================================
 # Health & Validation Commands
 # ==============================================================================
+# Commands to check service health and validate environment:
+#
+# Examples:
+#   make health                            # Check all services with output
+#   make validate-services                 # Detailed service validation
+#   make validate-env                      # Full environment validation
+#   make wait-for-healthy                  # Wait for services to be ready
+#   TIMEOUT=120 make wait-for-healthy      # Custom timeout (seconds)
+# ==============================================================================
 
 .PHONY: health-check-silent
 health-check-silent: ## Silent health check for scripts (returns exit code only)
@@ -500,6 +542,15 @@ wait-for-healthy: ## Wait for all services to become healthy (TIMEOUT=60)
 
 # ==============================================================================
 # Environment Management
+# ==============================================================================
+# The system supports two primary environments:
+#   1. Local Docker: All services run in Docker containers
+#   2. Local AWS: Services run locally but use AWS backends via SSH tunnels
+#
+# Examples:
+#   make env-check                         # Show current environment
+#   make env-local && make local-docker    # Switch to Docker environment
+#   make env-aws && make local-aws         # Switch to AWS environment
 # ==============================================================================
 
 .PHONY: env-check
@@ -566,7 +617,17 @@ env-aws: ## Configure environment for AWS development (using your existing .env)
 	fi
 
 # ==============================================================================
-# SSH Tunnel Management
+# SSH Tunnel Management (AWS Environment)
+# ==============================================================================
+# SSH tunnels allow local development against AWS RDS and ElastiCache
+# Prerequisites: SSH_KEY_PATH, NAT_INSTANCE_IP, RDS_ENDPOINT, ELASTICACHE_ENDPOINT
+#
+# Examples:
+#   make tunnel-all                        # Create all tunnels
+#   make tunnel-rds                        # Only RDS tunnel (localhost:5432)
+#   make tunnel-redis                      # Only Redis tunnel (localhost:6379)
+#   make tunnel-status                     # Check active tunnels
+#   make tunnel-kill                       # Terminate all tunnels
 # ==============================================================================
 
 # Check if required environment variables are set
@@ -659,6 +720,288 @@ tunnel-kill: ## Kill all SSH tunnels
 	else \
 		echo "ℹ️  No active SSH tunnels found"; \
 	fi
+
+# ==============================================================================
+# Test Data Management
+# ==============================================================================
+# Commands for seeding and managing test data:
+#
+# Examples:
+#   make seed-test-data                    # Seed initial test data
+#   make reset-test-data                   # Clear execution history
+#   make create-seed-script                # Generate seed SQL script
+#
+# The seed data includes:
+#   - Test tenants (00000000-0000-0000-0000-000000000001, -000002)
+#   - Test agents (code-agent, security-agent, devops-agent)
+#   - Test models (claude-3-opus, gpt-4)
+#   - Test tool configurations (GitHub API, Test Tool)
+# ==============================================================================
+
+.PHONY: seed-test-data
+seed-test-data: ## Seed test data for local development
+	@echo "Seeding test data..."
+	@if [ ! -f scripts/db/seed-test-data.sql ]; then \
+		echo "Creating seed data script..."; \
+		$(MAKE) create-seed-script; \
+	fi
+	@if [ "$${USE_REAL_AWS}" = "true" ] || [ "$${DATABASE_HOST}" = "localhost" ]; then \
+		echo "Seeding data to AWS RDS via localhost tunnel..."; \
+		PGPASSWORD=$${DATABASE_PASSWORD} psql -h localhost -p 5432 -U $${DATABASE_USER} -d $${DATABASE_NAME} -f scripts/db/seed-test-data.sql 2>&1 | grep -E "(INSERT|already exists|NOTICE)" || true; \
+	else \
+		echo "Seeding data to Docker PostgreSQL..."; \
+		docker exec -i $$(docker ps -q -f name=database | head -1) psql -U dev -d dev < scripts/db/seed-test-data.sql 2>&1 | grep -E "(INSERT|already exists|NOTICE)" || true; \
+	fi
+	@echo "✅ Test data seeded successfully"
+
+.PHONY: create-seed-script
+create-seed-script: ## Create the seed data SQL script
+	@mkdir -p scripts/db
+	@cat > scripts/db/seed-test-data.sql << 'EOF'
+-- Test Data Seeding Script for Developer Mesh
+-- This script is idempotent - safe to run multiple times
+
+-- Enable UUID extension if not already enabled
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- Insert test tenants
+INSERT INTO tenants (id, name, created_at, updated_at) VALUES
+    ('00000000-0000-0000-0000-000000000001', 'Test Tenant 1', NOW(), NOW()),
+    ('00000000-0000-0000-0000-000000000002', 'Test Tenant 2', NOW(), NOW())
+ON CONFLICT (id) DO UPDATE SET updated_at = NOW();
+
+-- Insert test agents for tenant 1
+INSERT INTO agents (id, tenant_id, name, type, capabilities, status, created_at, updated_at) VALUES
+    ('00000000-0000-0000-0000-000000000101', '00000000-0000-0000-0000-000000000001', 'test-code-agent', 'code_analysis', '["code_analysis", "code_review"]', 'active', NOW(), NOW()),
+    ('00000000-0000-0000-0000-000000000102', '00000000-0000-0000-0000-000000000001', 'test-security-agent', 'security', '["security_scanning", "vulnerability_detection"]', 'active', NOW(), NOW()),
+    ('00000000-0000-0000-0000-000000000103', '00000000-0000-0000-0000-000000000001', 'test-devops-agent', 'devops', '["deployment", "monitoring"]', 'active', NOW(), NOW())
+ON CONFLICT (id) DO UPDATE SET updated_at = NOW();
+
+-- Insert test models
+INSERT INTO models (id, tenant_id, name, provider, type, is_active, created_at, updated_at) VALUES
+    ('00000000-0000-0000-0000-000000000201', '00000000-0000-0000-0000-000000000001', 'claude-3-opus', 'anthropic', 'llm', true, NOW(), NOW()),
+    ('00000000-0000-0000-0000-000000000202', '00000000-0000-0000-0000-000000000001', 'gpt-4', 'openai', 'llm', true, NOW(), NOW()),
+    ('00000000-0000-0000-0000-000000000203', '00000000-0000-0000-0000-000000000001', 'text-embedding-3-small', 'openai', 'embedding', true, NOW(), NOW())
+ON CONFLICT (id) DO UPDATE SET updated_at = NOW();
+
+-- Insert test tool configurations
+INSERT INTO tool_configurations (id, tenant_id, name, type, base_url, auth_config, health_check_url, created_at, updated_at) VALUES
+    ('00000000-0000-0000-0000-000000000301', '00000000-0000-0000-0000-000000000001', 'GitHub API', 'github', 'https://api.github.com', '{"type": "bearer", "token": "test-token"}', 'https://api.github.com/rate_limit', NOW(), NOW()),
+    ('00000000-0000-0000-0000-000000000302', '00000000-0000-0000-0000-000000000001', 'Test Tool', 'custom', 'http://localhost:8082', '{"type": "api_key", "key": "test-key"}', 'http://localhost:8082/health', NOW(), NOW())
+ON CONFLICT (id) DO UPDATE SET updated_at = NOW();
+
+-- Insert test API keys (using the development key)
+-- Note: In production, these would be properly hashed
+INSERT INTO api_keys (id, tenant_id, key_hash, name, role, scopes, is_active, created_at, expires_at) VALUES
+    ('00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000000001', 
+     crypt('dev-admin-key-1234567890', gen_salt('bf')), 
+     'Development Admin Key', 'admin', '["read", "write", "admin"]', true, NOW(), NOW() + INTERVAL '1 year')
+ON CONFLICT (id) DO UPDATE SET expires_at = NOW() + INTERVAL '1 year';
+
+-- Grant necessary permissions
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $${DATABASE_USER:-dev};
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO $${DATABASE_USER:-dev};
+
+-- Output summary
+DO $$
+BEGIN
+    RAISE NOTICE 'Test data seeding completed:';
+    RAISE NOTICE '  - 2 test tenants';
+    RAISE NOTICE '  - 3 test agents';
+    RAISE NOTICE '  - 3 test models';
+    RAISE NOTICE '  - 2 test tool configurations';
+    RAISE NOTICE '  - 1 test API key';
+END$$;
+EOF
+	@echo "✅ Created scripts/db/seed-test-data.sql"
+
+.PHONY: reset-test-data
+reset-test-data: ## Reset test data to clean state
+	@echo "Resetting test data..."
+	@read -p "⚠️  This will delete test data. Continue? [y/N] " -n 1 -r; \
+	echo ""; \
+	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
+		if [ "$${USE_REAL_AWS}" = "true" ] || [ "$${DATABASE_HOST}" = "localhost" ]; then \
+			PGPASSWORD=$${DATABASE_PASSWORD} psql -h localhost -p 5432 -U $${DATABASE_USER} -d $${DATABASE_NAME} -c \
+				"DELETE FROM tasks WHERE tenant_id IN ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002'); \
+				 DELETE FROM workflow_executions WHERE tenant_id IN ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002'); \
+				 DELETE FROM workflows WHERE tenant_id IN ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002'); \
+				 DELETE FROM tool_executions WHERE tenant_id IN ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002');"; \
+		else \
+			docker exec -i $$(docker ps -q -f name=database | head -1) psql -U dev -d dev -c \
+				"DELETE FROM tasks WHERE tenant_id IN ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002'); \
+				 DELETE FROM workflow_executions WHERE tenant_id IN ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002'); \
+				 DELETE FROM workflows WHERE tenant_id IN ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002'); \
+				 DELETE FROM tool_executions WHERE tenant_id IN ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002');"; \
+		fi; \
+		echo "✅ Test data reset"; \
+	else \
+		echo "❌ Reset cancelled"; \
+	fi
+
+# ==============================================================================
+# Complete Local Development Workflows
+# ==============================================================================
+# These are one-command setups for different development scenarios:
+#
+# Docker-only workflow (no AWS dependencies):
+#   make local-docker                      # Full setup with Docker
+#   make test-e2e-local                    # Run tests
+#   make docker-reset                      # Reset everything
+#
+# AWS-integrated workflow (uses real AWS services):
+#   make local-aws                         # Setup with AWS backends
+#   make run-mcp-server                    # In terminal 1
+#   make run-rest-api                      # In terminal 2
+#   make run-worker                        # In terminal 3
+#   make test-e2e-local                    # Run tests
+# ==============================================================================
+
+.PHONY: local-docker
+local-docker: env-local docker-reset wait-for-healthy seed-test-data test-e2e-setup ## Complete local Docker setup with E2E tests
+	@echo ""
+	@echo "🚀 Local Docker environment ready!"
+	@echo "================================="
+	@echo "Services:"
+	@echo "  MCP Server:   http://localhost:8080"
+	@echo "  REST API:     http://localhost:8081"
+	@echo "  Mock Server:  http://localhost:8082"
+	@echo "  PostgreSQL:   localhost:5432 (user: dev, pass: dev)"
+	@echo "  Redis:        localhost:6379"
+	@echo ""
+	@echo "Next steps:"
+	@echo "  make test-e2e-local    # Run E2E tests"
+	@echo "  make logs service=mcp-server  # View specific service logs"
+	@echo "  make validate-services # Check service health"
+
+.PHONY: local-aws
+local-aws: env-aws validate-environment tunnel-all local-aws-wait test-e2e-setup ## Local development with AWS services
+	@echo ""
+	@echo "🚀 Local AWS environment ready!"
+	@echo "==============================="
+	@echo "Using AWS Services:"
+	@echo "  RDS:          via SSH tunnel on localhost:5432"
+	@echo "  ElastiCache:  via SSH tunnel on localhost:6379"
+	@echo "  S3:           Direct AWS access"
+	@echo "  Bedrock:      Direct AWS access"
+	@echo ""
+	@echo "Start services manually:"
+	@echo "  make run-mcp-server    # Terminal 1"
+	@echo "  make run-rest-api      # Terminal 2"
+	@echo "  make run-worker        # Terminal 3 (optional)"
+	@echo ""
+	@echo "Or use Docker with AWS backends:"
+	@echo "  make up"
+	@echo ""
+	@echo "Then run tests:"
+	@echo "  make test-e2e-aws"
+
+.PHONY: local-aws-wait
+local-aws-wait: ## Wait for AWS services via tunnels
+	@echo "Checking AWS service connectivity..."
+	@ATTEMPTS=0; \
+	MAX_ATTEMPTS=10; \
+	while [ $$ATTEMPTS -lt $$MAX_ATTEMPTS ]; do \
+		if pg_isready -h localhost -p 5432 -U $${DATABASE_USER:-dbadmin} >/dev/null 2>&1; then \
+			echo "✅ RDS is accessible via tunnel"; \
+			break; \
+		fi; \
+		ATTEMPTS=$$((ATTEMPTS + 1)); \
+		echo "⏳ Waiting for RDS tunnel... ($$ATTEMPTS/$$MAX_ATTEMPTS)"; \
+		sleep 2; \
+	done; \
+	if [ $$ATTEMPTS -eq $$MAX_ATTEMPTS ]; then \
+		echo "❌ RDS tunnel failed to connect"; \
+		exit 1; \
+	fi
+	@redis-cli -h localhost -p 6379 ping >/dev/null 2>&1 && echo "✅ Redis is accessible via tunnel" || echo "⚠️  Redis not accessible (optional)"
+
+.PHONY: docker-reset
+docker-reset: ## Reset Docker environment completely
+	@echo "Resetting Docker environment..."
+	$(DOCKER_COMPOSE) down -v
+	@docker system prune -f --volumes 2>/dev/null || true
+	$(DOCKER_COMPOSE) up -d
+	@echo "✅ Docker environment reset"
+
+.PHONY: test-e2e-config
+test-e2e-config: ## Configure E2E tests based on current environment
+	@echo "Configuring E2E tests for environment: $${ENVIRONMENT:-development}"
+	@mkdir -p test/e2e
+	@if [ "$${ENVIRONMENT}" = "local" ] || [ -f .env.local ]; then \
+		echo "E2E_ENVIRONMENT=local" > test/e2e/.env; \
+		echo "E2E_API_KEY=$${ADMIN_API_KEY:-dev-admin-key-1234567890}" >> test/e2e/.env; \
+		echo "MCP_BASE_URL=http://localhost:8080" >> test/e2e/.env; \
+		echo "API_BASE_URL=http://localhost:8081" >> test/e2e/.env; \
+	else \
+		echo "E2E_ENVIRONMENT=development" > test/e2e/.env; \
+		echo "E2E_API_KEY=$${ADMIN_API_KEY}" >> test/e2e/.env; \
+		echo "MCP_BASE_URL=$${MCP_SERVER_URL:-http://localhost:8080}" >> test/e2e/.env; \
+		echo "API_BASE_URL=$${REST_API_URL:-http://localhost:8081}" >> test/e2e/.env; \
+	fi; \
+	echo "E2E_TENANT_ID=00000000-0000-0000-0000-000000000001" >> test/e2e/.env; \
+	echo "E2E_DEBUG=$${E2E_DEBUG:-true}" >> test/e2e/.env; \
+	echo "✅ E2E test configuration created in test/e2e/.env"
+
+.PHONY: test-e2e-aws
+test-e2e-aws: test-e2e-config ## Run E2E tests against services with AWS backends
+	@echo "Running E2E tests with AWS backends..."
+	@cd test/e2e && \
+	set -a; source .env; set +a; \
+	$(MAKE) test
+
+# ==============================================================================
+# Validation Commands
+# ==============================================================================
+
+.PHONY: validate-environment
+validate-environment: ## Validate environment configuration
+	@echo "Validating environment configuration..."
+	@./scripts/local/validate-environment.sh || (echo "❌ Environment validation failed" && exit 1)
+
+.PHONY: validate-all
+validate-all: validate-environment validate-services ## Validate everything
+	@echo "✅ All validations passed"
+
+# ==============================================================================
+# Quick Development Commands
+# ==============================================================================
+
+.PHONY: quick-test
+quick-test: ## Quick single test for rapid iteration
+	@if ! $(MAKE) health-check-silent 2>/dev/null; then \
+		echo "❌ Services not running. Start with 'make dev' or 'make up'"; \
+		exit 1; \
+	fi
+	@echo "Running quick test..."
+	@cd test/e2e && \
+	E2E_ENVIRONMENT=local \
+	E2E_API_KEY=$${E2E_API_KEY:-dev-admin-key-1234567890} \
+	MCP_BASE_URL=$${MCP_BASE_URL:-http://localhost:8080} \
+	API_BASE_URL=$${API_BASE_URL:-http://localhost:8081} \
+	ginkgo -v --focus="Single Agent.*Basic Operations.*should register agent and receive acknowledgment" ./scenarios
+
+.PHONY: fix-multiagent
+fix-multiagent: ## Test the multi-agent workflow fix
+	@if ! $(MAKE) health-check-silent 2>/dev/null; then \
+		echo "❌ Services not running. Start with 'make dev' or 'make up'"; \
+		exit 1; \
+	fi
+	@echo "Testing multi-agent workflow creation..."
+	@cd test/e2e && \
+	E2E_ENVIRONMENT=local \
+	E2E_API_KEY=$${E2E_API_KEY:-dev-admin-key-1234567890} \
+	MCP_BASE_URL=$${MCP_BASE_URL:-http://localhost:8080} \
+	API_BASE_URL=$${API_BASE_URL:-http://localhost:8081} \
+	ginkgo -v --focus="Code Review Workflow" ./scenarios
+
+.PHONY: test-quick
+test-quick: quick-test ## Alias for quick-test
+
+.PHONY: reset-all
+reset-all: docker-reset reset-test-data ## Reset everything (Docker + test data)
+	@echo "✅ Complete reset done"
 
 # ==============================================================================
 # Quick Shortcuts
