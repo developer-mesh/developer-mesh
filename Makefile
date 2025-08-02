@@ -8,15 +8,15 @@ help: ## Show this help message
 	@echo "==============================="
 	@echo ""
 	@echo "🚀 Quick Start:"
-	@echo "  make local-docker   # Complete local Docker environment setup"
-	@echo "  make local-aws      # Local development with AWS services"
+	@echo "  make local-docker   # Full Docker environment setup + tests"
+	@echo "  make dev            # Basic Docker environment setup"
 	@echo "  make test-e2e-local # Run E2E tests against local services"
 	@echo ""
 	@echo "📦 Common Workflows:"
-	@echo "  make dev            # Start Docker environment (basic)"
 	@echo "  make test           # Run all unit tests"
 	@echo "  make pre-commit     # Run all checks before committing"
 	@echo "  make build          # Build all applications"
+	@echo "  make lint           # Run code linters"
 	@echo ""
 	@echo "🧪 Testing:"
 	@echo "  make test-e2e       # Run all E2E tests"
@@ -83,7 +83,7 @@ SWAG_VERSION=v1.16.2
 all: clean test build ## Clean, test, and build everything
 
 .PHONY: dev
-dev: dev-setup up wait-for-healthy ## Start development environment with Docker
+dev: dev-setup docker-up wait-for-healthy ## Start development environment with Docker
 	@echo "✅ Development environment is ready!"
 	@echo ""
 	@echo "Services available at:"
@@ -210,23 +210,6 @@ test-redis-lifecycle: ## Run Redis lifecycle integration tests with testcontaine
 	@echo "Running Redis lifecycle integration tests with testcontainers..."
 	@cd pkg/webhook && $(GOTEST) -tags=integration -v -run TestWithRealRedis ./...
 
-.PHONY: test-functional
-test-functional: ## Run functional tests (Docker)
-	@set -a; [ -f .env ] && . ./.env; set +a; \
-	export MCP_TEST_MODE=true && ./test/scripts/run_functional_tests.sh
-
-.PHONY: test-functional-local
-test-functional-local: ## Run functional tests with local services and real AWS
-	@set -a; [ -f .env ] && . ./.env; set +a; \
-	export MCP_TEST_MODE=true &&  ./test/scripts/run_functional_tests_local.sh
-
-.PHONY: start-functional-env
-start-functional-env: ## Start functional test environment (PostgreSQL + services)
-	./scripts/start-functional-test-env.sh
-
-.PHONY: start-functional-env-aws
-start-functional-env-aws: ## Start functional test environment with AWS services
-	./scripts/start-functional-env-aws.sh
 
 .PHONY: bench
 bench: ## Run benchmarks (PACKAGE=./pkg/embedding)
@@ -264,13 +247,10 @@ security-check: ## Run security checks
 # Docker Commands
 # ==============================================================================
 
-.PHONY: up
-up: ## Start all services with Docker Compose
+.PHONY: docker-up
+docker-up: ## Start all services with Docker Compose (internal use)
 	@echo "Starting services with Docker Compose..."
 	$(DOCKER_COMPOSE) up -d
-	@echo ""
-	@echo "Services starting in background. Run 'make wait-for-healthy' to wait for them."
-	@echo "Or use 'make dev' for a complete setup with health checks."
 
 .PHONY: down
 down: ## Stop all Docker services
@@ -282,7 +262,7 @@ logs: ## View Docker logs (service=<name> to filter)
 
 .PHONY: restart
 restart: ## Restart Docker services (service=<name> for specific service)
-	$(DOCKER_COMPOSE) up -d --build $(service)
+	$(DOCKER_COMPOSE) restart $(service)
 
 .PHONY: ps
 ps: ## Show running Docker services
@@ -294,7 +274,7 @@ ps: ## Show running Docker services
 
 .PHONY: db-shell
 db-shell: ## Open PostgreSQL shell
-	psql "postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@${DB_HOST:-localhost}:${DB_PORT:-5432}/${DATABASE_NAME:-devops_mcp_dev}?sslmode=${DATABASE_SSL_MODE:-disable}"
+	psql "postgresql://${DATABASE_USER:-postgres}:${DATABASE_PASSWORD:-postgres}@${DATABASE_HOST:-localhost}:${DATABASE_PORT:-5432}/${DATABASE_NAME:-devops_mcp_dev}?sslmode=${DATABASE_SSL_MODE:-disable}"
 
 .PHONY: migrate-create
 migrate-create: ## Create new migration (name=migration_name)
@@ -304,17 +284,17 @@ migrate-create: ## Create new migration (name=migration_name)
 .PHONY: migrate-up
 migrate-up: ## Run all pending migrations
 	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
-	migrate -database "postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@${DB_HOST:-localhost}:${DB_PORT:-5432}/${DATABASE_NAME:-devops_mcp_dev}?sslmode=${DATABASE_SSL_MODE:-disable}" -path migrations up
+	migrate -database "postgresql://${DATABASE_USER:-postgres}:${DATABASE_PASSWORD:-postgres}@${DATABASE_HOST:-localhost}:${DATABASE_PORT:-5432}/${DATABASE_NAME:-devops_mcp_dev}?sslmode=${DATABASE_SSL_MODE:-disable}" -path migrations up
 
 .PHONY: migrate-down
 migrate-down: ## Rollback last migration
 	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
-	migrate -database "postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@${DB_HOST:-localhost}:${DB_PORT:-5432}/${DATABASE_NAME:-devops_mcp_dev}?sslmode=${DATABASE_SSL_MODE:-disable}" -path migrations down 1
+	migrate -database "postgresql://${DATABASE_USER:-postgres}:${DATABASE_PASSWORD:-postgres}@${DATABASE_HOST:-localhost}:${DATABASE_PORT:-5432}/${DATABASE_NAME:-devops_mcp_dev}?sslmode=${DATABASE_SSL_MODE:-disable}" -path migrations down 1
 
 .PHONY: migrate-status
 migrate-status: ## Show migration status
 	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
-	migrate -database "postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@${DB_HOST:-localhost}:${DB_PORT:-5432}/${DATABASE_NAME:-devops_mcp_dev}?sslmode=${DATABASE_SSL_MODE:-disable}" -path migrations version
+	migrate -database "postgresql://${DATABASE_USER:-postgres}:${DATABASE_PASSWORD:-postgres}@${DATABASE_HOST:-localhost}:${DATABASE_PORT:-5432}/${DATABASE_NAME:-devops_mcp_dev}?sslmode=${DATABASE_SSL_MODE:-disable}" -path migrations version
 # ==============================================================================
 # Development Helpers
 # ==============================================================================
@@ -377,9 +357,16 @@ deps: ## Update and sync dependencies
 
 .PHONY: health
 health: ## Check health of all services
+	@echo "Checking service health..."
 	@curl -sf http://localhost:8080/health | jq . || echo "MCP Server: ❌ Not responding"
 	@curl -sf http://localhost:8081/health | jq . || echo "REST API: ❌ Not responding"
-	@echo "✅ Health check complete"
+	@curl -sf http://localhost:8082/health >/dev/null 2>&1 && echo "Mock Server: ✅ Healthy" || echo "Mock Server: ⚠️  Not responding (optional)"
+	@if command -v docker >/dev/null 2>&1 && docker ps | grep -q database; then \
+		docker exec $$(docker ps -q -f name=database | head -1) pg_isready -U dev > /dev/null 2>&1 && echo "PostgreSQL: ✅ Ready" || echo "PostgreSQL: ❌ Not ready"; \
+	fi
+	@if command -v docker >/dev/null 2>&1 && docker ps | grep -q redis; then \
+		docker exec $$(docker ps -q -f name=redis | head -1) redis-cli ping > /dev/null 2>&1 && echo "Redis: ✅ Ready" || echo "Redis: ❌ Not ready"; \
+	fi
 
 .PHONY: metrics
 metrics: ## Open Grafana dashboard
@@ -438,7 +425,7 @@ test-e2e: ## Run E2E tests against running services
 	@cd test/e2e && $(MAKE) test
 
 .PHONY: test-e2e-local
-test-e2e-local: validate-services ## Run E2E tests against local Docker services
+test-e2e-local: health-check-silent ## Run E2E tests against local Docker services
 	@echo "Running E2E tests against local environment..."
 	@if [ ! -f "test/e2e/.env.local" ]; then \
 		echo "⚠️  E2E test configuration not found. Running setup..."; \
@@ -503,20 +490,6 @@ health-check-silent: ## Silent health check for scripts (returns exit code only)
 	@curl -sf http://localhost:8080/health > /dev/null && \
 	 curl -sf http://localhost:8081/health > /dev/null
 
-.PHONY: validate-services
-validate-services: ## Validate all services are running and healthy
-	@echo "Validating services..."
-	@EXIT_CODE=0; \
-	curl -sf http://localhost:8080/health > /dev/null && echo "✅ MCP Server: Healthy" || (echo "❌ MCP Server: Not responding" && EXIT_CODE=1); \
-	curl -sf http://localhost:8081/health > /dev/null && echo "✅ REST API: Healthy" || (echo "❌ REST API: Not responding" && EXIT_CODE=1); \
-	curl -sf http://localhost:8082/health > /dev/null && echo "✅ Mock Server: Healthy" || (echo "❌ Mock Server: Not responding (optional)" && true); \
-	if command -v docker >/dev/null 2>&1 && docker ps | grep -q database; then \
-		docker exec $$(docker ps -q -f name=database | head -1) pg_isready -U dev > /dev/null 2>&1 && echo "✅ PostgreSQL: Ready" || (echo "❌ PostgreSQL: Not ready" && EXIT_CODE=1); \
-	fi; \
-	if command -v docker >/dev/null 2>&1 && docker ps | grep -q redis; then \
-		docker exec $$(docker ps -q -f name=redis | head -1) redis-cli ping > /dev/null 2>&1 && echo "✅ Redis: Ready" || (echo "❌ Redis: Not ready" && EXIT_CODE=1); \
-	fi; \
-	exit $$EXIT_CODE
 
 .PHONY: wait-for-healthy
 wait-for-healthy: ## Wait for all services to become healthy (TIMEOUT=60)
@@ -859,7 +832,7 @@ reset-test-data: ## Reset test data to clean state
 # ==============================================================================
 
 .PHONY: local-docker
-local-docker: env-local docker-reset wait-for-healthy seed-test-data test-e2e-setup ## Complete local Docker setup with E2E tests
+local-docker: env-local docker-clean wait-for-healthy seed-test-data test-e2e-setup ## Complete local Docker setup with E2E tests
 	@echo ""
 	@echo "🚀 Local Docker environment ready!"
 	@echo "================================="
@@ -873,7 +846,7 @@ local-docker: env-local docker-reset wait-for-healthy seed-test-data test-e2e-se
 	@echo "Next steps:"
 	@echo "  make test-e2e-local    # Run E2E tests"
 	@echo "  make logs service=mcp-server  # View specific service logs"
-	@echo "  make validate-services # Check service health"
+	@echo "  make health           # Check service health"
 
 .PHONY: local-aws
 local-aws: env-aws validate-environment tunnel-all local-aws-wait test-e2e-setup ## Local development with AWS services
@@ -917,39 +890,18 @@ local-aws-wait: ## Wait for AWS services via tunnels
 	fi
 	@redis-cli -h localhost -p 6379 ping >/dev/null 2>&1 && echo "✅ Redis is accessible via tunnel" || echo "⚠️  Redis not accessible (optional)"
 
-.PHONY: docker-reset
-docker-reset: ## Reset Docker environment completely
-	@echo "Resetting Docker environment..."
+.PHONY: docker-clean
+docker-clean: ## Clean and restart Docker environment
+	@echo "Cleaning Docker environment..."
 	$(DOCKER_COMPOSE) down -v
 	@docker system prune -f --volumes 2>/dev/null || true
 	$(DOCKER_COMPOSE) up -d
-	@echo "✅ Docker environment reset"
-
-.PHONY: test-e2e-config
-test-e2e-config: ## Configure E2E tests based on current environment
-	@echo "Configuring E2E tests for environment: $${ENVIRONMENT:-development}"
-	@mkdir -p test/e2e
-	@if [ "$${ENVIRONMENT}" = "local" ] || [ -f .env.local ]; then \
-		echo "E2E_ENVIRONMENT=local" > test/e2e/.env; \
-		echo "E2E_API_KEY=$${ADMIN_API_KEY:-dev-admin-key-1234567890}" >> test/e2e/.env; \
-		echo "MCP_BASE_URL=http://localhost:8080" >> test/e2e/.env; \
-		echo "API_BASE_URL=http://localhost:8081" >> test/e2e/.env; \
-	else \
-		echo "E2E_ENVIRONMENT=development" > test/e2e/.env; \
-		echo "E2E_API_KEY=$${ADMIN_API_KEY}" >> test/e2e/.env; \
-		echo "MCP_BASE_URL=$${MCP_SERVER_URL:-http://localhost:8080}" >> test/e2e/.env; \
-		echo "API_BASE_URL=$${REST_API_URL:-http://localhost:8081}" >> test/e2e/.env; \
-	fi; \
-	echo "E2E_TENANT_ID=00000000-0000-0000-0000-000000000001" >> test/e2e/.env; \
-	echo "E2E_DEBUG=$${E2E_DEBUG:-true}" >> test/e2e/.env; \
-	echo "✅ E2E test configuration created in test/e2e/.env"
+	@echo "✅ Docker environment cleaned and restarted"
 
 .PHONY: test-e2e-aws
-test-e2e-aws: test-e2e-config ## Run E2E tests against services with AWS backends
+test-e2e-aws: test-e2e-setup ## Run E2E tests against services with AWS backends
 	@echo "Running E2E tests with AWS backends..."
-	@cd test/e2e && \
-	set -a; source .env; set +a; \
-	$(MAKE) test
+	@cd test/e2e && E2E_ENVIRONMENT=aws $(MAKE) test
 
 # ==============================================================================
 # Validation Commands
@@ -961,7 +913,7 @@ validate-environment: ## Validate environment configuration
 	@./scripts/local/validate-environment.sh || (echo "❌ Environment validation failed" && exit 1)
 
 .PHONY: validate-all
-validate-all: validate-environment validate-services ## Validate everything
+validate-all: validate-environment health ## Validate everything
 	@echo "✅ All validations passed"
 
 # ==============================================================================
@@ -996,25 +948,8 @@ fix-multiagent: ## Test the multi-agent workflow fix
 	API_BASE_URL=$${API_BASE_URL:-http://localhost:8081} \
 	ginkgo -v --focus="Code Review Workflow" ./scenarios
 
-.PHONY: test-quick
-test-quick: quick-test ## Alias for quick-test
 
 .PHONY: reset-all
-reset-all: docker-reset reset-test-data ## Reset everything (Docker + test data)
+reset-all: docker-clean reset-test-data ## Reset everything (Docker + test data)
 	@echo "✅ Complete reset done"
 
-# ==============================================================================
-# Quick Shortcuts
-# ==============================================================================
-
-.PHONY: t
-t: test ## Shortcut for 'make test'
-
-.PHONY: b
-b: build ## Shortcut for 'make build'
-
-.PHONY: l
-l: lint ## Shortcut for 'make lint'
-
-.PHONY: c
-c: clean ## Shortcut for 'make clean'
