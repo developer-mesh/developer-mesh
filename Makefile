@@ -57,7 +57,17 @@ SWAG_VERSION=v1.16.2
 all: clean test build ## Clean, test, and build everything
 
 .PHONY: dev
-dev: dev-setup up ## Start development environment with Docker
+dev: dev-setup up wait-for-healthy ## Start development environment with Docker
+	@echo "✅ Development environment is ready!"
+	@echo ""
+	@echo "Services available at:"
+	@echo "  MCP Server: http://localhost:8080"
+	@echo "  REST API: http://localhost:8081"
+	@echo "  Mock Server: http://localhost:8082"
+	@echo "  PostgreSQL: localhost:5432"
+	@echo "  Redis: localhost:6379"
+	@echo ""
+	@echo "Run 'make test-e2e-local' to test against local services"
 
 .PHONY: dev-native
 dev-native: dev-setup ## Setup for running services locally (without Docker)
@@ -230,12 +240,11 @@ security-check: ## Run security checks
 
 .PHONY: up
 up: ## Start all services with Docker Compose
+	@echo "Starting services with Docker Compose..."
 	$(DOCKER_COMPOSE) up -d
-	@echo "Services started:"
-	@echo "  MCP Server: http://localhost:8080"
-	@echo "  REST API: http://localhost:8081"
-	@echo "  Prometheus: http://localhost:9090"
-	@echo "  Grafana: http://localhost:3000"
+	@echo ""
+	@echo "Services starting in background. Run 'make wait-for-healthy' to wait for them."
+	@echo "Or use 'make dev' for a complete setup with health checks."
 
 .PHONY: down
 down: ## Stop all Docker services
@@ -381,6 +390,275 @@ generate-adapter: ## Generate new adapter (NAME=adapter_name)
 load-test: ## Run load tests (requires k6)
 	@which k6 > /dev/null || (echo "Error: k6 not installed. Run: brew install k6" && exit 1)
 	k6 run --vus ${USERS:-10} --duration ${DURATION:-30s} scripts/k6-load-test.js
+
+# ==============================================================================
+# E2E Testing Commands
+# ==============================================================================
+
+.PHONY: test-e2e
+test-e2e: ## Run E2E tests against running services
+	@echo "Running E2E tests..."
+	@if [ ! -d "test/e2e" ]; then \
+		echo "❌ Error: test/e2e directory not found"; \
+		exit 1; \
+	fi
+	@cd test/e2e && $(MAKE) test
+
+.PHONY: test-e2e-local
+test-e2e-local: validate-services ## Run E2E tests against local Docker services
+	@echo "Running E2E tests against local environment..."
+	@if [ ! -f "test/e2e/.env.local" ]; then \
+		echo "⚠️  E2E test configuration not found. Running setup..."; \
+		$(MAKE) test-e2e-setup; \
+	fi
+	@cd test/e2e && E2E_ENVIRONMENT=local $(MAKE) test-local
+
+.PHONY: test-e2e-single
+test-e2e-single: ## Run single agent E2E tests
+	@cd test/e2e && $(MAKE) test-single
+
+.PHONY: test-e2e-multi
+test-e2e-multi: ## Run multi-agent E2E tests
+	@cd test/e2e && $(MAKE) test-multi
+
+.PHONY: test-e2e-setup
+test-e2e-setup: ## Setup E2E test environment configuration
+	@echo "Setting up E2E test environment..."
+	@mkdir -p test/e2e
+	@if [ ! -f test/e2e/.env.example ]; then \
+		echo "# E2E Test Configuration" > test/e2e/.env.example; \
+		echo "E2E_API_KEY=your-api-key-here" >> test/e2e/.env.example; \
+		echo "#MCP_BASE_URL=mcp.dev-mesh.io" >> test/e2e/.env.example; \
+		echo "#API_BASE_URL=api.dev-mesh.io" >> test/e2e/.env.example; \
+	fi
+	@if [ ! -f test/e2e/.env.local ]; then \
+		cp test/e2e/.env.example test/e2e/.env.local; \
+		if command -v sed >/dev/null 2>&1; then \
+			if [ "$$(uname)" = "Darwin" ]; then \
+				sed -i '' 's/your-api-key-here/dev-admin-key-1234567890/g' test/e2e/.env.local; \
+				sed -i '' 's|#MCP_BASE_URL=.*|MCP_BASE_URL=http://localhost:8080|g' test/e2e/.env.local; \
+				sed -i '' 's|#API_BASE_URL=.*|API_BASE_URL=http://localhost:8081|g' test/e2e/.env.local; \
+			else \
+				sed -i 's/your-api-key-here/dev-admin-key-1234567890/g' test/e2e/.env.local; \
+				sed -i 's|#MCP_BASE_URL=.*|MCP_BASE_URL=http://localhost:8080|g' test/e2e/.env.local; \
+				sed -i 's|#API_BASE_URL=.*|API_BASE_URL=http://localhost:8081|g' test/e2e/.env.local; \
+			fi; \
+		fi; \
+		echo "E2E_TENANT_ID=00000000-0000-0000-0000-000000000001" >> test/e2e/.env.local; \
+		echo "E2E_DEBUG=true" >> test/e2e/.env.local; \
+		echo "E2E_ENVIRONMENT=local" >> test/e2e/.env.local; \
+		echo "✅ Created test/e2e/.env.local"; \
+	else \
+		echo "✅ test/e2e/.env.local already exists"; \
+	fi
+
+# ==============================================================================
+# Health & Validation Commands
+# ==============================================================================
+
+.PHONY: health-check-silent
+health-check-silent: ## Silent health check for scripts (returns exit code only)
+	@curl -sf http://localhost:8080/health > /dev/null && \
+	 curl -sf http://localhost:8081/health > /dev/null
+
+.PHONY: validate-services
+validate-services: ## Validate all services are running and healthy
+	@echo "Validating services..."
+	@EXIT_CODE=0; \
+	curl -sf http://localhost:8080/health > /dev/null && echo "✅ MCP Server: Healthy" || (echo "❌ MCP Server: Not responding" && EXIT_CODE=1); \
+	curl -sf http://localhost:8081/health > /dev/null && echo "✅ REST API: Healthy" || (echo "❌ REST API: Not responding" && EXIT_CODE=1); \
+	curl -sf http://localhost:8082/health > /dev/null && echo "✅ Mock Server: Healthy" || (echo "❌ Mock Server: Not responding (optional)" && true); \
+	if command -v docker >/dev/null 2>&1 && docker ps | grep -q database; then \
+		docker exec $$(docker ps -q -f name=database | head -1) pg_isready -U dev > /dev/null 2>&1 && echo "✅ PostgreSQL: Ready" || (echo "❌ PostgreSQL: Not ready" && EXIT_CODE=1); \
+	fi; \
+	if command -v docker >/dev/null 2>&1 && docker ps | grep -q redis; then \
+		docker exec $$(docker ps -q -f name=redis | head -1) redis-cli ping > /dev/null 2>&1 && echo "✅ Redis: Ready" || (echo "❌ Redis: Not ready" && EXIT_CODE=1); \
+	fi; \
+	exit $$EXIT_CODE
+
+.PHONY: wait-for-healthy
+wait-for-healthy: ## Wait for all services to become healthy (TIMEOUT=60)
+	@echo "Waiting for services to become healthy..."
+	@TIMEOUT=$${TIMEOUT:-60}; \
+	ELAPSED=0; \
+	while [ $$ELAPSED -lt $$TIMEOUT ]; do \
+		if $(MAKE) health-check-silent 2>/dev/null; then \
+			echo "✅ All services are healthy (took $${ELAPSED}s)"; \
+			exit 0; \
+		fi; \
+		if [ $$ELAPSED -eq 0 ]; then \
+			echo "⏳ Waiting for services..."; \
+		elif [ $$((ELAPSED % 10)) -eq 0 ]; then \
+			echo "⏳ Still waiting... ($${ELAPSED}s/$${TIMEOUT}s)"; \
+		fi; \
+		sleep 1; \
+		ELAPSED=$$((ELAPSED + 1)); \
+	done; \
+	echo "❌ Services failed to become healthy after $${TIMEOUT}s"; \
+	$(MAKE) validate-services; \
+	exit 1
+
+# ==============================================================================
+# Environment Management
+# ==============================================================================
+
+.PHONY: env-check
+env-check: ## Check current environment configuration
+	@echo "Current Environment Configuration:"
+	@echo "================================="
+	@echo "ENVIRONMENT: $${ENVIRONMENT:-not set}"
+	@echo "MCP_SERVER_URL: $${MCP_SERVER_URL:-not set}"
+	@echo "REST_API_URL: $${REST_API_URL:-not set}"
+	@echo "DATABASE_HOST: $${DATABASE_HOST:-not set}:$${DATABASE_PORT:-5432}"
+	@echo "REDIS_ADDR: $${REDIS_ADDR:-not set}"
+	@echo "AWS_REGION: $${AWS_REGION:-not set}"
+	@echo "USE_REAL_AWS: $${USE_REAL_AWS:-not set}"
+	@echo "USE_LOCALSTACK: $${USE_LOCALSTACK:-not set}"
+	@if [ -n "$${ADMIN_API_KEY}" ]; then \
+		echo "ADMIN_API_KEY: $${ADMIN_API_KEY:0:20}..."; \
+	else \
+		echo "ADMIN_API_KEY: not set"; \
+	fi
+	@if [ -n "$${GITHUB_ACCESS_TOKEN}" ]; then \
+		echo "GITHUB_ACCESS_TOKEN: $${GITHUB_ACCESS_TOKEN:0:20}..."; \
+	else \
+		echo "GITHUB_ACCESS_TOKEN: not set"; \
+	fi
+	@echo ""
+	@if [ -f .env.local ]; then \
+		echo "📝 .env.local exists (local overrides active)"; \
+	fi
+
+.PHONY: env-local
+env-local: ## Configure environment for local Docker development
+	@echo "Configuring for local Docker environment..."
+	@if [ -f .env ] && [ ! -f .env.backup ]; then \
+		cp .env .env.backup; \
+		echo "📦 Backed up .env to .env.backup"; \
+	fi
+	@echo "# Local Docker Environment Overrides" > .env.local
+	@echo "# Generated by 'make env-local' on $$(date)" >> .env.local
+	@echo "" >> .env.local
+	@echo "ENVIRONMENT=local" >> .env.local
+	@echo "DATABASE_HOST=database" >> .env.local
+	@echo "DATABASE_PORT=5432" >> .env.local
+	@echo "DATABASE_NAME=dev" >> .env.local
+	@echo "DATABASE_USER=dev" >> .env.local
+	@echo "DATABASE_PASSWORD=dev" >> .env.local
+	@echo "DATABASE_SSL_MODE=disable" >> .env.local
+	@echo "REDIS_HOST=redis" >> .env.local
+	@echo "REDIS_PORT=6379" >> .env.local
+	@echo "REDIS_ADDR=redis:6379" >> .env.local
+	@echo "USE_LOCALSTACK=true" >> .env.local
+	@echo "USE_REAL_AWS=false" >> .env.local
+	@echo "AWS_ENDPOINT_URL=http://localstack:4566" >> .env.local
+	@echo "✅ Created .env.local for Docker environment"
+	@echo "💡 Docker Compose will use these overrides automatically"
+
+.PHONY: env-aws
+env-aws: ## Configure environment for AWS development (using your existing .env)
+	@echo "Using AWS development environment from .env"
+	@if [ -f .env.local ]; then \
+		rm .env.local; \
+		echo "🗑️  Removed .env.local (AWS config from .env will be used)"; \
+	else \
+		echo "✅ No .env.local found (AWS config from .env will be used)"; \
+	fi
+
+# ==============================================================================
+# SSH Tunnel Management
+# ==============================================================================
+
+# Check if required environment variables are set
+.PHONY: check-ssh-vars
+check-ssh-vars:
+	@if [ -z "$${SSH_KEY_PATH}" ] || [ -z "$${NAT_INSTANCE_IP}" ]; then \
+		echo "❌ Error: SSH_KEY_PATH and NAT_INSTANCE_IP must be set in .env"; \
+		echo "Example:"; \
+		echo "  SSH_KEY_PATH=~/.ssh/bastion-key.pem"; \
+		echo "  NAT_INSTANCE_IP=54.x.x.x"; \
+		exit 1; \
+	fi
+	@if [ ! -f "$${SSH_KEY_PATH}" ]; then \
+		echo "❌ Error: SSH key not found at $${SSH_KEY_PATH}"; \
+		exit 1; \
+	fi
+
+.PHONY: tunnel-rds
+tunnel-rds: check-ssh-vars ## Create SSH tunnel to RDS (localhost:5432)
+	@if lsof -ti:5432 >/dev/null 2>&1; then \
+		echo "⚠️  Port 5432 already in use. Checking for existing tunnel..."; \
+		if ps aux | grep -v grep | grep -q "ssh.*-L 5432:.*5432"; then \
+			echo "✅ RDS tunnel already active"; \
+			exit 0; \
+		else \
+			echo "❌ Port 5432 is in use by another process"; \
+			lsof -ti:5432 | xargs ps -p | grep -v PID || true; \
+			exit 1; \
+		fi; \
+	fi
+	@echo "Creating SSH tunnel to RDS..."
+	@ssh -f -N -L 5432:$(RDS_ENDPOINT):5432 \
+		-o StrictHostKeyChecking=no \
+		-o UserKnownHostsFile=/dev/null \
+		-o ExitOnForwardFailure=yes \
+		-i $(SSH_KEY_PATH) \
+		ec2-user@$(NAT_INSTANCE_IP) && \
+	echo "✅ RDS tunnel created on localhost:5432" || \
+	echo "❌ Failed to create RDS tunnel"
+
+.PHONY: tunnel-redis
+tunnel-redis: check-ssh-vars ## Create SSH tunnel to ElastiCache (localhost:6379)
+	@if lsof -ti:6379 >/dev/null 2>&1; then \
+		echo "⚠️  Port 6379 already in use. Checking for existing tunnel..."; \
+		if ps aux | grep -v grep | grep -q "ssh.*-L 6379:.*6379"; then \
+			echo "✅ Redis tunnel already active"; \
+			exit 0; \
+		else \
+			echo "❌ Port 6379 is in use by another process"; \
+			lsof -ti:6379 | xargs ps -p | grep -v PID || true; \
+			exit 1; \
+		fi; \
+	fi
+	@echo "Creating SSH tunnel to ElastiCache..."
+	@ssh -f -N -L 6379:$(ELASTICACHE_ENDPOINT):6379 \
+		-o StrictHostKeyChecking=no \
+		-o UserKnownHostsFile=/dev/null \
+		-o ExitOnForwardFailure=yes \
+		-i $(SSH_KEY_PATH) \
+		ec2-user@$(NAT_INSTANCE_IP) && \
+	echo "✅ Redis tunnel created on localhost:6379" || \
+	echo "❌ Failed to create Redis tunnel"
+
+.PHONY: tunnel-all
+tunnel-all: tunnel-rds tunnel-redis ## Create all SSH tunnels
+
+.PHONY: tunnel-status
+tunnel-status: ## Check SSH tunnel status
+	@echo "SSH Tunnel Status:"
+	@echo "=================="
+	@if ps aux | grep -v grep | grep -q "ssh.*-L 5432:.*5432"; then \
+		echo "✅ RDS tunnel: Active (localhost:5432)"; \
+	else \
+		echo "❌ RDS tunnel: Not active"; \
+	fi
+	@if ps aux | grep -v grep | grep -q "ssh.*-L 6379:.*6379"; then \
+		echo "✅ Redis tunnel: Active (localhost:6379)"; \
+	else \
+		echo "❌ Redis tunnel: Not active"; \
+	fi
+	@echo ""
+	@echo "Active SSH tunnels:"
+	@ps aux | grep -E "ssh.*-L" | grep -v grep || echo "  No active tunnels"
+
+.PHONY: tunnel-kill
+tunnel-kill: ## Kill all SSH tunnels
+	@echo "Terminating SSH tunnels..."
+	@if ps aux | grep -v grep | grep -q "ssh.*-L"; then \
+		pkill -f "ssh.*-L" && echo "✅ SSH tunnels terminated" || echo "⚠️  Some tunnels may still be active"; \
+	else \
+		echo "ℹ️  No active SSH tunnels found"; \
+	fi
 
 # ==============================================================================
 # Quick Shortcuts

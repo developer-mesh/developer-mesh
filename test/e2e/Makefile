@@ -74,9 +74,15 @@ test-performance: install-deps
 # Run tests against local environment
 test-local:
 	@echo "Running tests against local environment..."
-	MCP_BASE_URL=localhost:8080 \
-	API_BASE_URL=localhost:8081 \
-	E2E_DEBUG=true \
+	@if [ -f .env.local ]; then \
+		echo "Loading configuration from .env.local"; \
+		set -a; source .env.local; set +a; \
+	fi; \
+	E2E_ENVIRONMENT=$${E2E_ENVIRONMENT:-local} \
+	MCP_BASE_URL=$${MCP_BASE_URL:-http://localhost:8080} \
+	API_BASE_URL=$${API_BASE_URL:-http://localhost:8081} \
+	E2E_API_KEY=$${E2E_API_KEY:-dev-admin-key-1234567890} \
+	E2E_DEBUG=$${E2E_DEBUG:-true} \
 	$(MAKE) test
 
 # Run tests in CI mode

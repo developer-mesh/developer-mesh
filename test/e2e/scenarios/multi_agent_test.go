@@ -178,7 +178,9 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 						"timeout":          600, // 10 minutes
 					},
 				},
-				"strategy": "sequential",
+				"strategy":          "sequential",
+				"coordination_mode": "centralized",  // Fix: Add required field
+				"decision_strategy": "majority",     // Fix: Add required field
 			})
 
 			Expect(err).NotTo(HaveOccurred())
