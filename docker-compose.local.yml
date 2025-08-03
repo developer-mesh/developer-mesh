@@ -299,7 +299,6 @@ services:
       - "4566:4566"
     environment:
       - SERVICES=s3,sqs
-      - DEBUG=1
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
       interval: 5s

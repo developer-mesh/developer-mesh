@@ -11,7 +11,7 @@ func (db *Database) InitializeTables(ctx context.Context) error {
 
 	// Skip table creation - tables are created by migrations
 	// The previous implementation had hardcoded table definitions that didn't match our schema
-	
+
 	log.Println("Database tables initialized successfully (using migrations)")
 	return nil
 }

@@ -137,13 +137,8 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 		log.Printf("Current search_path: %s", searchPath)
 	}
 
-	// Prepare statements
-	if err := database.prepareStatements(ctx); err != nil {
-		if closeErr := db.Close(); closeErr != nil {
-			log.Printf("Failed to close database after error: %v", closeErr)
-		}
-		return nil, err
-	}
+	// Skip preparing statements here - they'll be prepared after migrations run
+	// The tables may not exist yet during initial setup
 
 	// Run migrations if enabled
 	if cfg.AutoMigrate {
@@ -171,6 +166,12 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 			log.Printf("Failed to close database after initialization error: %v", closeErr)
 		}
 		return nil, fmt.Errorf("failed to initialize database tables: %w", err)
+	}
+
+	// Prepare statements after migrations have run
+	if err := database.prepareStatements(ctx); err != nil {
+		log.Printf("Warning: Failed to prepare statements: %v", err)
+		// Don't fail initialization - statements can be prepared on demand
 	}
 
 	return database, nil

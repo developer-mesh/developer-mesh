@@ -129,10 +129,10 @@ func (s *Server) ValidateConnection(token string) (*auth.Claims, error) {
 			// Convert User to Claims
 			return &auth.Claims{
 				RegisteredClaims: jwt.RegisteredClaims{
-					Subject: user.ID,
+					Subject: user.ID.String(),
 				},
-				TenantID: user.TenantID,
-				UserID:   user.ID,
+				TenantID: user.TenantID.String(),
+				UserID:   user.ID.String(),
 				Scopes:   user.Scopes,
 			}, nil
 		}
@@ -144,10 +144,10 @@ func (s *Server) ValidateConnection(token string) (*auth.Claims, error) {
 		// Convert User to Claims
 		return &auth.Claims{
 			RegisteredClaims: jwt.RegisteredClaims{
-				Subject: user.ID,
+				Subject: user.ID.String(),
 			},
-			TenantID: user.TenantID,
-			UserID:   user.ID,
+			TenantID: user.TenantID.String(),
+			UserID:   user.ID.String(),
 			Scopes:   user.Scopes,
 		}, nil
 	}

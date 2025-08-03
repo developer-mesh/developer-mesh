@@ -19,10 +19,9 @@ type RepositoryImpl struct {
 
 // isSQLite determines if the database is SQLite
 func isSQLite(db *sqlx.DB) bool {
-	// Try SQLite detection by querying for version
-	var version string
-	err := db.QueryRow("SELECT sqlite_version()").Scan(&version)
-	return err == nil && version != ""
+	// Check driver name first to avoid unnecessary queries
+	driverName := db.DriverName()
+	return driverName == "sqlite3"
 }
 
 // NewRepository creates a new model repository
@@ -30,31 +29,22 @@ func NewRepository(db *sqlx.DB) Repository {
 	// Determine the appropriate table name with schema prefix if needed
 	var tableName string
 
-	// Try SQLite detection first (most common in tests)
-	var sqliteVersion string
-	err := db.QueryRow("SELECT sqlite_version()").Scan(&sqliteVersion)
-	if err == nil && sqliteVersion != "" {
-		// SQLite detected, use no schema prefix
+	// Check the driver name to determine database type
+	driverName := db.DriverName()
+	switch driverName {
+	case "sqlite3":
 		tableName = "models"
-	} else {
-		// Try PostgreSQL detection
+	case "postgres", "pgx":
+		tableName = "mcp.models"
+	default:
+		// For unknown drivers, try PostgreSQL version check
 		var pgVersion string
-		err = db.QueryRow("SELECT version()").Scan(&pgVersion)
+		err := db.QueryRow("SELECT version()").Scan(&pgVersion)
 		if err == nil && len(pgVersion) > 10 && pgVersion[:10] == "PostgreSQL" {
-			// PostgreSQL detected, use schema prefix
 			tableName = "mcp.models"
 		} else {
-			// Check the driver name as fallback
-			driverName := db.DriverName()
-			switch driverName {
-			case "sqlite3":
-				tableName = "models"
-			case "postgres", "pgx":
-				tableName = "mcp.models"
-			default:
-				// Default to no schema for unknown databases
-				tableName = "models"
-			}
+			// Default to no schema for unknown databases
+			tableName = "models"
 		}
 	}
 

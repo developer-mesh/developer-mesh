@@ -34,15 +34,15 @@ func (s *TenantAwareAuthService) ValidateAPIKeyWithTenantConfig(ctx context.Cont
 	}
 
 	// Load tenant configuration
-	config, err := s.tenantConfigService.GetConfig(ctx, user.TenantID)
+	config, err := s.tenantConfigService.GetConfig(ctx, user.TenantID.String())
 	if err != nil {
 		// Log but don't fail - use defaults
 		s.logger.Warn("Failed to load tenant config", map[string]interface{}{
-			"tenant_id": user.TenantID,
+			"tenant_id": user.TenantID.String(),
 			"error":     err.Error(),
 		})
 		// Return default config
-		config = models.DefaultTenantConfig(user.TenantID)
+		config = models.DefaultTenantConfig(user.TenantID.String())
 	}
 
 	// Apply tenant-specific rate limits if available

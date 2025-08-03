@@ -62,4 +62,5 @@ LABEL org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.created="${BUILD_DATE}"
 
 # Run the application
-ENTRYPOINT ["/app/mcp-server"]
+# Skip migrations - they should only run from REST API
+ENTRYPOINT ["/app/mcp-server", "-skip-migration"]

@@ -581,10 +581,10 @@ func (s *Server) authenticateRequest(r *http.Request) (*auth.Claims, error) {
 			// Convert User to Claims
 			claims := &auth.Claims{
 				RegisteredClaims: jwt.RegisteredClaims{
-					Subject: user.ID,
+					Subject: user.ID.String(),
 				},
-				TenantID: user.TenantID,
-				UserID:   user.ID,
+				TenantID: user.TenantID.String(),
+				UserID:   user.ID.String(),
 				Scopes:   user.Scopes,
 			}
 
@@ -594,7 +594,7 @@ func (s *Server) authenticateRequest(r *http.Request) (*auth.Claims, error) {
 					claims.TenantID = tenantID
 					s.logger.Debug("Using X-Tenant-ID header for JWT", map[string]interface{}{
 						"tenant_id": tenantID,
-						"user_id":   user.ID,
+						"user_id":   user.ID.String(),
 					})
 				}
 			}
@@ -621,10 +621,10 @@ func (s *Server) authenticateRequest(r *http.Request) (*auth.Claims, error) {
 	// Convert User to Claims
 	claims := &auth.Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			Subject: user.ID,
+			Subject: user.ID.String(),
 		},
-		TenantID: user.TenantID,
-		UserID:   user.ID,
+		TenantID: user.TenantID.String(),
+		UserID:   user.ID.String(),
 		Scopes:   user.Scopes,
 	}
 
@@ -634,7 +634,7 @@ func (s *Server) authenticateRequest(r *http.Request) (*auth.Claims, error) {
 			claims.TenantID = tenantID
 			s.logger.Debug("Using X-Tenant-ID header", map[string]interface{}{
 				"tenant_id": tenantID,
-				"user_id":   user.ID,
+				"user_id":   user.ID.String(),
 			})
 		}
 	}

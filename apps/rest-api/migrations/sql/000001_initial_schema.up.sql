@@ -1,6 +1,7 @@
 -- Initial Schema for Developer Mesh
 -- Consolidated from 26 migrations into a single clean schema
 -- Created: 2025-08-02
+-- Updated: 2025-08-02 - Added missing types, tables, columns, and functions
 
 -- Enable required extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -12,6 +13,25 @@ CREATE SCHEMA IF NOT EXISTS mcp;
 
 -- Set search path
 SET search_path TO mcp, public;
+
+-- ==============================================================================
+-- CUSTOM TYPES
+-- ==============================================================================
+
+-- Task management types
+CREATE TYPE task_status AS ENUM ('pending', 'assigned', 'in_progress', 'completed', 'failed', 'cancelled', 'delegated');
+CREATE TYPE task_priority AS ENUM ('low', 'medium', 'high', 'critical');
+
+-- Workflow types
+CREATE TYPE workflow_type AS ENUM ('sequential', 'parallel', 'conditional', 'loop', 'map_reduce', 'scatter_gather');
+CREATE TYPE workflow_status AS ENUM ('draft', 'active', 'paused', 'completed', 'failed', 'archived');
+
+-- Delegation types
+CREATE TYPE delegation_type AS ENUM ('handoff', 'collaboration', 'supervision', 'consultation');
+
+-- Workspace types
+CREATE TYPE workspace_visibility AS ENUM ('private', 'team', 'organization', 'public');
+CREATE TYPE member_role AS ENUM ('viewer', 'contributor', 'moderator', 'admin', 'owner');
 
 -- ==============================================================================
 -- FOUNDATION TABLES
@@ -52,6 +72,7 @@ CREATE TABLE IF NOT EXISTS agents (
     current_workload INTEGER DEFAULT 0,
     max_workload INTEGER DEFAULT 10,
     last_task_assigned_at TIMESTAMP,
+    last_seen_at TIMESTAMP WITH TIME ZONE, -- Added from gap analysis
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(tenant_id, name)
@@ -108,7 +129,7 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- API Keys table
+-- API Keys table (FIXED: type -> key_type)
 CREATE TABLE IF NOT EXISTS api_keys (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL,
@@ -116,7 +137,7 @@ CREATE TABLE IF NOT EXISTS api_keys (
     key_hash VARCHAR(255) UNIQUE NOT NULL,
     key_prefix VARCHAR(10) NOT NULL,
     name VARCHAR(255) NOT NULL,
-    type VARCHAR(50) DEFAULT 'standard' CHECK (type IN ('standard', 'service', 'personal', 'temporary')),
+    key_type VARCHAR(50) DEFAULT 'user' CHECK (key_type IN ('user', 'admin', 'agent', 'service', 'gateway')),
     role VARCHAR(50) DEFAULT 'user' CHECK (role IN ('admin', 'user', 'readonly', 'service')),
     scopes TEXT[],
     rate_limit INTEGER DEFAULT 1000,
@@ -125,6 +146,8 @@ CREATE TABLE IF NOT EXISTS api_keys (
     last_used_at TIMESTAMP,
     usage_count BIGINT DEFAULT 0,
     metadata JSONB DEFAULT '{}',
+    parent_key_id UUID REFERENCES api_keys(id), -- Added from gap analysis
+    allowed_services TEXT[] DEFAULT '{}', -- Added from gap analysis
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP,
@@ -146,15 +169,19 @@ CREATE TABLE IF NOT EXISTS api_key_usage (
     metadata JSONB DEFAULT '{}'
 ) PARTITION BY RANGE (timestamp);
 
--- Tenant configuration
+-- Tenant configuration (UPDATED from gap analysis)
 CREATE TABLE IF NOT EXISTS tenant_config (
-    tenant_id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID UNIQUE NOT NULL,
     name VARCHAR(255) NOT NULL,
     settings JSONB DEFAULT '{}',
     features JSONB DEFAULT '{}',
     limits JSONB DEFAULT '{}',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    rate_limit_config JSONB NOT NULL DEFAULT '{}', -- Added from gap analysis
+    service_tokens JSONB DEFAULT '{}', -- Added from gap analysis
+    allowed_origins TEXT[] DEFAULT '{}', -- Added from gap analysis
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ==============================================================================
@@ -176,7 +203,7 @@ CREATE TABLE IF NOT EXISTS embedding_models (
     UNIQUE(provider, model_name)
 );
 
--- Embeddings table with vector support
+-- Embeddings table with vector support (UPDATED with missing columns)
 CREATE TABLE IF NOT EXISTS embeddings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL,
@@ -186,96 +213,190 @@ CREATE TABLE IF NOT EXISTS embeddings (
     content TEXT NOT NULL,
     content_type VARCHAR(50) DEFAULT 'text',
     vector vector(1536), -- Standard dimension size for text-embedding-3-small
+    normalized_embedding vector(1536), -- Added from gap analysis
     metadata JSONB DEFAULT '{}',
     token_count INTEGER,
     processing_time_ms INTEGER,
+    agent_id VARCHAR(255), -- Added from gap analysis
+    task_type VARCHAR(50), -- Added from gap analysis
+    cost_usd DECIMAL(10, 6), -- Added from gap analysis
+    generation_time_ms INTEGER, -- Added from gap analysis
+    content_tsvector tsvector, -- Added from gap analysis
+    term_frequencies jsonb, -- Added from gap analysis
+    document_length integer, -- Added from gap analysis
+    idf_scores jsonb, -- Added from gap analysis
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP,
     UNIQUE(tenant_id, content_hash, model_id)
 );
 
--- Embedding cache for performance
+-- Embedding cache for performance (Already exists, keeping as is)
 CREATE TABLE IF NOT EXISTS embedding_cache (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     content_hash VARCHAR(64) NOT NULL,
     model_id UUID NOT NULL REFERENCES embedding_models(id),
-    vector vector(1536),
+    embedding vector(4096) NOT NULL,
+    metadata JSONB DEFAULT '{}',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    expires_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP + INTERVAL '30 days',
-    hit_count INTEGER DEFAULT 0,
-    last_hit_at TIMESTAMP,
-    PRIMARY KEY (content_hash, model_id)
+    expires_at TIMESTAMP,
+    access_count INTEGER DEFAULT 0,
+    last_accessed TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(content_hash, model_id)
 );
 
--- Agent-specific embedding configurations
+-- Embedding statistics for hybrid search (Added from gap analysis)
+CREATE TABLE IF NOT EXISTS embedding_statistics (
+    collection_id VARCHAR(255) PRIMARY KEY,
+    total_documents INTEGER NOT NULL DEFAULT 0,
+    avg_document_length FLOAT NOT NULL DEFAULT 0.0,
+    term_document_counts JSONB NOT NULL DEFAULT '{}',
+    last_updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Projection matrices for cross-model compatibility (Added from gap analysis)
+CREATE TABLE IF NOT EXISTS projection_matrices (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    source_model_id UUID NOT NULL REFERENCES models(id),
+    target_model_id UUID NOT NULL REFERENCES models(id),
+    source_dimension INTEGER NOT NULL,
+    target_dimension INTEGER NOT NULL,
+    matrix_data BYTEA NOT NULL,
+    training_loss FLOAT,
+    validation_loss FLOAT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(source_model_id, target_model_id)
+);
+
+-- Agent configs for embeddings with versioning (Updated to match Go code expectations)
 CREATE TABLE IF NOT EXISTS agent_configs (
-    agent_id UUID PRIMARY KEY REFERENCES agents(id) ON DELETE CASCADE,
-    embedding_model_id UUID REFERENCES embedding_models(id),
-    chunk_size INTEGER DEFAULT 512,
-    chunk_overlap INTEGER DEFAULT 50,
-    embedding_batch_size INTEGER DEFAULT 100,
-    cache_ttl_hours INTEGER DEFAULT 24,
-    preprocessing_config JSONB DEFAULT '{}',
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    agent_id UUID NOT NULL REFERENCES agents(id),
+    version INTEGER NOT NULL DEFAULT 1,
+    
+    -- Configuration
+    embedding_strategy VARCHAR(50) NOT NULL DEFAULT 'balanced' CHECK (embedding_strategy IN ('balanced', 'quality', 'speed', 'cost')),
+    model_preferences JSONB NOT NULL DEFAULT '[]',
+    constraints JSONB NOT NULL DEFAULT '{}',
+    fallback_behavior JSONB NOT NULL DEFAULT '{}',
+    
+    -- Legacy columns for compatibility
+    embedding_model_id UUID REFERENCES models(id),
+    embedding_config JSONB DEFAULT '{}',
+    cost_limit_usd DECIMAL(10, 2),
+    rate_limit_per_minute INTEGER,
+    
+    -- Metadata
+    metadata JSONB NOT NULL DEFAULT '{}',
+    is_active BOOLEAN DEFAULT true,
+    
+    -- Audit
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_by UUID,
+    
+    -- Constraints
+    CONSTRAINT unique_agent_version UNIQUE(agent_id, version),
+    CONSTRAINT valid_model_preferences CHECK (jsonb_typeof(model_preferences) = 'array'),
+    CONSTRAINT valid_constraints CHECK (jsonb_typeof(constraints) = 'object'),
+    CONSTRAINT valid_fallback CHECK (jsonb_typeof(fallback_behavior) = 'object')
 );
 
--- Embedding metrics (partitioned by month)
+-- Embedding metrics for monitoring (Added from gap analysis)
 CREATE TABLE IF NOT EXISTS embedding_metrics (
-    timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    id UUID DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL,
-    model_id UUID NOT NULL REFERENCES embedding_models(id),
-    tokens_processed BIGINT NOT NULL,
-    vectors_created INTEGER NOT NULL,
-    processing_time_ms BIGINT NOT NULL,
-    estimated_cost_usd DECIMAL(12, 6),
-    cache_hits INTEGER DEFAULT 0,
-    cache_misses INTEGER DEFAULT 0,
-    error_count INTEGER DEFAULT 0,
-    metadata JSONB DEFAULT '{}'
+    agent_id UUID NOT NULL,
+    model_id UUID NOT NULL REFERENCES models(id),
+    timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    tokens_used INTEGER NOT NULL,
+    cost_usd DECIMAL(10, 6) NOT NULL,
+    latency_ms INTEGER NOT NULL,
+    batch_size INTEGER DEFAULT 1,
+    success BOOLEAN DEFAULT true,
+    error_message TEXT,
+    PRIMARY KEY (id, timestamp)
 ) PARTITION BY RANGE (timestamp);
 
 -- ==============================================================================
--- TASK MANAGEMENT & WORKFLOWS
+-- TASK MANAGEMENT SYSTEM
 -- ==============================================================================
 
--- Tasks table (partitioned by created_at)
+-- Tasks table (partitioned by created_at) - UPDATED with missing columns
 CREATE TABLE IF NOT EXISTS tasks (
     id UUID DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL,
-    type VARCHAR(100) NOT NULL,
-    title VARCHAR(500) NOT NULL,
-    description TEXT,
-    status VARCHAR(50) DEFAULT 'pending',
-    priority VARCHAR(20) DEFAULT 'normal',
     parent_task_id UUID,
-    context_id UUID REFERENCES contexts(id),
-    assigned_to UUID REFERENCES agents(id),
-    created_by UUID REFERENCES agents(id),
+    agent_id UUID REFERENCES agents(id),
+    status task_status DEFAULT 'pending',
+    priority task_priority DEFAULT 'medium',
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    input_data JSONB DEFAULT '{}',
+    output_data JSONB DEFAULT '{}',
+    error_message TEXT,
+    max_retries INTEGER DEFAULT 3,
+    retry_count INTEGER DEFAULT 0,
     assigned_at TIMESTAMP,
-    accepted_at TIMESTAMP,
-    delegated_from VARCHAR(255),
-    delegation_count INTEGER DEFAULT 0,
-    metadata JSONB DEFAULT '{}',
-    tags TEXT[],
-    due_date TIMESTAMP,
     started_at TIMESTAMP,
     completed_at TIMESTAMP,
+    deadline TIMESTAMP,
+    auto_escalate BOOLEAN DEFAULT FALSE, -- Added from gap analysis
+    escalation_timeout INTERVAL, -- Added from gap analysis
+    max_delegations INTEGER DEFAULT 3, -- Added from gap analysis
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (id, created_at),
-    FOREIGN KEY (parent_task_id, created_at) REFERENCES tasks(id, created_at)
+    PRIMARY KEY (id, created_at)
 ) PARTITION BY RANGE (created_at);
 
--- Task delegations tracking
+-- Task delegations
 CREATE TABLE IF NOT EXISTS task_delegations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     task_id UUID NOT NULL,
-    from_agent_id UUID NOT NULL REFERENCES agents(id),
+    from_agent_id UUID REFERENCES agents(id),
     to_agent_id UUID NOT NULL REFERENCES agents(id),
+    delegation_type delegation_type,
+    status VARCHAR(50) DEFAULT 'pending',
     reason TEXT,
-    delegation_type VARCHAR(50),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    accepted_at TIMESTAMP,
+    completed_at TIMESTAMP
 );
+
+-- Task delegation history (Added from gap analysis)
+CREATE TABLE IF NOT EXISTS task_delegation_history (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    task_id UUID NOT NULL,
+    from_agent_id UUID REFERENCES agents(id),
+    to_agent_id UUID NOT NULL REFERENCES agents(id),
+    delegation_type delegation_type,
+    reason TEXT,
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Task state transitions (Added from gap analysis)
+CREATE TABLE IF NOT EXISTS task_state_transitions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    task_id UUID NOT NULL,
+    from_status task_status,
+    to_status task_status NOT NULL,
+    transitioned_by UUID REFERENCES agents(id),
+    reason TEXT,
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Task idempotency keys (Added from gap analysis)
+CREATE TABLE IF NOT EXISTS task_idempotency_keys (
+    idempotency_key VARCHAR(255) PRIMARY KEY,
+    task_id UUID NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL
+);
+
+-- ==============================================================================
+-- WORKFLOW SYSTEM
+-- ==============================================================================
 
 -- Workflows table
 CREATE TABLE IF NOT EXISTS workflows (
@@ -283,266 +404,92 @@ CREATE TABLE IF NOT EXISTS workflows (
     tenant_id UUID NOT NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT,
-    type VARCHAR(100) NOT NULL,
-    steps JSONB NOT NULL DEFAULT '[]',
-    agents UUID[] DEFAULT '{}',
+    type workflow_type NOT NULL,
+    status workflow_status DEFAULT 'draft',
+    definition JSONB NOT NULL,
     configuration JSONB DEFAULT '{}',
-    coordination_mode VARCHAR(50) DEFAULT 'centralized',
-    decision_strategy VARCHAR(50) DEFAULT 'majority',
-    is_active BOOLEAN DEFAULT true,
-    version INTEGER DEFAULT 1,
+    created_by UUID REFERENCES users(id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(tenant_id, name, version)
+    UNIQUE(tenant_id, name)
 );
 
 -- Workflow executions
 CREATE TABLE IF NOT EXISTS workflow_executions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id UUID NOT NULL,
     workflow_id UUID NOT NULL REFERENCES workflows(id),
     status VARCHAR(50) DEFAULT 'running',
-    current_step INTEGER DEFAULT 0,
-    context JSONB DEFAULT '{}',
-    result JSONB,
-    error TEXT,
-    retry_count INTEGER DEFAULT 0,
-    parent_execution_id UUID,
-    error_details JSONB,
+    input_data JSONB DEFAULT '{}',
+    output_data JSONB DEFAULT '{}',
+    error_message TEXT,
     started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    completed_at TIMESTAMP
+    completed_at TIMESTAMP,
+    metadata JSONB DEFAULT '{}'
 );
 
 -- ==============================================================================
 -- COLLABORATION SYSTEM
 -- ==============================================================================
 
--- Workspaces for collaboration
+-- Workspaces table - UPDATED with missing columns
 CREATE TABLE IF NOT EXISTS workspaces (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT,
-    type VARCHAR(50) NOT NULL,
-    status VARCHAR(50) DEFAULT 'active',
+    visibility workspace_visibility DEFAULT 'private',
     configuration JSONB DEFAULT '{}',
-    metadata JSONB DEFAULT '{}',
-    created_by UUID REFERENCES agents(id),
+    max_members INTEGER DEFAULT 50, -- Added from gap analysis
+    max_storage_bytes BIGINT DEFAULT 1073741824, -- Added from gap analysis (1GB)
+    current_storage_bytes BIGINT DEFAULT 0, -- Added from gap analysis
+    max_documents INTEGER DEFAULT 1000, -- Added from gap analysis
+    current_documents INTEGER DEFAULT 0, -- Added from gap analysis
+    created_by UUID REFERENCES users(id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    archived_at TIMESTAMP,
     UNIQUE(tenant_id, name)
 );
 
--- Workspace members with roles
+-- Workspace members
 CREATE TABLE IF NOT EXISTS workspace_members (
     workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-    agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
-    role VARCHAR(50) NOT NULL DEFAULT 'member',
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role member_role DEFAULT 'viewer',
     permissions JSONB DEFAULT '{}',
     joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_active_at TIMESTAMP,
-    PRIMARY KEY (workspace_id, agent_id)
+    invited_by UUID REFERENCES users(id),
+    PRIMARY KEY (workspace_id, user_id)
 );
 
--- Shared documents with CRDT support
+-- Workspace activities (Added from gap analysis)
+CREATE TABLE IF NOT EXISTS workspace_activities (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    actor_id UUID NOT NULL REFERENCES agents(id),
+    action VARCHAR(100) NOT NULL,
+    target_type VARCHAR(50),
+    target_id UUID,
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Shared documents
 CREATE TABLE IF NOT EXISTS shared_documents (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-    name VARCHAR(255) NOT NULL,
-    type VARCHAR(50) NOT NULL,
-    content JSONB NOT NULL DEFAULT '{}',
+    title VARCHAR(255) NOT NULL,
+    content TEXT,
+    content_type VARCHAR(50) DEFAULT 'markdown',
     version INTEGER DEFAULT 1,
-    created_by UUID REFERENCES agents(id),
-    locked_by UUID REFERENCES agents(id),
-    locked_at TIMESTAMP,
-    metadata JSONB DEFAULT '{}',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(workspace_id, name)
-);
-
--- Document operations for CRDT
-CREATE TABLE IF NOT EXISTS document_operations (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    document_id UUID NOT NULL REFERENCES shared_documents(id) ON DELETE CASCADE,
-    agent_id UUID NOT NULL REFERENCES agents(id),
-    operation_type VARCHAR(50) NOT NULL,
-    operation_data JSONB NOT NULL,
-    vector_clock JSONB NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- ==============================================================================
--- DYNAMIC TOOLS SYSTEM
--- ==============================================================================
-
--- Tool configurations
-CREATE TABLE IF NOT EXISTS tool_configurations (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id UUID NOT NULL,
-    tool_name VARCHAR(255) NOT NULL,
-    display_name VARCHAR(255) NOT NULL,
-    config JSONB NOT NULL,
-    credentials_encrypted BYTEA,
-    auth_type VARCHAR(50),
-    retry_policy JSONB DEFAULT '{"max_attempts": 3, "backoff_ms": 1000}',
-    status VARCHAR(50) DEFAULT 'active',
-    health_status VARCHAR(50) DEFAULT 'unknown',
-    last_health_check TIMESTAMP,
-    last_used_at TIMESTAMP,
-    base_url TEXT,
-    webhook_config JSONB DEFAULT '{}',
-    provider VARCHAR(100),
-    passthrough_config JSONB DEFAULT '{}',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    version INTEGER DEFAULT 1,
-    UNIQUE(tenant_id, tool_name)
-);
-
--- Tool discovery sessions
-CREATE TABLE IF NOT EXISTS tool_discovery_sessions (
-    session_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id UUID NOT NULL,
-    base_url TEXT NOT NULL,
-    status VARCHAR(50) DEFAULT 'discovering',
-    discovered_urls JSONB DEFAULT '[]',
-    selected_url TEXT,
-    discovery_metadata JSONB DEFAULT '{}',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    expires_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP + INTERVAL '1 hour'
-);
-
--- Tool executions audit
-CREATE TABLE IF NOT EXISTS tool_executions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id UUID NOT NULL,
-    tool_config_id UUID NOT NULL REFERENCES tool_configurations(id) ON DELETE CASCADE,
-    agent_id UUID REFERENCES agents(id),
-    action VARCHAR(255) NOT NULL,
-    parameters JSONB,
-    status VARCHAR(50) NOT NULL,
-    result JSONB,
-    error_message TEXT,
-    retry_count INTEGER DEFAULT 0,
-    response_time_ms INTEGER,
-    executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    correlation_id UUID
-);
-
--- Tool execution retries
-CREATE TABLE IF NOT EXISTS tool_execution_retries (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    execution_id UUID NOT NULL REFERENCES tool_executions(id) ON DELETE CASCADE,
-    attempt_number INTEGER NOT NULL,
-    error_type VARCHAR(100),
-    error_message TEXT,
-    backoff_ms INTEGER,
-    attempted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Tool health checks
-CREATE TABLE IF NOT EXISTS tool_health_checks (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tool_config_id UUID NOT NULL REFERENCES tool_configurations(id) ON DELETE CASCADE,
-    is_healthy BOOLEAN NOT NULL,
-    response_time_ms INTEGER,
-    status_code INTEGER,
-    error_message TEXT,
-    capabilities JSONB,
-    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Tool credentials
-CREATE TABLE IF NOT EXISTS tool_credentials (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tool_config_id UUID NOT NULL REFERENCES tool_configurations(id) ON DELETE CASCADE,
-    credential_type VARCHAR(50) NOT NULL,
-    encrypted_value BYTEA NOT NULL,
-    encryption_key_version INTEGER DEFAULT 1,
-    expires_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(tool_config_id, credential_type)
-);
-
--- OpenAPI cache
-CREATE TABLE IF NOT EXISTS openapi_cache (
-    url TEXT PRIMARY KEY,
-    spec_hash VARCHAR(64) NOT NULL,
-    spec_data JSONB NOT NULL,
-    version VARCHAR(50),
-    title VARCHAR(255),
-    description TEXT,
-    discovered_actions TEXT[],
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_accessed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    cache_expires_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP + INTERVAL '7 days',
-    access_count INTEGER DEFAULT 1
-);
-
--- Tool discovery patterns (learning system)
-CREATE TABLE IF NOT EXISTS tool_discovery_patterns (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id UUID NOT NULL,
-    domain VARCHAR(255) NOT NULL,
-    successful_paths JSONB DEFAULT '[]',
-    failed_paths JSONB DEFAULT '[]',
-    auth_method VARCHAR(50),
-    api_format VARCHAR(50),
-    success_count INTEGER DEFAULT 0,
-    failure_count INTEGER DEFAULT 0,
-    last_success_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(tenant_id, domain)
-);
-
--- Webhook events
-CREATE TABLE IF NOT EXISTS webhook_events (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id UUID NOT NULL,
-    tool_id UUID REFERENCES tool_configurations(id) ON DELETE SET NULL,
-    event_type VARCHAR(100) NOT NULL,
-    payload JSONB NOT NULL,
-    headers JSONB DEFAULT '{}',
-    source_ip INET,
-    status VARCHAR(50) DEFAULT 'pending',
-    processed_at TIMESTAMP,
-    error_message TEXT,
-    retry_count INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Webhook event logs
-CREATE TABLE IF NOT EXISTS webhook_event_logs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    event_id UUID NOT NULL REFERENCES webhook_events(id) ON DELETE CASCADE,
-    action VARCHAR(100) NOT NULL,
-    status VARCHAR(50) NOT NULL,
-    message TEXT,
-    metadata JSONB DEFAULT '{}',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Webhook dead letter queue
-CREATE TABLE IF NOT EXISTS webhook_dlq (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    event_id UUID,
-    event_type VARCHAR(100),
-    payload JSONB NOT NULL,
-    error_message TEXT,
-    retry_count INTEGER DEFAULT 0,
-    max_retries INTEGER DEFAULT 5,
-    next_retry_at TIMESTAMP,
-    status VARCHAR(50) DEFAULT 'pending',
+    vector_clock JSONB DEFAULT '{}',
+    created_by UUID REFERENCES users(id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ==============================================================================
--- INTEGRATIONS & WEBHOOKS
+-- INTEGRATION SYSTEM
 -- ==============================================================================
 
 -- External integrations
@@ -552,33 +499,32 @@ CREATE TABLE IF NOT EXISTS integrations (
     name VARCHAR(255) NOT NULL,
     type VARCHAR(100) NOT NULL,
     configuration JSONB NOT NULL DEFAULT '{}',
+    credentials_encrypted TEXT,
     status VARCHAR(50) DEFAULT 'active',
     last_sync_at TIMESTAMP,
+    sync_frequency_minutes INTEGER,
+    metadata JSONB DEFAULT '{}',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(tenant_id, name)
+    UNIQUE(tenant_id, name, type)
 );
 
 -- Webhook configurations
 CREATE TABLE IF NOT EXISTS webhook_configs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL,
-    organization_id UUID,
-    name VARCHAR(255) NOT NULL,
+    integration_id UUID REFERENCES integrations(id) ON DELETE CASCADE,
     url TEXT NOT NULL,
-    events TEXT[] NOT NULL,
-    headers JSONB DEFAULT '{}',
     secret_encrypted TEXT,
-    retry_config JSONB DEFAULT '{"max_attempts": 3, "backoff_seconds": [1, 5, 30]}',
+    events TEXT[] NOT NULL,
     is_active BOOLEAN DEFAULT true,
-    metadata JSONB DEFAULT '{}',
+    retry_config JSONB DEFAULT '{"max_retries": 3, "retry_delay_ms": 1000}',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(tenant_id, name)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ==============================================================================
--- AUDIT & MONITORING
+-- MONITORING & ANALYTICS
 -- ==============================================================================
 
 -- Events table for event sourcing
@@ -588,13 +534,11 @@ CREATE TABLE IF NOT EXISTS events (
     aggregate_id UUID NOT NULL,
     aggregate_type VARCHAR(100) NOT NULL,
     event_type VARCHAR(100) NOT NULL,
+    event_version INTEGER DEFAULT 1,
     event_data JSONB NOT NULL,
-    event_metadata JSONB DEFAULT '{}',
-    source VARCHAR(100),
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    created_by UUID,
+    metadata JSONB DEFAULT '{}',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    processed_at TIMESTAMP
+    created_by UUID
 );
 
 -- Audit log (partitioned by created_at)
@@ -604,8 +548,8 @@ CREATE TABLE IF NOT EXISTS audit_log (
     entity_type VARCHAR(50) NOT NULL,
     entity_id UUID NOT NULL,
     action VARCHAR(50) NOT NULL,
-    actor_id UUID NOT NULL,
     actor_type VARCHAR(50) NOT NULL,
+    actor_id UUID NOT NULL,
     changes JSONB,
     metadata JSONB DEFAULT '{}',
     ip_address INET,
@@ -615,145 +559,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
 ) PARTITION BY RANGE (created_at);
 
 -- ==============================================================================
--- PARTITIONS
--- ==============================================================================
-
--- Create initial partitions for 2025
-CREATE TABLE IF NOT EXISTS api_key_usage_2025_01 PARTITION OF api_key_usage
-    FOR VALUES FROM ('2025-01-01') TO ('2025-02-01');
-
-CREATE TABLE IF NOT EXISTS api_key_usage_2025_02 PARTITION OF api_key_usage
-    FOR VALUES FROM ('2025-02-01') TO ('2025-03-01');
-
-CREATE TABLE IF NOT EXISTS api_key_usage_2025_03 PARTITION OF api_key_usage
-    FOR VALUES FROM ('2025-03-01') TO ('2025-04-01');
-
-CREATE TABLE IF NOT EXISTS embedding_metrics_2025_01 PARTITION OF embedding_metrics
-    FOR VALUES FROM ('2025-01-01') TO ('2025-02-01');
-
-CREATE TABLE IF NOT EXISTS embedding_metrics_2025_02 PARTITION OF embedding_metrics
-    FOR VALUES FROM ('2025-02-01') TO ('2025-03-01');
-
-CREATE TABLE IF NOT EXISTS embedding_metrics_2025_03 PARTITION OF embedding_metrics
-    FOR VALUES FROM ('2025-03-01') TO ('2025-04-01');
-
-CREATE TABLE IF NOT EXISTS tasks_2025_01 PARTITION OF tasks
-    FOR VALUES FROM ('2025-01-01') TO ('2025-02-01');
-
-CREATE TABLE IF NOT EXISTS tasks_2025_02 PARTITION OF tasks
-    FOR VALUES FROM ('2025-02-01') TO ('2025-03-01');
-
-CREATE TABLE IF NOT EXISTS tasks_2025_03 PARTITION OF tasks
-    FOR VALUES FROM ('2025-03-01') TO ('2025-04-01');
-
-CREATE TABLE IF NOT EXISTS audit_log_2025_01 PARTITION OF audit_log
-    FOR VALUES FROM ('2025-01-01') TO ('2025-02-01');
-
-CREATE TABLE IF NOT EXISTS audit_log_2025_02 PARTITION OF audit_log
-    FOR VALUES FROM ('2025-02-01') TO ('2025-03-01');
-
-CREATE TABLE IF NOT EXISTS audit_log_2025_03 PARTITION OF audit_log
-    FOR VALUES FROM ('2025-03-01') TO ('2025-04-01');
-
--- ==============================================================================
--- INDEXES
--- ==============================================================================
-
--- Model indexes
-CREATE INDEX idx_models_tenant_id ON models(tenant_id);
-CREATE INDEX idx_models_provider ON models(provider);
-CREATE INDEX idx_models_type ON models(type);
-CREATE INDEX idx_models_is_active ON models(is_active) WHERE is_active = true;
-
--- Agent indexes
-CREATE INDEX idx_agents_tenant_id ON agents(tenant_id);
-CREATE INDEX idx_agents_status ON agents(status);
-CREATE INDEX idx_agents_capabilities ON agents USING GIN(capabilities);
-CREATE INDEX idx_agents_tenant_status_workload ON agents(tenant_id, status, current_workload);
-CREATE INDEX idx_agents_available ON agents(status, current_workload) 
-    WHERE status = 'available' AND current_workload < max_workload;
-
--- Context indexes
-CREATE INDEX idx_contexts_tenant_id ON contexts(tenant_id);
-CREATE INDEX idx_contexts_agent_id ON contexts(agent_id);
-CREATE INDEX idx_contexts_status ON contexts(status);
-CREATE INDEX idx_context_items_context_id ON context_items(context_id);
-
--- User and API Key indexes
-CREATE INDEX idx_users_tenant_id ON users(tenant_id);
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_api_keys_tenant_id ON api_keys(tenant_id);
-CREATE INDEX idx_api_keys_user_id ON api_keys(user_id);
-CREATE INDEX idx_api_keys_key_prefix ON api_keys(key_prefix);
-CREATE INDEX idx_api_keys_active ON api_keys(is_active) WHERE is_active = true;
-
--- Embedding indexes
-CREATE INDEX idx_embeddings_tenant_id ON embeddings(tenant_id);
-CREATE INDEX idx_embeddings_context_id ON embeddings(context_id);
-CREATE INDEX idx_embeddings_model_id ON embeddings(model_id);
-CREATE INDEX idx_embeddings_content_hash ON embeddings(content_hash);
-CREATE INDEX idx_embeddings_vector ON embeddings USING ivfflat (vector vector_cosine_ops);
-
--- Task indexes
-CREATE INDEX idx_tasks_tenant_id ON tasks(tenant_id);
-CREATE INDEX idx_tasks_status ON tasks(status);
-CREATE INDEX idx_tasks_assigned_to ON tasks(assigned_to);
-CREATE INDEX idx_tasks_created_by ON tasks(created_by);
-CREATE INDEX idx_tasks_priority_status ON tasks(priority, status);
-CREATE INDEX idx_tasks_tenant_status ON tasks(tenant_id, status);
-CREATE INDEX idx_tasks_tenant_created_by_status ON tasks(tenant_id, created_by, status);
-CREATE INDEX idx_tasks_pending ON tasks(status) WHERE status = 'pending';
-CREATE INDEX idx_tasks_in_progress ON tasks(status, assigned_to) WHERE status = 'in_progress';
-
--- Workflow indexes
-CREATE INDEX idx_workflows_tenant_id ON workflows(tenant_id);
-CREATE INDEX idx_workflows_type ON workflows(type);
-CREATE INDEX idx_workflows_is_active ON workflows(is_active) WHERE is_active = true;
-CREATE INDEX idx_workflow_executions_workflow_id ON workflow_executions(workflow_id);
-CREATE INDEX idx_workflow_executions_status ON workflow_executions(workflow_id, status);
-
--- Workspace indexes
-CREATE INDEX idx_workspaces_tenant_id ON workspaces(tenant_id);
-CREATE INDEX idx_workspaces_type ON workspaces(type);
-CREATE INDEX idx_workspace_members_agent_id ON workspace_members(agent_id);
-CREATE INDEX idx_shared_documents_workspace_id ON shared_documents(workspace_id);
-CREATE INDEX idx_shared_documents_created_by ON shared_documents(created_by);
-
--- Integration indexes
-CREATE INDEX idx_integrations_tenant_id ON integrations(tenant_id);
-CREATE INDEX idx_integrations_type ON integrations(type);
-CREATE INDEX idx_webhook_configs_tenant_id ON webhook_configs(tenant_id);
-CREATE INDEX idx_webhook_configs_organization_id ON webhook_configs(organization_id);
-
--- Dynamic tools indexes
-CREATE INDEX idx_tool_configurations_tenant_id ON tool_configurations(tenant_id);
-CREATE INDEX idx_tool_configurations_status ON tool_configurations(status);
-CREATE INDEX idx_tool_configurations_health_status ON tool_configurations(health_status);
-CREATE INDEX idx_tool_discovery_sessions_tenant_id ON tool_discovery_sessions(tenant_id);
-CREATE INDEX idx_tool_discovery_sessions_status ON tool_discovery_sessions(status);
-CREATE INDEX idx_tool_discovery_sessions_expires_at ON tool_discovery_sessions(expires_at);
-CREATE INDEX idx_tool_executions_tenant_id ON tool_executions(tenant_id);
-CREATE INDEX idx_tool_executions_tool_config_id ON tool_executions(tool_config_id);
-CREATE INDEX idx_tool_executions_status ON tool_executions(status);
-CREATE INDEX idx_tool_executions_executed_at ON tool_executions(executed_at DESC);
-CREATE INDEX idx_tool_health_checks_tool_config_id ON tool_health_checks(tool_config_id);
-CREATE INDEX idx_tool_health_checks_checked_at ON tool_health_checks(checked_at DESC);
-CREATE INDEX idx_openapi_cache_cache_expires_at ON openapi_cache(cache_expires_at);
-CREATE INDEX idx_tool_discovery_patterns_tenant_domain ON tool_discovery_patterns(tenant_id, domain);
-CREATE INDEX idx_webhook_events_tenant_id ON webhook_events(tenant_id);
-CREATE INDEX idx_webhook_events_tool_id ON webhook_events(tool_id);
-CREATE INDEX idx_webhook_events_status ON webhook_events(status);
-CREATE INDEX idx_webhook_events_created_at ON webhook_events(created_at DESC);
-CREATE INDEX idx_webhook_dlq_status ON webhook_dlq(status);
-CREATE INDEX idx_webhook_dlq_next_retry_at ON webhook_dlq(next_retry_at);
-
--- Event indexes
-CREATE INDEX idx_events_tenant_id ON events(tenant_id);
-CREATE INDEX idx_events_aggregate ON events(aggregate_id, aggregate_type);
-CREATE INDEX idx_events_created_at ON events(created_at DESC);
-
--- ==============================================================================
--- FUNCTIONS & TRIGGERS
+-- UTILITY FUNCTIONS
 -- ==============================================================================
 
 -- Update timestamp trigger function
@@ -765,7 +571,192 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Apply update timestamp triggers
+-- Current tenant ID function for RLS (Added from gap analysis)
+CREATE OR REPLACE FUNCTION current_tenant_id() RETURNS UUID AS $$
+BEGIN
+    RETURN current_setting('app.tenant_id', true)::UUID;
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- BM25 scoring function (Added from gap analysis)
+CREATE OR REPLACE FUNCTION bm25_score(
+    term_freq FLOAT,
+    doc_freq INTEGER,
+    total_docs INTEGER,
+    doc_length INTEGER,
+    avg_doc_length FLOAT,
+    k1 FLOAT DEFAULT 1.2,
+    b FLOAT DEFAULT 0.75
+) RETURNS FLOAT AS $$
+BEGIN
+    IF doc_freq = 0 OR total_docs = 0 OR avg_doc_length = 0 THEN
+        RETURN 0;
+    END IF;
+    
+    RETURN ((term_freq * (k1 + 1)) / 
+            (term_freq + k1 * (1 - b + b * (doc_length / avg_doc_length)))) *
+           ln((total_docs - doc_freq + 0.5) / (doc_freq + 0.5));
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+-- Update content TSVector function (Added from gap analysis)
+CREATE OR REPLACE FUNCTION update_content_tsvector() RETURNS trigger AS $$
+BEGIN
+    NEW.content_tsvector := to_tsvector('english', COALESCE(NEW.content, ''));
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- JSONB merge recursive function (Added from gap analysis)
+CREATE OR REPLACE FUNCTION jsonb_merge_recursive(target JSONB, source JSONB) 
+RETURNS JSONB AS $$
+BEGIN
+    IF jsonb_typeof(target) = 'object' AND jsonb_typeof(source) = 'object' THEN
+        RETURN (
+            SELECT jsonb_object_agg(
+                COALESCE(t.key, s.key),
+                CASE
+                    WHEN t.value IS NULL THEN s.value
+                    WHEN s.value IS NULL THEN t.value
+                    WHEN jsonb_typeof(t.value) = 'object' AND jsonb_typeof(s.value) = 'object' 
+                        THEN jsonb_merge_recursive(t.value, s.value)
+                    ELSE s.value
+                END
+            )
+            FROM jsonb_each(target) t
+            FULL OUTER JOIN jsonb_each(source) s ON t.key = s.key
+        );
+    ELSE
+        RETURN source;
+    END IF;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+-- ==============================================================================
+-- PARTITIONS
+-- ==============================================================================
+
+-- Create initial partitions for api_key_usage
+CREATE TABLE api_key_usage_2025_01 PARTITION OF api_key_usage
+    FOR VALUES FROM ('2025-01-01') TO ('2025-02-01');
+CREATE TABLE api_key_usage_2025_02 PARTITION OF api_key_usage
+    FOR VALUES FROM ('2025-02-01') TO ('2025-03-01');
+CREATE TABLE api_key_usage_2025_03 PARTITION OF api_key_usage
+    FOR VALUES FROM ('2025-03-01') TO ('2025-04-01');
+
+-- Create initial partitions for tasks
+CREATE TABLE tasks_2025_01 PARTITION OF tasks
+    FOR VALUES FROM ('2025-01-01') TO ('2025-02-01');
+CREATE TABLE tasks_2025_02 PARTITION OF tasks
+    FOR VALUES FROM ('2025-02-01') TO ('2025-03-01');
+CREATE TABLE tasks_2025_03 PARTITION OF tasks
+    FOR VALUES FROM ('2025-03-01') TO ('2025-04-01');
+
+-- Create initial partitions for audit_log
+CREATE TABLE audit_log_2025_01 PARTITION OF audit_log
+    FOR VALUES FROM ('2025-01-01') TO ('2025-02-01');
+CREATE TABLE audit_log_2025_02 PARTITION OF audit_log
+    FOR VALUES FROM ('2025-02-01') TO ('2025-03-01');
+CREATE TABLE audit_log_2025_03 PARTITION OF audit_log
+    FOR VALUES FROM ('2025-03-01') TO ('2025-04-01');
+
+-- Create initial partitions for embedding_metrics
+CREATE TABLE embedding_metrics_2025_01 PARTITION OF embedding_metrics
+    FOR VALUES FROM ('2025-01-01') TO ('2025-02-01');
+CREATE TABLE embedding_metrics_2025_02 PARTITION OF embedding_metrics
+    FOR VALUES FROM ('2025-02-01') TO ('2025-03-01');
+CREATE TABLE embedding_metrics_2025_03 PARTITION OF embedding_metrics
+    FOR VALUES FROM ('2025-03-01') TO ('2025-04-01');
+
+-- ==============================================================================
+-- INDEXES
+-- ==============================================================================
+
+-- Model indexes
+CREATE INDEX idx_models_tenant_id ON models(tenant_id);
+CREATE INDEX idx_models_provider ON models(provider) WHERE is_active = true;
+
+-- Agent indexes
+CREATE INDEX idx_agents_tenant_id ON agents(tenant_id);
+CREATE INDEX idx_agents_status ON agents(status);
+CREATE INDEX idx_agents_workload ON agents(current_workload) WHERE status = 'available';
+
+-- Agent config indexes
+CREATE INDEX idx_agent_configs_active ON agent_configs(agent_id, version DESC) WHERE is_active = true;
+
+-- Context indexes
+CREATE INDEX idx_contexts_tenant_id ON contexts(tenant_id);
+CREATE INDEX idx_contexts_agent_id ON contexts(agent_id);
+CREATE INDEX idx_contexts_status ON contexts(status);
+
+-- User indexes
+CREATE INDEX idx_users_tenant_id ON users(tenant_id);
+CREATE INDEX idx_users_email ON users(email);
+
+-- API Key indexes
+CREATE INDEX idx_api_keys_tenant_id ON api_keys(tenant_id);
+CREATE INDEX idx_api_keys_user_id ON api_keys(user_id);
+CREATE INDEX idx_api_keys_key_prefix ON api_keys(key_prefix);
+CREATE INDEX idx_api_keys_active ON api_keys(is_active) WHERE is_active = true;
+CREATE INDEX idx_api_keys_key_type ON api_keys(key_type, tenant_id) WHERE is_active = true; -- Added from gap analysis
+CREATE INDEX idx_api_keys_parent ON api_keys(parent_key_id) WHERE parent_key_id IS NOT NULL; -- Added from gap analysis
+
+-- Embedding indexes
+CREATE INDEX idx_embeddings_tenant_id ON embeddings(tenant_id);
+CREATE INDEX idx_embeddings_context_id ON embeddings(context_id);
+CREATE INDEX idx_embeddings_model_id ON embeddings(model_id);
+CREATE INDEX idx_embeddings_content_hash ON embeddings(content_hash);
+CREATE INDEX idx_embeddings_vector ON embeddings USING ivfflat (vector vector_cosine_ops);
+CREATE INDEX idx_embeddings_normalized_ivfflat ON embeddings USING ivfflat (normalized_embedding vector_cosine_ops); -- Added
+CREATE INDEX idx_embeddings_fts ON embeddings USING gin(content_tsvector); -- Added
+CREATE INDEX idx_embeddings_agent_id ON embeddings(agent_id); -- Added
+CREATE INDEX idx_embeddings_task_type ON embeddings(task_type); -- Added
+
+-- Task indexes
+CREATE INDEX idx_tasks_tenant_id ON tasks(tenant_id);
+CREATE INDEX idx_tasks_agent_id ON tasks(agent_id);
+CREATE INDEX idx_tasks_status ON tasks(status);
+CREATE INDEX idx_tasks_priority ON tasks(priority) WHERE status IN ('pending', 'assigned');
+CREATE INDEX idx_tasks_parent ON tasks(parent_task_id) WHERE parent_task_id IS NOT NULL;
+
+-- Task delegation indexes
+CREATE INDEX idx_task_delegations_task ON task_delegations(task_id);
+CREATE INDEX idx_task_delegations_from ON task_delegations(from_agent_id);
+CREATE INDEX idx_task_delegations_to ON task_delegations(to_agent_id);
+CREATE INDEX idx_task_delegation_history_task ON task_delegation_history(task_id); -- Added
+CREATE INDEX idx_task_state_transitions_task ON task_state_transitions(task_id); -- Added
+CREATE INDEX idx_task_idempotency_expires ON task_idempotency_keys(expires_at); -- Added
+
+-- Workflow indexes
+CREATE INDEX idx_workflows_tenant_id ON workflows(tenant_id);
+CREATE INDEX idx_workflows_status ON workflows(status);
+CREATE INDEX idx_workflow_executions_workflow ON workflow_executions(workflow_id);
+CREATE INDEX idx_workflow_executions_status ON workflow_executions(status);
+
+-- Workspace indexes
+CREATE INDEX idx_workspaces_tenant_id ON workspaces(tenant_id);
+CREATE INDEX idx_workspace_members_user ON workspace_members(user_id);
+CREATE INDEX idx_workspace_activities_workspace ON workspace_activities(workspace_id); -- Added
+CREATE INDEX idx_workspace_activities_actor ON workspace_activities(actor_id); -- Added
+
+-- Integration indexes
+CREATE INDEX idx_integrations_tenant_id ON integrations(tenant_id);
+CREATE INDEX idx_webhook_configs_integration ON webhook_configs(integration_id);
+CREATE INDEX idx_webhook_configs_active ON webhook_configs(is_active) WHERE is_active = true;
+
+-- Event indexes
+CREATE INDEX idx_events_tenant_id ON events(tenant_id);
+CREATE INDEX idx_events_aggregate ON events(aggregate_id, aggregate_type);
+CREATE INDEX idx_events_created_at ON events(created_at DESC);
+
+-- ==============================================================================
+-- TRIGGERS
+-- ==============================================================================
+
+-- Update timestamp triggers
 CREATE TRIGGER update_models_updated_at BEFORE UPDATE ON models
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -790,37 +781,32 @@ CREATE TRIGGER update_workspaces_updated_at BEFORE UPDATE ON workspaces
 CREATE TRIGGER update_shared_documents_updated_at BEFORE UPDATE ON shared_documents
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_tool_configurations_updated_at BEFORE UPDATE ON tool_configurations
+CREATE TRIGGER update_integrations_updated_at BEFORE UPDATE ON integrations
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_tool_discovery_sessions_updated_at BEFORE UPDATE ON tool_discovery_sessions
+CREATE TRIGGER update_webhook_configs_updated_at BEFORE UPDATE ON webhook_configs
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_tool_credentials_updated_at BEFORE UPDATE ON tool_credentials
+CREATE TRIGGER update_embedding_models_updated_at BEFORE UPDATE ON embedding_models
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_tool_discovery_patterns_updated_at BEFORE UPDATE ON tool_discovery_patterns
+CREATE TRIGGER update_tenant_config_updated_at BEFORE UPDATE ON tenant_config
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_webhook_dlq_updated_at BEFORE UPDATE ON webhook_dlq
+CREATE TRIGGER update_agent_configs_updated_at BEFORE UPDATE ON agent_configs
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Tenant isolation function for RLS
-CREATE OR REPLACE FUNCTION current_tenant_id()
-RETURNS UUID AS $$
-BEGIN
-    RETURN current_setting('app.tenant_id', true)::UUID;
-EXCEPTION
-    WHEN OTHERS THEN
-        RETURN NULL;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+-- Content TSVector update trigger (Added from gap analysis)
+CREATE TRIGGER update_embeddings_tsvector 
+    BEFORE INSERT OR UPDATE OF content ON embeddings
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_content_tsvector();
 
 -- ==============================================================================
--- ROW LEVEL SECURITY
+-- ROW LEVEL SECURITY (RLS)
 -- ==============================================================================
 
--- Enable RLS on tenant-isolated tables
+-- Enable RLS on tenant-scoped tables
 ALTER TABLE models ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE contexts ENABLE ROW LEVEL SECURITY;
@@ -864,36 +850,29 @@ CREATE POLICY tenant_isolation_workspaces ON workspaces
 CREATE POLICY tenant_isolation_integrations ON integrations
     USING (tenant_id = current_tenant_id());
 
-CREATE POLICY tenant_isolation_webhook_configs ON webhook_configs
+CREATE POLICY tenant_isolation_events ON events
     USING (tenant_id = current_tenant_id());
 
 -- ==============================================================================
--- SEED EMBEDDING MODELS
+-- INITIAL DATA
 -- ==============================================================================
 
+-- Insert default embedding models
 INSERT INTO embedding_models (provider, model_name, dimensions, max_tokens, cost_per_token) VALUES
-    ('openai', 'text-embedding-3-small', 1536, 8191, 0.00002),
-    ('openai', 'text-embedding-3-large', 3072, 8191, 0.00013),
-    ('openai', 'text-embedding-ada-002', 1536, 8191, 0.00010),
-    ('voyage', 'voyage-2', 1024, 4000, 0.00010),
-    ('voyage', 'voyage-large-2', 1536, 16000, 0.00012),
-    ('amazon', 'amazon.titan-embed-text-v1', 1536, 8000, 0.00010),
-    ('amazon', 'amazon.titan-embed-text-v2', 1024, 8000, 0.00002),
-    ('google', 'textembedding-gecko', 768, 3072, 0.00005),
-    ('google', 'textembedding-gecko-multilingual', 768, 3072, 0.00005)
+    ('openai', 'text-embedding-3-small', 1536, 8192, 0.00002),
+    ('openai', 'text-embedding-3-large', 3072, 8192, 0.00013),
+    ('amazon', 'amazon.titan-embed-text-v1', 1536, 8192, 0.00001),
+    ('google', 'text-embedding-004', 768, 2048, 0.00001)
 ON CONFLICT (provider, model_name) DO NOTHING;
 
 -- ==============================================================================
--- PERMISSIONS
+-- GRANTS (adjust based on your user requirements)
 -- ==============================================================================
 
--- Grant schema usage
-GRANT USAGE ON SCHEMA mcp TO public;
+-- Grant usage on schema
+GRANT USAGE ON SCHEMA mcp TO PUBLIC;
 
--- Grant table permissions
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA mcp TO public;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO public;
+-- Grant appropriate permissions on tables (customize as needed)
+-- Example: GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA mcp TO your_app_user;
 
--- Grant sequence permissions
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA mcp TO public;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO public;
+-- End of schema creation
