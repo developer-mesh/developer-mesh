@@ -48,7 +48,7 @@ func (r *webhookConfigRepository) GetByOrganization(ctx context.Context, orgName
 	var config models.WebhookConfig
 	query := `
 		SELECT id, organization_name, webhook_secret, enabled, allowed_events, metadata, created_at, updated_at
-		FROM webhook_configs
+		FROM mcp.webhook_configs
 		WHERE organization_name = $1
 	`
 
@@ -68,7 +68,7 @@ func (r *webhookConfigRepository) GetWebhookSecret(ctx context.Context, orgName 
 	var secret string
 	query := `
 		SELECT webhook_secret
-		FROM webhook_configs
+		FROM mcp.webhook_configs
 		WHERE organization_name = $1 AND enabled = true
 	`
 
@@ -104,7 +104,7 @@ func (r *webhookConfigRepository) Create(ctx context.Context, config *models.Web
 	}
 
 	query := `
-		INSERT INTO webhook_configs 
+		INSERT INTO mcp.webhook_configs 
 		(id, organization_name, webhook_secret, enabled, allowed_events, metadata)
 		VALUES (:id, :organization_name, :webhook_secret, :enabled, :allowed_events, :metadata)
 		RETURNING created_at, updated_at
@@ -134,7 +134,7 @@ func (r *webhookConfigRepository) Update(ctx context.Context, orgName string, co
 	updates := make(map[string]interface{})
 	updates["organization_name"] = orgName
 
-	query := "UPDATE webhook_configs SET "
+	query := "UPDATE mcp.webhook_configs SET "
 	params := []string{}
 
 	if config.Enabled != nil {
@@ -190,7 +190,7 @@ func (r *webhookConfigRepository) Update(ctx context.Context, orgName string, co
 func (r *webhookConfigRepository) List(ctx context.Context, enabledOnly bool) ([]*models.WebhookConfig, error) {
 	query := `
 		SELECT id, organization_name, webhook_secret, enabled, allowed_events, metadata, created_at, updated_at
-		FROM webhook_configs
+		FROM mcp.webhook_configs
 	`
 
 	if enabledOnly {
@@ -210,7 +210,7 @@ func (r *webhookConfigRepository) List(ctx context.Context, enabledOnly bool) ([
 
 // Delete deletes a webhook configuration
 func (r *webhookConfigRepository) Delete(ctx context.Context, orgName string) error {
-	query := "DELETE FROM webhook_configs WHERE organization_name = $1"
+	query := "DELETE FROM mcp.webhook_configs WHERE organization_name = $1"
 
 	result, err := r.db.ExecContext(ctx, query, orgName)
 	if err != nil {

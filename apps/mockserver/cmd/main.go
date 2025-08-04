@@ -14,13 +14,34 @@ import (
 	"github.com/developer-mesh/developer-mesh/apps/mockserver/internal/handlers"
 )
 
+func getEnvOrDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
 func main() {
 	// Command line flags
 	var (
-		port = flag.String("port", "8082", "Port to run the mock server on")
-		host = flag.String("host", "", "Host to bind the server to")
+		port        = flag.String("port", getEnvOrDefault("PORT", "8082"), "Port to run the mock server on")
+		host        = flag.String("host", "", "Host to bind the server to")
+		healthCheck = flag.Bool("health-check", false, "Run health check and exit")
 	)
 	flag.Parse()
+
+	// Handle health check mode
+	if *healthCheck {
+		resp, err := http.Get(fmt.Sprintf("http://localhost:%s/health", *port))
+		if err != nil {
+			os.Exit(1)
+		}
+		resp.Body.Close()
+		if resp.StatusCode == http.StatusOK {
+			os.Exit(0)
+		}
+		os.Exit(1)
+	}
 
 	// Setup logging
 	log.SetFlags(log.LstdFlags | log.Lshortfile)

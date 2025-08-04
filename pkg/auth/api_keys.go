@@ -82,8 +82,8 @@ func (s *Service) CreateAPIKeyWithType(ctx context.Context, req CreateAPIKeyRequ
 		query := `
 			INSERT INTO mcp.api_keys (
 				id, key_hash, key_prefix, tenant_id, user_id, name, key_type,
-				scopes, is_active, expires_at, rate_limit_requests,
-				rate_limit_window_seconds, parent_key_id, allowed_services,
+				scopes, is_active, expires_at, rate_limit,
+				rate_window, parent_key_id, allowed_services,
 				created_at, updated_at
 			) VALUES (
 				uuid_generate_v4(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $14

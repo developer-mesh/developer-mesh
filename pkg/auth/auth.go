@@ -77,7 +77,7 @@ type APIKey struct {
 	AllowedServices []string `db:"allowed_services"` // NEW
 
 	// Rate limiting
-	RateLimitRequests      int `db:"rate_limit_requests"`
+	RateLimitRequests      int `db:"rate_limit"`
 	RateLimitWindowSeconds int `db:"rate_limit_window_seconds"`
 }
 
@@ -229,7 +229,7 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 		// Query database for the API key
 		query := `
 			SELECT tenant_id, user_id, name, key_type, scopes, is_active, 
-			       expires_at, rate_limit_requests, allowed_services
+			       expires_at, rate_limit, allowed_services
 			FROM mcp.api_keys 
 			WHERE key_hash = $1 AND is_active = true
 		`
@@ -242,7 +242,7 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 			Scopes          pq.StringArray `db:"scopes"`
 			Active          bool           `db:"is_active"`
 			ExpiresAt       *time.Time     `db:"expires_at"`
-			RateLimit       *int           `db:"rate_limit_requests"`
+			RateLimit       *int           `db:"rate_limit"`
 			AllowedServices pq.StringArray `db:"allowed_services"`
 		}
 

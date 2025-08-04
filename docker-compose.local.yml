@@ -21,11 +21,11 @@ services:
       # Database (using service names)
       - DATABASE_HOST=database
       - DATABASE_PORT=5432
-      - DATABASE_NAME=dev
-      - DATABASE_USER=dev
-      - DATABASE_PASSWORD=dev
+      - DATABASE_NAME=devmesh_development
+      - DATABASE_USER=devmesh
+      - DATABASE_PASSWORD=devmesh
       - DATABASE_SSL_MODE=disable
-      - DATABASE_DSN=postgres://dev:dev@database:5432/dev?sslmode=disable&search_path=mcp,public
+      - DATABASE_DSN=postgres://devmesh:devmesh@database:5432/devmesh_development?sslmode=disable&search_path=mcp,public
       # Redis (using service names)
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -34,11 +34,11 @@ services:
       # ElastiCache configuration for functional tests
       - ELASTICACHE_ENDPOINT=redis
       - ELASTICACHE_PORT=6379
-      # AWS/LocalStack
-      - AWS_REGION=${AWS_REGION:-us-west-2}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-test}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-test}
-      - AWS_ENDPOINT_URL=http://localstack:4566
+      # AWS Configuration
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      # - AWS_ENDPOINT_URL=http://localstack:4566  # Commented out to use real AWS
       - S3_BUCKET=${S3_BUCKET:-mcp-contexts}
       - S3_ENDPOINT=http://localstack:4566
       - S3_USE_PATH_STYLE=true
@@ -59,7 +59,8 @@ services:
       - OPENAI_ENABLED=${OPENAI_ENABLED:-false}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       # AWS Bedrock Provider
-      - BEDROCK_ENABLED=${BEDROCK_ENABLED:-false}
+      - BEDROCK_ENABLED=${BEDROCK_ENABLED:-true}
+      - BEDROCK_REGION=${AWS_REGION:-us-east-1}
       - BEDROCK_ENDPOINT=${BEDROCK_ENDPOINT:-}
       - BEDROCK_ROLE_ARN=${BEDROCK_ROLE_ARN:-}
       # Google AI Provider
@@ -122,11 +123,11 @@ services:
       # Database (using service names)
       - DATABASE_HOST=database
       - DATABASE_PORT=5432
-      - DATABASE_NAME=dev
-      - DATABASE_USER=dev
-      - DATABASE_PASSWORD=dev
+      - DATABASE_NAME=devmesh_development
+      - DATABASE_USER=devmesh
+      - DATABASE_PASSWORD=devmesh
       - DATABASE_SSL_MODE=disable
-      - DATABASE_DSN=postgres://dev:dev@database:5432/dev?sslmode=disable&search_path=mcp,public
+      - DATABASE_DSN=postgres://devmesh:devmesh@database:5432/devmesh_development?sslmode=disable&search_path=mcp,public
       # Redis (using service names)
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -135,11 +136,11 @@ services:
       # ElastiCache configuration for functional tests
       - ELASTICACHE_ENDPOINT=redis
       - ELASTICACHE_PORT=6379
-      # AWS/LocalStack
-      - AWS_REGION=${AWS_REGION:-us-west-2}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-test}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-test}
-      - AWS_ENDPOINT_URL=http://localstack:4566
+      # AWS Configuration
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      # - AWS_ENDPOINT_URL=http://localstack:4566  # Commented out to use real AWS
       - S3_BUCKET=${S3_BUCKET:-mcp-contexts}
       - S3_ENDPOINT=http://localstack:4566
       - S3_USE_PATH_STYLE=true
@@ -157,7 +158,8 @@ services:
       - OPENAI_ENABLED=${OPENAI_ENABLED:-false}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       # AWS Bedrock Provider
-      - BEDROCK_ENABLED=${BEDROCK_ENABLED:-false}
+      - BEDROCK_ENABLED=${BEDROCK_ENABLED:-true}
+      - BEDROCK_REGION=${AWS_REGION:-us-east-1}
       - BEDROCK_ENDPOINT=${BEDROCK_ENDPOINT:-}
       - BEDROCK_ROLE_ARN=${BEDROCK_ROLE_ARN:-}
       # Google AI Provider
@@ -205,10 +207,10 @@ services:
       # Database (using service names)
       - DATABASE_HOST=database
       - DATABASE_PORT=5432
-      - DATABASE_NAME=dev
-      - DATABASE_USER=dev
-      - DATABASE_PASSWORD=dev
-      - DATABASE_DSN=postgresql://dev:dev@database:5432/dev?sslmode=disable&search_path=mcp,public
+      - DATABASE_NAME=devmesh_development
+      - DATABASE_USER=devmesh
+      - DATABASE_PASSWORD=devmesh
+      - DATABASE_DSN=postgresql://devmesh:devmesh@database:5432/devmesh_development?sslmode=disable&search_path=mcp,public
       - DATABASE_SEARCH_PATH=mcp,public
       # Redis (using service names)
       - REDIS_HOST=redis
@@ -251,19 +253,20 @@ services:
     environment:
       - PORT=8081
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8081/health"]
+      test: ["CMD", "/app/mockserver", "-health-check"]
       interval: 10s
       timeout: 5s
       retries: 3
+      start_period: 10s
     networks:
       - mcp-network
   
   database:
     image: pgvector/pgvector:pg17
     environment:
-      - POSTGRES_USER=dev
-      - POSTGRES_PASSWORD=dev
-      - POSTGRES_DB=dev
+      - POSTGRES_USER=devmesh
+      - POSTGRES_PASSWORD=devmesh
+      - POSTGRES_DB=devmesh_development
     volumes:
       - postgres-data:/var/lib/postgresql/data
       # Database initialization script for direct schema setup
@@ -271,7 +274,7 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U dev"]
+      test: ["CMD-SHELL", "pg_isready -U devmesh"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -298,7 +301,7 @@ services:
     ports:
       - "4566:4566"
     environment:
-      - SERVICES=s3,sqs
+      - SERVICES=s3
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
       interval: 5s
@@ -335,12 +338,7 @@ services:
             ]
           }]
         }' &&
-        echo 'S3 bucket created successfully' &&
-        echo 'Creating SQS queue...' &&
-        aws --endpoint-url=http://localstack:4566 sqs create-queue --queue-name tasks &&
-        echo 'SQS queue created successfully' &&
-        # Print the queue URL for debugging
-        aws --endpoint-url=http://localstack:4566 sqs get-queue-url --queue-name tasks
+        echo 'S3 bucket created successfully'
       "
     networks:
       - mcp-network

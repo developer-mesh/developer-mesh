@@ -63,12 +63,8 @@ func AutoMigrate(ctx context.Context, db *sqlx.DB, driverName string, options Au
 	if err != nil {
 		return fmt.Errorf("failed to create migration manager: %w", err)
 	}
-	defer func() {
-		if err := manager.Close(); err != nil {
-			// Integration tool - log but don't fail
-			fmt.Printf("Failed to close migration manager: %v\n", err)
-		}
-	}()
+	// Don't close the manager here as it closes the database connection
+	// The database connection should remain open for the application to use
 
 	// Initialize the migration manager
 	if err := manager.Init(ctx); err != nil {
