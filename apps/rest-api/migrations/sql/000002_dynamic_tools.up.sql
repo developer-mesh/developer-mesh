@@ -8,6 +8,23 @@
 BEGIN;
 
 -- ==============================================================================
+-- VERIFY DEPENDENCIES
+-- ==============================================================================
+
+-- Check if required functions exist from previous migrations
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'update_updated_at_column' AND pronamespace = 'mcp'::regnamespace) THEN
+        RAISE EXCEPTION 'Required function update_updated_at_column not found. Please ensure migration 000001 completed successfully.';
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'current_tenant_id' AND pronamespace = 'mcp'::regnamespace) THEN
+        RAISE EXCEPTION 'Required function current_tenant_id not found. Please ensure migration 000001 completed successfully.';
+    END IF;
+END;
+$$;
+
+-- ==============================================================================
 -- DYNAMIC TOOLS CONFIGURATION
 -- ==============================================================================
 
@@ -308,11 +325,11 @@ CREATE INDEX idx_tool_health_checks_tool_time
 -- Update timestamp triggers
 CREATE TRIGGER update_tool_configurations_updated_at 
     BEFORE UPDATE ON mcp.tool_configurations
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    FOR EACH ROW EXECUTE FUNCTION mcp.update_updated_at_column();
 
 CREATE TRIGGER update_tool_auth_configs_updated_at 
     BEFORE UPDATE ON mcp.tool_auth_configs
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    FOR EACH ROW EXECUTE FUNCTION mcp.update_updated_at_column();
 
 -- Update tool health status after health check
 CREATE OR REPLACE FUNCTION mcp.update_tool_health_status()
@@ -384,30 +401,30 @@ ALTER TABLE mcp.tool_health_checks ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies
 CREATE POLICY tenant_isolation_tool_configurations ON mcp.tool_configurations
-    USING (tenant_id = current_tenant_id());
+    USING (tenant_id = mcp.current_tenant_id());
 
 CREATE POLICY tenant_isolation_tool_executions ON mcp.tool_executions
-    USING (tenant_id = current_tenant_id());
+    USING (tenant_id = mcp.current_tenant_id());
 
 -- Discovery sessions inherit tenant from tool
 CREATE POLICY tenant_isolation_tool_discovery_sessions ON mcp.tool_discovery_sessions
     USING (tool_id IN (
         SELECT id FROM mcp.tool_configurations 
-        WHERE tenant_id = current_tenant_id()
+        WHERE tenant_id = mcp.current_tenant_id()
     ));
 
 -- Auth configs inherit tenant from tool
 CREATE POLICY tenant_isolation_tool_auth_configs ON mcp.tool_auth_configs
     USING (tool_id IN (
         SELECT id FROM mcp.tool_configurations 
-        WHERE tenant_id = current_tenant_id()
+        WHERE tenant_id = mcp.current_tenant_id()
     ));
 
 -- Health checks inherit tenant from tool
 CREATE POLICY tenant_isolation_tool_health_checks ON mcp.tool_health_checks
     USING (tool_id IN (
         SELECT id FROM mcp.tool_configurations 
-        WHERE tenant_id = current_tenant_id()
+        WHERE tenant_id = mcp.current_tenant_id()
     ));
 
 -- Discovery patterns are shared across tenants (learning system)
@@ -415,7 +432,7 @@ CREATE POLICY public_read_discovery_patterns ON mcp.tool_discovery_patterns
     FOR SELECT USING (true);
 
 CREATE POLICY tenant_write_discovery_patterns ON mcp.tool_discovery_patterns
-    FOR ALL USING (current_tenant_id() IS NOT NULL);
+    FOR ALL USING (mcp.current_tenant_id() IS NOT NULL);
 
 -- ==============================================================================
 -- FUNCTIONS

@@ -11,34 +11,31 @@ CREATE EXTENSION IF NOT EXISTS "vector";
 -- Create MCP schema for core platform
 CREATE SCHEMA IF NOT EXISTS mcp;
 
--- Set search path
-SET search_path TO mcp, public;
-
 -- ==============================================================================
 -- CUSTOM TYPES
 -- ==============================================================================
 
 -- Task management types
-CREATE TYPE task_status AS ENUM ('pending', 'assigned', 'in_progress', 'completed', 'failed', 'cancelled', 'delegated');
-CREATE TYPE task_priority AS ENUM ('low', 'medium', 'high', 'critical');
+CREATE TYPE mcp.task_status AS ENUM ('pending', 'assigned', 'in_progress', 'completed', 'failed', 'cancelled', 'delegated');
+CREATE TYPE mcp.task_priority AS ENUM ('low', 'medium', 'high', 'critical');
 
 -- Workflow types
-CREATE TYPE workflow_type AS ENUM ('sequential', 'parallel', 'conditional', 'loop', 'map_reduce', 'scatter_gather');
-CREATE TYPE workflow_status AS ENUM ('draft', 'active', 'paused', 'completed', 'failed', 'archived');
+CREATE TYPE mcp.workflow_type AS ENUM ('sequential', 'parallel', 'conditional', 'loop', 'map_reduce', 'scatter_gather');
+CREATE TYPE mcp.workflow_status AS ENUM ('draft', 'active', 'paused', 'completed', 'failed', 'archived');
 
 -- Delegation types
-CREATE TYPE delegation_type AS ENUM ('handoff', 'collaboration', 'supervision', 'consultation');
+CREATE TYPE mcp.delegation_type AS ENUM ('handoff', 'collaboration', 'supervision', 'consultation');
 
 -- Workspace types
-CREATE TYPE workspace_visibility AS ENUM ('private', 'team', 'organization', 'public');
-CREATE TYPE member_role AS ENUM ('viewer', 'contributor', 'moderator', 'admin', 'owner');
+CREATE TYPE mcp.workspace_visibility AS ENUM ('private', 'team', 'organization', 'public');
+CREATE TYPE mcp.member_role AS ENUM ('viewer', 'contributor', 'moderator', 'admin', 'owner');
 
 -- ==============================================================================
 -- FOUNDATION TABLES
 -- ==============================================================================
 
 -- Models table (AI model registry)
-CREATE TABLE IF NOT EXISTS models (
+CREATE TABLE IF NOT EXISTS mcp.models (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -57,7 +54,7 @@ CREATE TABLE IF NOT EXISTS models (
 );
 
 -- Agents table
-CREATE TABLE IF NOT EXISTS agents (
+CREATE TABLE IF NOT EXISTS mcp.agents (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -79,11 +76,11 @@ CREATE TABLE IF NOT EXISTS agents (
 );
 
 -- Contexts table
-CREATE TABLE IF NOT EXISTS contexts (
+CREATE TABLE IF NOT EXISTS mcp.contexts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL,
-    agent_id UUID REFERENCES agents(id) ON DELETE CASCADE,
-    model_id UUID REFERENCES models(id),
+    agent_id UUID REFERENCES mcp.agents(id) ON DELETE CASCADE,
+    model_id UUID REFERENCES mcp.models(id),
     type VARCHAR(50) NOT NULL,
     status VARCHAR(50) DEFAULT 'active',
     metadata JSONB DEFAULT '{}',
@@ -97,9 +94,9 @@ CREATE TABLE IF NOT EXISTS contexts (
 );
 
 -- Context items table
-CREATE TABLE IF NOT EXISTS context_items (
+CREATE TABLE IF NOT EXISTS mcp.context_items (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    context_id UUID NOT NULL REFERENCES contexts(id) ON DELETE CASCADE,
+    context_id UUID NOT NULL REFERENCES mcp.contexts(id) ON DELETE CASCADE,
     type VARCHAR(50) NOT NULL,
     role VARCHAR(50) NOT NULL,
     content TEXT NOT NULL,
@@ -116,7 +113,7 @@ CREATE TABLE IF NOT EXISTS context_items (
 -- ==============================================================================
 
 -- Users table
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE IF NOT EXISTS mcp.users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
@@ -130,10 +127,10 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 -- API Keys table (FIXED: type -> key_type)
-CREATE TABLE IF NOT EXISTS api_keys (
+CREATE TABLE IF NOT EXISTS mcp.api_keys (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL,
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES mcp.users(id) ON DELETE CASCADE,
     key_hash VARCHAR(255) UNIQUE NOT NULL,
     key_prefix VARCHAR(10) NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -146,19 +143,19 @@ CREATE TABLE IF NOT EXISTS api_keys (
     last_used_at TIMESTAMP,
     usage_count BIGINT DEFAULT 0,
     metadata JSONB DEFAULT '{}',
-    parent_key_id UUID REFERENCES api_keys(id), -- Added from gap analysis
+    parent_key_id UUID REFERENCES mcp.api_keys(id), -- Added from gap analysis
     allowed_services TEXT[] DEFAULT '{}', -- Added from gap analysis
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP,
-    rotated_from UUID REFERENCES api_keys(id),
+    rotated_from UUID REFERENCES mcp.api_keys(id),
     rotated_at TIMESTAMP,
     CONSTRAINT check_expiry CHECK (expires_at IS NULL OR expires_at > created_at)
 );
 
 -- API Key Usage tracking (partitioned by month)
-CREATE TABLE IF NOT EXISTS api_key_usage (
-    api_key_id UUID NOT NULL REFERENCES api_keys(id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS mcp.api_key_usage (
+    api_key_id UUID NOT NULL REFERENCES mcp.api_keys(id) ON DELETE CASCADE,
     timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     endpoint VARCHAR(255) NOT NULL,
     method VARCHAR(10) NOT NULL,
@@ -170,7 +167,7 @@ CREATE TABLE IF NOT EXISTS api_key_usage (
 ) PARTITION BY RANGE (timestamp);
 
 -- Tenant configuration (UPDATED from gap analysis)
-CREATE TABLE IF NOT EXISTS tenant_config (
+CREATE TABLE IF NOT EXISTS mcp.tenant_config (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID UNIQUE NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -189,13 +186,20 @@ CREATE TABLE IF NOT EXISTS tenant_config (
 -- ==============================================================================
 
 -- Embedding models registry
-CREATE TABLE IF NOT EXISTS embedding_models (
+CREATE TABLE IF NOT EXISTS mcp.embedding_models (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     provider VARCHAR(50) NOT NULL,
     model_name VARCHAR(100) NOT NULL,
+    model_version VARCHAR(20),
     dimensions INTEGER NOT NULL,
     max_tokens INTEGER,
-    cost_per_token DECIMAL(12, 8),
+    supports_binary BOOLEAN DEFAULT false,
+    supports_dimensionality_reduction BOOLEAN DEFAULT false,
+    min_dimensions INTEGER,
+    cost_per_million_tokens DECIMAL(10, 2),
+    cost_per_token DECIMAL(12, 8), -- Legacy compatibility
+    model_id VARCHAR(100), -- For Bedrock models
+    model_type VARCHAR(50) DEFAULT 'text',
     is_active BOOLEAN DEFAULT true,
     capabilities JSONB DEFAULT '{}',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -204,19 +208,40 @@ CREATE TABLE IF NOT EXISTS embedding_models (
 );
 
 -- Embeddings table with vector support (UPDATED with missing columns)
-CREATE TABLE IF NOT EXISTS embeddings (
+CREATE TABLE IF NOT EXISTS mcp.embeddings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL,
-    context_id UUID REFERENCES contexts(id) ON DELETE CASCADE,
-    model_id UUID NOT NULL REFERENCES embedding_models(id),
-    content_hash VARCHAR(64) NOT NULL,
+    context_id UUID REFERENCES mcp.contexts(id) ON DELETE CASCADE,
+    
+    -- Content relationship
+    content_index INTEGER NOT NULL DEFAULT 0,
+    chunk_index INTEGER NOT NULL DEFAULT 0,
+    
+    -- Content
     content TEXT NOT NULL,
-    content_type VARCHAR(50) DEFAULT 'text',
-    vector vector(1536), -- Standard dimension size for text-embedding-3-small
+    content_hash VARCHAR(64) NOT NULL,
+    content_tokens INTEGER,
+    
+    -- Model information (denormalized for performance)
+    model_id UUID NOT NULL REFERENCES mcp.embedding_models(id),
+    model_provider VARCHAR(50) NOT NULL,
+    model_name VARCHAR(100) NOT NULL,
+    model_dimensions INTEGER NOT NULL,
+    configured_dimensions INTEGER, -- Actual dimensions if reduced
+    
+    -- The embedding vectors
+    embedding vector(4096), -- Max size for future models
+    vector vector(1536), -- Legacy compatibility alias
     normalized_embedding vector(1536), -- Added from gap analysis
+    
+    -- Processing metadata
+    processing_time_ms INTEGER,
+    embedding_created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    magnitude FLOAT,
+    
+    -- Extended metadata
     metadata JSONB DEFAULT '{}',
     token_count INTEGER,
-    processing_time_ms INTEGER,
     agent_id VARCHAR(255), -- Added from gap analysis
     task_type VARCHAR(50), -- Added from gap analysis
     cost_usd DECIMAL(10, 6), -- Added from gap analysis
@@ -225,16 +250,25 @@ CREATE TABLE IF NOT EXISTS embeddings (
     term_frequencies jsonb, -- Added from gap analysis
     document_length integer, -- Added from gap analysis
     idf_scores jsonb, -- Added from gap analysis
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    content_type VARCHAR(50) DEFAULT 'text',
+    
+    -- Audit
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP,
+    
+    -- Constraints
+    CONSTRAINT valid_dimensions CHECK (model_dimensions > 0 AND model_dimensions <= 4096),
+    CONSTRAINT valid_content CHECK (length(content) > 0),
+    CONSTRAINT valid_indices CHECK (content_index >= 0 AND chunk_index >= 0),
     UNIQUE(tenant_id, content_hash, model_id)
 );
 
 -- Embedding cache for performance (Already exists, keeping as is)
-CREATE TABLE IF NOT EXISTS embedding_cache (
+CREATE TABLE IF NOT EXISTS mcp.embedding_cache (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     content_hash VARCHAR(64) NOT NULL,
-    model_id UUID NOT NULL REFERENCES embedding_models(id),
+    model_id UUID NOT NULL REFERENCES mcp.embedding_models(id),
     embedding vector(4096) NOT NULL,
     metadata JSONB DEFAULT '{}',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -245,7 +279,7 @@ CREATE TABLE IF NOT EXISTS embedding_cache (
 );
 
 -- Embedding statistics for hybrid search (Added from gap analysis)
-CREATE TABLE IF NOT EXISTS embedding_statistics (
+CREATE TABLE IF NOT EXISTS mcp.embedding_statistics (
     collection_id VARCHAR(255) PRIMARY KEY,
     total_documents INTEGER NOT NULL DEFAULT 0,
     avg_document_length FLOAT NOT NULL DEFAULT 0.0,
@@ -254,10 +288,10 @@ CREATE TABLE IF NOT EXISTS embedding_statistics (
 );
 
 -- Projection matrices for cross-model compatibility (Added from gap analysis)
-CREATE TABLE IF NOT EXISTS projection_matrices (
+CREATE TABLE IF NOT EXISTS mcp.projection_matrices (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    source_model_id UUID NOT NULL REFERENCES models(id),
-    target_model_id UUID NOT NULL REFERENCES models(id),
+    source_model_id UUID NOT NULL REFERENCES mcp.models(id),
+    target_model_id UUID NOT NULL REFERENCES mcp.models(id),
     source_dimension INTEGER NOT NULL,
     target_dimension INTEGER NOT NULL,
     matrix_data BYTEA NOT NULL,
@@ -268,9 +302,9 @@ CREATE TABLE IF NOT EXISTS projection_matrices (
 );
 
 -- Agent configs for embeddings with versioning (Updated to match Go code expectations)
-CREATE TABLE IF NOT EXISTS agent_configs (
+CREATE TABLE IF NOT EXISTS mcp.agent_configs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    agent_id UUID NOT NULL REFERENCES agents(id),
+    agent_id UUID NOT NULL REFERENCES mcp.agents(id),
     version INTEGER NOT NULL DEFAULT 1,
     
     -- Configuration
@@ -280,7 +314,7 @@ CREATE TABLE IF NOT EXISTS agent_configs (
     fallback_behavior JSONB NOT NULL DEFAULT '{}',
     
     -- Legacy columns for compatibility
-    embedding_model_id UUID REFERENCES models(id),
+    embedding_model_id UUID REFERENCES mcp.models(id),
     embedding_config JSONB DEFAULT '{}',
     cost_limit_usd DECIMAL(10, 2),
     rate_limit_per_minute INTEGER,
@@ -302,11 +336,11 @@ CREATE TABLE IF NOT EXISTS agent_configs (
 );
 
 -- Embedding metrics for monitoring (Added from gap analysis)
-CREATE TABLE IF NOT EXISTS embedding_metrics (
+CREATE TABLE IF NOT EXISTS mcp.embedding_metrics (
     id UUID DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL,
     agent_id UUID NOT NULL,
-    model_id UUID NOT NULL REFERENCES models(id),
+    model_id UUID NOT NULL REFERENCES mcp.models(id),
     timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     tokens_used INTEGER NOT NULL,
     cost_usd DECIMAL(10, 6) NOT NULL,
@@ -322,11 +356,11 @@ CREATE TABLE IF NOT EXISTS embedding_metrics (
 -- ==============================================================================
 
 -- Tasks table (partitioned by created_at) - UPDATED with missing columns
-CREATE TABLE IF NOT EXISTS tasks (
+CREATE TABLE IF NOT EXISTS mcp.tasks (
     id UUID DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL,
     parent_task_id UUID,
-    agent_id UUID REFERENCES agents(id),
+    agent_id UUID REFERENCES mcp.agents(id),
     status task_status DEFAULT 'pending',
     priority task_priority DEFAULT 'medium',
     title VARCHAR(255) NOT NULL,
@@ -349,11 +383,11 @@ CREATE TABLE IF NOT EXISTS tasks (
 ) PARTITION BY RANGE (created_at);
 
 -- Task delegations
-CREATE TABLE IF NOT EXISTS task_delegations (
+CREATE TABLE IF NOT EXISTS mcp.task_delegations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     task_id UUID NOT NULL,
-    from_agent_id UUID REFERENCES agents(id),
-    to_agent_id UUID NOT NULL REFERENCES agents(id),
+    from_agent_id UUID REFERENCES mcp.agents(id),
+    to_agent_id UUID NOT NULL REFERENCES mcp.agents(id),
     delegation_type delegation_type,
     status VARCHAR(50) DEFAULT 'pending',
     reason TEXT,
@@ -363,11 +397,11 @@ CREATE TABLE IF NOT EXISTS task_delegations (
 );
 
 -- Task delegation history (Added from gap analysis)
-CREATE TABLE IF NOT EXISTS task_delegation_history (
+CREATE TABLE IF NOT EXISTS mcp.task_delegation_history (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     task_id UUID NOT NULL,
-    from_agent_id UUID REFERENCES agents(id),
-    to_agent_id UUID NOT NULL REFERENCES agents(id),
+    from_agent_id UUID REFERENCES mcp.agents(id),
+    to_agent_id UUID NOT NULL REFERENCES mcp.agents(id),
     delegation_type delegation_type,
     reason TEXT,
     metadata JSONB DEFAULT '{}',
@@ -375,19 +409,19 @@ CREATE TABLE IF NOT EXISTS task_delegation_history (
 );
 
 -- Task state transitions (Added from gap analysis)
-CREATE TABLE IF NOT EXISTS task_state_transitions (
+CREATE TABLE IF NOT EXISTS mcp.task_state_transitions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     task_id UUID NOT NULL,
     from_status task_status,
     to_status task_status NOT NULL,
-    transitioned_by UUID REFERENCES agents(id),
+    transitioned_by UUID REFERENCES mcp.agents(id),
     reason TEXT,
     metadata JSONB DEFAULT '{}',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Task idempotency keys (Added from gap analysis)
-CREATE TABLE IF NOT EXISTS task_idempotency_keys (
+CREATE TABLE IF NOT EXISTS mcp.task_idempotency_keys (
     idempotency_key VARCHAR(255) PRIMARY KEY,
     task_id UUID NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -399,7 +433,7 @@ CREATE TABLE IF NOT EXISTS task_idempotency_keys (
 -- ==============================================================================
 
 -- Workflows table
-CREATE TABLE IF NOT EXISTS workflows (
+CREATE TABLE IF NOT EXISTS mcp.workflows (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -408,16 +442,16 @@ CREATE TABLE IF NOT EXISTS workflows (
     status workflow_status DEFAULT 'draft',
     definition JSONB NOT NULL,
     configuration JSONB DEFAULT '{}',
-    created_by UUID REFERENCES users(id),
+    created_by UUID REFERENCES mcp.users(id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(tenant_id, name)
 );
 
 -- Workflow executions
-CREATE TABLE IF NOT EXISTS workflow_executions (
+CREATE TABLE IF NOT EXISTS mcp.workflow_executions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    workflow_id UUID NOT NULL REFERENCES workflows(id),
+    workflow_id UUID NOT NULL REFERENCES mcp.workflows(id),
     status VARCHAR(50) DEFAULT 'running',
     input_data JSONB DEFAULT '{}',
     output_data JSONB DEFAULT '{}',
@@ -432,7 +466,7 @@ CREATE TABLE IF NOT EXISTS workflow_executions (
 -- ==============================================================================
 
 -- Workspaces table - UPDATED with missing columns
-CREATE TABLE IF NOT EXISTS workspaces (
+CREATE TABLE IF NOT EXISTS mcp.workspaces (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -444,7 +478,7 @@ CREATE TABLE IF NOT EXISTS workspaces (
     current_storage_bytes BIGINT DEFAULT 0, -- Added from gap analysis
     max_documents INTEGER DEFAULT 1000, -- Added from gap analysis
     current_documents INTEGER DEFAULT 0, -- Added from gap analysis
-    created_by UUID REFERENCES users(id),
+    created_by UUID REFERENCES mcp.users(id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     archived_at TIMESTAMP,
@@ -452,21 +486,21 @@ CREATE TABLE IF NOT EXISTS workspaces (
 );
 
 -- Workspace members
-CREATE TABLE IF NOT EXISTS workspace_members (
-    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS mcp.workspace_members (
+    workspace_id UUID NOT NULL REFERENCES mcp.workspaces(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES mcp.users(id) ON DELETE CASCADE,
     role member_role DEFAULT 'viewer',
     permissions JSONB DEFAULT '{}',
     joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    invited_by UUID REFERENCES users(id),
+    invited_by UUID REFERENCES mcp.users(id),
     PRIMARY KEY (workspace_id, user_id)
 );
 
 -- Workspace activities (Added from gap analysis)
-CREATE TABLE IF NOT EXISTS workspace_activities (
+CREATE TABLE IF NOT EXISTS mcp.workspace_activities (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-    actor_id UUID NOT NULL REFERENCES agents(id),
+    workspace_id UUID NOT NULL REFERENCES mcp.workspaces(id) ON DELETE CASCADE,
+    actor_id UUID NOT NULL REFERENCES mcp.agents(id),
     action VARCHAR(100) NOT NULL,
     target_type VARCHAR(50),
     target_id UUID,
@@ -475,15 +509,15 @@ CREATE TABLE IF NOT EXISTS workspace_activities (
 );
 
 -- Shared documents
-CREATE TABLE IF NOT EXISTS shared_documents (
+CREATE TABLE IF NOT EXISTS mcp.shared_documents (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    workspace_id UUID NOT NULL REFERENCES mcp.workspaces(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
     content TEXT,
     content_type VARCHAR(50) DEFAULT 'markdown',
     version INTEGER DEFAULT 1,
     vector_clock JSONB DEFAULT '{}',
-    created_by UUID REFERENCES users(id),
+    created_by UUID REFERENCES mcp.users(id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -493,7 +527,7 @@ CREATE TABLE IF NOT EXISTS shared_documents (
 -- ==============================================================================
 
 -- External integrations
-CREATE TABLE IF NOT EXISTS integrations (
+CREATE TABLE IF NOT EXISTS mcp.integrations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -510,10 +544,10 @@ CREATE TABLE IF NOT EXISTS integrations (
 );
 
 -- Webhook configurations
-CREATE TABLE IF NOT EXISTS webhook_configs (
+CREATE TABLE IF NOT EXISTS mcp.webhook_configs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL,
-    integration_id UUID REFERENCES integrations(id) ON DELETE CASCADE,
+    integration_id UUID REFERENCES mcp.integrations(id) ON DELETE CASCADE,
     url TEXT NOT NULL,
     secret_encrypted TEXT,
     events TEXT[] NOT NULL,
@@ -528,7 +562,7 @@ CREATE TABLE IF NOT EXISTS webhook_configs (
 -- ==============================================================================
 
 -- Events table for event sourcing
-CREATE TABLE IF NOT EXISTS events (
+CREATE TABLE IF NOT EXISTS mcp.events (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL,
     aggregate_id UUID NOT NULL,
@@ -542,7 +576,7 @@ CREATE TABLE IF NOT EXISTS events (
 );
 
 -- Audit log (partitioned by created_at)
-CREATE TABLE IF NOT EXISTS audit_log (
+CREATE TABLE IF NOT EXISTS mcp.audit_log (
     id UUID DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL,
     entity_type VARCHAR(50) NOT NULL,
@@ -635,40 +669,214 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
 
+-- Function to insert embeddings with automatic padding
+CREATE OR REPLACE FUNCTION mcp.insert_embedding(
+    p_context_id UUID,
+    p_content TEXT,
+    p_embedding FLOAT[],
+    p_model_name TEXT,
+    p_tenant_id UUID,
+    p_metadata JSONB DEFAULT '{}',
+    p_content_index INTEGER DEFAULT 0,
+    p_chunk_index INTEGER DEFAULT 0,
+    p_configured_dimensions INTEGER DEFAULT NULL
+) RETURNS UUID AS $$
+DECLARE
+    v_id UUID;
+    v_model_id UUID;
+    v_model_provider VARCHAR(50);
+    v_dimensions INTEGER;
+    v_supports_reduction BOOLEAN;
+    v_min_dimensions INTEGER;
+    v_padded_embedding vector(4096);
+    v_actual_dimensions INTEGER;
+    v_content_hash VARCHAR(64);
+BEGIN
+    -- Get model info
+    SELECT id, provider, dimensions, supports_dimensionality_reduction, min_dimensions
+    INTO v_model_id, v_model_provider, v_dimensions, v_supports_reduction, v_min_dimensions
+    FROM mcp.embedding_models
+    WHERE model_name = p_model_name
+    AND is_active = true
+    LIMIT 1;
+    
+    IF v_model_id IS NULL THEN
+        RAISE EXCEPTION 'Model % not found or inactive', p_model_name;
+    END IF;
+    
+    -- Determine actual dimensions
+    v_actual_dimensions := COALESCE(p_configured_dimensions, v_dimensions);
+    
+    -- Validate configured dimensions if provided
+    IF p_configured_dimensions IS NOT NULL THEN
+        IF NOT v_supports_reduction THEN
+            RAISE EXCEPTION 'Model % does not support dimension reduction', p_model_name;
+        END IF;
+        IF p_configured_dimensions < v_min_dimensions OR p_configured_dimensions > v_dimensions THEN
+            RAISE EXCEPTION 'Configured dimensions % outside valid range [%, %] for model %', 
+                p_configured_dimensions, v_min_dimensions, v_dimensions, p_model_name;
+        END IF;
+    END IF;
+    
+    -- Validate embedding dimensions
+    IF array_length(p_embedding, 1) != v_actual_dimensions THEN
+        RAISE EXCEPTION 'Embedding dimensions % do not match expected dimensions %', 
+            array_length(p_embedding, 1), v_actual_dimensions;
+    END IF;
+    
+    -- Calculate content hash
+    v_content_hash := encode(sha256(p_content::bytea), 'hex');
+    
+    -- Pad embedding to 4096 dimensions
+    v_padded_embedding := array_cat(
+        p_embedding, 
+        array_fill(0::float, ARRAY[4096 - v_actual_dimensions])
+    )::vector(4096);
+    
+    -- Insert the embedding
+    INSERT INTO mcp.embeddings (
+        context_id, content, content_hash, embedding,
+        model_id, model_provider, model_name, model_dimensions,
+        configured_dimensions, tenant_id, metadata, 
+        content_index, chunk_index, magnitude,
+        embedding_created_at
+    ) VALUES (
+        p_context_id, p_content, v_content_hash, v_padded_embedding,
+        v_model_id, v_model_provider, p_model_name, v_dimensions,
+        p_configured_dimensions, p_tenant_id, p_metadata, 
+        p_content_index, p_chunk_index, NULL,
+        CURRENT_TIMESTAMP
+    ) RETURNING id INTO v_id;
+    
+    RETURN v_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function for similarity search with proper dimension handling
+CREATE OR REPLACE FUNCTION mcp.search_embeddings(
+    p_query_embedding vector,
+    p_model_name TEXT,
+    p_tenant_id UUID,
+    p_context_id UUID DEFAULT NULL,
+    p_limit INTEGER DEFAULT 10,
+    p_threshold FLOAT DEFAULT 0.0,
+    p_metadata_filter JSONB DEFAULT NULL
+) RETURNS TABLE (
+    id UUID,
+    context_id UUID,
+    content TEXT,
+    similarity FLOAT,
+    metadata JSONB,
+    model_provider VARCHAR(50)
+) AS $$
+DECLARE
+    v_dimensions INTEGER;
+    v_provider VARCHAR(50);
+BEGIN
+    -- Get dimensions and provider for the model
+    SELECT dimensions, provider 
+    INTO v_dimensions, v_provider
+    FROM mcp.embedding_models
+    WHERE model_name = p_model_name
+    AND is_active = true
+    LIMIT 1;
+    
+    IF v_dimensions IS NULL THEN
+        RAISE EXCEPTION 'Model % not found or inactive', p_model_name;
+    END IF;
+    
+    -- Dynamic query with proper casting
+    RETURN QUERY EXECUTE format(
+        'SELECT 
+            e.id,
+            e.context_id,
+            e.content,
+            1 - (e.embedding::vector(%1$s) <=> $1::vector(%1$s)) AS similarity,
+            e.metadata,
+            e.model_provider
+        FROM mcp.embeddings e
+        WHERE e.tenant_id = $2
+            AND e.model_name = $3
+            AND e.model_dimensions = %1$s
+            AND ($4::UUID IS NULL OR e.context_id = $4)
+            AND ($7::JSONB IS NULL OR e.metadata @> $7)
+            AND 1 - (e.embedding::vector(%1$s) <=> $1::vector(%1$s)) >= $5
+        ORDER BY e.embedding::vector(%1$s) <=> $1::vector(%1$s)
+        LIMIT $6',
+        v_dimensions
+    ) USING p_query_embedding, p_tenant_id, p_model_name, p_context_id, p_threshold, p_limit, p_metadata_filter;
+END;
+$$ LANGUAGE plpgsql STABLE PARALLEL SAFE;
+
+-- Helper function to get available models by provider
+CREATE OR REPLACE FUNCTION mcp.get_available_models(
+    p_provider VARCHAR(50) DEFAULT NULL,
+    p_model_type VARCHAR(50) DEFAULT NULL
+) RETURNS TABLE (
+    provider VARCHAR(50),
+    model_name VARCHAR(100),
+    model_version VARCHAR(20),
+    dimensions INTEGER,
+    max_tokens INTEGER,
+    model_type VARCHAR(50),
+    supports_dimensionality_reduction BOOLEAN,
+    min_dimensions INTEGER,
+    is_active BOOLEAN
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        em.provider,
+        em.model_name,
+        em.model_version,
+        em.dimensions,
+        em.max_tokens,
+        em.model_type,
+        em.supports_dimensionality_reduction,
+        em.min_dimensions,
+        em.is_active
+    FROM mcp.embedding_models em
+    WHERE (p_provider IS NULL OR em.provider = p_provider)
+        AND (p_model_type IS NULL OR em.model_type = p_model_type)
+        AND em.is_active = true
+    ORDER BY em.provider, em.model_name;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
 -- ==============================================================================
 -- PARTITIONS
 -- ==============================================================================
 
 -- Create initial partitions for api_key_usage
-CREATE TABLE api_key_usage_2025_01 PARTITION OF api_key_usage
+CREATE TABLE mcp.api_key_usage_2025_01 PARTITION OF mcp.api_key_usage
     FOR VALUES FROM ('2025-01-01') TO ('2025-02-01');
-CREATE TABLE api_key_usage_2025_02 PARTITION OF api_key_usage
+CREATE TABLE mcp.api_key_usage_2025_02 PARTITION OF mcp.api_key_usage
     FOR VALUES FROM ('2025-02-01') TO ('2025-03-01');
-CREATE TABLE api_key_usage_2025_03 PARTITION OF api_key_usage
+CREATE TABLE mcp.api_key_usage_2025_03 PARTITION OF mcp.api_key_usage
     FOR VALUES FROM ('2025-03-01') TO ('2025-04-01');
 
 -- Create initial partitions for tasks
-CREATE TABLE tasks_2025_01 PARTITION OF tasks
+CREATE TABLE mcp.tasks_2025_01 PARTITION OF mcp.tasks
     FOR VALUES FROM ('2025-01-01') TO ('2025-02-01');
-CREATE TABLE tasks_2025_02 PARTITION OF tasks
+CREATE TABLE mcp.tasks_2025_02 PARTITION OF mcp.tasks
     FOR VALUES FROM ('2025-02-01') TO ('2025-03-01');
-CREATE TABLE tasks_2025_03 PARTITION OF tasks
+CREATE TABLE mcp.tasks_2025_03 PARTITION OF mcp.tasks
     FOR VALUES FROM ('2025-03-01') TO ('2025-04-01');
 
 -- Create initial partitions for audit_log
-CREATE TABLE audit_log_2025_01 PARTITION OF audit_log
+CREATE TABLE mcp.audit_log_2025_01 PARTITION OF mcp.audit_log
     FOR VALUES FROM ('2025-01-01') TO ('2025-02-01');
-CREATE TABLE audit_log_2025_02 PARTITION OF audit_log
+CREATE TABLE mcp.audit_log_2025_02 PARTITION OF mcp.audit_log
     FOR VALUES FROM ('2025-02-01') TO ('2025-03-01');
-CREATE TABLE audit_log_2025_03 PARTITION OF audit_log
+CREATE TABLE mcp.audit_log_2025_03 PARTITION OF mcp.audit_log
     FOR VALUES FROM ('2025-03-01') TO ('2025-04-01');
 
 -- Create initial partitions for embedding_metrics
-CREATE TABLE embedding_metrics_2025_01 PARTITION OF embedding_metrics
+CREATE TABLE mcp.embedding_metrics_2025_01 PARTITION OF mcp.embedding_metrics
     FOR VALUES FROM ('2025-01-01') TO ('2025-02-01');
-CREATE TABLE embedding_metrics_2025_02 PARTITION OF embedding_metrics
+CREATE TABLE mcp.embedding_metrics_2025_02 PARTITION OF mcp.embedding_metrics
     FOR VALUES FROM ('2025-02-01') TO ('2025-03-01');
-CREATE TABLE embedding_metrics_2025_03 PARTITION OF embedding_metrics
+CREATE TABLE mcp.embedding_metrics_2025_03 PARTITION OF mcp.embedding_metrics
     FOR VALUES FROM ('2025-03-01') TO ('2025-04-01');
 
 -- ==============================================================================
@@ -676,129 +884,129 @@ CREATE TABLE embedding_metrics_2025_03 PARTITION OF embedding_metrics
 -- ==============================================================================
 
 -- Model indexes
-CREATE INDEX idx_models_tenant_id ON models(tenant_id);
-CREATE INDEX idx_models_provider ON models(provider) WHERE is_active = true;
+CREATE INDEX idx_models_tenant_id ON mcp.models(tenant_id);
+CREATE INDEX idx_models_provider ON mcp.models(provider) WHERE is_active = true;
 
 -- Agent indexes
-CREATE INDEX idx_agents_tenant_id ON agents(tenant_id);
-CREATE INDEX idx_agents_status ON agents(status);
-CREATE INDEX idx_agents_workload ON agents(current_workload) WHERE status = 'available';
+CREATE INDEX idx_agents_tenant_id ON mcp.agents(tenant_id);
+CREATE INDEX idx_agents_status ON mcp.agents(status);
+CREATE INDEX idx_agents_workload ON mcp.agents(current_workload) WHERE status = 'available';
 
 -- Agent config indexes
-CREATE INDEX idx_agent_configs_active ON agent_configs(agent_id, version DESC) WHERE is_active = true;
+CREATE INDEX idx_agent_configs_active ON mcp.agent_configs(agent_id, version DESC) WHERE is_active = true;
 
 -- Context indexes
-CREATE INDEX idx_contexts_tenant_id ON contexts(tenant_id);
-CREATE INDEX idx_contexts_agent_id ON contexts(agent_id);
-CREATE INDEX idx_contexts_status ON contexts(status);
+CREATE INDEX idx_contexts_tenant_id ON mcp.contexts(tenant_id);
+CREATE INDEX idx_contexts_agent_id ON mcp.contexts(agent_id);
+CREATE INDEX idx_contexts_status ON mcp.contexts(status);
 
 -- User indexes
-CREATE INDEX idx_users_tenant_id ON users(tenant_id);
-CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_tenant_id ON mcp.users(tenant_id);
+CREATE INDEX idx_users_email ON mcp.users(email);
 
 -- API Key indexes
-CREATE INDEX idx_api_keys_tenant_id ON api_keys(tenant_id);
-CREATE INDEX idx_api_keys_user_id ON api_keys(user_id);
-CREATE INDEX idx_api_keys_key_prefix ON api_keys(key_prefix);
-CREATE INDEX idx_api_keys_active ON api_keys(is_active) WHERE is_active = true;
-CREATE INDEX idx_api_keys_key_type ON api_keys(key_type, tenant_id) WHERE is_active = true; -- Added from gap analysis
-CREATE INDEX idx_api_keys_parent ON api_keys(parent_key_id) WHERE parent_key_id IS NOT NULL; -- Added from gap analysis
+CREATE INDEX idx_api_keys_tenant_id ON mcp.api_keys(tenant_id);
+CREATE INDEX idx_api_keys_user_id ON mcp.api_keys(user_id);
+CREATE INDEX idx_api_keys_key_prefix ON mcp.api_keys(key_prefix);
+CREATE INDEX idx_api_keys_active ON mcp.api_keys(is_active) WHERE is_active = true;
+CREATE INDEX idx_api_keys_key_type ON mcp.api_keys(key_type, tenant_id) WHERE is_active = true; -- Added from gap analysis
+CREATE INDEX idx_api_keys_parent ON mcp.api_keys(parent_key_id) WHERE parent_key_id IS NOT NULL; -- Added from gap analysis
 
 -- Embedding indexes
-CREATE INDEX idx_embeddings_tenant_id ON embeddings(tenant_id);
-CREATE INDEX idx_embeddings_context_id ON embeddings(context_id);
-CREATE INDEX idx_embeddings_model_id ON embeddings(model_id);
-CREATE INDEX idx_embeddings_content_hash ON embeddings(content_hash);
-CREATE INDEX idx_embeddings_vector ON embeddings USING ivfflat (vector vector_cosine_ops);
-CREATE INDEX idx_embeddings_normalized_ivfflat ON embeddings USING ivfflat (normalized_embedding vector_cosine_ops); -- Added
-CREATE INDEX idx_embeddings_fts ON embeddings USING gin(content_tsvector); -- Added
-CREATE INDEX idx_embeddings_agent_id ON embeddings(agent_id); -- Added
-CREATE INDEX idx_embeddings_task_type ON embeddings(task_type); -- Added
+CREATE INDEX idx_embeddings_tenant_id ON mcp.embeddings(tenant_id);
+CREATE INDEX idx_embeddings_context_id ON mcp.embeddings(context_id);
+CREATE INDEX idx_embeddings_model_id ON mcp.embeddings(model_id);
+CREATE INDEX idx_embeddings_content_hash ON mcp.embeddings(content_hash);
+CREATE INDEX idx_embeddings_vector ON mcp.embeddings USING ivfflat (vector vector_cosine_ops);
+CREATE INDEX idx_embeddings_normalized_ivfflat ON mcp.embeddings USING ivfflat (normalized_embedding vector_cosine_ops); -- Added
+CREATE INDEX idx_embeddings_fts ON mcp.embeddings USING gin(content_tsvector); -- Added
+CREATE INDEX idx_embeddings_agent_id ON mcp.embeddings(agent_id); -- Added
+CREATE INDEX idx_embeddings_task_type ON mcp.embeddings(task_type); -- Added
 
 -- Task indexes
-CREATE INDEX idx_tasks_tenant_id ON tasks(tenant_id);
-CREATE INDEX idx_tasks_agent_id ON tasks(agent_id);
-CREATE INDEX idx_tasks_status ON tasks(status);
-CREATE INDEX idx_tasks_priority ON tasks(priority) WHERE status IN ('pending', 'assigned');
-CREATE INDEX idx_tasks_parent ON tasks(parent_task_id) WHERE parent_task_id IS NOT NULL;
+CREATE INDEX idx_tasks_tenant_id ON mcp.tasks(tenant_id);
+CREATE INDEX idx_tasks_agent_id ON mcp.tasks(agent_id);
+CREATE INDEX idx_tasks_status ON mcp.tasks(status);
+CREATE INDEX idx_tasks_priority ON mcp.tasks(priority) WHERE status IN ('pending', 'assigned');
+CREATE INDEX idx_tasks_parent ON mcp.tasks(parent_task_id) WHERE parent_task_id IS NOT NULL;
 
 -- Task delegation indexes
-CREATE INDEX idx_task_delegations_task ON task_delegations(task_id);
-CREATE INDEX idx_task_delegations_from ON task_delegations(from_agent_id);
-CREATE INDEX idx_task_delegations_to ON task_delegations(to_agent_id);
-CREATE INDEX idx_task_delegation_history_task ON task_delegation_history(task_id); -- Added
-CREATE INDEX idx_task_state_transitions_task ON task_state_transitions(task_id); -- Added
-CREATE INDEX idx_task_idempotency_expires ON task_idempotency_keys(expires_at); -- Added
+CREATE INDEX idx_task_delegations_task ON mcp.task_delegations(task_id);
+CREATE INDEX idx_task_delegations_from ON mcp.task_delegations(from_agent_id);
+CREATE INDEX idx_task_delegations_to ON mcp.task_delegations(to_agent_id);
+CREATE INDEX idx_task_delegation_history_task ON mcp.task_delegation_history(task_id); -- Added
+CREATE INDEX idx_task_state_transitions_task ON mcp.task_state_transitions(task_id); -- Added
+CREATE INDEX idx_task_idempotency_expires ON mcp.task_idempotency_keys(expires_at); -- Added
 
 -- Workflow indexes
-CREATE INDEX idx_workflows_tenant_id ON workflows(tenant_id);
-CREATE INDEX idx_workflows_status ON workflows(status);
-CREATE INDEX idx_workflow_executions_workflow ON workflow_executions(workflow_id);
-CREATE INDEX idx_workflow_executions_status ON workflow_executions(status);
+CREATE INDEX idx_workflows_tenant_id ON mcp.workflows(tenant_id);
+CREATE INDEX idx_workflows_status ON mcp.workflows(status);
+CREATE INDEX idx_workflow_executions_workflow ON mcp.workflow_executions(workflow_id);
+CREATE INDEX idx_workflow_executions_status ON mcp.workflow_executions(status);
 
 -- Workspace indexes
-CREATE INDEX idx_workspaces_tenant_id ON workspaces(tenant_id);
-CREATE INDEX idx_workspace_members_user ON workspace_members(user_id);
-CREATE INDEX idx_workspace_activities_workspace ON workspace_activities(workspace_id); -- Added
-CREATE INDEX idx_workspace_activities_actor ON workspace_activities(actor_id); -- Added
+CREATE INDEX idx_workspaces_tenant_id ON mcp.workspaces(tenant_id);
+CREATE INDEX idx_workspace_members_user ON mcp.workspace_members(user_id);
+CREATE INDEX idx_workspace_activities_workspace ON mcp.workspace_activities(workspace_id); -- Added
+CREATE INDEX idx_workspace_activities_actor ON mcp.workspace_activities(actor_id); -- Added
 
 -- Integration indexes
-CREATE INDEX idx_integrations_tenant_id ON integrations(tenant_id);
-CREATE INDEX idx_webhook_configs_integration ON webhook_configs(integration_id);
-CREATE INDEX idx_webhook_configs_active ON webhook_configs(is_active) WHERE is_active = true;
+CREATE INDEX idx_integrations_tenant_id ON mcp.integrations(tenant_id);
+CREATE INDEX idx_webhook_configs_integration ON mcp.webhook_configs(integration_id);
+CREATE INDEX idx_webhook_configs_active ON mcp.webhook_configs(is_active) WHERE is_active = true;
 
 -- Event indexes
-CREATE INDEX idx_events_tenant_id ON events(tenant_id);
-CREATE INDEX idx_events_aggregate ON events(aggregate_id, aggregate_type);
-CREATE INDEX idx_events_created_at ON events(created_at DESC);
+CREATE INDEX idx_events_tenant_id ON mcp.events(tenant_id);
+CREATE INDEX idx_events_aggregate ON mcp.events(aggregate_id, aggregate_type);
+CREATE INDEX idx_events_created_at ON mcp.events(created_at DESC);
 
 -- ==============================================================================
 -- TRIGGERS
 -- ==============================================================================
 
 -- Update timestamp triggers
-CREATE TRIGGER update_models_updated_at BEFORE UPDATE ON models
+CREATE TRIGGER update_models_updated_at BEFORE UPDATE ON mcp.models
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_agents_updated_at BEFORE UPDATE ON agents
+CREATE TRIGGER update_agents_updated_at BEFORE UPDATE ON mcp.agents
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_contexts_updated_at BEFORE UPDATE ON contexts
+CREATE TRIGGER update_contexts_updated_at BEFORE UPDATE ON mcp.contexts
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
+CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON mcp.users
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_api_keys_updated_at BEFORE UPDATE ON api_keys
+CREATE TRIGGER update_api_keys_updated_at BEFORE UPDATE ON mcp.api_keys
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_workflows_updated_at BEFORE UPDATE ON workflows
+CREATE TRIGGER update_workflows_updated_at BEFORE UPDATE ON mcp.workflows
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_workspaces_updated_at BEFORE UPDATE ON workspaces
+CREATE TRIGGER update_workspaces_updated_at BEFORE UPDATE ON mcp.workspaces
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_shared_documents_updated_at BEFORE UPDATE ON shared_documents
+CREATE TRIGGER update_shared_documents_updated_at BEFORE UPDATE ON mcp.shared_documents
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_integrations_updated_at BEFORE UPDATE ON integrations
+CREATE TRIGGER update_integrations_updated_at BEFORE UPDATE ON mcp.integrations
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_webhook_configs_updated_at BEFORE UPDATE ON webhook_configs
+CREATE TRIGGER update_webhook_configs_updated_at BEFORE UPDATE ON mcp.webhook_configs
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_embedding_models_updated_at BEFORE UPDATE ON embedding_models
+CREATE TRIGGER update_embedding_models_updated_at BEFORE UPDATE ON mcp.embedding_models
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_tenant_config_updated_at BEFORE UPDATE ON tenant_config
+CREATE TRIGGER update_tenant_config_updated_at BEFORE UPDATE ON mcp.tenant_config
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_agent_configs_updated_at BEFORE UPDATE ON agent_configs
+CREATE TRIGGER update_agent_configs_updated_at BEFORE UPDATE ON mcp.agent_configs
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Content TSVector update trigger (Added from gap analysis)
 CREATE TRIGGER update_embeddings_tsvector 
-    BEFORE INSERT OR UPDATE OF content ON embeddings
+    BEFORE INSERT OR UPDATE OF content ON mcp.embeddings
     FOR EACH ROW 
     EXECUTE FUNCTION update_content_tsvector();
 
@@ -807,50 +1015,50 @@ CREATE TRIGGER update_embeddings_tsvector
 -- ==============================================================================
 
 -- Enable RLS on tenant-scoped tables
-ALTER TABLE models ENABLE ROW LEVEL SECURITY;
-ALTER TABLE agents ENABLE ROW LEVEL SECURITY;
-ALTER TABLE contexts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE api_keys ENABLE ROW LEVEL SECURITY;
-ALTER TABLE embeddings ENABLE ROW LEVEL SECURITY;
-ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
-ALTER TABLE workflows ENABLE ROW LEVEL SECURITY;
-ALTER TABLE workspaces ENABLE ROW LEVEL SECURITY;
-ALTER TABLE integrations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE webhook_configs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mcp.models ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mcp.agents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mcp.contexts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mcp.users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mcp.api_keys ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mcp.embeddings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mcp.tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mcp.workflows ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mcp.workspaces ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mcp.integrations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mcp.webhook_configs ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies
-CREATE POLICY tenant_isolation_models ON models
+CREATE POLICY tenant_isolation_models ON mcp.models
     USING (tenant_id = current_tenant_id());
 
-CREATE POLICY tenant_isolation_agents ON agents
+CREATE POLICY tenant_isolation_agents ON mcp.agents
     USING (tenant_id = current_tenant_id());
 
-CREATE POLICY tenant_isolation_contexts ON contexts
+CREATE POLICY tenant_isolation_contexts ON mcp.contexts
     USING (tenant_id = current_tenant_id());
 
-CREATE POLICY tenant_isolation_users ON users
+CREATE POLICY tenant_isolation_users ON mcp.users
     USING (tenant_id = current_tenant_id());
 
-CREATE POLICY tenant_isolation_api_keys ON api_keys
+CREATE POLICY tenant_isolation_api_keys ON mcp.api_keys
     USING (tenant_id = current_tenant_id());
 
-CREATE POLICY tenant_isolation_embeddings ON embeddings
+CREATE POLICY tenant_isolation_embeddings ON mcp.embeddings
     USING (tenant_id = current_tenant_id());
 
-CREATE POLICY tenant_isolation_tasks ON tasks
+CREATE POLICY tenant_isolation_tasks ON mcp.tasks
     USING (tenant_id = current_tenant_id());
 
-CREATE POLICY tenant_isolation_workflows ON workflows
+CREATE POLICY tenant_isolation_workflows ON mcp.workflows
     USING (tenant_id = current_tenant_id());
 
-CREATE POLICY tenant_isolation_workspaces ON workspaces
+CREATE POLICY tenant_isolation_workspaces ON mcp.workspaces
     USING (tenant_id = current_tenant_id());
 
-CREATE POLICY tenant_isolation_integrations ON integrations
+CREATE POLICY tenant_isolation_integrations ON mcp.integrations
     USING (tenant_id = current_tenant_id());
 
-CREATE POLICY tenant_isolation_events ON events
+CREATE POLICY tenant_isolation_events ON mcp.events
     USING (tenant_id = current_tenant_id());
 
 -- ==============================================================================
@@ -858,7 +1066,7 @@ CREATE POLICY tenant_isolation_events ON events
 -- ==============================================================================
 
 -- Insert default embedding models
-INSERT INTO embedding_models (provider, model_name, dimensions, max_tokens, cost_per_token) VALUES
+INSERT INTO mcp.embedding_models (provider, model_name, dimensions, max_tokens, cost_per_token) VALUES
     ('openai', 'text-embedding-3-small', 1536, 8192, 0.00002),
     ('openai', 'text-embedding-3-large', 3072, 8192, 0.00013),
     ('amazon', 'amazon.titan-embed-text-v1', 1536, 8192, 0.00001),

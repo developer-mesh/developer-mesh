@@ -11,8 +11,9 @@ BEGIN;
 -- DROP FUNCTIONS (must be done before dropping tables they reference)
 -- ==============================================================================
 
-DROP FUNCTION IF EXISTS mcp.execute_tool_action(UUID, VARCHAR(255), JSONB, UUID);
-DROP FUNCTION IF EXISTS mcp.get_tool_by_name(UUID, VARCHAR(255));
+-- Drop functions with CASCADE to handle dependent triggers
+DROP FUNCTION IF EXISTS mcp.execute_tool_action(UUID, VARCHAR(255), JSONB, UUID) CASCADE;
+DROP FUNCTION IF EXISTS mcp.get_tool_by_name(UUID, VARCHAR(255)) CASCADE;
 DROP FUNCTION IF EXISTS mcp.update_tool_health_status() CASCADE;
 DROP FUNCTION IF EXISTS mcp.update_discovery_pattern_stats() CASCADE;
 

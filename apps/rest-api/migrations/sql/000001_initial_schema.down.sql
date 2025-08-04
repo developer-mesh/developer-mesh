@@ -3,59 +3,59 @@
 -- Must be executed in reverse dependency order
 
 -- Set search path
-SET search_path TO mcp, public;
+-- SET search_path TO mcp, public; -- Removed to avoid confusion
 
 -- ==============================================================================
 -- DROP POLICIES
 -- ==============================================================================
 
-DROP POLICY IF EXISTS tenant_isolation_events ON events;
-DROP POLICY IF EXISTS tenant_isolation_integrations ON integrations;
-DROP POLICY IF EXISTS tenant_isolation_workspaces ON workspaces;
-DROP POLICY IF EXISTS tenant_isolation_workflows ON workflows;
-DROP POLICY IF EXISTS tenant_isolation_tasks ON tasks;
-DROP POLICY IF EXISTS tenant_isolation_embeddings ON embeddings;
-DROP POLICY IF EXISTS tenant_isolation_api_keys ON api_keys;
-DROP POLICY IF EXISTS tenant_isolation_users ON users;
-DROP POLICY IF EXISTS tenant_isolation_contexts ON contexts;
-DROP POLICY IF EXISTS tenant_isolation_agents ON agents;
-DROP POLICY IF EXISTS tenant_isolation_models ON models;
+DROP POLICY IF EXISTS tenant_isolation_events ON mcp.events;
+DROP POLICY IF EXISTS tenant_isolation_integrations ON mcp.integrations;
+DROP POLICY IF EXISTS tenant_isolation_workspaces ON mcp.workspaces;
+DROP POLICY IF EXISTS tenant_isolation_workflows ON mcp.workflows;
+DROP POLICY IF EXISTS tenant_isolation_tasks ON mcp.tasks;
+DROP POLICY IF EXISTS tenant_isolation_embeddings ON mcp.embeddings;
+DROP POLICY IF EXISTS tenant_isolation_api_keys ON mcp.api_keys;
+DROP POLICY IF EXISTS tenant_isolation_users ON mcp.users;
+DROP POLICY IF EXISTS tenant_isolation_contexts ON mcp.contexts;
+DROP POLICY IF EXISTS tenant_isolation_agents ON mcp.agents;
+DROP POLICY IF EXISTS tenant_isolation_models ON mcp.models;
 
 -- ==============================================================================
 -- DISABLE ROW LEVEL SECURITY
 -- ==============================================================================
 
-ALTER TABLE IF EXISTS webhook_configs DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS integrations DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS workspaces DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS workflows DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS tasks DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS embeddings DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS api_keys DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS users DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS contexts DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS agents DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS models DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS mcp.webhook_configs DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS mcp.integrations DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS mcp.workspaces DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS mcp.workflows DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS mcp.tasks DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS mcp.embeddings DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS mcp.api_keys DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS mcp.users DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS mcp.contexts DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS mcp.agents DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS mcp.models DISABLE ROW LEVEL SECURITY;
 
 -- ==============================================================================
 -- DROP TRIGGERS
 -- ==============================================================================
 
-DROP TRIGGER IF EXISTS update_embeddings_tsvector ON embeddings;
-DROP TRIGGER IF EXISTS update_agent_configs_updated_at ON agent_configs;
-DROP TRIGGER IF EXISTS update_tenant_config_updated_at ON tenant_config;
-DROP TRIGGER IF EXISTS update_embedding_models_updated_at ON embedding_models;
-DROP TRIGGER IF EXISTS update_webhook_configs_updated_at ON webhook_configs;
-DROP TRIGGER IF EXISTS update_integrations_updated_at ON integrations;
-DROP TRIGGER IF EXISTS update_shared_documents_updated_at ON shared_documents;
-DROP TRIGGER IF EXISTS update_workspaces_updated_at ON workspaces;
-DROP TRIGGER IF EXISTS update_workflows_updated_at ON workflows;
-DROP TRIGGER IF EXISTS update_api_keys_updated_at ON api_keys;
-DROP TRIGGER IF EXISTS update_users_updated_at ON users;
-DROP TRIGGER IF EXISTS update_contexts_updated_at ON contexts;
-DROP TRIGGER IF EXISTS update_agents_updated_at ON agents;
-DROP TRIGGER IF EXISTS update_models_updated_at ON models;
-DROP TRIGGER IF EXISTS update_tasks_updated_at ON tasks;
+DROP TRIGGER IF EXISTS update_embeddings_tsvector ON mcp.embeddings;
+DROP TRIGGER IF EXISTS update_agent_configs_updated_at ON mcp.agent_configs;
+DROP TRIGGER IF EXISTS update_tenant_config_updated_at ON mcp.tenant_config;
+DROP TRIGGER IF EXISTS update_embedding_models_updated_at ON mcp.embedding_models;
+DROP TRIGGER IF EXISTS update_webhook_configs_updated_at ON mcp.webhook_configs;
+DROP TRIGGER IF EXISTS update_integrations_updated_at ON mcp.integrations;
+DROP TRIGGER IF EXISTS update_shared_documents_updated_at ON mcp.shared_documents;
+DROP TRIGGER IF EXISTS update_workspaces_updated_at ON mcp.workspaces;
+DROP TRIGGER IF EXISTS update_workflows_updated_at ON mcp.workflows;
+DROP TRIGGER IF EXISTS update_api_keys_updated_at ON mcp.api_keys;
+DROP TRIGGER IF EXISTS update_users_updated_at ON mcp.users;
+DROP TRIGGER IF EXISTS update_contexts_updated_at ON mcp.contexts;
+DROP TRIGGER IF EXISTS update_agents_updated_at ON mcp.agents;
+DROP TRIGGER IF EXISTS update_models_updated_at ON mcp.models;
+DROP TRIGGER IF EXISTS update_tasks_updated_at ON mcp.tasks;
 
 -- ==============================================================================
 -- DROP INDEXES
@@ -143,64 +143,64 @@ DROP INDEX IF EXISTS idx_models_tenant_id;
 -- ==============================================================================
 
 -- Drop partitioned tables first (children before parents)
-DROP TABLE IF EXISTS embedding_metrics_2025_03;
-DROP TABLE IF EXISTS embedding_metrics_2025_02;
-DROP TABLE IF EXISTS embedding_metrics_2025_01;
-DROP TABLE IF EXISTS audit_log_2025_03;
-DROP TABLE IF EXISTS audit_log_2025_02;
-DROP TABLE IF EXISTS audit_log_2025_01;
-DROP TABLE IF EXISTS tasks_2025_03;
-DROP TABLE IF EXISTS tasks_2025_02;
-DROP TABLE IF EXISTS tasks_2025_01;
-DROP TABLE IF EXISTS api_key_usage_2025_03;
-DROP TABLE IF EXISTS api_key_usage_2025_02;
-DROP TABLE IF EXISTS api_key_usage_2025_01;
+DROP TABLE IF EXISTS mcp.embedding_metrics_2025_03;
+DROP TABLE IF EXISTS mcp.embedding_metrics_2025_02;
+DROP TABLE IF EXISTS mcp.embedding_metrics_2025_01;
+DROP TABLE IF EXISTS mcp.audit_log_2025_03;
+DROP TABLE IF EXISTS mcp.audit_log_2025_02;
+DROP TABLE IF EXISTS mcp.audit_log_2025_01;
+DROP TABLE IF EXISTS mcp.tasks_2025_03;
+DROP TABLE IF EXISTS mcp.tasks_2025_02;
+DROP TABLE IF EXISTS mcp.tasks_2025_01;
+DROP TABLE IF EXISTS mcp.api_key_usage_2025_03;
+DROP TABLE IF EXISTS mcp.api_key_usage_2025_02;
+DROP TABLE IF EXISTS mcp.api_key_usage_2025_01;
 
 -- Drop monitoring tables
-DROP TABLE IF EXISTS audit_log CASCADE;
-DROP TABLE IF EXISTS events CASCADE;
+DROP TABLE IF EXISTS mcp.audit_log CASCADE;
+DROP TABLE IF EXISTS mcp.events CASCADE;
 
 -- Drop integration tables
-DROP TABLE IF EXISTS webhook_configs CASCADE;
-DROP TABLE IF EXISTS integrations CASCADE;
+DROP TABLE IF EXISTS mcp.webhook_configs CASCADE;
+DROP TABLE IF EXISTS mcp.integrations CASCADE;
 
 -- Drop collaboration tables
-DROP TABLE IF EXISTS shared_documents CASCADE;
-DROP TABLE IF EXISTS workspace_activities CASCADE;
-DROP TABLE IF EXISTS workspace_members CASCADE;
-DROP TABLE IF EXISTS workspaces CASCADE;
+DROP TABLE IF EXISTS mcp.shared_documents CASCADE;
+DROP TABLE IF EXISTS mcp.workspace_activities CASCADE;
+DROP TABLE IF EXISTS mcp.workspace_members CASCADE;
+DROP TABLE IF EXISTS mcp.workspaces CASCADE;
 
 -- Drop workflow tables
-DROP TABLE IF EXISTS workflow_executions CASCADE;
-DROP TABLE IF EXISTS workflows CASCADE;
+DROP TABLE IF EXISTS mcp.workflow_executions CASCADE;
+DROP TABLE IF EXISTS mcp.workflows CASCADE;
 
 -- Drop task management tables
-DROP TABLE IF EXISTS task_idempotency_keys CASCADE;
-DROP TABLE IF EXISTS task_state_transitions CASCADE;
-DROP TABLE IF EXISTS task_delegation_history CASCADE;
-DROP TABLE IF EXISTS task_delegations CASCADE;
-DROP TABLE IF EXISTS tasks CASCADE;
+DROP TABLE IF EXISTS mcp.task_idempotency_keys CASCADE;
+DROP TABLE IF EXISTS mcp.task_state_transitions CASCADE;
+DROP TABLE IF EXISTS mcp.task_delegation_history CASCADE;
+DROP TABLE IF EXISTS mcp.task_delegations CASCADE;
+DROP TABLE IF EXISTS mcp.tasks CASCADE;
 
 -- Drop embedding system tables
-DROP TABLE IF EXISTS embedding_metrics CASCADE;
-DROP TABLE IF EXISTS agent_configs CASCADE;
-DROP TABLE IF EXISTS projection_matrices CASCADE;
-DROP TABLE IF EXISTS embedding_statistics CASCADE;
-DROP TABLE IF EXISTS embedding_cache CASCADE;
-DROP TABLE IF EXISTS embeddings CASCADE;
-DROP TABLE IF EXISTS embedding_models CASCADE;
+DROP TABLE IF EXISTS mcp.embedding_metrics CASCADE;
+DROP TABLE IF EXISTS mcp.agent_configs CASCADE;
+DROP TABLE IF EXISTS mcp.projection_matrices CASCADE;
+DROP TABLE IF EXISTS mcp.embedding_statistics CASCADE;
+DROP TABLE IF EXISTS mcp.embedding_cache CASCADE;
+DROP TABLE IF EXISTS mcp.embeddings CASCADE;
+DROP TABLE IF EXISTS mcp.embedding_models CASCADE;
 
 -- Drop auth tables
-DROP TABLE IF EXISTS tenant_config CASCADE;
-DROP TABLE IF EXISTS api_key_usage CASCADE;
-DROP TABLE IF EXISTS api_keys CASCADE;
-DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS mcp.tenant_config CASCADE;
+DROP TABLE IF EXISTS mcp.api_key_usage CASCADE;
+DROP TABLE IF EXISTS mcp.api_keys CASCADE;
+DROP TABLE IF EXISTS mcp.users CASCADE;
 
 -- Drop foundation tables
-DROP TABLE IF EXISTS context_items CASCADE;
-DROP TABLE IF EXISTS contexts CASCADE;
-DROP TABLE IF EXISTS agents CASCADE;
-DROP TABLE IF EXISTS models CASCADE;
+DROP TABLE IF EXISTS mcp.context_items CASCADE;
+DROP TABLE IF EXISTS mcp.contexts CASCADE;
+DROP TABLE IF EXISTS mcp.agents CASCADE;
+DROP TABLE IF EXISTS mcp.models CASCADE;
 
 -- ==============================================================================
 -- DROP FUNCTIONS
@@ -216,13 +216,13 @@ DROP FUNCTION IF EXISTS update_updated_at_column();
 -- DROP TYPES
 -- ==============================================================================
 
-DROP TYPE IF EXISTS member_role CASCADE;
-DROP TYPE IF EXISTS workspace_visibility CASCADE;
-DROP TYPE IF EXISTS delegation_type CASCADE;
-DROP TYPE IF EXISTS workflow_status CASCADE;
-DROP TYPE IF EXISTS workflow_type CASCADE;
-DROP TYPE IF EXISTS task_priority CASCADE;
-DROP TYPE IF EXISTS task_status CASCADE;
+DROP TYPE IF EXISTS mcp.member_role CASCADE;
+DROP TYPE IF EXISTS mcp.workspace_visibility CASCADE;
+DROP TYPE IF EXISTS mcp.delegation_type CASCADE;
+DROP TYPE IF EXISTS mcp.workflow_status CASCADE;
+DROP TYPE IF EXISTS mcp.workflow_type CASCADE;
+DROP TYPE IF EXISTS mcp.task_priority CASCADE;
+DROP TYPE IF EXISTS mcp.task_status CASCADE;
 
 -- ==============================================================================
 -- DROP SCHEMA (optional)
