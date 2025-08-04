@@ -211,7 +211,16 @@ stop-test-env: ## Stop test environment
 .PHONY: test-integration test-int
 test-integration test-int: start-test-env ## Run integration tests
 	@echo "Running integration tests with Docker services..."
-	@ENABLE_INTEGRATION_TESTS=true TEST_REDIS_ADDR=127.0.0.1:6379 TEST_DATABASE_URL="postgres://test:test@127.0.0.1:5433/test?sslmode=disable" $(GOTEST) -tags=integration -v ./apps/... ./pkg/... || (make stop-test-env && exit 1)
+	@export ENABLE_INTEGRATION_TESTS=true && \
+	export TEST_REDIS_ADDR=127.0.0.1:6379 && \
+	export TEST_DATABASE_URL="postgres://test:test@127.0.0.1:5433/test?sslmode=disable" && \
+	echo "Running integration tests for each module..." && \
+	(cd apps/mcp-server && $(GOTEST) -tags=integration -v ./... || exit 1) && \
+	(cd apps/rest-api && $(GOTEST) -tags=integration -v ./... || exit 1) && \
+	(cd apps/worker && $(GOTEST) -tags=integration -v ./... || exit 1) && \
+	(cd apps/mockserver && $(GOTEST) -tags=integration -v ./... || exit 1) && \
+	(cd pkg && $(GOTEST) -tags=integration -v ./... || exit 1) || \
+	(make stop-test-env && exit 1)
 	@make stop-test-env
 
 .PHONY: test-redis-lifecycle
