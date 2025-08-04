@@ -578,14 +578,18 @@ CREATE TABLE IF NOT EXISTS mcp.integrations (
 CREATE TABLE IF NOT EXISTS mcp.webhook_configs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL,
+    organization_name VARCHAR(255) NOT NULL,
     integration_id UUID REFERENCES mcp.integrations(id) ON DELETE CASCADE,
     url TEXT NOT NULL,
-    secret_encrypted TEXT,
-    events TEXT[] NOT NULL,
+    webhook_secret TEXT,
+    enabled BOOLEAN DEFAULT true,
+    allowed_events TEXT[] NOT NULL,
     is_active BOOLEAN DEFAULT true,
     retry_config JSONB DEFAULT '{"max_retries": 3, "retry_delay_ms": 1000}',
+    metadata JSONB DEFAULT '{}',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(organization_name)
 );
 
 -- ==============================================================================
@@ -601,6 +605,7 @@ CREATE TABLE IF NOT EXISTS mcp.events (
     event_type VARCHAR(100) NOT NULL,
     event_version INTEGER DEFAULT 1,
     event_data JSONB NOT NULL,
+    source VARCHAR(100) DEFAULT 'system',
     metadata JSONB DEFAULT '{}',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_by UUID
@@ -985,11 +990,13 @@ CREATE INDEX idx_workspace_activities_actor ON mcp.workspace_activities(actor_id
 CREATE INDEX idx_integrations_tenant_id ON mcp.integrations(tenant_id);
 CREATE INDEX idx_webhook_configs_integration ON mcp.webhook_configs(integration_id);
 CREATE INDEX idx_webhook_configs_active ON mcp.webhook_configs(is_active) WHERE is_active = true;
+CREATE INDEX idx_webhook_configs_org_name ON mcp.webhook_configs(organization_name);
 
 -- Event indexes
 CREATE INDEX idx_events_tenant_id ON mcp.events(tenant_id);
 CREATE INDEX idx_events_aggregate ON mcp.events(aggregate_id, aggregate_type);
 CREATE INDEX idx_events_created_at ON mcp.events(created_at DESC);
+CREATE INDEX idx_events_source ON mcp.events(source);
 
 -- ==============================================================================
 -- TRIGGERS
