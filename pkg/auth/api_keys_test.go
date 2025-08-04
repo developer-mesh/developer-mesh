@@ -72,7 +72,7 @@ func TestCreateAPIKeyWithType(t *testing.T) {
 					WithArgs(
 						sqlmock.AnyArg(), // key_hash
 						sqlmock.AnyArg(), // key_prefix
-						sqlmock.AnyArg(),     // tenant_id
+						sqlmock.AnyArg(), // tenant_id
 						nil,              // user_id
 						"Gateway Key",    // name
 						KeyTypeGateway,   // key_type
@@ -110,8 +110,8 @@ func TestCreateAPIKeyWithType(t *testing.T) {
 					WithArgs(
 						sqlmock.AnyArg(), // key_hash
 						sqlmock.AnyArg(), // key_prefix
-						sqlmock.AnyArg(),     // tenant_id
-						sqlmock.AnyArg(),      // user_id
+						sqlmock.AnyArg(), // tenant_id
+						sqlmock.AnyArg(), // user_id
 						"Agent Key",      // name
 						KeyTypeAgent,     // key_type
 						sqlmock.AnyArg(), // scopes
@@ -147,7 +147,7 @@ func TestCreateAPIKeyWithType(t *testing.T) {
 					WithArgs(
 						sqlmock.AnyArg(), // key_hash
 						sqlmock.AnyArg(), // key_prefix
-						sqlmock.AnyArg(),     // tenant_id
+						sqlmock.AnyArg(), // tenant_id
 						nil,              // user_id
 						"User Key",       // name
 						KeyTypeUser,      // key_type

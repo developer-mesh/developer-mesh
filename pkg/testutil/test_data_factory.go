@@ -66,11 +66,11 @@ func (f *TestDataFactory) CreateTestDynamicTool(opts ...DynamicToolOption) *mode
 		Config: map[string]interface{}{
 			"timeout": 30,
 		},
-		AuthType:     "bearer",
-		Status:       "active",
-		Provider:     "github",
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
+		AuthType:  "bearer",
+		Status:    "active",
+		Provider:  "github",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 
 	// Apply options
@@ -151,7 +151,6 @@ func WithModelName(name string) ModelOption {
 		m.Name = name
 	}
 }
-
 
 // WithModelTenantID sets a specific tenant ID for the model
 func WithModelTenantID(tenantID string) ModelOption {
