@@ -246,7 +246,13 @@ fmt: ## Format code (excludes .claude templates which are not valid Go)
 
 .PHONY: vet
 vet: ## Run go vet
-	$(GOVET) ./...
+	@echo "Running go vet for all modules..."
+	@cd apps/mcp-server && $(GOVET) ./... || exit 1
+	@cd apps/rest-api && $(GOVET) ./... || exit 1
+	@cd apps/worker && $(GOVET) ./... || exit 1
+	@cd apps/mockserver && $(GOVET) ./... || exit 1
+	@cd pkg && $(GOVET) ./... || exit 1
+	@echo "✅ All vet checks passed"
 
 .PHONY: security-check
 security-check: ## Run security checks
