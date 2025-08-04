@@ -39,7 +39,7 @@ func (r *AgentRepositoryImpl) CreateAgent(ctx context.Context, agent *models.Age
 }
 
 // GetAgentByID implements AgentRepository.GetAgentByID
-func (r *AgentRepositoryImpl) GetAgentByID(ctx context.Context, id string, tenantID string) (*models.Agent, error) {
+func (r *AgentRepositoryImpl) GetAgentByID(ctx context.Context, tenantID string, id string) (*models.Agent, error) {
 	// Get the agent first
 	agent, err := r.Get(ctx, id)
 	if err != nil {

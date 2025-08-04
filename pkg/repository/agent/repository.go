@@ -523,7 +523,7 @@ func (r *RepositoryImpl) CreateAgent(ctx context.Context, agent *models.Agent) e
 }
 
 // GetAgentByID implements the API-specific method
-func (r *RepositoryImpl) GetAgentByID(ctx context.Context, id string, tenantID string) (*models.Agent, error) {
+func (r *RepositoryImpl) GetAgentByID(ctx context.Context, tenantID string, id string) (*models.Agent, error) {
 	// Get agent by ID first
 	agent, err := r.Get(ctx, id)
 	if err != nil {

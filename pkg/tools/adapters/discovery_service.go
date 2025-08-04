@@ -431,6 +431,10 @@ func (s *DiscoveryService) getCommonOpenAPIPaths() []string {
 		// Nexus Repository
 		"/service/rest/swagger.json",
 
+		// Kubernetes-style APIs
+		"/openapi/v2",
+		"/openapi/v3",
+
 		// Additional common patterns
 		"/rest/api/swagger.json",
 		"/rest/swagger.json",
@@ -546,8 +550,14 @@ func (s *DiscoveryService) fetchContent(ctx context.Context, url string, creds *
 	// Add authentication if provided
 	if creds != nil {
 		switch creds.Type {
-		case "token", "api_key":
+		case "token":
 			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", creds.Token))
+		case "api_key":
+			if creds.HeaderName != "" {
+				req.Header.Set(creds.HeaderName, creds.Token)
+			} else {
+				req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", creds.Token))
+			}
 		case "basic":
 			req.SetBasicAuth(creds.Username, creds.Password)
 		case "header":
@@ -624,8 +634,14 @@ func (s *DiscoveryService) checkForOpenAPIDocument(ctx context.Context, url stri
 	// Add authentication
 	if creds != nil {
 		switch creds.Type {
-		case "token", "api_key":
+		case "token":
 			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", creds.Token))
+		case "api_key":
+			if creds.HeaderName != "" {
+				req.Header.Set(creds.HeaderName, creds.Token)
+			} else {
+				req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", creds.Token))
+			}
 		case "basic":
 			req.SetBasicAuth(creds.Username, creds.Password)
 		}
@@ -664,8 +680,14 @@ func (s *DiscoveryService) discoverFromHTML(ctx context.Context, baseURL string,
 	// Add authentication
 	if creds != nil {
 		switch creds.Type {
-		case "token", "api_key":
+		case "token":
 			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", creds.Token))
+		case "api_key":
+			if creds.HeaderName != "" {
+				req.Header.Set(creds.HeaderName, creds.Token)
+			} else {
+				req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", creds.Token))
+			}
 		case "basic":
 			req.SetBasicAuth(creds.Username, creds.Password)
 		}
