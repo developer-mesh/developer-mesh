@@ -129,14 +129,31 @@ jobs:
           # Test Redis connectivity  
           redis-cli -h localhost ping || echo "Warning: Could not connect to Redis"
           
-          # Run unit tests with -short flag (excludes integration tests)
-          go test -v -short ./apps/mcp-server/... ./apps/rest-api/... ./apps/worker/... ./pkg/... || {
-            echo "❌ Unit tests failed with exit code: $?"
+          # Run unit tests with -short flag (excludes integration tests) in each module for Go workspace compatibility
+          failed=0
+          
+          echo "Running unit tests for apps/mcp-server..."
+          (cd apps/mcp-server && go test -v -short ./...) || failed=1
+          
+          echo "Running unit tests for apps/rest-api..."
+          (cd apps/rest-api && go test -v -short ./...) || failed=1
+          
+          echo "Running unit tests for apps/worker..."
+          (cd apps/worker && go test -v -short ./...) || failed=1
+          
+          echo "Running unit tests for apps/mockserver..."
+          (cd apps/mockserver && go test -v -short ./...) || failed=1
+          
+          echo "Running unit tests for pkg..."
+          (cd pkg && go test -v -short ./...) || failed=1
+          
+          if [ $failed -eq 1 ]; then
+            echo "❌ Unit tests failed"
             echo "Checking for specific failures..."
             # Run failing tests individually for better diagnostics
-            go test -v -short ./pkg/embedding/rerank/... || echo "rerank tests failed"
+            (cd pkg && go test -v -short ./embedding/rerank/...) || echo "rerank tests failed"
             exit 1
-          }
+          fi
           
           echo "✅ All unit tests passed!"
           
@@ -144,11 +161,28 @@ jobs:
         run: |
           echo "Running integration tests..."
           
-          # Run integration tests with proper tags and environment
-          ENABLE_INTEGRATION_TESTS=true TEST_REDIS_ADDR=localhost:6379 go test -tags=integration -v ./apps/... ./pkg/... || {
-            echo "❌ Integration tests failed with exit code: $?"
+          # Run integration tests in each module directory for Go workspace compatibility
+          failed=0
+          
+          echo "Testing apps/mcp-server..."
+          (cd apps/mcp-server && ENABLE_INTEGRATION_TESTS=true TEST_REDIS_ADDR=localhost:6379 go test -tags=integration -v ./...) || failed=1
+          
+          echo "Testing apps/rest-api..."
+          (cd apps/rest-api && ENABLE_INTEGRATION_TESTS=true TEST_REDIS_ADDR=localhost:6379 go test -tags=integration -v ./...) || failed=1
+          
+          echo "Testing apps/worker..."
+          (cd apps/worker && ENABLE_INTEGRATION_TESTS=true TEST_REDIS_ADDR=localhost:6379 go test -tags=integration -v ./...) || failed=1
+          
+          echo "Testing apps/mockserver..."
+          (cd apps/mockserver && ENABLE_INTEGRATION_TESTS=true TEST_REDIS_ADDR=localhost:6379 go test -tags=integration -v ./...) || failed=1
+          
+          echo "Testing pkg..."
+          (cd pkg && ENABLE_INTEGRATION_TESTS=true TEST_REDIS_ADDR=localhost:6379 go test -tags=integration -v ./...) || failed=1
+          
+          if [ $failed -eq 1 ]; then
+            echo "❌ Integration tests failed"
             exit 1
-          }
+          fi
           
           echo "✅ All integration tests passed!"
         env:
