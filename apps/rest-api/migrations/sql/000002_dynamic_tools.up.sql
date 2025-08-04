@@ -14,7 +14,7 @@ BEGIN;
 -- Check if required functions exist from previous migrations
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'update_updated_at_column' AND pronamespace = 'mcp'::regnamespace) THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'update_updated_at_column') THEN
         RAISE EXCEPTION 'Required function update_updated_at_column not found. Please ensure migration 000001 completed successfully.';
     END IF;
     
@@ -225,7 +225,6 @@ CREATE TABLE IF NOT EXISTS mcp.tool_auth_configs (
     created_by UUID,
     
     -- Constraints
-    CONSTRAINT uk_tool_auth_active UNIQUE(tool_id, is_active) WHERE is_active = true,
     CONSTRAINT chk_auth_type CHECK (auth_type IN ('none', 'api_key', 'bearer', 'basic', 'oauth2', 'aws_signature', 'custom'))
 );
 
@@ -315,6 +314,11 @@ CREATE INDEX idx_tool_auth_configs_tool
     ON mcp.tool_auth_configs(tool_id) 
     WHERE is_active = true;
 
+-- Partial unique index to ensure only one active auth config per tool
+CREATE UNIQUE INDEX uk_tool_auth_active 
+    ON mcp.tool_auth_configs(tool_id) 
+    WHERE is_active = true;
+
 CREATE INDEX idx_tool_health_checks_tool_time 
     ON mcp.tool_health_checks(tool_id, checked_at DESC);
 
@@ -325,11 +329,11 @@ CREATE INDEX idx_tool_health_checks_tool_time
 -- Update timestamp triggers
 CREATE TRIGGER update_tool_configurations_updated_at 
     BEFORE UPDATE ON mcp.tool_configurations
-    FOR EACH ROW EXECUTE FUNCTION mcp.update_updated_at_column();
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_tool_auth_configs_updated_at 
     BEFORE UPDATE ON mcp.tool_auth_configs
-    FOR EACH ROW EXECUTE FUNCTION mcp.update_updated_at_column();
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Update tool health status after health check
 CREATE OR REPLACE FUNCTION mcp.update_tool_health_status()

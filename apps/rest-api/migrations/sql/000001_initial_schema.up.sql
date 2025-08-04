@@ -16,19 +16,50 @@ CREATE SCHEMA IF NOT EXISTS mcp;
 -- ==============================================================================
 
 -- Task management types
-CREATE TYPE mcp.task_status AS ENUM ('pending', 'assigned', 'in_progress', 'completed', 'failed', 'cancelled', 'delegated');
-CREATE TYPE mcp.task_priority AS ENUM ('low', 'medium', 'high', 'critical');
+DO $$ BEGIN
+    CREATE TYPE mcp.task_status AS ENUM ('pending', 'assigned', 'in_progress', 'completed', 'failed', 'cancelled', 'delegated');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE mcp.task_priority AS ENUM ('low', 'medium', 'high', 'critical');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 -- Workflow types
-CREATE TYPE mcp.workflow_type AS ENUM ('sequential', 'parallel', 'conditional', 'loop', 'map_reduce', 'scatter_gather');
-CREATE TYPE mcp.workflow_status AS ENUM ('draft', 'active', 'paused', 'completed', 'failed', 'archived');
+DO $$ BEGIN
+    CREATE TYPE mcp.workflow_type AS ENUM ('sequential', 'parallel', 'conditional', 'loop', 'map_reduce', 'scatter_gather');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE mcp.workflow_status AS ENUM ('draft', 'active', 'paused', 'completed', 'failed', 'archived');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 -- Delegation types
-CREATE TYPE mcp.delegation_type AS ENUM ('handoff', 'collaboration', 'supervision', 'consultation');
+DO $$ BEGIN
+    CREATE TYPE mcp.delegation_type AS ENUM ('handoff', 'collaboration', 'supervision', 'consultation');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 -- Workspace types
-CREATE TYPE mcp.workspace_visibility AS ENUM ('private', 'team', 'organization', 'public');
-CREATE TYPE mcp.member_role AS ENUM ('viewer', 'contributor', 'moderator', 'admin', 'owner');
+DO $$ BEGIN
+    CREATE TYPE mcp.workspace_visibility AS ENUM ('private', 'team', 'organization', 'public');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE mcp.member_role AS ENUM ('viewer', 'contributor', 'moderator', 'admin', 'owner');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 -- ==============================================================================
 -- FOUNDATION TABLES
@@ -606,7 +637,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Current tenant ID function for RLS (Added from gap analysis)
-CREATE OR REPLACE FUNCTION current_tenant_id() RETURNS UUID AS $$
+CREATE OR REPLACE FUNCTION mcp.current_tenant_id() RETURNS UUID AS $$
 BEGIN
     RETURN current_setting('app.tenant_id', true)::UUID;
 EXCEPTION
@@ -1029,37 +1060,37 @@ ALTER TABLE mcp.webhook_configs ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies
 CREATE POLICY tenant_isolation_models ON mcp.models
-    USING (tenant_id = current_tenant_id());
+    USING (tenant_id = mcp.current_tenant_id());
 
 CREATE POLICY tenant_isolation_agents ON mcp.agents
-    USING (tenant_id = current_tenant_id());
+    USING (tenant_id = mcp.current_tenant_id());
 
 CREATE POLICY tenant_isolation_contexts ON mcp.contexts
-    USING (tenant_id = current_tenant_id());
+    USING (tenant_id = mcp.current_tenant_id());
 
 CREATE POLICY tenant_isolation_users ON mcp.users
-    USING (tenant_id = current_tenant_id());
+    USING (tenant_id = mcp.current_tenant_id());
 
 CREATE POLICY tenant_isolation_api_keys ON mcp.api_keys
-    USING (tenant_id = current_tenant_id());
+    USING (tenant_id = mcp.current_tenant_id());
 
 CREATE POLICY tenant_isolation_embeddings ON mcp.embeddings
-    USING (tenant_id = current_tenant_id());
+    USING (tenant_id = mcp.current_tenant_id());
 
 CREATE POLICY tenant_isolation_tasks ON mcp.tasks
-    USING (tenant_id = current_tenant_id());
+    USING (tenant_id = mcp.current_tenant_id());
 
 CREATE POLICY tenant_isolation_workflows ON mcp.workflows
-    USING (tenant_id = current_tenant_id());
+    USING (tenant_id = mcp.current_tenant_id());
 
 CREATE POLICY tenant_isolation_workspaces ON mcp.workspaces
-    USING (tenant_id = current_tenant_id());
+    USING (tenant_id = mcp.current_tenant_id());
 
 CREATE POLICY tenant_isolation_integrations ON mcp.integrations
-    USING (tenant_id = current_tenant_id());
+    USING (tenant_id = mcp.current_tenant_id());
 
 CREATE POLICY tenant_isolation_events ON mcp.events
-    USING (tenant_id = current_tenant_id());
+    USING (tenant_id = mcp.current_tenant_id());
 
 -- ==============================================================================
 -- INITIAL DATA
