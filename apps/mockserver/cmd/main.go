@@ -36,7 +36,11 @@ func main() {
 		if err != nil {
 			os.Exit(1)
 		}
-		resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				log.Printf("Failed to close response body: %v", err)
+			}
+		}()
 		if resp.StatusCode == http.StatusOK {
 			os.Exit(0)
 		}

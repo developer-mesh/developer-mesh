@@ -11,6 +11,7 @@ import (
 
 	"github.com/developer-mesh/developer-mesh/pkg/auth"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -345,7 +346,9 @@ func TestAuthenticationIntegration(t *testing.T) {
 		ctx := context.Background()
 
 		// Create test API key
-		apiKey, err := baseService.CreateAPIKey(ctx, "test-tenant", "test-user", "test-key", []string{"read"}, nil)
+		tenantID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+		userID := uuid.MustParse("00000000-0000-0000-0000-000000000002")
+		apiKey, err := baseService.CreateAPIKey(ctx, tenantID, userID, "test-key", []string{"read"}, nil)
 		require.NoError(t, err)
 
 		// Add IP to context

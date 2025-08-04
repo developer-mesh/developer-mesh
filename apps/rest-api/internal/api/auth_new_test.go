@@ -11,6 +11,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/auth"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -159,8 +160,8 @@ func TestEnhancedAuthJWTFixed(t *testing.T) {
 		// Create a JWT token using the auth service
 		authService := auth.NewService(config.Service, nil, cache, observability.NewNoopLogger())
 		user := &auth.User{
-			ID:       "test-user",
-			TenantID: "test-tenant",
+			ID:       uuid.MustParse("00000000-0000-0000-0000-000000000001"),
+			TenantID: uuid.MustParse("00000000-0000-0000-0000-000000000002"),
 			Email:    "test@example.com",
 			Scopes:   []string{"read", "write"},
 		}

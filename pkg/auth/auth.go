@@ -420,7 +420,7 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 		}
 
 		// Default user ID if not set - use a system user UUID
-		var userUUID uuid.UUID = SystemUserID
+		var userUUID = SystemUserID
 		if dbKey.UserID != nil && *dbKey.UserID != "" {
 			var err error
 			userUUID, err = uuid.Parse(*dbKey.UserID)

@@ -9,6 +9,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/auth"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 func ExampleService_GinMiddleware() {
@@ -58,8 +59,8 @@ func ExampleService_CreateAPIKey() {
 	ctx := context.Background()
 	apiKey, err := authService.CreateAPIKey(
 		ctx,
-		"tenant-123",
-		"user-456",
+		uuid.MustParse("00000000-0000-0000-0000-000000000001"),
+		uuid.MustParse("00000000-0000-0000-0000-000000000002"),
 		"My API Key",
 		[]string{"read", "write"},
 		nil, // No expiration
@@ -81,8 +82,8 @@ func ExampleService_GenerateJWT() {
 	// Generate a JWT token
 	ctx := context.Background()
 	user := &auth.User{
-		ID:       "user-123",
-		TenantID: "tenant-456",
+		ID:       uuid.MustParse("00000000-0000-0000-0000-000000000003"),
+		TenantID: uuid.MustParse("00000000-0000-0000-0000-000000000004"),
 		Email:    "user@example.com",
 		Scopes:   []string{"read"},
 	}

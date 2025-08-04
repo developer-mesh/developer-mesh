@@ -8,6 +8,7 @@ import (
 
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -104,8 +105,8 @@ func TestGinMiddlewareWithPassthrough(t *testing.T) {
 				service.apiKeys[tt.apiKey] = &APIKey{
 					Key:             tt.apiKey,
 					KeyType:         tt.keyType,
-					TenantID:        "test-tenant",
-					UserID:          "test-user",
+					TenantID:        uuid.MustParse("00000000-0000-0000-0000-000000000001"),
+					UserID:          uuid.MustParse("00000000-0000-0000-0000-000000000002"),
 					Name:            "Test Key",
 					Scopes:          []string{"read", "write"},
 					Active:          true,
@@ -221,8 +222,8 @@ func TestStandardMiddlewareWithPassthrough(t *testing.T) {
 			service.apiKeys[tt.apiKey] = &APIKey{
 				Key:             tt.apiKey,
 				KeyType:         tt.keyType,
-				TenantID:        "test-tenant",
-				UserID:          "test-user",
+				TenantID:        uuid.MustParse("00000000-0000-0000-0000-000000000001"),
+				UserID:          uuid.MustParse("00000000-0000-0000-0000-000000000002"),
 				Name:            "Test Key",
 				Scopes:          []string{"read"},
 				Active:          true,
