@@ -192,6 +192,9 @@ jobs:
           POSTGRES_PASSWORD: test
           POSTGRES_DB: devmesh_test
           DATABASE_URL: "postgres://test:test@localhost:5433/devmesh_test?sslmode=disable"
+          MCP_DATABASE_DSN: "postgres://test:test@localhost:5433/devmesh_test?sslmode=disable"
+          TEST_DATABASE_URL: "postgres://test:test@localhost:5433/devmesh_test?sslmode=disable"
+          INTEGRATION_TEST: true
           REDIS_ADDR: localhost:6379
           REDIS_PASSWORD: ""
           REDIS_TLS_ENABLED: false
