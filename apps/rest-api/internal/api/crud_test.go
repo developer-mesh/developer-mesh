@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 package api
 
 import (
@@ -12,6 +15,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
 	"github.com/developer-mesh/developer-mesh/pkg/common/config"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/testutil"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -485,11 +489,11 @@ func setupTestRouter(server *Server) *gin.Engine {
 			// Extract tenant ID from header
 			tenantID := c.GetHeader("X-Tenant-ID")
 			if tenantID == "" {
-				tenantID = "default-tenant"
+				tenantID = testutil.TestTenantIDString()
 			}
 
 			c.Set("user", map[string]any{
-				"id":        "test-user",
+				"id":        testutil.TestUserIDString(),
 				"tenant_id": tenantID,
 			})
 			// Also set tenant_id separately for backward compatibility
@@ -529,9 +533,10 @@ func setupTestDB(t *testing.T) *sqlx.DB {
 	db, err := sqlx.Open("sqlite3", ":memory:")
 	require.NoError(t, err)
 
-	// Create necessary tables
+	// Create necessary tables with mcp schema prefix
+	// Note: SQLite doesn't support schemas, so we'll create tables with schema-like naming
 	schema := `
-	CREATE TABLE IF NOT EXISTS agents (
+	CREATE TABLE IF NOT EXISTS "mcp.agents" (
 		id TEXT PRIMARY KEY,
 		tenant_id TEXT NOT NULL,
 		name TEXT,
@@ -547,7 +552,7 @@ func setupTestDB(t *testing.T) *sqlx.DB {
 		last_seen_at TIMESTAMP
 	);
 	
-	CREATE TABLE IF NOT EXISTS models (
+	CREATE TABLE IF NOT EXISTS "mcp.models" (
 		id TEXT PRIMARY KEY,
 		tenant_id TEXT NOT NULL,
 		name TEXT,
@@ -559,7 +564,7 @@ func setupTestDB(t *testing.T) *sqlx.DB {
 		updated_at TIMESTAMP
 	);
 	
-	CREATE TABLE IF NOT EXISTS contexts (
+	CREATE TABLE IF NOT EXISTS "mcp.contexts" (
 		id TEXT PRIMARY KEY,
 		agent_id TEXT,
 		model_id TEXT,

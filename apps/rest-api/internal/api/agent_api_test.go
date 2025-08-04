@@ -11,8 +11,8 @@ import (
 	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/repository"
 
 	"github.com/developer-mesh/developer-mesh/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/testutil"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -50,7 +50,7 @@ func setupAgentAPI(repo repository.AgentRepository, withTenant bool) *gin.Engine
 	r := gin.New()
 	if withTenant {
 		r.Use(func(c *gin.Context) {
-			c.Set("user", map[string]interface{}{"tenant_id": "00000000-0000-0000-0000-000000000001"})
+			c.Set("user", map[string]interface{}{"tenant_id": testutil.TestTenantIDString()})
 			c.Next()
 		})
 	}
@@ -86,8 +86,8 @@ func TestCreateAgent_MissingTenant(t *testing.T) {
 
 func TestListAgents_Success(t *testing.T) {
 	repo := new(MockAgentRepository)
-	agents := []*models.Agent{{ID: "a1", TenantID: uuid.MustParse("00000000-0000-0000-0000-000000000001"), Name: "Agent1"}}
-	repo.On("ListAgents", mock.Anything, "00000000-0000-0000-0000-000000000001").Return(agents, nil)
+	agents := []*models.Agent{{ID: "a1", TenantID: testutil.TestTenantID, Name: "Agent1"}}
+	repo.On("ListAgents", mock.Anything, testutil.TestTenantIDString()).Return(agents, nil)
 
 	r := setupAgentAPI(repo, true)
 	w := httptest.NewRecorder()
@@ -99,7 +99,7 @@ func TestListAgents_Success(t *testing.T) {
 
 func TestUpdateAgent_NotFound(t *testing.T) {
 	repo := new(MockAgentRepository)
-	repo.On("GetAgentByID", mock.Anything, "00000000-0000-0000-0000-000000000001", "a1").Return((*models.Agent)(nil), errors.New("not found"))
+	repo.On("GetAgentByID", mock.Anything, testutil.TestTenantIDString(), "a1").Return((*models.Agent)(nil), errors.New("not found"))
 
 	r := setupAgentAPI(repo, true)
 	w := httptest.NewRecorder()

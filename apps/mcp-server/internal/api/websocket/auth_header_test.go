@@ -108,7 +108,7 @@ func TestAuthenticateRequestWithCustomHeader(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				assert.NotNil(t, claims)
-				assert.Equal(t, "default", claims.TenantID)
+				assert.Equal(t, "00000000-0000-0000-0000-000000000001", claims.TenantID)
 				assert.Contains(t, claims.Scopes, "admin")
 			}
 		})
@@ -196,8 +196,8 @@ func TestAuthConsistencyBetweenRESTAndWebSocket(t *testing.T) {
 		assert.NoError(t, err, "WebSocket validation failed for header set %d", i)
 		assert.NotNil(t, claims, "WebSocket claims is nil for header set %d", i)
 
-		// Verify consistency
-		assert.Equal(t, user.ID, claims.UserID, "User ID mismatch for header set %d", i)
-		assert.Equal(t, user.TenantID, claims.TenantID, "Tenant ID mismatch for header set %d", i)
+		// Verify consistency - convert UUID to string for comparison
+		assert.Equal(t, user.ID.String(), claims.UserID, "User ID mismatch for header set %d", i)
+		assert.Equal(t, user.TenantID.String(), claims.TenantID, "Tenant ID mismatch for header set %d", i)
 	}
 }

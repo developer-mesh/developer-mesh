@@ -114,7 +114,7 @@ jobs:
         env:
           PGPASSWORD: test
 
-      - name: Run tests
+      - name: Run unit tests
         run: |
           echo "Running unit tests..."
           echo "Test environment:"
@@ -129,16 +129,28 @@ jobs:
           # Test Redis connectivity  
           redis-cli -h localhost ping || echo "Warning: Could not connect to Redis"
           
-          # Run tests with detailed output
+          # Run unit tests with -short flag (excludes integration tests)
           go test -v -short ./apps/mcp-server/... ./apps/rest-api/... ./apps/worker/... ./pkg/... || {
-            echo "❌ Tests failed with exit code: $?"
+            echo "❌ Unit tests failed with exit code: $?"
             echo "Checking for specific failures..."
             # Run failing tests individually for better diagnostics
             go test -v -short ./pkg/embedding/rerank/... || echo "rerank tests failed"
             exit 1
           }
           
-          echo "✅ All tests passed!"
+          echo "✅ All unit tests passed!"
+          
+      - name: Run integration tests
+        run: |
+          echo "Running integration tests..."
+          
+          # Run integration tests with proper tags and environment
+          ENABLE_INTEGRATION_TESTS=true TEST_REDIS_ADDR=localhost:6379 go test -tags=integration -v ./apps/... ./pkg/... || {
+            echo "❌ Integration tests failed with exit code: $?"
+            exit 1
+          }
+          
+          echo "✅ All integration tests passed!"
         env:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5433

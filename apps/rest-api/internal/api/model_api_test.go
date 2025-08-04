@@ -12,6 +12,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/repository"
 
 	"github.com/developer-mesh/developer-mesh/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/testutil"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -59,7 +60,7 @@ func setupModelAPI(repo repository.ModelRepository, withTenant bool) *gin.Engine
 	r := gin.New()
 	if withTenant {
 		r.Use(func(c *gin.Context) {
-			c.Set("user", map[string]any{"tenant_id": "tenant1"})
+			c.Set("user", map[string]any{"tenant_id": testutil.TestTenantIDString()})
 			c.Next()
 		})
 	}
@@ -95,8 +96,8 @@ func TestCreateModel_MissingTenant(t *testing.T) {
 
 func TestListModels_Success(t *testing.T) {
 	repo := new(MockModelRepository)
-	modelsList := []*models.Model{{ID: "m1", TenantID: "tenant1", Name: "Model1"}}
-	repo.On("ListModels", mock.Anything, "tenant1").Return(modelsList, nil)
+	modelsList := []*models.Model{{ID: "m1", TenantID: testutil.TestTenantIDString(), Name: "Model1"}}
+	repo.On("ListModels", mock.Anything, testutil.TestTenantIDString()).Return(modelsList, nil)
 
 	r := setupModelAPI(repo, true)
 	w := httptest.NewRecorder()
@@ -108,7 +109,7 @@ func TestListModels_Success(t *testing.T) {
 
 func TestUpdateModel_NotFound(t *testing.T) {
 	repo := new(MockModelRepository)
-	repo.On("GetModelByID", mock.Anything, "tenant1", "m1").Return((*models.Model)(nil), errors.New("not found"))
+	repo.On("GetModelByID", mock.Anything, testutil.TestTenantIDString(), "m1").Return((*models.Model)(nil), errors.New("not found"))
 
 	r := setupModelAPI(repo, true)
 	w := httptest.NewRecorder()

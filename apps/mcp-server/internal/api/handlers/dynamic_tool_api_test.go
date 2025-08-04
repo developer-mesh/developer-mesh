@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 package handlers_test
 
 import (
@@ -15,6 +18,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/services"
 	"github.com/developer-mesh/developer-mesh/pkg/auth"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/testutil"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
@@ -27,22 +31,22 @@ type MockAuthMiddleware struct{}
 
 func (m *MockAuthMiddleware) Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Set mock claims
+		// Set mock claims with proper UUIDs
 		claims := &auth.Claims{
-			UserID:   "test-user",
-			TenantID: "test-tenant",
+			UserID:   testutil.TestUserIDString(),
+			TenantID: testutil.TestTenantIDString(),
 			Email:    "test@example.com",
 		}
 		c.Set("claims", claims)
-		c.Set("tenant_id", "test-tenant")
+		c.Set("tenant_id", testutil.TestTenantIDString())
 		c.Next()
 	}
 }
 
 func setupTestDB(t *testing.T) *sqlx.DB {
-	// Skip if not in integration test mode
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
+	// Skip if not in integration test mode or if SKIP_DB_TESTS is set
+	if testing.Short() || os.Getenv("SKIP_DB_TESTS") == "true" {
+		t.Skip("Skipping integration test")
 	}
 
 	// Use PostgreSQL test container - use 127.0.0.1 instead of localhost to avoid IPv6
@@ -54,6 +58,12 @@ func setupTestDB(t *testing.T) *sqlx.DB {
 	db, err := sqlx.Open("postgres", dbURL)
 	if err != nil {
 		t.Skipf("Skipping test, cannot connect to test database: %v", err)
+	}
+
+	// Test the connection
+	err = db.Ping()
+	if err != nil {
+		t.Skipf("Skipping test, cannot ping test database: %v. Run 'docker-compose -f docker-compose.test.yml up -d' to start test database.", err)
 	}
 
 	// Clean up any existing tables
@@ -297,7 +307,7 @@ func TestDynamicToolAPI_ListTools(t *testing.T) {
 
 	// Register a test tool
 	config := &tool.ToolConfig{
-		TenantID:    "test-tenant",
+		TenantID:    testutil.TestTenantIDString(),
 		Type:        "github",
 		Name:        "test-github",
 		DisplayName: "Test GitHub",
@@ -314,7 +324,7 @@ func TestDynamicToolAPI_ListTools(t *testing.T) {
 	}
 
 	registry := api.GetToolRegistry()
-	_, err := registry.RegisterTool(context.Background(), "test-tenant", config, "test-user")
+	_, err := registry.RegisterTool(context.Background(), testutil.TestTenantIDString(), config, testutil.TestUserIDString())
 	require.NoError(t, err)
 
 	// Test listing tools
@@ -392,7 +402,7 @@ func TestDynamicToolAPI_HealthCheck(t *testing.T) {
 
 	// Register a test tool
 	config := &tool.ToolConfig{
-		TenantID:    "test-tenant",
+		TenantID:    testutil.TestTenantIDString(),
 		Type:        "test",
 		Name:        "test-tool",
 		DisplayName: "Test Tool",
@@ -409,7 +419,7 @@ func TestDynamicToolAPI_HealthCheck(t *testing.T) {
 	}
 
 	registry := api.GetToolRegistry()
-	_, err := registry.RegisterTool(context.Background(), "test-tenant", config, "test-user")
+	_, err := registry.RegisterTool(context.Background(), testutil.TestTenantIDString(), config, testutil.TestUserIDString())
 	require.NoError(t, err)
 
 	// Test health check

@@ -187,12 +187,12 @@ func TestAuthConfig() *AuthSystemConfig {
 			"test-key-1234567890": {
 				Role:     "admin",
 				Scopes:   []string{"read", "write", "admin"},
-				TenantID: "test-tenant",
+				TenantID: "11111111-1111-1111-1111-111111111111",
 			},
 			"user-key-1234567890": {
 				Role:     "user",
 				Scopes:   []string{"read"},
-				TenantID: "test-tenant",
+				TenantID: "11111111-1111-1111-1111-111111111111",
 			},
 		},
 	}

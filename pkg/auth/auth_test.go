@@ -358,7 +358,7 @@ func TestAuthenticationIntegration(t *testing.T) {
 		for i := 0; i < 3; i++ {
 			user, err := authMiddleware.ValidateAPIKeyWithMetrics(ctx, apiKey.Key)
 			require.NoError(t, err)
-			assert.Equal(t, "test-user", user.ID)
+			assert.Equal(t, userID, user.ID)
 		}
 
 		// Failed validations (wrong key)

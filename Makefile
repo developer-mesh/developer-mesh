@@ -172,7 +172,16 @@ clean: ## Clean build artifacts
 # ==============================================================================
 
 .PHONY: test
-test: start-test-env ## Run all unit tests
+test: ## Run all unit tests (excludes integration tests and Redis-dependent tests)
+	@echo "Running unit tests..."
+	@$(GOTEST) -v -short \
+		./apps/mcp-server/... \
+		./apps/rest-api/... \
+		./apps/worker/... \
+		$$(go list ./pkg/... | grep -v pkg/embedding/cache)
+
+.PHONY: test-with-services
+test-with-services: start-test-env ## Run unit tests that require Redis/PostgreSQL
 	@echo "Running unit tests with Docker services..."
 	@TEST_REDIS_ADDR=127.0.0.1:6379 $(GOTEST) -v -short ./apps/mcp-server/... ./apps/rest-api/... ./apps/worker/... ./pkg/... || (make stop-test-env && exit 1)
 	@make stop-test-env
@@ -199,10 +208,10 @@ stop-test-env: ## Stop test environment
 	@echo "Stopping test environment..."
 	@docker-compose -f docker-compose.test.yml down -v
 
-.PHONY: test-integration
-test-integration: start-test-env ## Run integration tests
+.PHONY: test-integration test-int
+test-integration test-int: start-test-env ## Run integration tests
 	@echo "Running integration tests with Docker services..."
-	@ENABLE_INTEGRATION_TESTS=true TEST_REDIS_ADDR=127.0.0.1:6379 $(GOTEST) -tags=integration -v ./pkg/tests/integration ./test/integration ./pkg/webhook || (make stop-test-env && exit 1)
+	@ENABLE_INTEGRATION_TESTS=true TEST_REDIS_ADDR=127.0.0.1:6379 TEST_DATABASE_URL="postgres://test:test@127.0.0.1:5433/test?sslmode=disable" $(GOTEST) -tags=integration -v ./apps/... ./pkg/... || (make stop-test-env && exit 1)
 	@make stop-test-env
 
 .PHONY: test-redis-lifecycle

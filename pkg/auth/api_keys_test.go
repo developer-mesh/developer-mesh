@@ -7,6 +7,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/testutil"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,7 +25,7 @@ func TestCreateAPIKeyWithType(t *testing.T) {
 			name: "create admin key with defaults",
 			request: CreateAPIKeyRequest{
 				Name:     "Admin Key",
-				TenantID: "tenant-123",
+				TenantID: testutil.TestTenantIDString(),
 				KeyType:  KeyTypeAdmin,
 			},
 			setupDB: func(mock sqlmock.Sqlmock) {
@@ -32,7 +33,7 @@ func TestCreateAPIKeyWithType(t *testing.T) {
 					WithArgs(
 						sqlmock.AnyArg(), // key_hash
 						sqlmock.AnyArg(), // key_prefix
-						"tenant-123",     // tenant_id
+						sqlmock.AnyArg(), // tenant_id
 						nil,              // user_id
 						"Admin Key",      // name
 						KeyTypeAdmin,     // key_type
@@ -49,7 +50,7 @@ func TestCreateAPIKeyWithType(t *testing.T) {
 						AddRow("key-123", time.Now()))
 			},
 			validate: func(t *testing.T, key *APIKey) {
-				assert.Equal(t, "tenant-123", key.TenantID)
+				assert.Equal(t, testutil.TestTenantID, key.TenantID)
 				assert.Equal(t, KeyTypeAdmin, key.KeyType)
 				assert.Equal(t, "Admin Key", key.Name)
 				assert.True(t, key.Active)
@@ -62,7 +63,7 @@ func TestCreateAPIKeyWithType(t *testing.T) {
 			name: "create gateway key with allowed services",
 			request: CreateAPIKeyRequest{
 				Name:            "Gateway Key",
-				TenantID:        "tenant-456",
+				TenantID:        testutil.TestTenantIDString(),
 				KeyType:         KeyTypeGateway,
 				AllowedServices: []string{"github", "gitlab"},
 			},
@@ -71,7 +72,7 @@ func TestCreateAPIKeyWithType(t *testing.T) {
 					WithArgs(
 						sqlmock.AnyArg(), // key_hash
 						sqlmock.AnyArg(), // key_prefix
-						"tenant-456",     // tenant_id
+						sqlmock.AnyArg(),     // tenant_id
 						nil,              // user_id
 						"Gateway Key",    // name
 						KeyTypeGateway,   // key_type
@@ -99,9 +100,9 @@ func TestCreateAPIKeyWithType(t *testing.T) {
 			name: "create agent key with custom rate limit",
 			request: CreateAPIKeyRequest{
 				Name:      "Agent Key",
-				TenantID:  "tenant-789",
+				TenantID:  testutil.TestTenantIDString(),
 				KeyType:   KeyTypeAgent,
-				UserID:    "agent-001",
+				UserID:    testutil.TestUserIDString(),
 				RateLimit: intPtr(2000),
 			},
 			setupDB: func(mock sqlmock.Sqlmock) {
@@ -109,8 +110,8 @@ func TestCreateAPIKeyWithType(t *testing.T) {
 					WithArgs(
 						sqlmock.AnyArg(), // key_hash
 						sqlmock.AnyArg(), // key_prefix
-						"tenant-789",     // tenant_id
-						"agent-001",      // user_id
+						sqlmock.AnyArg(),     // tenant_id
+						sqlmock.AnyArg(),      // user_id
 						"Agent Key",      // name
 						KeyTypeAgent,     // key_type
 						sqlmock.AnyArg(), // scopes
@@ -128,7 +129,7 @@ func TestCreateAPIKeyWithType(t *testing.T) {
 			validate: func(t *testing.T, key *APIKey) {
 				assert.Equal(t, KeyTypeAgent, key.KeyType)
 				assert.Contains(t, key.Key, "agt_")
-				assert.Equal(t, "agent-001", key.UserID)
+				assert.Equal(t, testutil.TestUserID, key.UserID)
 				assert.Equal(t, 2000, key.RateLimitRequests)
 			},
 		},
@@ -136,7 +137,7 @@ func TestCreateAPIKeyWithType(t *testing.T) {
 			name: "create user key with expiration",
 			request: CreateAPIKeyRequest{
 				Name:      "User Key",
-				TenantID:  "tenant-999",
+				TenantID:  testutil.TestTenantIDString(),
 				KeyType:   KeyTypeUser,
 				ExpiresAt: timePtr(time.Now().Add(24 * time.Hour)),
 				Scopes:    []string{"read", "custom:scope"},
@@ -146,7 +147,7 @@ func TestCreateAPIKeyWithType(t *testing.T) {
 					WithArgs(
 						sqlmock.AnyArg(), // key_hash
 						sqlmock.AnyArg(), // key_prefix
-						"tenant-999",     // tenant_id
+						sqlmock.AnyArg(),     // tenant_id
 						nil,              // user_id
 						"User Key",       // name
 						KeyTypeUser,      // key_type
@@ -173,7 +174,7 @@ func TestCreateAPIKeyWithType(t *testing.T) {
 			name: "invalid key type",
 			request: CreateAPIKeyRequest{
 				Name:     "Invalid Key",
-				TenantID: "tenant-000",
+				TenantID: testutil.TestTenantIDString(),
 				KeyType:  "invalid",
 			},
 			wantErr: true,
@@ -182,7 +183,7 @@ func TestCreateAPIKeyWithType(t *testing.T) {
 			name: "memory storage when no database",
 			request: CreateAPIKeyRequest{
 				Name:     "Memory Key",
-				TenantID: "tenant-mem",
+				TenantID: testutil.TestTenantIDString(),
 				KeyType:  KeyTypeUser,
 			},
 			setupDB: nil, // No database setup

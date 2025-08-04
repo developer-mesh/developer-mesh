@@ -11,8 +11,8 @@ import (
 
 	"github.com/developer-mesh/developer-mesh/pkg/auth"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/testutil"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -49,12 +49,12 @@ func TestEnhancedAuthRateLimiting(t *testing.T) {
 			"valid-key-1234567890123456": {
 				Role:     "admin",
 				Scopes:   []string{"read", "write", "admin"},
-				TenantID: "default",
+				TenantID: testutil.TestTenantIDString(),
 			},
 			"limited-key-1234567890123456": {
 				Role:     "user",
 				Scopes:   []string{"read"},
-				TenantID: "default",
+				TenantID: testutil.TestTenantIDString(),
 			},
 		},
 	}
@@ -201,7 +201,7 @@ func TestEnhancedAuthConcurrency(t *testing.T) {
 			"concurrent-key-1234567890123456": {
 				Role:     "admin",
 				Scopes:   []string{"read", "write", "admin"},
-				TenantID: "default",
+				TenantID: testutil.TestTenantIDString(),
 			},
 		},
 	}
@@ -289,8 +289,8 @@ func TestJWTAuthentication(t *testing.T) {
 
 	// Generate a valid JWT
 	user := &auth.User{
-		ID:       uuid.MustParse("00000000-0000-0000-0000-000000000001"),
-		TenantID: uuid.MustParse("00000000-0000-0000-0000-000000000002"),
+		ID:       testutil.TestUserID,
+		TenantID: testutil.TestTenantID,
 		Email:    "test@example.com",
 		Scopes:   []string{"read", "write"},
 	}
