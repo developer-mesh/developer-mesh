@@ -580,7 +580,6 @@ func (db *Database) searchContexts(ctx context.Context, tx *Tx, agentID string, 
 	return contexts, nil
 }
 
-
 // NewUUID generates a new UUID
 func NewUUID() string {
 	return fmt.Sprintf("%x-%x-%x-%x-%x",
