@@ -92,10 +92,11 @@ type ActionParameter struct {
 
 // ToolExecutionRequest represents a request to execute a tool action
 type ToolExecutionRequest struct {
-	Action     string                 `json:"action"`
-	Parameters map[string]interface{} `json:"parameters,omitempty"`
-	Headers    map[string]string      `json:"headers,omitempty"`
-	Timeout    int                    `json:"timeout,omitempty"` // in seconds
+	Action          string                 `json:"action"`
+	Parameters      map[string]interface{} `json:"parameters,omitempty"`
+	Headers         map[string]string      `json:"headers,omitempty"`
+	Timeout         int                    `json:"timeout,omitempty"` // in seconds
+	PassthroughAuth *PassthroughAuthBundle `json:"passthrough_auth,omitempty"`
 }
 
 // ToolExecutionResponse represents the response from executing a tool action

@@ -42,6 +42,7 @@ type DynamicToolsServiceInterface interface {
 	// Action operations
 	ListToolActions(ctx context.Context, tenantID, toolID string) ([]models.ToolAction, error)
 	ExecuteToolAction(ctx context.Context, tenantID, toolID, action string, params map[string]interface{}) (interface{}, error)
+	ExecuteToolActionWithPassthrough(ctx context.Context, tenantID, toolID, action string, params map[string]interface{}, passthroughAuth *models.PassthroughAuthBundle) (interface{}, error)
 
 	// Credential operations
 	UpdateToolCredentials(ctx context.Context, tenantID, toolID string, creds *models.TokenCredential) error
@@ -739,6 +740,128 @@ func (s *DynamicToolsService) ExecuteToolAction(ctx context.Context, tenantID, t
 	}
 
 	return result, nil
+}
+
+// ExecuteToolActionWithPassthrough executes a tool action with passthrough authentication
+func (s *DynamicToolsService) ExecuteToolActionWithPassthrough(
+	ctx context.Context,
+	tenantID, toolID, action string,
+	params map[string]interface{},
+	passthroughAuth *models.PassthroughAuthBundle,
+) (interface{}, error) {
+	start := time.Now()
+
+	// Get the tool
+	tool, err := s.GetTool(ctx, tenantID, toolID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if tool is active
+	if tool.Status != "active" {
+		return nil, fmt.Errorf("tool is not active: %s", tool.Status)
+	}
+
+	// Parse passthrough config
+	var passthroughConfig *models.EnhancedPassthroughConfig
+	if tool.PassthroughConfig != nil {
+		passthroughConfig = &models.EnhancedPassthroughConfig{}
+		if err := json.Unmarshal(*tool.PassthroughConfig, passthroughConfig); err != nil {
+			s.logger.Warn("Failed to parse passthrough config", map[string]interface{}{
+				"tool_id": toolID,
+				"error":   err.Error(),
+			})
+		}
+	}
+
+	// Check if passthrough is allowed
+	if passthroughConfig != nil && passthroughConfig.Mode == "disabled" {
+		return nil, fmt.Errorf("passthrough authentication is disabled for this tool")
+	}
+
+	// If passthrough is required but not provided
+	if passthroughConfig != nil && passthroughConfig.Mode == "required" && passthroughAuth == nil {
+		return nil, fmt.Errorf("passthrough authentication is required for this tool")
+	}
+
+	// Create OpenAPI cache repository
+	cacheRepo := pkgrepository.NewOpenAPICacheRepository(s.db)
+
+	// Create adapter for the tool
+	adapter, err := adapters.NewDynamicToolAdapter(tool, cacheRepo, s.encryptionSvc, s.logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create tool adapter: %w", err)
+	}
+
+	// Execute the action with passthrough auth
+	execResult, err := adapter.ExecuteWithPassthrough(ctx, action, params, passthroughAuth, passthroughConfig)
+	if err != nil {
+		s.logger.Error("Failed to execute tool action with passthrough", map[string]interface{}{
+			"tenant_id":    tenantID,
+			"tool_id":      toolID,
+			"action":       action,
+			"has_passthrough": passthroughAuth != nil,
+			"error":        err.Error(),
+		})
+		// Record failure metric
+		if s.metricsClient != nil {
+			s.metricsClient.IncrementCounterWithLabels("tools.actions.execute.passthrough.error", 1, map[string]string{
+				"tenant_id": tenantID,
+				"tool_id":   toolID,
+				"action":    action,
+			})
+		}
+		return nil, err
+	}
+
+	// Log execution to database with passthrough flag
+	executionID := uuid.New().String()
+	status := "success"
+	
+	// Check if there was an error in the execution
+	if execResult.Error != "" {
+		status = "error"
+	}
+
+	// Determine auth method used
+	authMethod := "stored"
+	if passthroughAuth != nil {
+		authMethod = "passthrough"
+	}
+
+	query := `
+		INSERT INTO tool_executions (
+			id, tool_config_id, tenant_id, action, parameters,
+			response, status, duration_ms, auth_method, executed_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+	`
+	
+	responseJSON, _ := json.Marshal(execResult)
+	paramsJSON, _ := json.Marshal(params)
+	
+	_, dbErr := s.db.ExecContext(ctx, query,
+		executionID, toolID, tenantID, action, paramsJSON,
+		responseJSON, status, time.Since(start).Milliseconds(),
+		authMethod, time.Now(),
+	)
+	if dbErr != nil {
+		s.logger.Warn("Failed to log tool execution", map[string]interface{}{
+			"error": dbErr.Error(),
+		})
+	}
+
+	// Record success metrics
+	if s.metricsClient != nil {
+		s.metricsClient.RecordHistogram("tools.actions.execute.passthrough.duration", float64(time.Since(start).Milliseconds()), map[string]string{
+			"tenant_id":   tenantID,
+			"tool_id":     toolID,
+			"action":      action,
+			"status":      status,
+			"auth_method": authMethod,
+		})
+	}
+
+	return execResult, nil
 }
 
 // UpdateToolCredentials updates tool credentials

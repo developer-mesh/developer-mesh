@@ -68,7 +68,7 @@ func (r *dynamicToolRepository) Create(ctx context.Context, tool *models.Dynamic
 	}
 
 	query := `
-		INSERT INTO dynamic_tools (
+		INSERT INTO mcp.tool_configurations (
 			id, tool_name, display_name, base_url, provider,
 			config, webhook_config, retry_policy, passthrough_config,
 			auth_type, credentials_encrypted, status, tenant_id, 
@@ -98,7 +98,7 @@ func (r *dynamicToolRepository) GetByID(ctx context.Context, id string) (*models
 			config, webhook_config, retry_policy, passthrough_config,
 			auth_type, credentials_encrypted, status, health_status,
 			last_health_check, tenant_id, created_at, updated_at
-		FROM dynamic_tools 
+		FROM mcp.tool_configurations 
 		WHERE id = $1`
 
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
@@ -155,7 +155,7 @@ func (r *dynamicToolRepository) GetByToolName(ctx context.Context, tenantID, too
 			config, webhook_config, retry_policy, passthrough_config,
 			auth_type, credentials_encrypted, status, health_status,
 			last_health_check, tenant_id, created_at, updated_at
-		FROM dynamic_tools 
+		FROM mcp.tool_configurations 
 		WHERE tenant_id = $1 AND tool_name = $2`
 
 	err := r.db.QueryRowContext(ctx, query, tenantID, toolName).Scan(
@@ -209,7 +209,7 @@ func (r *dynamicToolRepository) List(ctx context.Context, tenantID string, statu
 			config, webhook_config, retry_policy, passthrough_config,
 			auth_type, credentials_encrypted, status, health_status,
 			last_health_check, tenant_id, created_at, updated_at
-		FROM dynamic_tools 
+		FROM mcp.tool_configurations 
 		WHERE tenant_id = $1`
 
 	args := []interface{}{tenantID}
@@ -302,7 +302,7 @@ func (r *dynamicToolRepository) Update(ctx context.Context, tool *models.Dynamic
 	tool.UpdatedAt = time.Now()
 
 	query := `
-		UPDATE dynamic_tools SET
+		UPDATE mcp.tool_configurations SET
 			tool_name = $2, display_name = $3, base_url = $4, provider = $5,
 			config = $6, webhook_config = $7, retry_policy = $8,
 			passthrough_config = $9, auth_type = $10, credentials_encrypted = $11,
@@ -331,7 +331,7 @@ func (r *dynamicToolRepository) Update(ctx context.Context, tool *models.Dynamic
 
 // Delete removes a dynamic tool
 func (r *dynamicToolRepository) Delete(ctx context.Context, id string) error {
-	query := `DELETE FROM dynamic_tools WHERE id = $1`
+	query := `DELETE FROM mcp.tool_configurations WHERE id = $1`
 	result, err := r.db.ExecContext(ctx, query, id)
 	if err != nil {
 		return err
@@ -351,7 +351,7 @@ func (r *dynamicToolRepository) Delete(ctx context.Context, id string) error {
 // UpdateStatus updates the status of a dynamic tool
 func (r *dynamicToolRepository) UpdateStatus(ctx context.Context, id, status string) error {
 	query := `
-		UPDATE dynamic_tools 
+		UPDATE mcp.tool_configurations 
 		SET status = $2, updated_at = $3
 		WHERE id = $1`
 

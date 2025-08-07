@@ -237,10 +237,10 @@ func TestOpenAPISanitizer_FixArrayExample(t *testing.T) {
 		// Example with string values that should be integers
 		example := []interface{}{
 			map[string]interface{}{
-				"w": "1367712000",  // String that should be integer
-				"a": 6898,          // Already correct
-				"d": "77",          // String that should be integer
-				"c": 10,            // Already correct
+				"w": "1367712000", // String that should be integer
+				"a": 6898,         // Already correct
+				"d": "77",         // String that should be integer
+				"c": 10,           // Already correct
 			},
 		}
 
@@ -250,12 +250,12 @@ func TestOpenAPISanitizer_FixArrayExample(t *testing.T) {
 		// Check the fixed values
 		fixedArray := fixed.([]interface{})
 		firstItem := fixedArray[0].(map[string]interface{})
-		
+
 		// All values should be int64 (strings get converted, ints get normalized)
 		assert.Equal(t, int64(1367712000), firstItem["w"])
-		assert.Equal(t, int64(6898), firstItem["a"])  // Normalized to int64
+		assert.Equal(t, int64(6898), firstItem["a"]) // Normalized to int64
 		assert.Equal(t, int64(77), firstItem["d"])
-		assert.Equal(t, int64(10), firstItem["c"])  // Normalized to int64
+		assert.Equal(t, int64(10), firstItem["c"]) // Normalized to int64
 	})
 
 	t.Run("Full contributor-activity schema", func(t *testing.T) {
@@ -302,10 +302,10 @@ func TestOpenAPISanitizer_FixArrayExample(t *testing.T) {
 		// Check the fixed example
 		weeksExample := spec.Components.Schemas["contributor-activity"].Value.Properties["weeks"].Value.Example
 		require.NotNil(t, weeksExample)
-		
+
 		arr := weeksExample.([]interface{})
 		firstWeek := arr[0].(map[string]interface{})
-		
+
 		// All values should now be int64 (our sanitizer normalizes all integers)
 		assert.Equal(t, int64(1367712000), firstWeek["w"])
 		assert.Equal(t, int64(6898), firstWeek["a"])

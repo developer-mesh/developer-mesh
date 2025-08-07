@@ -148,7 +148,7 @@ func (s *OpenAPISanitizer) fixArrayExample(example interface{}, itemsSchema *ope
 
 	fixed := false
 	fixedArray := make([]interface{}, len(arr))
-	
+
 	for i, item := range arr {
 		// If item is an object, check its properties
 		if obj, ok := item.(map[string]interface{}); ok {
@@ -243,9 +243,10 @@ func (s *OpenAPISanitizer) fixExampleValue(example interface{}, expectedType str
 		// Convert string booleans
 		if str, ok := example.(string); ok {
 			str = strings.ToLower(str)
-			if str == "true" || str == "1" || str == "yes" {
+			switch str {
+			case "true", "1", "yes":
 				return true, true
-			} else if str == "false" || str == "0" || str == "no" {
+			case "false", "0", "no":
 				return false, true
 			}
 		}

@@ -535,30 +535,117 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 		req.Action = action
 	}
 
-	// Execute the action
-	result, err := api.toolService.ExecuteToolAction(
-		c.Request.Context(),
-		tenantID,
-		toolID,
-		req.Action,
-		req.Parameters,
-	)
+	// Extract passthrough authentication from headers if not in body
+	if req.PassthroughAuth == nil {
+		req.PassthroughAuth = api.extractPassthroughAuth(c)
+	}
+
+	// Determine whether to use passthrough or standard execution
+	var result interface{}
+	var err error
+	
+	if req.PassthroughAuth != nil {
+		// Use passthrough execution
+		result, err = api.toolService.ExecuteToolActionWithPassthrough(
+			c.Request.Context(),
+			tenantID,
+			toolID,
+			req.Action,
+			req.Parameters,
+			req.PassthroughAuth,
+		)
+	} else {
+		// Use standard execution
+		result, err = api.toolService.ExecuteToolAction(
+			c.Request.Context(),
+			tenantID,
+			toolID,
+			req.Action,
+			req.Parameters,
+		)
+	}
+
 	if err != nil {
 		if err.Error() == "tool not found" {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 			return
 		}
 		api.logger.Error("Failed to execute tool action", map[string]interface{}{
-			"tenant_id": tenantID,
-			"tool_id":   toolID,
-			"action":    action,
-			"error":     err.Error(),
+			"tenant_id":      tenantID,
+			"tool_id":        toolID,
+			"action":         action,
+			"has_passthrough": req.PassthroughAuth != nil,
+			"error":          err.Error(),
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, result)
+}
+
+// extractPassthroughAuth extracts passthrough authentication from request headers
+func (api *DynamicToolsAPI) extractPassthroughAuth(c *gin.Context) *models.PassthroughAuthBundle {
+	// Check for passthrough token in headers
+	passthroughToken := c.GetHeader("X-Passthrough-Token")
+	if passthroughToken == "" {
+		// Try alternative headers
+		passthroughToken = c.GetHeader("X-User-Token")
+		if passthroughToken == "" {
+			passthroughToken = c.GetHeader("X-GitHub-Token") // Tool-specific headers
+		}
+	}
+
+	// Check for agent context
+	agentType := c.GetHeader("X-Agent-Type")
+	if agentType == "" {
+		agentType = c.GetString("agent_type") // From middleware
+	}
+
+	// If no passthrough data found, return nil
+	if passthroughToken == "" && agentType == "" {
+		return nil
+	}
+
+	// Build passthrough bundle
+	bundle := &models.PassthroughAuthBundle{
+		Credentials: make(map[string]*models.PassthroughCredential),
+	}
+
+	// Add token if present
+	if passthroughToken != "" {
+		bundle.Credentials["*"] = &models.PassthroughCredential{
+			Type:  "bearer",
+			Token: passthroughToken,
+		}
+	}
+
+	// Add agent context if present
+	if agentType != "" {
+		bundle.AgentContext = &models.AgentContext{
+			AgentType:   agentType,
+			AgentID:     c.GetString("agent_id"),
+			UserID:      c.GetString("user_id"),
+			SessionID:   c.GetString("session_id"),
+			Environment: c.GetString("environment"),
+		}
+	}
+
+	// Check for OAuth token
+	if authHeader := c.GetHeader("Authorization"); strings.HasPrefix(authHeader, "Bearer ") {
+		token := strings.TrimPrefix(authHeader, "Bearer ")
+		// Only use if it's different from the API key
+		if token != c.GetString("api_key") {
+			bundle.OAuthTokens = map[string]*models.OAuthToken{
+				"*": {
+					AccessToken: token,
+					TokenType:   "Bearer",
+				},
+			}
+		}
+	}
+
+	return bundle
 }
 
 // UpdateCredentials updates tool credentials

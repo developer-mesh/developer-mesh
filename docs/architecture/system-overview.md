@@ -17,19 +17,26 @@ Developer Mesh is an AI Agent Orchestration Platform that enables intelligent ro
 
 ### 🔵 MCP Server (`apps/mcp-server`)
 
-The MCP Server is the core AI agent orchestration hub:
+The MCP Server is the core AI agent orchestration hub with **Universal Agent Registration**:
 
-- **Agent Registry**: Manages AI agent registration, capabilities, and real-time status
+- **Universal Agent Registry**: Manages any agent type (IDE, Slack, monitoring, CI/CD, custom)
+- **Agent Manifest System**: Flexible configuration with capabilities, requirements, and auth
+- **Organization Isolation**: Strict tenant separation with cross-org access control
 - **Task Assignment Engine**: Intelligent routing with multiple strategies (capability-match, least-loaded, cost-optimized)
 - **Binary WebSocket Protocol**: High-performance communication with compression support
 - **Multi-Agent Collaboration**: Orchestrates complex workflows across multiple AI agents
 
 Key Features:
+- **Universal agent support** for any tool or service type
+- **Capability-based discovery** across different agent types
+- **Tenant isolation** with organization-level security boundaries
+- **Cross-agent messaging** (IDE→Jira, Slack→IDE, Monitoring→Slack)
 - Binary WebSocket protocol with automatic gzip compression (>1KB messages)
 - Real-time agent discovery and capability-based routing
 - Workload tracking and dynamic load balancing
 - Task delegation and collaboration patterns (MapReduce, parallel, pipeline)
-- Circuit breaker pattern for resilient agent communication
+- **Multi-level rate limiting** (per-agent, per-tenant, per-capability)
+- **Circuit breaker patterns** for resilient agent communication with auto-recovery
 
 ### 🟢 REST API Service (`apps/rest-api`)
 
@@ -83,9 +90,14 @@ pkg/
 
 **PostgreSQL 14+**
 - Relational data storage
-- pgvector extension for embeddings
-- JSONB for flexible schemas
+- pgvector extension for embeddings and capability search
+- JSONB for flexible schemas (agent manifests, requirements)
 - Row-level security support
+- **Agent manifest tables** for universal registration:
+  - `agent_manifests`: Core agent definitions with capabilities
+  - `agent_registrations`: Active agent instances
+  - `agent_capabilities`: Capability registry with semantic search
+  - `agent_channels`: Communication channel configurations
 
 **Redis 7+**
 - Response caching
@@ -144,14 +156,20 @@ Features:
 
 ## Data Flow Patterns
 
-### 1. AI Agent Registration Flow
+### 1. Universal Agent Registration Flow
 
 ```
-Agent → WebSocket → MCP Server → Agent Registry
+Agent → WebSocket → MCP Server → Manifest Validation
                          ↓
-                    Capability Index
+                 Organization Binding
                          ↓
-                    Task Router Update
+                  Agent Registry → Database
+                         ↓              ↓
+                 Capability Index   Tenant Config
+                         ↓              ↓
+                 Task Router Update  Rate Limits
+                         ↓
+                 Discovery Service
 ```
 
 ### 2. Task Assignment Flow
@@ -169,9 +187,31 @@ Task Request → REST API → Assignment Engine → Agent Selection
 ```
 Initiator Agent → Task Delegation → Agent Discovery
                          ↓
-                  Capability Matching
+                 Organization Filter ← Tenant Config
                          ↓
-                  Parallel Execution → Result Aggregation
+                 Capability Matching
+                         ↓
+                 Cross-Agent Routing → Message Broker
+                         ↓                    ↓
+                 Target Agent(s)     Rate Limiter/Circuit Breaker
+                         ↓
+                 Parallel Execution → Result Aggregation
+```
+
+### 5. Cross-Agent Message Flow
+
+```
+Source Agent → Message Broker → Capability Router
+                     ↓                 ↓
+              Organization Check   Target Discovery
+                     ↓                 ↓
+               Rate Limiting      Available Agents
+                     ↓                 ↓
+              Circuit Breaker     Load Balancing
+                     ↓                 ↓
+               Redis Stream   →  Target Agent
+                                      ↓
+                               Message Handler
 ```
 
 ### 4. Vector Embedding Flow
@@ -222,9 +262,18 @@ type Repository[T any] interface {
 ### Authentication & Authorization
 
 - **JWT Tokens**: Stateless authentication (implemented)
-- **API Keys**: Service-to-service communication (implemented)
+- **API Keys**: Multi-type keys (admin, gateway, agent, user) with different privileges
 - **OAuth 2.0**: Third-party integrations (interface defined, providers pending)
 - **RBAC**: Role-based access control (Casbin planned, not yet implemented)
+- **Organization Isolation**: Automatic tenant separation at all levels
+
+### Tenant Isolation
+
+- **Strict Mode**: Complete isolation between organizations
+- **Agent Discovery**: Filtered by organization automatically
+- **Message Routing**: Cross-org communication blocked by default
+- **Rate Limiting**: Per-tenant limits with custom configuration
+- **Audit Logging**: All cross-org attempts logged
 
 ### Data Protection
 
@@ -331,13 +380,58 @@ Isolate failures to specific components
 ### Health Checks
 Liveness and readiness probes
 
+## Universal Agent Registration System
+
+### Architecture Components
+
+1. **Agent Manifest System**:
+   - Flexible agent definitions with type, capabilities, requirements
+   - Dynamic configuration without code changes
+   - Version tracking and compatibility management
+   - Authentication configuration per agent type
+
+2. **Enhanced Registry**:
+   - Extends existing DBAgentRegistry through embedding
+   - Backward compatible with existing agents
+   - Universal agent support without breaking changes
+   - Real-time health and status tracking
+
+3. **Rate Limiting Architecture**:
+   - **Per-Agent**: Individual agent limits (10 RPS default)
+   - **Per-Tenant**: Organization-wide limits (100 RPS default)
+   - **Per-Capability**: Capability-specific limits (50 RPS default)
+   - **Burst Capacity**: 1.5x multiplier for traffic spikes
+   - **Sliding Windows**: Accurate rate tracking
+
+4. **Circuit Breaker System**:
+   - **Agent Breakers**: Trip after 3 failures, 20s recovery
+   - **Capability Breakers**: Trip after 10 failures, 60s recovery
+   - **Tenant Breakers**: Trip after 20 failures, 120s recovery
+   - **Channel Breakers**: For communication channels
+   - **Auto-Recovery**: Half-open state for gradual recovery
+
+5. **Message Broker**:
+   - Redis Streams for reliable delivery
+   - Worker pools with consumer groups
+   - Priority queuing (1-10 scale)
+   - Dead letter queue for failures
+   - Capability-based routing
+
+### Supported Agent Types
+
+- **IDE Agents**: VS Code, IntelliJ, Neovim (code assistance)
+- **Slack Agents**: Notifications, alerts, team coordination
+- **Monitoring Agents**: Prometheus, DataDog (metrics, health)
+- **CI/CD Agents**: Jenkins, GitHub Actions (builds, deployments)
+- **Custom Agents**: Any tool with WebSocket support
+
 ## Future Architecture Considerations
 
 1. **Advanced AI Orchestration**:
-   - Hierarchical agent organizations
-   - Learning-based task routing
-   - Agent capability evolution
-   - Multi-modal agent support
+   - Hierarchical agent organizations with delegation
+   - Learning-based task routing from historical data
+   - Agent capability evolution and specialization
+   - Multi-modal agent support (text, voice, video)
 
 2. **Enhanced Collaboration**:
    - Full CRDT delta synchronization

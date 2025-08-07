@@ -65,12 +65,38 @@ docker-compose -f docker-compose.production.yml up -d prometheus grafana
 - `mcp_websocket_errors_total` - WebSocket errors by type
 - `mcp_websocket_ping_latency_seconds` - Ping/pong latency
 
-#### Agent Metrics
-- `mcp_agents_registered` - Number of registered agents by type
+#### Agent Metrics (Universal Agent System)
+- `mcp_agents_registered` - Number of registered agents by type (ide, slack, monitoring, cicd, custom)
 - `mcp_agent_workload_current` - Current workload per agent
 - `mcp_agent_tasks_completed_total` - Tasks completed by agent
 - `mcp_agent_task_duration_seconds` - Task processing time by agent
 - `mcp_agent_capabilities` - Agent capabilities matrix
+- `mcp_agent_manifests_total` - Total agent manifests by organization
+- `mcp_agent_registrations_active` - Active agent registrations by type
+- `mcp_agent_health_status` - Agent health (healthy, unhealthy, unknown)
+- `mcp_cross_agent_messages_total` - Cross-agent messages by source/target type
+- `mcp_agent_discovery_requests_total` - Agent discovery requests by capability
+
+#### Tenant Isolation Metrics
+- `mcp_tenant_agents_total` - Agents per tenant/organization
+- `mcp_cross_org_attempts_blocked` - Blocked cross-organization attempts
+- `mcp_tenant_isolation_mode` - Organizations with strict isolation enabled
+- `mcp_tenant_rate_limit_hits` - Rate limit hits per tenant
+- `mcp_tenant_circuit_breaker_state` - Circuit breaker state by tenant
+
+#### Rate Limiting Metrics
+- `mcp_rate_limit_agent_exceeded` - Agent rate limit exceeded events
+- `mcp_rate_limit_tenant_exceeded` - Tenant rate limit exceeded events
+- `mcp_rate_limit_capability_exceeded` - Capability rate limit exceeded events
+- `mcp_rate_limit_current_rps` - Current requests per second by type
+- `mcp_rate_limit_burst_used` - Burst capacity utilization
+
+#### Circuit Breaker Metrics
+- `mcp_circuit_breaker_state` - Circuit breaker state (open, closed, half-open)
+- `mcp_circuit_breaker_failures` - Failure count per breaker
+- `mcp_circuit_breaker_success` - Success count per breaker
+- `mcp_circuit_breaker_trips` - Total circuit breaker trips
+- `mcp_agent_marked_unhealthy` - Agents marked unhealthy by circuit breaker
 
 #### System Metrics
 - `go_goroutines` - Number of goroutines

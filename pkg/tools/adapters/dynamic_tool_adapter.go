@@ -212,6 +212,135 @@ func (a *DynamicToolAdapter) ExecuteAction(ctx context.Context, actionID string,
 	return response, nil
 }
 
+// ExecuteWithPassthrough executes an action with passthrough authentication
+func (a *DynamicToolAdapter) ExecuteWithPassthrough(
+	ctx context.Context,
+	actionID string,
+	params map[string]interface{},
+	passthroughAuth *models.PassthroughAuthBundle,
+	passthroughConfig *models.EnhancedPassthroughConfig,
+) (*models.ToolExecutionResponse, error) {
+	startTime := time.Now()
+
+	// Get the OpenAPI spec
+	spec, err := a.getOpenAPISpec(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get OpenAPI spec: %w", err)
+	}
+
+	// Find the operation
+	operation, path, method, err := a.findOperation(spec, actionID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build the request
+	req, err := a.buildRequest(ctx, spec, operation, path, method, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build request: %w", err)
+	}
+
+	// Apply authentication with passthrough support
+	if err := a.applyAuthenticationWithPassthrough(req, passthroughAuth, passthroughConfig); err != nil {
+		return nil, fmt.Errorf("failed to apply authentication: %w", err)
+	}
+
+	// Execute the request
+	resp, err := a.httpClient.Do(req)
+	if err != nil {
+		return &models.ToolExecutionResponse{
+			Success:    false,
+			Error:      err.Error(),
+			Duration:   time.Since(startTime).Milliseconds(),
+			ExecutedAt: startTime,
+		}, nil
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	// Read response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	// Parse response based on content type
+	var responseBody interface{}
+	contentType := resp.Header.Get("Content-Type")
+	if strings.Contains(contentType, "application/json") {
+		if err := json.Unmarshal(body, &responseBody); err != nil {
+			responseBody = string(body)
+		}
+	} else {
+		responseBody = string(body)
+	}
+
+	// Build response
+	response := &models.ToolExecutionResponse{
+		Success:    resp.StatusCode >= 200 && resp.StatusCode < 300,
+		StatusCode: resp.StatusCode,
+		Headers:    resp.Header,
+		Body:       responseBody,
+		Duration:   time.Since(startTime).Milliseconds(),
+		ExecutedAt: startTime,
+	}
+
+	if !response.Success {
+		response.Error = fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(body))
+	}
+
+	return response, nil
+}
+
+// applyAuthenticationWithPassthrough applies authentication with passthrough support
+func (a *DynamicToolAdapter) applyAuthenticationWithPassthrough(
+	req *http.Request,
+	passthroughAuth *models.PassthroughAuthBundle,
+	passthroughConfig *models.EnhancedPassthroughConfig,
+) error {
+	// Determine authentication strategy
+	usePassthrough := false
+	
+	if passthroughConfig != nil {
+		switch passthroughConfig.Mode {
+		case "required":
+			if passthroughAuth == nil {
+				return fmt.Errorf("passthrough authentication is required but not provided")
+			}
+			usePassthrough = true
+		case "optional":
+			if passthroughAuth != nil {
+				usePassthrough = true
+			}
+		case "disabled":
+			usePassthrough = false
+		case "hybrid":
+			// Hybrid mode: use passthrough if available, otherwise fall back
+			usePassthrough = (passthroughAuth != nil)
+		}
+	}
+
+	if usePassthrough && passthroughAuth != nil {
+		// Create passthrough authenticator
+		passthroughAuthenticator := tools.NewPassthroughAuthenticator(a.logger, nil)
+		
+		// Apply passthrough authentication
+		if err := passthroughAuthenticator.ApplyPassthroughAuth(req, a.tool.ToolName, passthroughConfig, passthroughAuth); err != nil {
+			// Check if fallback is allowed
+			if passthroughConfig != nil && passthroughConfig.FallbackToService {
+				a.logger.Warn("Passthrough auth failed, falling back to stored credentials", map[string]interface{}{
+					"error": err.Error(),
+				})
+				return a.applyAuthentication(req)
+			}
+			return err
+		}
+		return nil
+	}
+
+	// Use stored credentials
+	return a.applyAuthentication(req)
+}
+
 // getOpenAPISpec retrieves the OpenAPI spec from cache or fetches it
 func (a *DynamicToolAdapter) getOpenAPISpec(ctx context.Context) (*openapi3.T, error) {
 	// Get spec URL from tool config

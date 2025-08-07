@@ -89,6 +89,38 @@ CREATE INDEX idx_tool_credentials_tenant_tool
 - Even if two tenants have the same credential value, the ciphertext will be different
 - Compromise of one tenant's data doesn't affect others
 
+### 1.1 Universal Agent Tenant Isolation
+The platform extends tenant isolation to the universal agent registration system:
+
+**Agent-Level Isolation:**
+- Agents are automatically bound to their organization/tenant
+- Cross-organization agent discovery is blocked by default
+- Agent manifests include `organization_id` for enforcement
+- All agent operations are filtered by organization
+
+**Strict Isolation Mode:**
+```go
+type Organization struct {
+    ID               uuid.UUID
+    Name             string
+    StrictlyIsolated bool  // When true, NO cross-org access allowed
+}
+```
+
+**Message Routing Security:**
+- Cross-organization messages blocked at broker level
+- Explicit allow-lists for partner organizations
+- All cross-org attempts are logged for audit
+- Rate limiting per organization prevents abuse
+
+**Discovery Filtering:**
+```sql
+-- Agent discovery automatically filtered by organization
+SELECT * FROM agent_manifests 
+WHERE organization_id = $1  -- User's org
+  AND capability_name = $2;  -- Requested capability
+```
+
 ### 2. Authenticated Encryption (AES-GCM)
 - Provides both confidentiality and authenticity
 - Detects any tampering with encrypted data

@@ -936,3 +936,17 @@ fix-multiagent: ## Test the multi-agent workflow fix
 reset-all: docker-clean reset-test-data ## Reset everything (Docker + test data)
 	@echo "✅ Complete reset done"
 
+# ==============================================================================
+# IDE Agent Testing
+# ==============================================================================
+
+.PHONY: test-ide-github
+test-ide-github: ## Test IDE agent GitHub integration (non-destructive read)
+	@echo "Testing IDE agent GitHub integration..."
+	@./scripts/test-ide-github-integration.sh
+
+.PHONY: demo-ide-agent
+demo-ide-agent: ## Run IDE agent demo with GitHub
+	@echo "Running IDE agent demo..."
+	@go run examples/ide_agent_github_demo.go
+
