@@ -145,7 +145,7 @@ func (ear *EnhancedAgentRegistry) RegisterUniversalAgent(ctx context.Context, re
 		ConnectionID: reg.ConnectionID,
 	}
 
-	baseInfo, err := ear.DBAgentRegistry.RegisterAgent(ctx, baseReg)
+	baseInfo, err := ear.DBAgentRegistry.RegisterAgent(ctx, baseReg) //nolint:staticcheck // Explicit call to embedded registry
 	if err != nil {
 		ear.logger.Warn("Failed to register with base registry", map[string]interface{}{
 			"error": err.Error(),
@@ -237,7 +237,7 @@ func (ear *EnhancedAgentRegistry) DiscoverUniversalAgents(ctx context.Context, f
 
 	// Also check base registry for backward compatibility
 	if filter.TenantID != uuid.Nil {
-		baseAgents, err := ear.DBAgentRegistry.DiscoverAgents(
+		baseAgents, err := ear.DBAgentRegistry.DiscoverAgents( //nolint:staticcheck // Explicit call to embedded registry
 			ctx,
 			filter.TenantID.String(),
 			filter.RequiredCapabilities,
@@ -264,7 +264,7 @@ func (ear *EnhancedAgentRegistry) GetUniversalAgentInfo(ctx context.Context, age
 	manifest, err := ear.getManifestByAgentID(ctx, agentID)
 	if err != nil {
 		// Try base registry
-		baseInfo, baseErr := ear.DBAgentRegistry.GetAgentStatus(ctx, agentID)
+		baseInfo, baseErr := ear.DBAgentRegistry.GetAgentStatus(ctx, agentID) //nolint:staticcheck // Explicit call to embedded registry
 		if baseErr != nil {
 			return nil, fmt.Errorf("agent not found in either registry: %w", baseErr)
 		}
@@ -301,7 +301,7 @@ func (ear *EnhancedAgentRegistry) GetUniversalAgentInfo(ctx context.Context, age
 	}
 
 	// Get task count from base registry if available
-	if baseInfo, err := ear.DBAgentRegistry.GetAgentStatus(ctx, agentID); err == nil {
+	if baseInfo, err := ear.DBAgentRegistry.GetAgentStatus(ctx, agentID); err == nil { //nolint:staticcheck // Explicit call to embedded registry
 		info.ActiveTasks = baseInfo.ActiveTasks
 		info.ConnectionID = baseInfo.ConnectionID
 	}
@@ -335,7 +335,7 @@ func (ear *EnhancedAgentRegistry) UpdateAgentHealth(ctx context.Context, agentID
 		metadata["health_metrics"] = health.Metrics
 	}
 
-	return ear.DBAgentRegistry.UpdateAgentStatus(ctx, agentID, health.Status, metadata)
+	return ear.DBAgentRegistry.UpdateAgentStatus(ctx, agentID, health.Status, metadata) //nolint:staticcheck // Explicit call to embedded registry
 }
 
 // Helper methods

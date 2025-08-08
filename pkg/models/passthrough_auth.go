@@ -46,7 +46,7 @@ type OAuthToken struct {
 
 // AgentContext provides context about the agent making the request
 type AgentContext struct {
-	AgentType   string `json:"agent_type"`   // ide, cli, ci, browser, slack, etc.
+	AgentType   string `json:"agent_type"` // ide, cli, ci, browser, slack, etc.
 	AgentID     string `json:"agent_id"`
 	UserID      string `json:"user_id"`
 	SessionID   string `json:"session_id"`
@@ -55,12 +55,12 @@ type AgentContext struct {
 
 // EnhancedPassthroughConfig defines comprehensive passthrough configuration for a tool
 type EnhancedPassthroughConfig struct {
-	Mode              string                       `json:"mode"` // required, optional, disabled, hybrid
-	FallbackToService bool                         `json:"fallback_to_service"`
-	SupportedAuthTypes []string                    `json:"supported_auth_types"`
-	Rules             []PassthroughRule            `json:"rules"`
-	AuthMapping       map[string]AuthMappingConfig `json:"auth_mapping"`
-	SecurityPolicy    *PassthroughSecurityPolicy   `json:"security_policy"`
+	Mode               string                       `json:"mode"` // required, optional, disabled, hybrid
+	FallbackToService  bool                         `json:"fallback_to_service"`
+	SupportedAuthTypes []string                     `json:"supported_auth_types"`
+	Rules              []PassthroughRule            `json:"rules"`
+	AuthMapping        map[string]AuthMappingConfig `json:"auth_mapping"`
+	SecurityPolicy     *PassthroughSecurityPolicy   `json:"security_policy"`
 }
 
 // PassthroughRule defines when passthrough auth is allowed
@@ -81,7 +81,7 @@ type AuthMappingConfig struct {
 	HeaderName string            `json:"header_name,omitempty"`
 	QueryParam string            `json:"query_param,omitempty"`
 	Transform  string            `json:"transform,omitempty"` // base64, hex, url_encode, etc.
-	Prefix     string            `json:"prefix,omitempty"`     // e.g., "Bearer ", "token "
+	Prefix     string            `json:"prefix,omitempty"`    // e.g., "Bearer ", "token "
 	Properties map[string]string `json:"properties,omitempty"`
 }
 
@@ -172,8 +172,8 @@ func (o *OAuthToken) ShouldRefresh() bool {
 	if o.ExpiresAt.IsZero() || o.RefreshToken == "" {
 		return false
 	}
-	
-	lifetime := o.ExpiresAt.Sub(time.Now())
+
+	lifetime := time.Until(o.ExpiresAt)
 	return lifetime < (lifetime * 20 / 100) // Less than 20% remaining
 }
 
@@ -212,4 +212,3 @@ type ValidationError struct {
 func (e *ValidationError) Error() string {
 	return e.Field + ": " + e.Message
 }
-

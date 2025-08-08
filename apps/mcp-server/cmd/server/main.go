@@ -22,6 +22,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/core"
 
 	// Shared package imports
+	"github.com/developer-mesh/developer-mesh/pkg/clients"
 	"github.com/developer-mesh/developer-mesh/pkg/common/aws"
 	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
 	commonconfig "github.com/developer-mesh/developer-mesh/pkg/common/config"
@@ -197,6 +198,15 @@ func main() {
 		}
 	}()
 
+	// Initialize REST API client for proxying to REST API
+	restClient, err := initializeRESTClient(cfg, logger)
+	if err != nil {
+		logger.Error("Failed to initialize REST API client", map[string]interface{}{
+			"error": err.Error(),
+		})
+		os.Exit(1)
+	}
+
 	// Initialize services for multi-agent collaboration with root context
 	services, err := initializeServices(ctx, cfg, db, cacheClient, metricsClient, logger)
 	if err != nil {
@@ -207,7 +217,7 @@ func main() {
 	}
 
 	// Initialize and start API server with root context
-	server, err := initializeServer(ctx, cfg, engine, db, cacheClient, metricsClient, logger)
+	server, err := initializeServer(ctx, cfg, engine, db, cacheClient, metricsClient, logger, restClient)
 	if err != nil {
 		logger.Error("Failed to initialize server", map[string]interface{}{
 			"error": err.Error(),
@@ -1003,7 +1013,7 @@ func (l *defaultPolicyLoader) LoadPolicies(ctx context.Context) ([]rules.Policy,
 
 // initializeServer creates and configures the API server
 func initializeServer(ctx context.Context, cfg *commonconfig.Config, engine *core.Engine,
-	db *database.Database, cacheClient cache.Cache, metricsClient observability.MetricsClient, logger observability.Logger) (*api.Server, error) {
+	db *database.Database, cacheClient cache.Cache, metricsClient observability.MetricsClient, logger observability.Logger, restClient clients.RESTAPIClient) (*api.Server, error) {
 
 	// Build API configuration
 	apiConfig := buildAPIConfig(cfg, logger)
@@ -1016,6 +1026,11 @@ func initializeServer(ctx context.Context, cfg *commonconfig.Config, engine *cor
 
 	// Create server - pass db.GetDB() to get the *sqlx.DB
 	server := api.NewServer(engine, apiConfig, db.GetDB(), cacheClient, metricsClient, cfg)
+	
+	// Set the REST client if available
+	if restClient != nil {
+		server.SetRESTClient(restClient)
+	}
 
 	// Initialize server components
 	if err := server.Initialize(ctx); err != nil {
@@ -1323,6 +1338,34 @@ func getEnvBool(key string, defaultValue bool) bool {
 // }
 
 // performHealthCheck performs a basic health check
+// initializeRESTClient creates the REST API client for proxying tool requests
+func initializeRESTClient(cfg *commonconfig.Config, logger observability.Logger) (clients.RESTAPIClient, error) {
+	// Check if REST API integration is enabled
+	if cfg.MCPServer == nil || !cfg.MCPServer.RestAPI.Enabled {
+		logger.Info("REST API integration disabled, using mock tools", nil)
+		return nil, nil
+	}
+
+	// Create REST client configuration
+	restConfig := clients.RESTClientConfig{
+		BaseURL:         cfg.MCPServer.RestAPI.BaseURL,
+		APIKey:          cfg.MCPServer.RestAPI.APIKey,
+		Timeout:         cfg.MCPServer.RestAPI.Timeout,
+		MaxIdleConns:    100,
+		MaxConnsPerHost: 10,
+		CacheTTL:        30 * time.Second,
+		Logger:          logger,
+	}
+
+	logger.Info("Initializing REST API client", map[string]interface{}{
+		"base_url": restConfig.BaseURL,
+		"timeout":  restConfig.Timeout,
+	})
+
+	// Create and return the REST client
+	return clients.NewRESTAPIClient(restConfig), nil
+}
+
 func performHealthCheck() error {
 	// Perform a real health check by calling the health endpoint
 	client := &http.Client{

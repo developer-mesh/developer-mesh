@@ -56,6 +56,10 @@ func (a *DynamicAuthenticator) ApplyAuthentication(req *http.Request, creds *mod
 	case "oauth2":
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", creds.Token))
 
+	case "token":
+		// "token" is treated the same as "bearer" for GitHub and similar APIs
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", creds.Token))
+
 	default:
 		return fmt.Errorf("unsupported authentication type: %s", creds.Type)
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -548,6 +549,49 @@ func (s *Server) handleInitialize(ctx context.Context, conn *Connection, params 
 
 // handleToolList handles the tool.list method
 func (s *Server) handleToolList(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
+	// First priority: Use REST API client if available
+	if s.restAPIClient != nil {
+		s.logger.Debug("Using REST API client to list tools", map[string]interface{}{
+			"tenant_id": conn.TenantID,
+			"agent_id":  conn.AgentID,
+		})
+
+		tools, err := s.restAPIClient.ListTools(ctx, conn.TenantID)
+		if err != nil {
+			s.logger.Error("Failed to list tools via REST API", map[string]interface{}{
+				"error":     err.Error(),
+				"tenant_id": conn.TenantID,
+			})
+			return nil, fmt.Errorf("failed to list tools: %w", err)
+		}
+
+		// Convert tools to MCP response format
+		toolList := make([]map[string]interface{}, 0)
+		for _, tool := range tools {
+			toolEntry := map[string]interface{}{
+				"id":          tool.ID,
+				"name":        tool.ToolName,
+				"description": tool.Description,
+			}
+			
+			// Add inputSchema if available
+			if tool.Config != nil {
+				if schema, ok := tool.Config["input_schema"]; ok {
+					toolEntry["inputSchema"] = schema
+				} else if params, ok := tool.Config["parameters"]; ok {
+					toolEntry["inputSchema"] = params
+				}
+			}
+			
+			toolList = append(toolList, toolEntry)
+		}
+
+		return map[string]interface{}{
+			"tools": toolList,
+		}, nil
+	}
+
+	// Fallback: Use tool registry if available
 	if s.toolRegistry != nil {
 		tools, err := s.toolRegistry.GetToolsForAgent(conn.AgentID)
 		if err != nil {
@@ -555,13 +599,13 @@ func (s *Server) handleToolList(ctx context.Context, conn *Connection, params js
 		}
 
 		// Convert tools to response format
-		toolList := make([]map[string]interface{}, 0) // Initialize as empty array, not nil
+		toolList := make([]map[string]interface{}, 0)
 		for _, tool := range tools {
 			toolList = append(toolList, map[string]interface{}{
 				"id":          tool.ID,
 				"name":        tool.Name,
 				"description": tool.Description,
-				"inputSchema": tool.Parameters, // E2E tests expect "inputSchema" field
+				"inputSchema": tool.Parameters,
 			})
 		}
 
@@ -570,22 +614,14 @@ func (s *Server) handleToolList(ctx context.Context, conn *Connection, params js
 		}, nil
 	}
 
-	// Mock response when tool registry not available
+	// No tools available
+	s.logger.Warn("No tool sources available", map[string]interface{}{
+		"has_rest_client":  s.restAPIClient != nil,
+		"has_tool_registry": s.toolRegistry != nil,
+	})
+	
 	return map[string]interface{}{
-		"tools": []map[string]interface{}{
-			{
-				"id":          "github.list_repos",
-				"name":        "List GitHub Repositories",
-				"description": "Lists repositories for a GitHub organization",
-				"parameters": map[string]interface{}{
-					"org": map[string]string{
-						"type":        "string",
-						"description": "GitHub organization name",
-						"required":    "true",
-					},
-				},
-			},
-		},
+		"tools": []map[string]interface{}{},
 	}, nil
 }
 
@@ -593,9 +629,12 @@ func (s *Server) handleToolList(ctx context.Context, conn *Connection, params js
 func (s *Server) handleToolExecute(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
 	var execParams struct {
 		Tool      string                 `json:"tool"`
-		Name      string                 `json:"name"` // Alternative parameter name
+		ToolID    string                 `json:"tool_id"`   // Alternative parameter name
+		Name      string                 `json:"name"`      // Alternative parameter name
+		Action    string                 `json:"action"`    // Action for REST API
 		Args      map[string]interface{} `json:"args"`
 		Arguments map[string]interface{} `json:"arguments"` // Alternative parameter name
+		Params    map[string]interface{} `json:"params"`    // Alternative parameter name
 	}
 
 	if err := json.Unmarshal(params, &execParams); err != nil {
@@ -605,6 +644,9 @@ func (s *Server) handleToolExecute(ctx context.Context, conn *Connection, params
 	// Handle alternative parameter names
 	toolID := execParams.Tool
 	if toolID == "" {
+		toolID = execParams.ToolID
+	}
+	if toolID == "" {
 		toolID = execParams.Name
 	}
 
@@ -612,7 +654,61 @@ func (s *Server) handleToolExecute(ctx context.Context, conn *Connection, params
 	if args == nil {
 		args = execParams.Arguments
 	}
+	if args == nil {
+		args = execParams.Params
+	}
 
+	// Extract action if present (for REST API)
+	action := execParams.Action
+	if action == "" {
+		// Try to extract from tool ID (e.g., "github.read_file" -> "read_file")
+		if parts := strings.SplitN(toolID, ".", 2); len(parts) == 2 {
+			toolID = parts[0]
+			action = parts[1]
+		} else {
+			action = "execute" // Default action
+		}
+	}
+
+	// First priority: Use REST API client if available
+	if s.restAPIClient != nil {
+		s.logger.Debug("Using REST API client to execute tool", map[string]interface{}{
+			"tenant_id": conn.TenantID,
+			"agent_id":  conn.AgentID,
+			"tool_id":   toolID,
+			"action":    action,
+		})
+
+		result, err := s.restAPIClient.ExecuteTool(ctx, conn.TenantID, toolID, action, args)
+		if err != nil {
+			s.logger.Error("Failed to execute tool via REST API", map[string]interface{}{
+				"error":     err.Error(),
+				"tenant_id": conn.TenantID,
+				"tool_id":   toolID,
+				"action":    action,
+			})
+			return nil, fmt.Errorf("failed to execute tool: %w", err)
+		}
+
+		// Convert REST API response to MCP format
+		response := map[string]interface{}{
+			"tool":   toolID,
+			"status": "completed",
+		}
+
+		if result != nil {
+			if result.Success {
+				response["result"] = result.Body
+			} else {
+				response["status"] = "failed"
+				response["error"] = result.Error
+			}
+		}
+
+		return response, nil
+	}
+
+	// Fallback: Use tool registry if available
 	if s.toolRegistry != nil {
 		result, err := s.toolRegistry.ExecuteTool(ctx, conn.AgentID, toolID, args)
 		if err != nil {

@@ -340,9 +340,10 @@ func (h *SlackMessageHandler) handleNotification(ctx context.Context, msg *Agent
 
 func (h *SlackMessageHandler) handleAlert(ctx context.Context, msg *AgentMessage) (*AgentMessage, error) {
 	severity := "info"
-	if msg.MessageType == "alert.critical" {
+	switch msg.MessageType {
+	case "alert.critical":
 		severity = "critical"
-	} else if msg.MessageType == "alert.warning" {
+	case "alert.warning":
 		severity = "warning"
 	}
 

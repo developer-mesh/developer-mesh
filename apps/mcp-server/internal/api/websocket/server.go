@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/developer-mesh/developer-mesh/pkg/auth"
+	"github.com/developer-mesh/developer-mesh/pkg/clients"
 	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
 	ws "github.com/developer-mesh/developer-mesh/pkg/models/websocket"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
@@ -44,6 +45,9 @@ type Server struct {
 	taskManager         *TaskManager
 	workspaceManager    *WorkspaceManager
 	notificationManager *NotificationManager
+	
+	// REST API client for proxying tool requests
+	restAPIClient clients.RESTAPIClient
 
 	// Service layer dependencies
 	taskService      services.TaskService
@@ -443,6 +447,14 @@ func (s *Server) SendToAgent(agentID string, message []byte) {
 // SetToolRegistry sets the tool registry for the server
 func (s *Server) SetToolRegistry(registry ToolRegistry) {
 	s.toolRegistry = registry
+}
+
+// SetRESTClient sets the REST API client for proxying tool requests
+func (s *Server) SetRESTClient(client clients.RESTAPIClient) {
+	if client != nil {
+		s.restAPIClient = client
+		s.logger.Info("REST API client configured for WebSocket server", nil)
+	}
 }
 
 // SetContextManager sets the context manager for the server

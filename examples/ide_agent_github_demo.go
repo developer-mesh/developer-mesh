@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -108,7 +107,7 @@ func (a *IDEAgent) register() error {
 
 	a.ID = response["agent_id"].(string)
 	log.Printf("✅ IDE Agent registered: ID=%s, Name=%s", a.ID, a.Name)
-	
+
 	if orgID, ok := response["organization_id"].(string); ok {
 		log.Printf("📍 Organization: %s", orgID)
 	}
@@ -208,7 +207,7 @@ func (a *IDEAgent) ReadGitHubCode(owner, repo, path string) error {
 
 	if content != "" {
 		log.Printf("✅ Successfully read file: %d bytes", len(content))
-		
+
 		// Show first 500 characters
 		preview := content
 		if len(preview) > 500 {
@@ -267,8 +266,8 @@ func (a *IDEAgent) AnalyzeCode(filePath string) error {
 		"message_type":      "analyze.request",
 		"priority":          5,
 		"payload": map[string]interface{}{
-			"file_path": filePath,
-			"analysis_type": "all",
+			"file_path":           filePath,
+			"analysis_type":       "all",
 			"include_suggestions": true,
 		},
 	}

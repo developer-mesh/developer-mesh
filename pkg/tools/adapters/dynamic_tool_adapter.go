@@ -299,7 +299,7 @@ func (a *DynamicToolAdapter) applyAuthenticationWithPassthrough(
 ) error {
 	// Determine authentication strategy
 	usePassthrough := false
-	
+
 	if passthroughConfig != nil {
 		switch passthroughConfig.Mode {
 		case "required":
@@ -322,7 +322,7 @@ func (a *DynamicToolAdapter) applyAuthenticationWithPassthrough(
 	if usePassthrough && passthroughAuth != nil {
 		// Create passthrough authenticator
 		passthroughAuthenticator := tools.NewPassthroughAuthenticator(a.logger, nil)
-		
+
 		// Apply passthrough authentication
 		if err := passthroughAuthenticator.ApplyPassthroughAuth(req, a.tool.ToolName, passthroughConfig, passthroughAuth); err != nil {
 			// Check if fallback is allowed

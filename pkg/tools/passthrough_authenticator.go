@@ -226,7 +226,7 @@ func (a *PassthroughAuthenticator) applyDigestAuth(req *http.Request, cred *mode
 
 	authHeader := fmt.Sprintf(`Digest username="%s", realm="%s", nonce="%s", uri="%s", response="%s"`,
 		cred.Username, realm, nonce, req.URL.Path, response)
-	
+
 	req.Header.Set("Authorization", authHeader)
 	return nil
 }
@@ -242,7 +242,7 @@ func (a *PassthroughAuthenticator) applyAWSSignature(req *http.Request, cred *mo
 
 	// Add AWS headers
 	req.Header.Set("X-Amz-Date", time.Now().UTC().Format("20060102T150405Z"))
-	
+
 	// In production, calculate the actual signature
 	// For now, we'll set a placeholder
 	authHeader := fmt.Sprintf("AWS4-HMAC-SHA256 Credential=%s/%s/%s/%s/aws4_request",
@@ -250,7 +250,7 @@ func (a *PassthroughAuthenticator) applyAWSSignature(req *http.Request, cred *mo
 		time.Now().UTC().Format("20060102"),
 		region,
 		service)
-	
+
 	req.Header.Set("Authorization", authHeader)
 	return nil
 }
@@ -265,14 +265,14 @@ func (a *PassthroughAuthenticator) applyHMACAuth(req *http.Request, cred *models
 
 	// Create signature of request
 	mac := hmac.New(sha256.New, []byte(secret))
-	
+
 	// Sign different parts based on configuration
 	signatureData := req.Method + "\n" + req.URL.Path
 	if mapping.Properties["include_body"] == "true" {
 		// Would need to read and restore body here
 		signatureData += "\n" // + bodyHash
 	}
-	
+
 	mac.Write([]byte(signatureData))
 	signature := hex.EncodeToString(mac.Sum(nil))
 
@@ -282,7 +282,7 @@ func (a *PassthroughAuthenticator) applyHMACAuth(req *http.Request, cred *models
 		headerName = "X-Signature"
 	}
 	req.Header.Set(headerName, signature)
-	
+
 	return nil
 }
 
@@ -290,13 +290,13 @@ func (a *PassthroughAuthenticator) applyHMACAuth(req *http.Request, cred *models
 func (a *PassthroughAuthenticator) applyCustomAuth(req *http.Request, cred *models.PassthroughCredential, mapping models.AuthMappingConfig) error {
 	// Handle custom authentication patterns
 	pattern := mapping.Properties["pattern"]
-	
+
 	switch pattern {
 	case "dual_header":
 		// Some APIs use two headers for auth
 		req.Header.Set(mapping.Properties["key_header"], cred.KeyName)
 		req.Header.Set(mapping.Properties["value_header"], cred.KeyValue)
-		
+
 	case "cookie":
 		// Auth via cookie
 		cookie := &http.Cookie{
@@ -304,7 +304,7 @@ func (a *PassthroughAuthenticator) applyCustomAuth(req *http.Request, cred *mode
 			Value: cred.Token,
 		}
 		req.AddCookie(cookie)
-		
+
 	case "query_multi":
 		// Multiple query parameters
 		q := req.URL.Query()
@@ -312,7 +312,7 @@ func (a *PassthroughAuthenticator) applyCustomAuth(req *http.Request, cred *mode
 			q.Set(k, v)
 		}
 		req.URL.RawQuery = q.Encode()
-		
+
 	default:
 		// Generic custom handling
 		for k, v := range cred.Properties {
@@ -321,7 +321,7 @@ func (a *PassthroughAuthenticator) applyCustomAuth(req *http.Request, cred *mode
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -386,7 +386,7 @@ func (a *PassthroughAuthenticator) auditPassthroughUsage(
 	}
 
 	details := make(map[string]interface{})
-	
+
 	switch config.SecurityPolicy.AuditLevel {
 	case "verbose":
 		details["credential_types"] = a.getCredentialTypes(bundle)
@@ -418,14 +418,14 @@ func (a *PassthroughAuthenticator) auditPassthroughUsage(
 func (a *PassthroughAuthenticator) getCredentialTypes(bundle *models.PassthroughAuthBundle) []string {
 	types := make([]string, 0)
 	seen := make(map[string]bool)
-	
+
 	for _, cred := range bundle.Credentials {
 		if !seen[cred.Type] {
 			types = append(types, cred.Type)
 			seen[cred.Type] = true
 		}
 	}
-	
+
 	return types
 }
 

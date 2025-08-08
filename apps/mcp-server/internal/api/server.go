@@ -15,6 +15,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/core"
 
 	"github.com/developer-mesh/developer-mesh/pkg/auth"
+	"github.com/developer-mesh/developer-mesh/pkg/clients"
 	"github.com/developer-mesh/developer-mesh/pkg/client/rest"
 	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
 	"github.com/developer-mesh/developer-mesh/pkg/common/config"
@@ -60,6 +61,8 @@ type Server struct {
 	searchAPIProxy  repository.SearchRepository    // Proxy for search operations
 	// WebSocket server
 	wsServer *websocket.Server
+	// REST API client for proxying tool requests
+	restAPIClient clients.RESTAPIClient
 	// Multi-agent services
 	taskService      pgservices.TaskService
 	workflowService  pgservices.WorkflowService
@@ -416,6 +419,19 @@ func (s *Server) Initialize(ctx context.Context) error {
 	s.setupRoutes()
 
 	return nil
+}
+
+// SetRESTClient sets the REST API client for proxying tool requests
+func (s *Server) SetRESTClient(client clients.RESTAPIClient) {
+	if client != nil {
+		s.restAPIClient = client
+		s.logger.Info("REST API client configured for tool proxying", nil)
+		
+		// Pass the REST client to the WebSocket server if it exists
+		if s.wsServer != nil {
+			s.wsServer.SetRESTClient(client)
+		}
+	}
 }
 
 // setupRoutes sets up all API routes

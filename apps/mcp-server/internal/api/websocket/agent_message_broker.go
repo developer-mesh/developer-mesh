@@ -36,9 +36,9 @@ type AgentMessageBroker struct {
 	stopOnce sync.Once
 
 	// Routing tables
-	capabilityRoutes sync.Map // capability -> []agent_id
-	agentStreams     sync.Map // agent_id -> stream_key
-	routingRules     sync.Map // rule_id -> RoutingRule
+	// capabilityRoutes sync.Map // capability -> []agent_id // TODO: Implement capability-based routing
+	agentStreams sync.Map // agent_id -> stream_key
+	routingRules sync.Map // rule_id -> RoutingRule
 
 	// Consumer groups
 	consumerGroups map[string]string // stream -> consumer_group

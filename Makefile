@@ -940,9 +940,14 @@ reset-all: docker-clean reset-test-data ## Reset everything (Docker + test data)
 # IDE Agent Testing
 # ==============================================================================
 
+.PHONY: test-agent-mcp
+test-agent-mcp: ## Test agent GitHub operations via MCP (read-only, with embeddings)
+	@echo "Testing agent MCP integration with GitHub..."
+	@bash ./scripts/test-agent-github-mcp.sh
+
 .PHONY: test-ide-github
-test-ide-github: ## Test IDE agent GitHub integration (non-destructive read)
-	@echo "Testing IDE agent GitHub integration..."
+test-ide-github: ## Test local MCP client to DevMesh connection (simulates IDE integration)
+	@echo "Testing local MCP client connection to DevMesh server..."
 	@./scripts/test-ide-github-integration.sh
 
 .PHONY: demo-ide-agent

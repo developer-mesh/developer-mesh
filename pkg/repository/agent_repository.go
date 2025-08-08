@@ -97,12 +97,19 @@ func (r *AgentRepositoryImpl) Create(ctx context.Context, agent *models.Agent) e
 		return fmt.Errorf("invalid agent ID format: %w", err)
 	}
 
-	query := `INSERT INTO agents (id, name, tenant_id, model_id, created_at, updated_at)
-              VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
+	query := `INSERT INTO agents (id, name, type, tenant_id, model_id, created_at, updated_at)
+              VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
+
+	// Default type if not specified
+	agentType := agent.Type
+	if agentType == "" {
+		agentType = "general" // Default type
+	}
 
 	_, err := r.db.ExecContext(ctx, query,
 		agent.ID,
 		agent.Name,
+		agentType,
 		agent.TenantID,
 		agent.ModelID,
 	)
@@ -173,12 +180,19 @@ func (r *AgentRepositoryImpl) Update(ctx context.Context, agent *models.Agent) e
 	}
 
 	query := `UPDATE agents
-              SET name = $2, tenant_id = $3, model_id = $4, updated_at = CURRENT_TIMESTAMP
+              SET name = $2, type = $3, tenant_id = $4, model_id = $5, updated_at = CURRENT_TIMESTAMP
               WHERE id = $1`
+
+	// Default type if not specified
+	agentType := agent.Type
+	if agentType == "" {
+		agentType = "general" // Default type
+	}
 
 	result, err := r.db.ExecContext(ctx, query,
 		agent.ID,
 		agent.Name,
+		agentType,
 		agent.TenantID,
 		agent.ModelID,
 	)

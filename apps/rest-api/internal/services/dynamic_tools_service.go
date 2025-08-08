@@ -169,32 +169,23 @@ func (s *DynamicToolsService) GetTool(ctx context.Context, tenantID, toolID stri
 	}
 	s.toolCacheMu.RUnlock()
 
-	query := `
-		SELECT 
-			id, tenant_id, tool_name, display_name, base_url,
-			config, auth_type, retry_policy, status, 
-			health_status, last_health_check,
-			created_at, updated_at, provider, passthrough_config,
-			webhook_config, credentials_encrypted
-		FROM mcp.tool_configurations
-		WHERE tenant_id = $1 AND id = $2
-	`
-
-	var tool models.DynamicTool
-	err := s.db.GetContext(ctx, &tool, query, tenantID, toolID)
+	// Use repository to get the tool (handles JSONB unmarshaling properly)
+	tool, err := s.dynamicToolRepo.GetByID(ctx, toolID)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("tool not found")
-		}
 		return nil, fmt.Errorf("failed to get tool: %w", err)
+	}
+
+	// Verify tenant ownership
+	if tool.TenantID != tenantID {
+		return nil, fmt.Errorf("tool not found")
 	}
 
 	// Cache the result with write lock
 	s.toolCacheMu.Lock()
-	s.toolCache[cacheKey] = &tool
+	s.toolCache[cacheKey] = tool
 	s.toolCacheMu.Unlock()
 
-	return &tool, nil
+	return tool, nil
 }
 
 // CreateTool creates a new tool with discovery
@@ -703,9 +694,9 @@ func (s *DynamicToolsService) ExecuteToolAction(ctx context.Context, tenantID, t
 	// Log execution to database
 	executionID := uuid.New().String()
 	query := `
-		INSERT INTO tool_executions (
-			id, tool_config_id, tenant_id, action, parameters,
-			status, result, response_time_ms, executed_at, completed_at
+		INSERT INTO mcp.tool_executions (
+			id, tool_id, tenant_id, action, input_data,
+			status, output_data, duration_ms, executed_at, completed_at
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10
 		)
@@ -713,7 +704,7 @@ func (s *DynamicToolsService) ExecuteToolAction(ctx context.Context, tenantID, t
 
 	paramsJSON, _ := json.Marshal(params)
 	resultJSON, _ := json.Marshal(result)
-	status := "success"
+	status := "completed"
 	if !result.Success {
 		status = "failed"
 	}
@@ -797,11 +788,11 @@ func (s *DynamicToolsService) ExecuteToolActionWithPassthrough(
 	execResult, err := adapter.ExecuteWithPassthrough(ctx, action, params, passthroughAuth, passthroughConfig)
 	if err != nil {
 		s.logger.Error("Failed to execute tool action with passthrough", map[string]interface{}{
-			"tenant_id":    tenantID,
-			"tool_id":      toolID,
-			"action":       action,
+			"tenant_id":       tenantID,
+			"tool_id":         toolID,
+			"action":          action,
 			"has_passthrough": passthroughAuth != nil,
-			"error":        err.Error(),
+			"error":           err.Error(),
 		})
 		// Record failure metric
 		if s.metricsClient != nil {
@@ -816,11 +807,11 @@ func (s *DynamicToolsService) ExecuteToolActionWithPassthrough(
 
 	// Log execution to database with passthrough flag
 	executionID := uuid.New().String()
-	status := "success"
-	
+	status := "completed"
+
 	// Check if there was an error in the execution
 	if execResult.Error != "" {
-		status = "error"
+		status = "failed"
 	}
 
 	// Determine auth method used
@@ -830,19 +821,19 @@ func (s *DynamicToolsService) ExecuteToolActionWithPassthrough(
 	}
 
 	query := `
-		INSERT INTO tool_executions (
-			id, tool_config_id, tenant_id, action, parameters,
-			response, status, duration_ms, auth_method, executed_at
+		INSERT INTO mcp.tool_executions (
+			id, tool_id, tenant_id, action, input_data,
+			output_data, status, duration_ms, executed_at, completed_at
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`
-	
+
 	responseJSON, _ := json.Marshal(execResult)
 	paramsJSON, _ := json.Marshal(params)
-	
+
 	_, dbErr := s.db.ExecContext(ctx, query,
 		executionID, toolID, tenantID, action, paramsJSON,
 		responseJSON, status, time.Since(start).Milliseconds(),
-		authMethod, time.Now(),
+		time.Now(), time.Now(),
 	)
 	if dbErr != nil {
 		s.logger.Warn("Failed to log tool execution", map[string]interface{}{

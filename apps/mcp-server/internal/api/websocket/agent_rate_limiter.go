@@ -89,7 +89,7 @@ func NewAgentRateLimiter(
 // CheckAgentLimit checks rate limits for a specific agent
 func (arl *AgentRateLimiter) CheckAgentLimit(ctx context.Context, agentID string, operation string) error {
 	// First check base rate limit (uses identifier)
-	if err := arl.RateLimiter.CheckLimit(ctx, fmt.Sprintf("agent:%s:%s", agentID, operation)); err != nil {
+	if err := arl.RateLimiter.CheckLimit(ctx, fmt.Sprintf("agent:%s:%s", agentID, operation)); err != nil { //nolint:staticcheck // Explicit method call
 		arl.metrics.IncrementCounter("agent_rate_limit_exceeded", 1)
 		return err
 	}
@@ -137,7 +137,7 @@ func (arl *AgentRateLimiter) CheckCapabilityLimit(ctx context.Context, capabilit
 	key := fmt.Sprintf("capability:%s:agent:%s", capability, agentID)
 
 	// Use base rate limiter for initial check
-	if err := arl.RateLimiter.CheckLimit(ctx, key); err != nil {
+	if err := arl.RateLimiter.CheckLimit(ctx, key); err != nil { //nolint:staticcheck // Explicit method call
 		arl.metrics.IncrementCounter("capability_rate_limit_exceeded", 1)
 		return err
 	}
@@ -179,13 +179,13 @@ func (arl *AgentRateLimiter) CheckOrganizationLimit(ctx context.Context, orgID u
 
 	// Standard organization limit check
 	key := fmt.Sprintf("org:%s", orgID)
-	return arl.RateLimiter.CheckLimit(ctx, key)
+	return arl.RateLimiter.CheckLimit(ctx, key) //nolint:staticcheck // Explicit method call
 }
 
 // RecordAgentRequest records a request for rate limiting
 func (arl *AgentRateLimiter) RecordAgentRequest(ctx context.Context, agentID string, operation string, success bool) {
 	// Record in base rate limiter
-	arl.RateLimiter.RecordAttempt(ctx, fmt.Sprintf("agent:%s:%s", agentID, operation), success)
+	arl.RateLimiter.RecordAttempt(ctx, fmt.Sprintf("agent:%s:%s", agentID, operation), success) //nolint:staticcheck // Explicit method call
 
 	// Update agent-specific tracking
 	if limit, ok := arl.agentLimits.Load(agentID); ok {
@@ -264,27 +264,28 @@ func (arl *AgentRateLimiter) checkDefaultTenantLimit(ctx context.Context, tenant
 		return fmt.Errorf("tenant rate limit exceeded: %d requests per second", limit.RPS)
 	}
 
-	return arl.RateLimiter.CheckLimit(ctx, key)
+	return arl.RateLimiter.CheckLimit(ctx, key) //nolint:staticcheck // Explicit method call
 }
 
 func (arl *AgentRateLimiter) checkConfiguredLimit(ctx context.Context, tenantID, operation string, rpm int) error {
-	// Convert RPM to RPS
-	rps := rpm / 60
-	if rps < 1 {
-		rps = 1
-	}
+	// Convert RPM to RPS (currently unused, but kept for future implementation)
+	// TODO: Implement actual rate limiting based on RPS
+	// rps := rpm / 60
+	// if rps < 1 {
+	// 	rps = 1
+	// }
 
 	key := fmt.Sprintf("tenant:%s:%s", tenantID, operation)
 
 	// Check against configured limit
 	// This is simplified - in production you'd want sliding windows
-	return arl.RateLimiter.CheckLimit(ctx, key)
+	return arl.RateLimiter.CheckLimit(ctx, key) //nolint:staticcheck // Explicit method call
 }
 
 func (arl *AgentRateLimiter) checkStrictIsolationLimit(ctx context.Context, orgID uuid.UUID) error {
 	// Strict isolation has tighter limits
 	key := fmt.Sprintf("org:strict:%s", orgID)
-	return arl.RateLimiter.CheckLimit(ctx, key)
+	return arl.RateLimiter.CheckLimit(ctx, key) //nolint:staticcheck // Explicit method call
 }
 
 // Rate limit structures

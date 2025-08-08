@@ -18,6 +18,9 @@ services:
       - ADMIN_API_KEY=${ADMIN_API_KEY:-dev-admin-key-1234567890}
       - READER_API_KEY=${READER_API_KEY:-dev-readonly-key-1234567890}
       - MCP_API_KEY=${MCP_API_KEY:-dev-admin-key-1234567890}
+      # REST API Integration
+      - REST_API_URL=http://rest-api:8080
+      - REST_API_ENABLED=true
       # Database (using service names)
       - DATABASE_HOST=database
       - DB_HOST=database

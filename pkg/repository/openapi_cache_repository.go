@@ -9,6 +9,7 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 )
 
 // OpenAPICacheRepository defines the interface for OpenAPI spec caching
@@ -112,9 +113,10 @@ func (r *openAPICacheRepository) Set(ctx context.Context, url string, spec *open
 		title = spec.Info.Title
 	}
 
+	// Use pq.Array to properly handle slice conversion for PostgreSQL
 	_, err = r.db.ExecContext(ctx, query,
 		url, hash, specData, version, title,
-		discoveredActions, time.Now().Add(ttl),
+		pq.Array(discoveredActions), time.Now().Add(ttl),
 	)
 
 	return err

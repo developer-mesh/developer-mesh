@@ -543,7 +543,7 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 	// Determine whether to use passthrough or standard execution
 	var result interface{}
 	var err error
-	
+
 	if req.PassthroughAuth != nil {
 		// Use passthrough execution
 		result, err = api.toolService.ExecuteToolActionWithPassthrough(
@@ -571,11 +571,11 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 			return
 		}
 		api.logger.Error("Failed to execute tool action", map[string]interface{}{
-			"tenant_id":      tenantID,
-			"tool_id":        toolID,
-			"action":         action,
+			"tenant_id":       tenantID,
+			"tool_id":         toolID,
+			"action":          action,
 			"has_passthrough": req.PassthroughAuth != nil,
-			"error":          err.Error(),
+			"error":           err.Error(),
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

@@ -14,11 +14,11 @@ import (
 // PassthroughValidator validates passthrough authentication
 type PassthroughValidator struct {
 	logger observability.Logger
-	
+
 	// Token format validators
-	bearerTokenRegex  *regexp.Regexp
-	apiKeyRegex       *regexp.Regexp
-	jwtRegex          *regexp.Regexp
+	bearerTokenRegex *regexp.Regexp
+	apiKeyRegex      *regexp.Regexp
+	jwtRegex         *regexp.Regexp
 }
 
 // NewPassthroughValidator creates a new validator
@@ -93,7 +93,7 @@ func (v *PassthroughValidator) validateSecurityPolicy(
 			if token.IsExpired() {
 				return fmt.Errorf("OAuth token is expired")
 			}
-			
+
 			if !token.ExpiresAt.IsZero() {
 				age := time.Until(token.ExpiresAt)
 				maxAge := time.Duration(policy.MaxTokenAge) * time.Second
@@ -164,7 +164,7 @@ func (v *PassthroughValidator) validateCredential(
 
 	case "oauth2":
 		// OAuth2 validation is handled separately
-		
+
 	case "custom":
 		// Custom validation based on properties
 		if len(cred.Properties) == 0 {
@@ -242,10 +242,10 @@ func (v *PassthroughValidator) validateAgainstRules(
 	// Apply rule validation
 	if applicableRule != nil {
 		if applicableRule.AuthRequired {
-			hasAuth := len(bundle.Credentials) > 0 || 
-			          len(bundle.OAuthTokens) > 0 || 
-			          len(bundle.SessionTokens) > 0
-			
+			hasAuth := len(bundle.Credentials) > 0 ||
+				len(bundle.OAuthTokens) > 0 ||
+				len(bundle.SessionTokens) > 0
+
 			if !hasAuth {
 				return fmt.Errorf("authentication required by rule %s", applicableRule.RuleID)
 			}
@@ -303,7 +303,7 @@ func (v *PassthroughValidator) isAuthTypeSupported(authType string, supported []
 	if len(supported) == 0 {
 		return true // No restrictions
 	}
-	
+
 	for _, s := range supported {
 		if s == authType || s == "*" {
 			return true

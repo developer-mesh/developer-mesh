@@ -432,9 +432,16 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	dynamicToolsAPI.RegisterRoutes(v1)
 
 	// Agent and Model APIs - create repositories first as they're needed by context API
-	agentRepo := repository.NewAgentRepository(s.db.DB)
-	agentAPI := NewAgentAPI(agentRepo)
-	agentAPI.RegisterRoutes(v1)
+	// Use the enhanced agent system for full lifecycle management
+	agentEnhancedRepo := agents.NewEnhancedRepository(s.db, "mcp")
+	agentConfigRepo := agents.NewPostgresRepository(s.db, "mcp")
+	// Create event publisher (can be nil for now)
+	var eventPublisher agents.EventPublisher
+	agentEnhancedService := agents.NewEnhancedService(agentEnhancedRepo, agentConfigRepo, eventPublisher)
+	agentEnhancedAPI := NewEnhancedAgentAPI(agentEnhancedService, s.logger)
+	agentEnhancedAPI.RegisterRoutes(v1)
+
+	// Model repository for context API
 	modelRepo := repository.NewModelRepository(s.db.DB)
 
 	// Context API - register the context endpoints

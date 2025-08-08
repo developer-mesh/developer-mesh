@@ -127,7 +127,7 @@ func (s *ExecutionService) ExecuteToolAction(
 	executionTime := int(time.Since(start).Milliseconds())
 
 	// Update execution log
-	status := "success"
+	status := "completed"
 	var errorMsg string
 	if err != nil {
 		status = "failed"

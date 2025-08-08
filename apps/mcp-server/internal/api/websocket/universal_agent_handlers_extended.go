@@ -85,7 +85,7 @@ func (es *ExtendedServer) HandleUniversalAgentRegister(ctx context.Context, conn
 		es.logger.Warn("Enhanced registry not available, using standard registration", map[string]interface{}{
 			"agent_type": registerParams.AgentType,
 		})
-		return es.Server.handleAgentRegister(ctx, conn, params)
+		return es.Server.handleAgentRegister(ctx, conn, params) //nolint:staticcheck // Intentional call to base implementation
 	}
 
 	// Build registration request
@@ -182,7 +182,7 @@ func (es *ExtendedServer) HandleUniversalAgentDiscover(ctx context.Context, conn
 	enhancedRegistry, ok := es.agentRegistry.(*EnhancedAgentRegistry)
 	if !ok {
 		// Fallback to standard discovery
-		return es.Server.handleAgentDiscover(ctx, conn, params)
+		return es.Server.handleAgentDiscover(ctx, conn, params) //nolint:staticcheck // Intentional call to base implementation
 	}
 
 	// Get extended connection
@@ -350,7 +350,7 @@ func (es *ExtendedServer) HandleAgentHealth(ctx context.Context, conn *Connectio
 	enhancedRegistry, ok := es.agentRegistry.(*EnhancedAgentRegistry)
 	if !ok {
 		// Fallback to standard status update
-		return es.Server.handleAgentUpdateStatus(ctx, conn, params)
+		return es.Server.handleAgentUpdateStatus(ctx, conn, params) //nolint:staticcheck // Intentional call to base implementation
 	}
 
 	// Update health
