@@ -93,6 +93,7 @@ type EmbeddingMetric struct {
 type GenerateEmbeddingRequest struct {
 	AgentID   string                 `json:"agent_id" validate:"required"`
 	Text      string                 `json:"text" validate:"required,max=50000"`
+	Model     string                 `json:"model"`     // Optional model specification (e.g., "bedrock:amazon.titan-embed-text-v1")
 	TaskType  agents.TaskType        `json:"task_type"`
 	Metadata  map[string]interface{} `json:"metadata"`
 	RequestID string                 `json:"request_id"`
@@ -149,6 +150,32 @@ func NewServiceV2(config ServiceV2Config) (*ServiceV2, error) {
 	return s, nil
 }
 
+// parseModelString parses a model string like "bedrock:amazon.titan-embed-text-v1" into provider and model
+func (s *ServiceV2) parseModelString(modelStr string) (provider, model string) {
+	if modelStr == "" {
+		return "", ""
+	}
+	
+	parts := strings.SplitN(modelStr, ":", 2)
+	if len(parts) == 2 {
+		return parts[0], parts[1]
+	}
+	
+	// If no provider specified, try to infer from model name
+	if strings.Contains(modelStr, "titan") {
+		return "bedrock", modelStr
+	}
+	if strings.Contains(modelStr, "ada") || strings.Contains(modelStr, "embedding") {
+		return "openai", modelStr
+	}
+	if strings.Contains(modelStr, "gemini") || strings.Contains(modelStr, "gecko") {
+		return "google", modelStr
+	}
+	
+	// Default to bedrock
+	return "bedrock", modelStr
+}
+
 // GenerateEmbedding generates an embedding for the given request
 func (s *ServiceV2) GenerateEmbedding(ctx context.Context, req GenerateEmbeddingRequest) (*GenerateEmbeddingResponse, error) {
 	// Input validation
@@ -162,10 +189,11 @@ func (s *ServiceV2) GenerateEmbedding(ctx context.Context, req GenerateEmbedding
 		requestID = uuid.New().String()
 	}
 
-	// Get agent configuration
-	agentConfig, err := s.agentService.GetConfig(ctx, req.AgentID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get agent config: %w", err)
+	// Try to get agent configuration, but don't fail if not found
+	var agentConfig *agents.AgentConfig
+	if req.AgentID != "" {
+		agentConfig, _ = s.agentService.GetConfig(ctx, req.AgentID)
+		// Note: agent config not found, will use defaults
 	}
 
 	// Determine task type
@@ -192,14 +220,39 @@ func (s *ServiceV2) GenerateEmbedding(ctx context.Context, req GenerateEmbedding
 		}
 	}
 
-	// Select model and provider using router
-	routingDecision, err := s.router.SelectProvider(ctx, &RoutingRequest{
-		AgentConfig: agentConfig,
-		TaskType:    taskType,
-		RequestID:   requestID,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to select provider: %w", err)
+	// Select model and provider using router or use defaults from request
+	var routingDecision *RoutingDecision
+	var err error
+	
+	if agentConfig != nil {
+		// Use agent config if available
+		routingDecision, err = s.router.SelectProvider(ctx, &RoutingRequest{
+			AgentConfig: agentConfig,
+			TaskType:    taskType,
+			RequestID:   requestID,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to select provider: %w", err)
+		}
+	} else {
+		// Use model from request or system defaults
+		provider, model := s.parseModelString(req.Model)
+		if provider == "" {
+			provider = "bedrock" // Default provider
+		}
+		if model == "" {
+			model = "amazon.titan-embed-text-v1" // Default model
+		}
+		
+		routingDecision = &RoutingDecision{
+			Strategy:  "direct",
+			Candidates: []ProviderCandidate{
+				{
+					Provider: provider,
+					Model:    model,
+				},
+			},
+		}
 	}
 
 	// Generate embedding with selected provider
