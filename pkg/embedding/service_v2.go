@@ -235,13 +235,21 @@ func (s *ServiceV2) GenerateEmbedding(ctx context.Context, req GenerateEmbedding
 			return nil, fmt.Errorf("failed to select provider: %w", err)
 		}
 	} else {
-		// Use model from request or system defaults
-		provider, model := s.parseModelString(req.Model)
-		if provider == "" {
-			provider = "bedrock" // Default provider
-		}
-		if model == "" {
-			model = "amazon.titan-embed-text-v2:0" // Default model
+		// Always use default embedding model, ignore non-embedding models from request
+		// Agents pass their LLM preferences, but embeddings use dedicated embedding models
+		provider := "bedrock" // Default provider
+		model := "amazon.titan-embed-text-v2:0" // Default embedding model
+		
+		// Optional: Allow override only if it's a valid embedding model
+		if req.Model != "" && strings.Contains(req.Model, "embed") {
+			// Only use the request model if it's an embedding model
+			reqProvider, reqModel := s.parseModelString(req.Model)
+			if reqProvider != "" {
+				provider = reqProvider
+			}
+			if reqModel != "" {
+				model = reqModel
+			}
 		}
 		
 		routingDecision = &RoutingDecision{
