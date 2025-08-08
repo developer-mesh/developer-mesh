@@ -76,6 +76,7 @@ type ClientMetrics struct {
 	CircuitBreakerState string
 	LastHealthCheck   time.Time
 	Healthy           bool
+	Metadata          map[string]interface{} // Additional metadata for extended metrics
 }
 
 // CircuitBreaker implements the circuit breaker pattern
