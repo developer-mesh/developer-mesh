@@ -55,17 +55,17 @@ type ClassifiedError struct {
 	Message string      `json:"message"`
 	Class   ErrorClass  `json:"class"`
 	Details interface{} `json:"details,omitempty"`
-	
+
 	// Context information
 	Service       string            `json:"service"`
 	Operation     string            `json:"operation"`
 	CorrelationID string            `json:"correlation_id,omitempty"`
 	Timestamp     time.Time         `json:"timestamp"`
 	Metadata      map[string]string `json:"metadata,omitempty"`
-	
+
 	// Retry information
 	Retry *RetryStrategy `json:"retry,omitempty"`
-	
+
 	// Original error for unwrapping
 	cause error
 }
@@ -73,7 +73,7 @@ type ClassifiedError struct {
 // Error implements the error interface
 func (e *ClassifiedError) Error() string {
 	if e.CorrelationID != "" {
-		return fmt.Sprintf("[%s] %s: %s (correlation_id: %s)", 
+		return fmt.Sprintf("[%s] %s: %s (correlation_id: %s)",
 			e.Code, e.Operation, e.Message, e.CorrelationID)
 	}
 	return fmt.Sprintf("[%s] %s: %s", e.Code, e.Operation, e.Message)
@@ -94,12 +94,12 @@ func (e *ClassifiedError) GetRetryDelay(attempt int) time.Duration {
 	if e.Retry == nil || !e.Retry.ShouldRetry {
 		return 0
 	}
-	
+
 	// If we have a specific retry-after time, use it
 	if e.Retry.RetryAfter != nil {
 		return time.Until(*e.Retry.RetryAfter)
 	}
-	
+
 	// Calculate exponential backoff
 	delay := e.Retry.BaseDelay
 	for i := 0; i < attempt; i++ {
@@ -109,7 +109,7 @@ func (e *ClassifiedError) GetRetryDelay(attempt int) time.Duration {
 			break
 		}
 	}
-	
+
 	return delay
 }
 
@@ -129,7 +129,7 @@ func Wrap(err error, code string, class ErrorClass) *ClassifiedError {
 	if err == nil {
 		return nil
 	}
-	
+
 	// If already a classified error, preserve the chain
 	if ce, ok := err.(*ClassifiedError); ok {
 		return &ClassifiedError{
@@ -145,7 +145,7 @@ func Wrap(err error, code string, class ErrorClass) *ClassifiedError {
 			cause:     err,
 		}
 	}
-	
+
 	return &ClassifiedError{
 		Code:      code,
 		Message:   err.Error(),
@@ -160,12 +160,12 @@ func Wrap(err error, code string, class ErrorClass) *ClassifiedError {
 func (e *ClassifiedError) WithContext(ctx context.Context, service, operation string) *ClassifiedError {
 	e.Service = service
 	e.Operation = operation
-	
+
 	// Extract correlation ID from context if available
 	if correlationID, ok := ctx.Value("correlation_id").(string); ok {
 		e.CorrelationID = correlationID
 	}
-	
+
 	return e
 }
 

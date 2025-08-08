@@ -4,21 +4,21 @@ import (
 	"fmt"
 	"sync"
 	"time"
-	
+
 	pkgerrors "github.com/developer-mesh/developer-mesh/pkg/errors"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 // ErrorMetrics tracks comprehensive error metrics
 type ErrorMetrics struct {
-	mu               sync.RWMutex
-	logger           observability.Logger
-	
+	mu     sync.RWMutex
+	logger observability.Logger
+
 	// Error counts by classification
-	errorsByClass    map[pkgerrors.ErrorClass]int64
-	errorsByCode     map[string]int64
+	errorsByClass     map[pkgerrors.ErrorClass]int64
+	errorsByCode      map[string]int64
 	errorsByOperation map[string]int64
-	
+
 	// Time-based metrics
 	errorsPerMinute  []int64 // Circular buffer for last 60 minutes
 	errorsPerHour    []int64 // Circular buffer for last 24 hours
@@ -26,64 +26,64 @@ type ErrorMetrics struct {
 	currentHour      int
 	lastMinuteUpdate time.Time
 	lastHourUpdate   time.Time
-	
+
 	// Error patterns
 	consecutiveErrors int
 	lastErrorTime     time.Time
 	errorRate         float64
-	
+
 	// Recovery metrics
 	recoveryAttempts  int64
 	recoverySuccesses int64
 	recoveryFailures  int64
 	avgRecoveryTime   time.Duration
-	
+
 	// Circuit breaker metrics
-	circuitOpens      int64
-	circuitCloses     int64
-	circuitHalfOpens  int64
-	timeInOpenState   time.Duration
-	lastCircuitOpen   time.Time
-	
+	circuitOpens     int64
+	circuitCloses    int64
+	circuitHalfOpens int64
+	timeInOpenState  time.Duration
+	lastCircuitOpen  time.Time
+
 	// Fallback metrics
 	fallbackActivations int64
 	fallbackSuccesses   int64
 	fallbackFailures    int64
-	
+
 	// Performance impact
 	totalErrorLatency time.Duration
 	maxErrorLatency   time.Duration
 	avgErrorLatency   time.Duration
-	
+
 	// Alert thresholds
-	errorRateThreshold    float64
-	consecutiveThreshold  int
-	alertCallback         func(alert ErrorAlert)
+	errorRateThreshold   float64
+	consecutiveThreshold int
+	alertCallback        func(alert ErrorAlert)
 }
 
 // ErrorAlert represents an alert condition
 type ErrorAlert struct {
-	Type        string
-	Severity    string
-	Message     string
-	Threshold   interface{}
+	Type         string
+	Severity     string
+	Message      string
+	Threshold    interface{}
 	CurrentValue interface{}
-	Timestamp   time.Time
-	Details     map[string]interface{}
+	Timestamp    time.Time
+	Details      map[string]interface{}
 }
 
 // NewErrorMetrics creates a new error metrics tracker
 func NewErrorMetrics(logger observability.Logger) *ErrorMetrics {
 	return &ErrorMetrics{
-		logger:              logger,
-		errorsByClass:       make(map[pkgerrors.ErrorClass]int64),
-		errorsByCode:        make(map[string]int64),
-		errorsByOperation:   make(map[string]int64),
-		errorsPerMinute:     make([]int64, 60),
-		errorsPerHour:       make([]int64, 24),
-		lastMinuteUpdate:    time.Now(),
-		lastHourUpdate:      time.Now(),
-		errorRateThreshold:  10.0, // 10 errors per minute triggers alert
+		logger:               logger,
+		errorsByClass:        make(map[pkgerrors.ErrorClass]int64),
+		errorsByCode:         make(map[string]int64),
+		errorsByOperation:    make(map[string]int64),
+		errorsPerMinute:      make([]int64, 60),
+		errorsPerHour:        make([]int64, 24),
+		lastMinuteUpdate:     time.Now(),
+		lastHourUpdate:       time.Now(),
+		errorRateThreshold:   10.0, // 10 errors per minute triggers alert
 		consecutiveThreshold: 5,    // 5 consecutive errors triggers alert
 	}
 }
@@ -92,14 +92,14 @@ func NewErrorMetrics(logger observability.Logger) *ErrorMetrics {
 func (m *ErrorMetrics) RecordError(err error, operation string, latency time.Duration) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	// Update time-based buckets
 	m.updateTimeBuckets()
-	
+
 	// Extract error details
 	var errorCode string
 	var errorClass pkgerrors.ErrorClass
-	
+
 	if classifiedErr, ok := err.(*pkgerrors.ClassifiedError); ok {
 		errorCode = classifiedErr.Code
 		errorClass = classifiedErr.Class
@@ -107,13 +107,13 @@ func (m *ErrorMetrics) RecordError(err error, operation string, latency time.Dur
 		errorCode = "UNKNOWN"
 		errorClass = pkgerrors.ClassUnknown
 	}
-	
+
 	// Update counters
 	m.errorsByClass[errorClass]++
 	m.errorsByCode[errorCode]++
 	m.errorsByOperation[operation]++
 	m.errorsPerMinute[m.currentMinute]++
-	
+
 	// Update consecutive errors
 	if time.Since(m.lastErrorTime) < 10*time.Second {
 		m.consecutiveErrors++
@@ -121,19 +121,19 @@ func (m *ErrorMetrics) RecordError(err error, operation string, latency time.Dur
 		m.consecutiveErrors = 1
 	}
 	m.lastErrorTime = time.Now()
-	
+
 	// Update latency metrics
 	m.totalErrorLatency += latency
 	if latency > m.maxErrorLatency {
 		m.maxErrorLatency = latency
 	}
-	
+
 	// Calculate error rate (errors per minute)
 	m.calculateErrorRate()
-	
+
 	// Check alert conditions
 	m.checkAlertConditions(errorCode, errorClass, operation)
-	
+
 	// Log detailed metrics periodically
 	if time.Since(m.lastMinuteUpdate) > time.Minute {
 		m.logMetricsSummary()
@@ -144,14 +144,14 @@ func (m *ErrorMetrics) RecordError(err error, operation string, latency time.Dur
 func (m *ErrorMetrics) RecordRecovery(success bool, duration time.Duration) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	m.recoveryAttempts++
 	if success {
 		m.recoverySuccesses++
 	} else {
 		m.recoveryFailures++
 	}
-	
+
 	// Update average recovery time
 	if m.avgRecoveryTime == 0 {
 		m.avgRecoveryTime = duration
@@ -164,7 +164,7 @@ func (m *ErrorMetrics) RecordRecovery(success bool, duration time.Duration) {
 func (m *ErrorMetrics) RecordCircuitBreakerEvent(event string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	switch event {
 	case "open":
 		m.circuitOpens++
@@ -183,7 +183,7 @@ func (m *ErrorMetrics) RecordCircuitBreakerEvent(event string) {
 func (m *ErrorMetrics) RecordFallback(success bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	m.fallbackActivations++
 	if success {
 		m.fallbackSuccesses++
@@ -195,7 +195,7 @@ func (m *ErrorMetrics) RecordFallback(success bool) {
 // updateTimeBuckets updates the time-based error buckets
 func (m *ErrorMetrics) updateTimeBuckets() {
 	now := time.Now()
-	
+
 	// Update minute bucket
 	minutesSince := int(now.Sub(m.lastMinuteUpdate).Minutes())
 	if minutesSince > 0 {
@@ -207,7 +207,7 @@ func (m *ErrorMetrics) updateTimeBuckets() {
 		m.currentMinute = (m.currentMinute + minutesSince) % 60
 		m.lastMinuteUpdate = now
 	}
-	
+
 	// Update hour bucket
 	hoursSince := int(now.Sub(m.lastHourUpdate).Hours())
 	if hoursSince > 0 {
@@ -218,7 +218,7 @@ func (m *ErrorMetrics) updateTimeBuckets() {
 		}
 		m.currentHour = (m.currentHour + hoursSince) % 24
 		m.lastHourUpdate = now
-		
+
 		// Sum up errors in current hour from minute buckets
 		hourErrors := int64(0)
 		for _, count := range m.errorsPerMinute {
@@ -241,7 +241,7 @@ func (m *ErrorMetrics) calculateErrorRate() {
 // checkAlertConditions checks if any alert conditions are met
 func (m *ErrorMetrics) checkAlertConditions(errorCode string, errorClass pkgerrors.ErrorClass, operation string) {
 	alerts := []ErrorAlert{}
-	
+
 	// Check error rate threshold
 	if m.errorRate > m.errorRateThreshold/60.0 {
 		alerts = append(alerts, ErrorAlert{
@@ -256,7 +256,7 @@ func (m *ErrorMetrics) checkAlertConditions(errorCode string, errorClass pkgerro
 			},
 		})
 	}
-	
+
 	// Check consecutive errors threshold
 	if m.consecutiveErrors >= m.consecutiveThreshold {
 		alerts = append(alerts, ErrorAlert{
@@ -273,7 +273,7 @@ func (m *ErrorMetrics) checkAlertConditions(errorCode string, errorClass pkgerro
 			},
 		})
 	}
-	
+
 	// Check circuit breaker opens
 	if m.circuitOpens > 5 {
 		alerts = append(alerts, ErrorAlert{
@@ -288,7 +288,7 @@ func (m *ErrorMetrics) checkAlertConditions(errorCode string, errorClass pkgerro
 			},
 		})
 	}
-	
+
 	// Send alerts
 	for _, alert := range alerts {
 		if m.alertCallback != nil {
@@ -309,17 +309,17 @@ func (m *ErrorMetrics) logMetricsSummary() {
 	for _, count := range m.errorsByClass {
 		totalErrors += count
 	}
-	
+
 	m.logger.Info("Error metrics summary", map[string]interface{}{
-		"total_errors":        totalErrors,
-		"error_rate":          fmt.Sprintf("%.2f/min", m.errorRate*60),
-		"consecutive_errors":  m.consecutiveErrors,
+		"total_errors":          totalErrors,
+		"error_rate":            fmt.Sprintf("%.2f/min", m.errorRate*60),
+		"consecutive_errors":    m.consecutiveErrors,
 		"recovery_success_rate": float64(m.recoverySuccesses) / float64(m.recoveryAttempts),
-		"avg_recovery_time":   m.avgRecoveryTime.String(),
-		"circuit_opens":       m.circuitOpens,
+		"avg_recovery_time":     m.avgRecoveryTime.String(),
+		"circuit_opens":         m.circuitOpens,
 		"fallback_success_rate": float64(m.fallbackSuccesses) / float64(m.fallbackActivations),
-		"avg_error_latency":   m.avgErrorLatency.String(),
-		"max_error_latency":   m.maxErrorLatency.String(),
+		"avg_error_latency":     m.avgErrorLatency.String(),
+		"max_error_latency":     m.maxErrorLatency.String(),
 	})
 }
 
@@ -334,27 +334,27 @@ func (m *ErrorMetrics) SetAlertCallback(callback func(ErrorAlert)) {
 func (m *ErrorMetrics) GetMetricsSummary() map[string]interface{} {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	totalErrors := int64(0)
 	for _, count := range m.errorsByClass {
 		totalErrors += count
 	}
-	
+
 	recoveryRate := float64(0)
 	if m.recoveryAttempts > 0 {
 		recoveryRate = float64(m.recoverySuccesses) / float64(m.recoveryAttempts)
 	}
-	
+
 	fallbackRate := float64(0)
 	if m.fallbackActivations > 0 {
 		fallbackRate = float64(m.fallbackSuccesses) / float64(m.fallbackActivations)
 	}
-	
+
 	// Calculate average latency
 	if totalErrors > 0 {
 		m.avgErrorLatency = m.totalErrorLatency / time.Duration(totalErrors)
 	}
-	
+
 	return map[string]interface{}{
 		"total_errors":          totalErrors,
 		"errors_by_class":       m.errorsByClass,
@@ -363,16 +363,16 @@ func (m *ErrorMetrics) GetMetricsSummary() map[string]interface{} {
 		"error_rate_per_minute": m.errorRate * 60,
 		"consecutive_errors":    m.consecutiveErrors,
 		"recovery": map[string]interface{}{
-			"attempts":         m.recoveryAttempts,
-			"successes":        m.recoverySuccesses,
-			"failures":         m.recoveryFailures,
-			"success_rate":     recoveryRate,
+			"attempts":          m.recoveryAttempts,
+			"successes":         m.recoverySuccesses,
+			"failures":          m.recoveryFailures,
+			"success_rate":      recoveryRate,
 			"avg_recovery_time": m.avgRecoveryTime.String(),
 		},
 		"circuit_breaker": map[string]interface{}{
-			"opens":             m.circuitOpens,
-			"closes":            m.circuitCloses,
-			"half_opens":        m.circuitHalfOpens,
+			"opens":              m.circuitOpens,
+			"closes":             m.circuitCloses,
+			"half_opens":         m.circuitHalfOpens,
 			"time_in_open_state": m.timeInOpenState.String(),
 		},
 		"fallback": map[string]interface{}{
@@ -392,7 +392,7 @@ func (m *ErrorMetrics) GetMetricsSummary() map[string]interface{} {
 func (m *ErrorMetrics) Reset() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	m.errorsByClass = make(map[pkgerrors.ErrorClass]int64)
 	m.errorsByCode = make(map[string]int64)
 	m.errorsByOperation = make(map[string]int64)

@@ -1035,7 +1035,7 @@ func initializeServer(ctx context.Context, cfg *commonconfig.Config, engine *cor
 
 	// Create server - pass db.GetDB() to get the *sqlx.DB
 	server := api.NewServer(engine, apiConfig, db.GetDB(), cacheClient, metricsClient, cfg)
-	
+
 	// Set the REST client if available
 	if restClient != nil {
 		server.SetRESTClient(restClient)
@@ -1372,19 +1372,19 @@ func initializeRESTClient(cfg *commonconfig.Config, logger observability.Logger)
 	}
 
 	logger.Info("Initializing REST API client", map[string]interface{}{
-		"base_url":                 restConfig.BaseURL,
-		"timeout":                  restConfig.Timeout,
-		"health_check_interval":    restConfig.HealthCheckInterval,
-		"circuit_breaker_enabled":  true,
+		"base_url":                restConfig.BaseURL,
+		"timeout":                 restConfig.Timeout,
+		"health_check_interval":   restConfig.HealthCheckInterval,
+		"circuit_breaker_enabled": true,
 	})
 
 	// Create the REST client
 	client := clients.NewRESTAPIClient(restConfig)
-	
+
 	// Validate connection with retries
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	
+
 	maxAttempts := 5
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		if err := client.HealthCheck(ctx); err != nil {
@@ -1393,12 +1393,12 @@ func initializeRESTClient(cfg *commonconfig.Config, logger observability.Logger)
 				"max_attempts": maxAttempts,
 				"error":        err.Error(),
 			})
-			
+
 			if attempt < maxAttempts {
 				time.Sleep(time.Duration(attempt) * 2 * time.Second) // Exponential backoff
 				continue
 			}
-			
+
 			// If we're in development, we can continue without REST API
 			if cfg.IsDevelopment() {
 				logger.Error("REST API not available, continuing in degraded mode", map[string]interface{}{
@@ -1406,17 +1406,17 @@ func initializeRESTClient(cfg *commonconfig.Config, logger observability.Logger)
 				})
 				return client, nil // Return client anyway for potential future recovery
 			}
-			
+
 			return nil, fmt.Errorf("REST API health check failed after %d attempts: %w", maxAttempts, err)
 		}
-		
+
 		// Health check succeeded
 		logger.Info("REST API connection validated", map[string]interface{}{
 			"attempt": attempt,
 		})
 		break
 	}
-	
+
 	return client, nil
 }
 

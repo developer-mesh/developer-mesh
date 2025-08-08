@@ -45,7 +45,7 @@ type Server struct {
 	taskManager         *TaskManager
 	workspaceManager    *WorkspaceManager
 	notificationManager *NotificationManager
-	
+
 	// REST API client for proxying tool requests
 	restAPIClient clients.RESTAPIClient
 

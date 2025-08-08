@@ -3,7 +3,7 @@ package clients
 import (
 	"context"
 	"time"
-	
+
 	"github.com/google/uuid"
 )
 
@@ -82,7 +82,7 @@ func GetOperation(ctx context.Context) string {
 // WithTimeout creates a context with timeout based on operation type
 func WithTimeout(ctx context.Context, operation string, config TimeoutConfig) (context.Context, context.CancelFunc) {
 	var timeout time.Duration
-	
+
 	switch operation {
 	case "health.check":
 		timeout = config.HealthCheck
@@ -95,7 +95,7 @@ func WithTimeout(ctx context.Context, operation string, config TimeoutConfig) (c
 	default:
 		timeout = config.Default
 	}
-	
+
 	return context.WithTimeout(ctx, timeout)
 }
 
@@ -103,46 +103,46 @@ func WithTimeout(ctx context.Context, operation string, config TimeoutConfig) (c
 func EnrichContext(ctx context.Context, tenantID, agentID, operation string) context.Context {
 	ctx = WithCorrelationID(ctx, GetCorrelationID(ctx))
 	ctx = WithOperation(ctx, operation)
-	
+
 	if tenantID != "" {
 		ctx = context.WithValue(ctx, ContextKeyTenantID, tenantID)
 	}
 	if agentID != "" {
 		ctx = context.WithValue(ctx, ContextKeyAgentID, agentID)
 	}
-	
+
 	return ctx
 }
 
 // ExtractContextMetadata extracts all relevant metadata from context
 func ExtractContextMetadata(ctx context.Context) map[string]string {
 	metadata := make(map[string]string)
-	
+
 	if correlationID := GetCorrelationID(ctx); correlationID != "" {
 		metadata["correlation_id"] = correlationID
 	}
-	
+
 	if operation := GetOperation(ctx); operation != "" {
 		metadata["operation"] = operation
 	}
-	
+
 	if val := ctx.Value(ContextKeyTenantID); val != nil {
 		if tenantID, ok := val.(string); ok && tenantID != "" {
 			metadata["tenant_id"] = tenantID
 		}
 	}
-	
+
 	if val := ctx.Value(ContextKeyAgentID); val != nil {
 		if agentID, ok := val.(string); ok && agentID != "" {
 			metadata["agent_id"] = agentID
 		}
 	}
-	
+
 	// Check if context has a deadline
 	if deadline, ok := ctx.Deadline(); ok {
 		metadata["deadline"] = deadline.Format(time.RFC3339)
 		metadata["timeout_remaining"] = time.Until(deadline).String()
 	}
-	
+
 	return metadata
 }

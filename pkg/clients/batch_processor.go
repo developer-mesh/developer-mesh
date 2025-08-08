@@ -5,31 +5,30 @@ import (
 	"fmt"
 	"sync"
 	"time"
-	
+
 	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 // BatchProcessor handles batch operations for improved performance
 type BatchProcessor struct {
-	mu     sync.RWMutex
 	logger observability.Logger
-	
+
 	// Configuration
 	config BatchConfig
-	
+
 	// Batch queue
-	queue        chan *BatchRequest
-	workers      int
-	workerPool   chan struct{}
-	
+	queue      chan *BatchRequest
+	workers    int
+	workerPool chan struct{}
+
 	// In-flight batches
 	activeBatches map[string]*Batch
 	batchMutex    sync.RWMutex
-	
+
 	// Metrics
 	metrics *BatchMetrics
-	
+
 	// Shutdown management
 	shutdown chan struct{}
 	wg       sync.WaitGroup
@@ -37,12 +36,12 @@ type BatchProcessor struct {
 
 // BatchConfig defines batch processing configuration
 type BatchConfig struct {
-	MaxBatchSize     int           `json:"max_batch_size"`
-	MaxBatchWait     time.Duration `json:"max_batch_wait"`
-	Workers          int           `json:"workers"`
-	QueueSize        int           `json:"queue_size"`
-	EnableAutoFlush  bool          `json:"enable_auto_flush"`
-	FlushInterval    time.Duration `json:"flush_interval"`
+	MaxBatchSize    int           `json:"max_batch_size"`
+	MaxBatchWait    time.Duration `json:"max_batch_wait"`
+	Workers         int           `json:"workers"`
+	QueueSize       int           `json:"queue_size"`
+	EnableAutoFlush bool          `json:"enable_auto_flush"`
+	FlushInterval   time.Duration `json:"flush_interval"`
 }
 
 // BatchRequest represents a single request in a batch
@@ -68,24 +67,23 @@ type Batch struct {
 	Requests   []*BatchRequest
 	CreatedAt  time.Time
 	Processing bool
-	mu         sync.Mutex
 }
 
 // BatchMetrics tracks batch processing metrics
 type BatchMetrics struct {
 	mu sync.RWMutex
-	
+
 	TotalBatches      int64
 	TotalRequests     int64
 	SuccessfulBatches int64
 	FailedBatches     int64
-	
+
 	AvgBatchSize      float64
 	AvgProcessingTime time.Duration
 	MaxBatchSize      int
-	
-	CurrentQueueSize  int
-	DroppedRequests   int64
+
+	CurrentQueueSize int
+	DroppedRequests  int64
 }
 
 // DefaultBatchConfig returns default batch configuration
@@ -112,24 +110,24 @@ func NewBatchProcessor(config BatchConfig, logger observability.Logger) *BatchPr
 		metrics:       &BatchMetrics{},
 		shutdown:      make(chan struct{}),
 	}
-	
+
 	// Initialize worker pool
 	for i := 0; i < config.Workers; i++ {
 		processor.workerPool <- struct{}{}
 	}
-	
+
 	// Start batch workers
 	for i := 0; i < config.Workers; i++ {
 		processor.wg.Add(1)
 		go processor.batchWorker()
 	}
-	
+
 	// Start auto-flush if enabled
 	if config.EnableAutoFlush {
 		processor.wg.Add(1)
 		go processor.autoFlushWorker()
 	}
-	
+
 	return processor
 }
 
@@ -143,7 +141,7 @@ func (p *BatchProcessor) Submit(ctx context.Context, operation string, tenantID 
 		Context:   ctx,
 		Result:    make(chan BatchResult, 1),
 	}
-	
+
 	// Try to add to queue
 	select {
 	case p.queue <- request:
@@ -152,7 +150,7 @@ func (p *BatchProcessor) Submit(ctx context.Context, operation string, tenantID 
 		p.recordDroppedRequest()
 		return nil, fmt.Errorf("batch queue is full")
 	}
-	
+
 	// Wait for result
 	select {
 	case result := <-request.Result:
@@ -168,25 +166,25 @@ func (p *BatchProcessor) BatchListTools(ctx context.Context, tenantIDs []string,
 	resultMutex := sync.Mutex{}
 	errors := make([]error, 0)
 	errorMutex := sync.Mutex{}
-	
+
 	// Create wait group for parallel processing
 	wg := sync.WaitGroup{}
-	
+
 	// Use semaphore to limit concurrent requests
 	semaphore := make(chan struct{}, p.config.Workers)
-	
+
 	startTime := time.Now()
-	
+
 	for _, tenantID := range tenantIDs {
 		wg.Add(1)
-		
+
 		go func(tid string) {
 			defer wg.Done()
-			
+
 			// Acquire semaphore
 			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
-			
+
 			// Execute request
 			tools, err := client.ListTools(ctx, tid)
 			if err != nil {
@@ -195,73 +193,73 @@ func (p *BatchProcessor) BatchListTools(ctx context.Context, tenantIDs []string,
 				errorMutex.Unlock()
 				return
 			}
-			
+
 			// Store result
 			resultMutex.Lock()
 			results[tid] = tools
 			resultMutex.Unlock()
 		}(tenantID)
 	}
-	
+
 	// Wait for all requests to complete
 	wg.Wait()
-	
+
 	// Record metrics
 	p.recordBatchOperation(len(tenantIDs), len(errors), time.Since(startTime))
-	
+
 	// Return error if any failed
 	if len(errors) > 0 {
 		return results, fmt.Errorf("batch operation had %d errors: %v", len(errors), errors[0])
 	}
-	
+
 	return results, nil
 }
 
 // BatchExecuteTools performs batch tool execution
 func (p *BatchProcessor) BatchExecuteTools(ctx context.Context, executions []ToolExecution, client RESTAPIClient) ([]ToolExecutionResult, error) {
 	results := make([]ToolExecutionResult, len(executions))
-	
+
 	// Create wait group for parallel processing
 	wg := sync.WaitGroup{}
-	
+
 	// Use semaphore to limit concurrent requests
 	semaphore := make(chan struct{}, p.config.Workers)
-	
+
 	startTime := time.Now()
 	errorCount := 0
-	
+
 	for i, exec := range executions {
 		wg.Add(1)
-		
+
 		go func(idx int, e ToolExecution) {
 			defer wg.Done()
-			
+
 			// Acquire semaphore
 			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
-			
+
 			// Execute tool
 			result, err := client.ExecuteTool(ctx, e.TenantID, e.ToolID, e.Action, e.Params)
-			
+
 			// Store result
 			results[idx] = ToolExecutionResult{
 				ToolID: e.ToolID,
 				Result: result,
 				Error:  err,
 			}
-			
+
 			if err != nil {
 				errorCount++
 			}
 		}(i, exec)
 	}
-	
+
 	// Wait for all executions to complete
 	wg.Wait()
-	
+
 	// Record metrics
 	p.recordBatchOperation(len(executions), errorCount, time.Since(startTime))
-	
+
 	return results, nil
 }
 
@@ -283,42 +281,42 @@ type ToolExecutionResult struct {
 // batchWorker processes batch requests
 func (p *BatchProcessor) batchWorker() {
 	defer p.wg.Done()
-	
+
 	batch := &Batch{
 		ID:        fmt.Sprintf("batch-%d", time.Now().UnixNano()),
 		Requests:  make([]*BatchRequest, 0, p.config.MaxBatchSize),
 		CreatedAt: time.Now(),
 	}
-	
+
 	timer := time.NewTimer(p.config.MaxBatchWait)
 	defer timer.Stop()
-	
+
 	for {
 		select {
 		case req := <-p.queue:
 			p.updateQueueSize(-1)
 			batch.Requests = append(batch.Requests, req)
-			
+
 			// Check if batch is full
 			if len(batch.Requests) >= p.config.MaxBatchSize {
 				p.processBatch(batch)
-				
+
 				// Create new batch
 				batch = &Batch{
 					ID:        fmt.Sprintf("batch-%d", time.Now().UnixNano()),
 					Requests:  make([]*BatchRequest, 0, p.config.MaxBatchSize),
 					CreatedAt: time.Now(),
 				}
-				
+
 				// Reset timer
 				timer.Reset(p.config.MaxBatchWait)
 			}
-			
+
 		case <-timer.C:
 			// Process batch if not empty
 			if len(batch.Requests) > 0 {
 				p.processBatch(batch)
-				
+
 				// Create new batch
 				batch = &Batch{
 					ID:        fmt.Sprintf("batch-%d", time.Now().UnixNano()),
@@ -326,10 +324,10 @@ func (p *BatchProcessor) batchWorker() {
 					CreatedAt: time.Now(),
 				}
 			}
-			
+
 			// Reset timer
 			timer.Reset(p.config.MaxBatchWait)
-			
+
 		case <-p.shutdown:
 			// Process remaining batch
 			if len(batch.Requests) > 0 {
@@ -345,26 +343,26 @@ func (p *BatchProcessor) processBatch(batch *Batch) {
 	if len(batch.Requests) == 0 {
 		return
 	}
-	
+
 	startTime := time.Now()
-	
+
 	// Acquire worker token
 	<-p.workerPool
 	defer func() {
 		p.workerPool <- struct{}{}
 	}()
-	
+
 	// Group requests by operation type
 	operationGroups := make(map[string][]*BatchRequest)
 	for _, req := range batch.Requests {
 		operationGroups[req.Operation] = append(operationGroups[req.Operation], req)
 	}
-	
+
 	// Process each operation group
 	for operation, requests := range operationGroups {
 		p.processOperationGroup(operation, requests)
 	}
-	
+
 	// Record metrics
 	p.recordBatchProcessed(batch, time.Since(startTime))
 }
@@ -379,7 +377,7 @@ func (p *BatchProcessor) processOperationGroup(operation string, requests []*Bat
 			ID:   req.ID,
 			Data: fmt.Sprintf("Processed %s", req.ID),
 		}
-		
+
 		select {
 		case req.Result <- result:
 		default:
@@ -391,10 +389,10 @@ func (p *BatchProcessor) processOperationGroup(operation string, requests []*Bat
 // autoFlushWorker periodically flushes pending batches
 func (p *BatchProcessor) autoFlushWorker() {
 	defer p.wg.Done()
-	
+
 	ticker := time.NewTicker(p.config.FlushInterval)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-ticker.C:
@@ -410,7 +408,7 @@ func (p *BatchProcessor) flushPendingBatches() {
 	p.batchMutex.RLock()
 	pendingCount := len(p.activeBatches)
 	p.batchMutex.RUnlock()
-	
+
 	if pendingCount > 0 {
 		p.logger.Debug("Flushing pending batches", map[string]interface{}{
 			"count": pendingCount,
@@ -435,28 +433,28 @@ func (p *BatchProcessor) recordDroppedRequest() {
 func (p *BatchProcessor) recordBatchOperation(size int, errors int, duration time.Duration) {
 	p.metrics.mu.Lock()
 	defer p.metrics.mu.Unlock()
-	
+
 	p.metrics.TotalBatches++
 	p.metrics.TotalRequests += int64(size)
-	
+
 	if errors == 0 {
 		p.metrics.SuccessfulBatches++
 	} else {
 		p.metrics.FailedBatches++
 	}
-	
+
 	// Update average batch size
 	if p.metrics.AvgBatchSize == 0 {
 		p.metrics.AvgBatchSize = float64(size)
 	} else {
 		p.metrics.AvgBatchSize = (p.metrics.AvgBatchSize + float64(size)) / 2
 	}
-	
+
 	// Update max batch size
 	if size > p.metrics.MaxBatchSize {
 		p.metrics.MaxBatchSize = size
 	}
-	
+
 	// Update average processing time
 	if p.metrics.AvgProcessingTime == 0 {
 		p.metrics.AvgProcessingTime = duration
@@ -473,12 +471,12 @@ func (p *BatchProcessor) recordBatchProcessed(batch *Batch, duration time.Durati
 func (p *BatchProcessor) GetMetrics() map[string]interface{} {
 	p.metrics.mu.RLock()
 	defer p.metrics.mu.RUnlock()
-	
+
 	successRate := float64(0)
 	if p.metrics.TotalBatches > 0 {
 		successRate = float64(p.metrics.SuccessfulBatches) / float64(p.metrics.TotalBatches)
 	}
-	
+
 	return map[string]interface{}{
 		"total_batches":       p.metrics.TotalBatches,
 		"total_requests":      p.metrics.TotalRequests,

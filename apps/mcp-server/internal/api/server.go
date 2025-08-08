@@ -15,8 +15,8 @@ import (
 	"github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/core"
 
 	"github.com/developer-mesh/developer-mesh/pkg/auth"
-	"github.com/developer-mesh/developer-mesh/pkg/clients"
 	"github.com/developer-mesh/developer-mesh/pkg/client/rest"
+	"github.com/developer-mesh/developer-mesh/pkg/clients"
 	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
 	"github.com/developer-mesh/developer-mesh/pkg/common/config"
 	commonLogging "github.com/developer-mesh/developer-mesh/pkg/common/logging"
@@ -426,7 +426,7 @@ func (s *Server) SetRESTClient(client clients.RESTAPIClient) {
 	if client != nil {
 		s.restAPIClient = client
 		s.logger.Info("REST API client configured for tool proxying", nil)
-		
+
 		// Pass the REST client to the WebSocket server if it exists
 		if s.wsServer != nil {
 			s.wsServer.SetRESTClient(client)
@@ -634,15 +634,15 @@ func (s *Server) healthHandler(c *gin.Context) {
 	// Check REST API client health
 	if s.restAPIClient != nil {
 		metrics := s.restAPIClient.GetMetrics()
-		
+
 		if metrics.Healthy {
 			health["rest_api_client"] = "healthy"
 		} else {
-			health["rest_api_client"] = fmt.Sprintf("unhealthy (circuit_breaker: %s, failed_requests: %d)", 
+			health["rest_api_client"] = fmt.Sprintf("unhealthy (circuit_breaker: %s, failed_requests: %d)",
 				metrics.CircuitBreakerState, metrics.FailedRequests)
 			health["status"] = "degraded"
 		}
-		
+
 		// Add detailed metrics if requested
 		if c.Query("details") == "true" {
 			health["rest_api_metrics"] = fmt.Sprintf(

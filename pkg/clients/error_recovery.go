@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 	"time"
-	
+
 	pkgerrors "github.com/developer-mesh/developer-mesh/pkg/errors"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
@@ -32,12 +32,12 @@ const (
 
 // RecoveryStrategy defines how to recover from an error
 type RecoveryStrategy struct {
-	Action           RecoveryAction
-	Delay            time.Duration
-	MaxAttempts      int
+	Action            RecoveryAction
+	Delay             time.Duration
+	MaxAttempts       int
 	BackoffMultiplier float64
-	FallbackEnabled  bool
-	NotifyOps        bool
+	FallbackEnabled   bool
+	NotifyOps         bool
 }
 
 // ErrorRecoveryManager manages error recovery procedures
@@ -73,10 +73,10 @@ func NewErrorRecoveryManager(logger observability.Logger) *ErrorRecoveryManager 
 		circuitBreakers:   make(map[string]*CircuitBreaker),
 		reconnectHandlers: make(map[string]func() error),
 	}
-	
+
 	// Initialize default recovery strategies
 	manager.initializeDefaultStrategies()
-	
+
 	return manager
 }
 
@@ -90,7 +90,7 @@ func (m *ErrorRecoveryManager) initializeDefaultStrategies() {
 		BackoffMultiplier: 2.0,
 		FallbackEnabled:   true,
 	}
-	
+
 	// Circuit breaker errors - wait and use fallback
 	m.strategies["REST_CIRCUIT_OPEN"] = &RecoveryStrategy{
 		Action:          RecoveryActionFallback,
@@ -99,7 +99,7 @@ func (m *ErrorRecoveryManager) initializeDefaultStrategies() {
 		FallbackEnabled: true,
 		NotifyOps:       true,
 	}
-	
+
 	// Rate limiting - wait with retry-after
 	m.strategies["REST_HTTP_429"] = &RecoveryStrategy{
 		Action:            RecoveryActionRetry,
@@ -108,7 +108,7 @@ func (m *ErrorRecoveryManager) initializeDefaultStrategies() {
 		BackoffMultiplier: 1.0, // Linear for rate limiting
 		FallbackEnabled:   false,
 	}
-	
+
 	// Timeout errors - retry with longer timeout
 	m.strategies["REST_TIMEOUT"] = &RecoveryStrategy{
 		Action:            RecoveryActionRetry,
@@ -117,7 +117,7 @@ func (m *ErrorRecoveryManager) initializeDefaultStrategies() {
 		BackoffMultiplier: 1.5,
 		FallbackEnabled:   true,
 	}
-	
+
 	// Connection errors - reconnect and retry
 	m.strategies["REST_CONNECTION_ERROR"] = &RecoveryStrategy{
 		Action:            RecoveryActionReconnect,
@@ -126,7 +126,7 @@ func (m *ErrorRecoveryManager) initializeDefaultStrategies() {
 		BackoffMultiplier: 2.0,
 		FallbackEnabled:   true,
 	}
-	
+
 	// Server errors (5xx) - circuit break after multiple failures
 	m.strategies["REST_HTTP_500"] = &RecoveryStrategy{
 		Action:            RecoveryActionCircuitBreak,
@@ -143,12 +143,12 @@ func (m *ErrorRecoveryManager) HandleError(ctx context.Context, err error) (*Rec
 	if err == nil {
 		return nil, nil
 	}
-	
+
 	// Extract error details
 	var errorCode string
 	var errorClass pkgerrors.ErrorClass
 	var correlationID string
-	
+
 	if classifiedErr, ok := err.(*pkgerrors.ClassifiedError); ok {
 		errorCode = classifiedErr.Code
 		errorClass = classifiedErr.Class
@@ -158,20 +158,20 @@ func (m *ErrorRecoveryManager) HandleError(ctx context.Context, err error) (*Rec
 		errorCode = "UNKNOWN"
 		errorClass = pkgerrors.ClassUnknown
 	}
-	
+
 	// Get recovery strategy
 	m.mu.RLock()
 	strategy, exists := m.strategies[errorCode]
 	m.mu.RUnlock()
-	
+
 	if !exists {
 		// Use default strategy based on error class
 		strategy = m.getDefaultStrategyForClass(errorClass)
 	}
-	
+
 	// Log recovery attempt
 	m.logRecoveryAttempt(errorCode, errorClass, strategy.Action, correlationID)
-	
+
 	return strategy, nil
 }
 
@@ -180,10 +180,10 @@ func (m *ErrorRecoveryManager) ExecuteRecovery(ctx context.Context, strategy *Re
 	if strategy == nil {
 		return fmt.Errorf("no recovery strategy provided")
 	}
-	
+
 	startTime := time.Now()
 	var lastErr error
-	
+
 	for attempt := 0; attempt < strategy.MaxAttempts; attempt++ {
 		// Apply recovery action
 		switch strategy.Action {
@@ -193,51 +193,51 @@ func (m *ErrorRecoveryManager) ExecuteRecovery(ctx context.Context, strategy *Re
 			for i := 0; i < attempt; i++ {
 				delay = time.Duration(float64(delay) * strategy.BackoffMultiplier)
 			}
-			
+
 			m.logger.Info("Retrying operation", map[string]interface{}{
 				"attempt": attempt + 1,
 				"delay":   delay.String(),
 			})
-			
+
 			time.Sleep(delay)
-			
+
 		case RecoveryActionReconnect:
 			// Execute reconnection handlers
 			m.executeReconnectHandlers()
-			
+
 		case RecoveryActionCircuitBreak:
 			// Open circuit breaker for the service
 			m.openCircuitBreaker("rest-api", 30*time.Second)
-			
+
 		case RecoveryActionRefreshCache:
 			// Clear caches to force refresh
 			m.logger.Info("Refreshing cache due to error recovery", nil)
-			
+
 		case RecoveryActionFallback:
 			// Fallback is handled at a higher level
 			m.logger.Info("Using fallback due to error recovery", nil)
 			return nil
 		}
-		
+
 		// Retry the operation
 		if err := operation(); err != nil {
 			lastErr = err
 			continue
 		}
-		
+
 		// Success - record recovery
 		m.recordRecoverySuccess(strategy.Action, time.Since(startTime))
 		return nil
 	}
-	
+
 	// All attempts failed
 	m.recordRecoveryFailure(strategy.Action, time.Since(startTime))
-	
+
 	// Escalate if configured
 	if strategy.NotifyOps {
 		m.escalateToOps(lastErr, strategy)
 	}
-	
+
 	return lastErr
 }
 
@@ -249,7 +249,7 @@ func (m *ErrorRecoveryManager) executeReconnectHandlers() {
 		handlers = append(handlers, handler)
 	}
 	m.mu.RUnlock()
-	
+
 	for _, handler := range handlers {
 		if err := handler(); err != nil {
 			m.logger.Warn("Reconnection handler failed", map[string]interface{}{
@@ -263,13 +263,13 @@ func (m *ErrorRecoveryManager) executeReconnectHandlers() {
 func (m *ErrorRecoveryManager) openCircuitBreaker(service string, duration time.Duration) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	if cb, exists := m.circuitBreakers[service]; exists {
 		cb.mu.Lock()
 		cb.state = "open"
 		cb.nextRetryTime = time.Now().Add(duration)
 		cb.mu.Unlock()
-		
+
 		m.logger.Warn("Circuit breaker opened", map[string]interface{}{
 			"service":  service,
 			"duration": duration.String(),
@@ -334,12 +334,12 @@ func (m *ErrorRecoveryManager) logRecoveryAttempt(errorCode string, errorClass p
 		Action:        action,
 		CorrelationID: correlationID,
 	}
-	
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	m.recoveryHistory = append(m.recoveryHistory, event)
-	
+
 	// Trim history if needed
 	if len(m.recoveryHistory) > m.maxHistorySize {
 		m.recoveryHistory = m.recoveryHistory[len(m.recoveryHistory)-m.maxHistorySize:]
@@ -352,10 +352,10 @@ func (m *ErrorRecoveryManager) recordRecoverySuccess(action RecoveryAction, dura
 		"action":   action,
 		"duration": duration.String(),
 	})
-	
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	if len(m.recoveryHistory) > 0 {
 		m.recoveryHistory[len(m.recoveryHistory)-1].Success = true
 		m.recoveryHistory[len(m.recoveryHistory)-1].Duration = duration
@@ -368,10 +368,10 @@ func (m *ErrorRecoveryManager) recordRecoveryFailure(action RecoveryAction, dura
 		"action":   action,
 		"duration": duration.String(),
 	})
-	
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	if len(m.recoveryHistory) > 0 {
 		m.recoveryHistory[len(m.recoveryHistory)-1].Success = false
 		m.recoveryHistory[len(m.recoveryHistory)-1].Duration = duration
@@ -385,7 +385,7 @@ func (m *ErrorRecoveryManager) escalateToOps(err error, strategy *RecoveryStrate
 		"strategy": strategy,
 		"action":   "Manual intervention may be required",
 	})
-	
+
 	// In production, this would trigger alerts via PagerDuty, Slack, etc.
 }
 
@@ -393,11 +393,11 @@ func (m *ErrorRecoveryManager) escalateToOps(err error, strategy *RecoveryStrate
 func (m *ErrorRecoveryManager) GetRecoveryStats() map[string]interface{} {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	successCount := 0
 	failureCount := 0
 	actionCounts := make(map[RecoveryAction]int)
-	
+
 	for _, event := range m.recoveryHistory {
 		if event.Success {
 			successCount++
@@ -406,7 +406,7 @@ func (m *ErrorRecoveryManager) GetRecoveryStats() map[string]interface{} {
 		}
 		actionCounts[event.Action]++
 	}
-	
+
 	return map[string]interface{}{
 		"total_attempts":   len(m.recoveryHistory),
 		"successful":       successCount,
