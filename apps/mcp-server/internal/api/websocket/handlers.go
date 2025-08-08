@@ -28,6 +28,30 @@ const (
 	contextKeyAgentID      contextKey = "agent_id"
 )
 
+// mapHTTPErrorToWebSocket maps HTTP error codes to WebSocket error codes
+func mapHTTPErrorToWebSocket(httpError string) (int, string) {
+	switch {
+	case strings.Contains(httpError, "HTTP 400"):
+		return ws.ErrCodeInvalidParams, "Invalid request parameters"
+	case strings.Contains(httpError, "HTTP 401"):
+		return ws.ErrCodeAuthFailed, "Authentication required"
+	case strings.Contains(httpError, "HTTP 403"):
+		return ws.ErrCodeAuthFailed, "Permission denied"
+	case strings.Contains(httpError, "HTTP 404"):
+		return ws.ErrCodeMethodNotFound, "Resource not found"
+	case strings.Contains(httpError, "HTTP 429"):
+		return ws.ErrCodeRateLimited, "Rate limit exceeded"
+	case strings.Contains(httpError, "HTTP 500"), strings.Contains(httpError, "HTTP 502"), strings.Contains(httpError, "HTTP 503"):
+		return ws.ErrCodeServerError, "Service temporarily unavailable"
+	case strings.Contains(httpError, "circuit breaker"):
+		return ws.ErrCodeServerError, "Service circuit breaker activated"
+	case strings.Contains(httpError, "timeout"):
+		return ws.ErrCodeServerError, "Request timeout"
+	default:
+		return ws.ErrCodeServerError, "Internal error"
+	}
+}
+
 // PostActionConfig defines how a post-response action should be executed
 type PostActionConfig struct {
 	Action      func()
@@ -549,21 +573,43 @@ func (s *Server) handleInitialize(ctx context.Context, conn *Connection, params 
 
 // handleToolList handles the tool.list method
 func (s *Server) handleToolList(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
+	// Extract correlation ID from context
+	correlationID := ctx.Value(contextKeyRequestID)
+	if correlationID == nil {
+		correlationID = uuid.New().String()
+	}
+	
+	logFields := map[string]interface{}{
+		"correlation_id": correlationID,
+		"tenant_id":      conn.TenantID,
+		"agent_id":       conn.AgentID,
+		"connection_id":  conn.ID,
+		"method":         "tool.list",
+	}
+	
 	// First priority: Use REST API client if available
 	if s.restAPIClient != nil {
-		s.logger.Debug("Using REST API client to list tools", map[string]interface{}{
-			"tenant_id": conn.TenantID,
-			"agent_id":  conn.AgentID,
-		})
-
+		s.logger.Debug("Proxying tool.list to REST API", logFields)
+		
+		startTime := time.Now()
 		tools, err := s.restAPIClient.ListTools(ctx, conn.TenantID)
+		duration := time.Since(startTime)
+		
+		logFields["duration_ms"] = duration.Milliseconds()
+		
 		if err != nil {
-			s.logger.Error("Failed to list tools via REST API", map[string]interface{}{
-				"error":     err.Error(),
-				"tenant_id": conn.TenantID,
-			})
+			logFields["error"] = err.Error()
+			s.logger.Error("REST API tool.list failed", logFields)
+			
+			// Check if circuit breaker is open
+			if strings.Contains(err.Error(), "circuit breaker") {
+				return nil, fmt.Errorf("service temporarily unavailable: %w", err)
+			}
 			return nil, fmt.Errorf("failed to list tools: %w", err)
 		}
+		
+		logFields["tool_count"] = len(tools)
+		s.logger.Info("REST API tool.list successful", logFields)
 
 		// Convert tools to MCP response format
 		toolList := make([]map[string]interface{}, 0)
@@ -591,10 +637,13 @@ func (s *Server) handleToolList(ctx context.Context, conn *Connection, params js
 		}, nil
 	}
 
-	// Fallback: Use tool registry if available
+	// Fallback: Use tool registry if available (deprecated path)
 	if s.toolRegistry != nil {
+		s.logger.Warn("Using deprecated tool registry fallback", logFields)
 		tools, err := s.toolRegistry.GetToolsForAgent(conn.AgentID)
 		if err != nil {
+			logFields["error"] = err.Error()
+			s.logger.Error("Tool registry fallback failed", logFields)
 			return nil, err
 		}
 
@@ -615,10 +664,9 @@ func (s *Server) handleToolList(ctx context.Context, conn *Connection, params js
 	}
 
 	// No tools available
-	s.logger.Warn("No tool sources available", map[string]interface{}{
-		"has_rest_client":  s.restAPIClient != nil,
-		"has_tool_registry": s.toolRegistry != nil,
-	})
+	logFields["has_rest_client"] = s.restAPIClient != nil
+	logFields["has_tool_registry"] = s.toolRegistry != nil
+	s.logger.Warn("No tool sources available", logFields)
 	
 	return map[string]interface{}{
 		"tools": []map[string]interface{}{},
@@ -627,6 +675,12 @@ func (s *Server) handleToolList(ctx context.Context, conn *Connection, params js
 
 // handleToolExecute handles the tool.execute method
 func (s *Server) handleToolExecute(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
+	// Extract correlation ID from context
+	correlationID := ctx.Value(contextKeyRequestID)
+	if correlationID == nil {
+		correlationID = uuid.New().String()
+	}
+	
 	var execParams struct {
 		Tool      string                 `json:"tool"`
 		ToolID    string                 `json:"tool_id"`   // Alternative parameter name
@@ -638,7 +692,11 @@ func (s *Server) handleToolExecute(ctx context.Context, conn *Connection, params
 	}
 
 	if err := json.Unmarshal(params, &execParams); err != nil {
-		return nil, err
+		s.logger.Error("Failed to unmarshal tool.execute params", map[string]interface{}{
+			"correlation_id": correlationID,
+			"error":          err.Error(),
+		})
+		return nil, fmt.Errorf("invalid parameters: %w", err)
 	}
 
 	// Handle alternative parameter names
@@ -670,25 +728,49 @@ func (s *Server) handleToolExecute(ctx context.Context, conn *Connection, params
 		}
 	}
 
+	logFields := map[string]interface{}{
+		"correlation_id": correlationID,
+		"tenant_id":      conn.TenantID,
+		"agent_id":       conn.AgentID,
+		"connection_id":  conn.ID,
+		"method":         "tool.execute",
+		"tool_id":        toolID,
+		"action":         action,
+	}
+	
 	// First priority: Use REST API client if available
 	if s.restAPIClient != nil {
-		s.logger.Debug("Using REST API client to execute tool", map[string]interface{}{
-			"tenant_id": conn.TenantID,
-			"agent_id":  conn.AgentID,
-			"tool_id":   toolID,
-			"action":    action,
-		})
-
+		s.logger.Debug("Proxying tool.execute to REST API", logFields)
+		
+		startTime := time.Now()
 		result, err := s.restAPIClient.ExecuteTool(ctx, conn.TenantID, toolID, action, args)
+		duration := time.Since(startTime)
+		
+		logFields["duration_ms"] = duration.Milliseconds()
+		
 		if err != nil {
-			s.logger.Error("Failed to execute tool via REST API", map[string]interface{}{
-				"error":     err.Error(),
-				"tenant_id": conn.TenantID,
-				"tool_id":   toolID,
-				"action":    action,
-			})
+			logFields["error"] = err.Error()
+			s.logger.Error("REST API tool.execute failed", logFields)
+			
+			// Check if circuit breaker is open
+			if strings.Contains(err.Error(), "circuit breaker") {
+				return nil, fmt.Errorf("service temporarily unavailable: %w", err)
+			}
+			// Check for specific HTTP errors
+			if strings.Contains(err.Error(), "HTTP 404") {
+				return nil, fmt.Errorf("tool not found: %s", toolID)
+			}
+			if strings.Contains(err.Error(), "HTTP 403") {
+				return nil, fmt.Errorf("permission denied for tool: %s", toolID)
+			}
 			return nil, fmt.Errorf("failed to execute tool: %w", err)
 		}
+		
+		logFields["success"] = result != nil && result.Success
+		if result != nil {
+			logFields["status_code"] = result.StatusCode
+		}
+		s.logger.Info("REST API tool.execute completed", logFields)
 
 		// Convert REST API response to MCP format
 		response := map[string]interface{}{
@@ -708,12 +790,23 @@ func (s *Server) handleToolExecute(ctx context.Context, conn *Connection, params
 		return response, nil
 	}
 
-	// Fallback: Use tool registry if available
+	// Fallback: Use tool registry if available (deprecated path)
 	if s.toolRegistry != nil {
+		s.logger.Warn("Using deprecated tool registry for execution", logFields)
+		
+		startTime := time.Now()
 		result, err := s.toolRegistry.ExecuteTool(ctx, conn.AgentID, toolID, args)
+		duration := time.Since(startTime)
+		
+		logFields["duration_ms"] = duration.Milliseconds()
+		
 		if err != nil {
+			logFields["error"] = err.Error()
+			s.logger.Error("Tool registry execution failed", logFields)
 			return nil, err
 		}
+		
+		s.logger.Info("Tool registry execution completed", logFields)
 
 		return map[string]interface{}{
 			"tool":   toolID,
@@ -722,106 +815,12 @@ func (s *Server) handleToolExecute(ctx context.Context, conn *Connection, params
 		}, nil
 	}
 
-	// Send tool.started notification
-	if s.notificationManager != nil {
-		s.notificationManager.BroadcastNotification(ctx, "tool.events", "subscription.event", map[string]interface{}{
-			"subscription_id": "", // Will be filled by the notification manager
-			"event": map[string]interface{}{
-				"type":      "tool.started",
-				"tool":      toolID,
-				"args":      args,
-				"agent_id":  conn.AgentID,
-				"timestamp": time.Now().Unix(),
-			},
-		})
-	}
-
-	// Mock response when tool registry not available
-	// Handle specific test tools
-	switch toolID {
-	case "test_runner":
-		// Mock test runner tool for functional tests
-		testSuite := "unit"
-		if suite, ok := args["test_suite"].(string); ok {
-			testSuite = suite
-		}
-
-		// Simulate test execution
-		time.Sleep(100 * time.Millisecond)
-
-		result := map[string]interface{}{
-			"suite":    testSuite,
-			"tests":    10,
-			"passed":   10,
-			"failed":   0,
-			"duration": "100ms",
-		}
-
-		// Send tool.completed notification
-		if s.notificationManager != nil {
-			s.notificationManager.BroadcastNotification(ctx, "tool.events", "subscription.event", map[string]interface{}{
-				"subscription_id": "", // Will be filled by the notification manager
-				"event": map[string]interface{}{
-					"type":      "tool.completed",
-					"tool":      toolID,
-					"result":    result,
-					"agent_id":  conn.AgentID,
-					"timestamp": time.Now().Unix(),
-				},
-			})
-		}
-
-		return map[string]interface{}{
-			"tool":   toolID,
-			"status": "completed",
-			"result": result,
-		}, nil
-
-	case "echo_context":
-		// Get active session context
-		sessionContext := "Default context"
-		if s.conversationManager != nil {
-			activeSessionID := conn.GetActiveSession()
-			if activeSessionID != "" {
-				session, err := s.conversationManager.GetSession(ctx, activeSessionID)
-				if err == nil && session.State != nil {
-					if ctx, ok := session.State["context"]; ok {
-						sessionContext = fmt.Sprintf("%v", ctx)
-					}
-				}
-			}
-		}
-		return map[string]interface{}{
-			"context": sessionContext,
-		}, nil
-
-	default:
-		// Generic tool execution
-		result := map[string]interface{}{
-			"message": "Tool executed successfully",
-			"args":    args,
-		}
-
-		// Send tool.completed notification
-		if s.notificationManager != nil {
-			s.notificationManager.BroadcastNotification(ctx, "tool.events", "subscription.event", map[string]interface{}{
-				"subscription_id": "", // Will be filled by the notification manager
-				"event": map[string]interface{}{
-					"type":      "tool.completed",
-					"tool":      toolID,
-					"result":    result,
-					"agent_id":  conn.AgentID,
-					"timestamp": time.Now().Unix(),
-				},
-			})
-		}
-
-		return map[string]interface{}{
-			"tool":   toolID,
-			"status": "completed",
-			"result": result,
-		}, nil
-	}
+	// No tool execution sources available
+	logFields["has_rest_client"] = s.restAPIClient != nil
+	logFields["has_tool_registry"] = s.toolRegistry != nil
+	s.logger.Error("No tool execution sources available", logFields)
+	
+	return nil, fmt.Errorf("tool execution not available: tool '%s' cannot be executed without REST API or tool registry", toolID)
 }
 
 // handleContextCreate handles the context.create method

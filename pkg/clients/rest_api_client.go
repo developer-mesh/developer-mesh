@@ -27,6 +27,15 @@ type RESTAPIClient interface {
 	
 	// GetToolHealth checks the health status of a tool
 	GetToolHealth(ctx context.Context, tenantID, toolID string) (*models.HealthStatus, error)
+	
+	// HealthCheck verifies the REST API is reachable and responding
+	HealthCheck(ctx context.Context) error
+	
+	// GetMetrics returns client metrics for monitoring
+	GetMetrics() ClientMetrics
+	
+	// Close gracefully shuts down the client
+	Close() error
 }
 
 // restAPIClient implements the RESTAPIClient interface
@@ -39,12 +48,50 @@ type restAPIClient struct {
 	// Cache for tool list with TTL
 	cacheMutex sync.RWMutex
 	toolCache  map[string]*toolCacheEntry
+	
+	// Circuit breaker for resilience
+	circuitBreaker *CircuitBreaker
+	
+	// Metrics for monitoring
+	metrics ClientMetrics
+	
+	// Shutdown channel
+	shutdown chan struct{}
+	wg       sync.WaitGroup
 }
 
 type toolCacheEntry struct {
 	tools     []*models.DynamicTool
 	cachedAt  time.Time
 	cacheTTL  time.Duration
+}
+
+// ClientMetrics holds metrics for REST API client operations
+type ClientMetrics struct {
+	TotalRequests     int64
+	SuccessfulRequests int64
+	FailedRequests    int64
+	CacheHits         int64
+	CacheMisses       int64
+	CircuitBreakerState string
+	LastHealthCheck   time.Time
+	Healthy           bool
+}
+
+// CircuitBreaker implements the circuit breaker pattern
+type CircuitBreaker struct {
+	mu              sync.RWMutex
+	state           string // "closed", "open", "half-open"
+	failures        int
+	consecutiveSuccesses int
+	lastFailureTime time.Time
+	nextRetryTime   time.Time
+	
+	// Configuration
+	maxFailures     int
+	timeout         time.Duration
+	retryTimeout    time.Duration
+	successThreshold int
 }
 
 // RESTClientConfig holds configuration for the REST API client
@@ -56,6 +103,15 @@ type RESTClientConfig struct {
 	MaxConnsPerHost int
 	CacheTTL        time.Duration
 	Logger          observability.Logger
+	
+	// Circuit breaker configuration
+	CircuitBreakerMaxFailures int
+	CircuitBreakerTimeout     time.Duration
+	CircuitBreakerRetryTimeout time.Duration
+	
+	// Health check configuration
+	HealthCheckInterval time.Duration
+	HealthCheckTimeout  time.Duration
 }
 
 // NewRESTAPIClient creates a new REST API client with configuration
@@ -86,13 +142,40 @@ func NewRESTAPIClient(config RESTClientConfig) RESTAPIClient {
 		Timeout:   config.Timeout,
 	}
 	
-	return &restAPIClient{
+	// Set circuit breaker defaults
+	if config.CircuitBreakerMaxFailures == 0 {
+		config.CircuitBreakerMaxFailures = 5
+	}
+	if config.CircuitBreakerTimeout == 0 {
+		config.CircuitBreakerTimeout = 60 * time.Second
+	}
+	if config.CircuitBreakerRetryTimeout == 0 {
+		config.CircuitBreakerRetryTimeout = 30 * time.Second
+	}
+	
+	client := &restAPIClient{
 		baseURL:    config.BaseURL,
 		apiKey:     config.APIKey,
 		httpClient: httpClient,
 		logger:     config.Logger,
 		toolCache:  make(map[string]*toolCacheEntry),
+		shutdown:   make(chan struct{}),
+		circuitBreaker: &CircuitBreaker{
+			state:            "closed",
+			maxFailures:      config.CircuitBreakerMaxFailures,
+			timeout:          config.CircuitBreakerTimeout,
+			retryTimeout:     config.CircuitBreakerRetryTimeout,
+			successThreshold: 2,
+		},
 	}
+	
+	// Start health check goroutine if configured
+	if config.HealthCheckInterval > 0 {
+		client.wg.Add(1)
+		go client.runHealthChecks(config.HealthCheckInterval, config.HealthCheckTimeout)
+	}
+	
+	return client
 }
 
 // ListTools retrieves all tools for a tenant
@@ -102,6 +185,7 @@ func (c *restAPIClient) ListTools(ctx context.Context, tenantID string) ([]*mode
 	if entry, exists := c.toolCache[tenantID]; exists {
 		if time.Since(entry.cachedAt) < entry.cacheTTL {
 			c.cacheMutex.RUnlock()
+			c.metrics.CacheHits++
 			c.logger.Debug("Returning cached tool list", map[string]interface{}{
 				"tenant_id": tenantID,
 				"tool_count": len(entry.tools),
@@ -110,6 +194,7 @@ func (c *restAPIClient) ListTools(ctx context.Context, tenantID string) ([]*mode
 		}
 	}
 	c.cacheMutex.RUnlock()
+	c.metrics.CacheMisses++
 	
 	// Build request
 	url := fmt.Sprintf("%s/api/v1/tools", c.baseURL)
@@ -295,6 +380,7 @@ func (c *restAPIClient) doRequest(req *http.Request) (*http.Response, error) {
 		resp, err := c.httpClient.Do(reqCopy)
 		if err != nil {
 			lastErr = fmt.Errorf("request failed: %w", err)
+			c.circuitBreaker.recordFailure()
 			
 			// Network errors are retryable
 			if attempt < maxRetries {
@@ -338,9 +424,12 @@ func (c *restAPIClient) doRequest(req *http.Request) (*http.Response, error) {
 		}
 		
 		// Success
+		c.circuitBreaker.recordSuccess()
+		c.metrics.SuccessfulRequests++
 		return resp, nil
 	}
 	
+	c.metrics.FailedRequests++
 	return nil, lastErr
 }
 
@@ -366,4 +455,164 @@ func (c *restAPIClient) invalidateCache(tenantID string) {
 	c.cacheMutex.Lock()
 	delete(c.toolCache, tenantID)
 	c.cacheMutex.Unlock()
+}
+
+// HealthCheck verifies the REST API is reachable and responding
+func (c *restAPIClient) HealthCheck(ctx context.Context) error {
+	// Check circuit breaker state
+	if !c.circuitBreaker.canAttempt() {
+		c.metrics.Healthy = false
+		return fmt.Errorf("circuit breaker is open")
+	}
+	
+	url := fmt.Sprintf("%s/health", c.baseURL)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create health check request: %w", err)
+	}
+	
+	// Use a shorter timeout for health checks
+	healthCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	req = req.WithContext(healthCtx)
+	
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		c.circuitBreaker.recordFailure()
+		c.metrics.Healthy = false
+		return fmt.Errorf("health check request failed: %w", err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			c.logger.Warn("Failed to close health check response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
+	
+	if resp.StatusCode != http.StatusOK {
+		c.circuitBreaker.recordFailure()
+		c.metrics.Healthy = false
+		return fmt.Errorf("health check returned status %d", resp.StatusCode)
+	}
+	
+	c.circuitBreaker.recordSuccess()
+	c.metrics.Healthy = true
+	c.metrics.LastHealthCheck = time.Now()
+	return nil
+}
+
+// GetMetrics returns client metrics for monitoring
+func (c *restAPIClient) GetMetrics() ClientMetrics {
+	c.cacheMutex.RLock()
+	defer c.cacheMutex.RUnlock()
+	
+	c.metrics.CircuitBreakerState = c.circuitBreaker.getState()
+	return c.metrics
+}
+
+// Close gracefully shuts down the client
+func (c *restAPIClient) Close() error {
+	close(c.shutdown)
+	c.wg.Wait()
+	
+	if c.httpClient != nil {
+		if transport, ok := c.httpClient.Transport.(*http.Transport); ok {
+			transport.CloseIdleConnections()
+		}
+	}
+	
+	c.logger.Info("REST API client closed", map[string]interface{}{
+		"total_requests":      c.metrics.TotalRequests,
+		"successful_requests": c.metrics.SuccessfulRequests,
+		"failed_requests":     c.metrics.FailedRequests,
+		"cache_hits":          c.metrics.CacheHits,
+		"cache_misses":        c.metrics.CacheMisses,
+	})
+	
+	return nil
+}
+
+// runHealthChecks runs periodic health checks
+func (c *restAPIClient) runHealthChecks(interval, timeout time.Duration) {
+	defer c.wg.Done()
+	
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	
+	for {
+		select {
+		case <-ticker.C:
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			if err := c.HealthCheck(ctx); err != nil {
+				c.logger.Warn("Health check failed", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+			cancel()
+		case <-c.shutdown:
+			return
+		}
+	}
+}
+
+// Circuit breaker methods
+func (cb *CircuitBreaker) canAttempt() bool {
+	cb.mu.RLock()
+	defer cb.mu.RUnlock()
+	
+	switch cb.state {
+	case "closed":
+		return true
+	case "open":
+		return time.Now().After(cb.nextRetryTime)
+	case "half-open":
+		return true
+	default:
+		return true
+	}
+}
+
+func (cb *CircuitBreaker) recordSuccess() {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+	
+	cb.failures = 0
+	cb.consecutiveSuccesses++
+	
+	if cb.state == "half-open" && cb.consecutiveSuccesses >= cb.successThreshold {
+		cb.state = "closed"
+		cb.consecutiveSuccesses = 0
+	}
+}
+
+func (cb *CircuitBreaker) recordFailure() {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+	
+	cb.failures++
+	cb.consecutiveSuccesses = 0
+	cb.lastFailureTime = time.Now()
+	
+	if cb.failures >= cb.maxFailures {
+		cb.state = "open"
+		cb.nextRetryTime = time.Now().Add(cb.retryTimeout)
+	}
+}
+
+func (cb *CircuitBreaker) getState() string {
+	cb.mu.RLock()
+	defer cb.mu.RUnlock()
+	
+	// Check if we should transition from open to half-open
+	if cb.state == "open" && time.Now().After(cb.nextRetryTime) {
+		cb.mu.RUnlock()
+		cb.mu.Lock()
+		cb.state = "half-open"
+		cb.consecutiveSuccesses = 0
+		cb.mu.Unlock()
+		cb.mu.RLock()
+	}
+	
+	return cb.state
 }

@@ -631,8 +631,27 @@ func (s *Server) Shutdown(ctx context.Context) error {
 func (s *Server) healthHandler(c *gin.Context) {
 	health := s.engine.Health()
 
-	// Check if we have a REST API client
-	if s.restClientFactory != nil {
+	// Check REST API client health
+	if s.restAPIClient != nil {
+		metrics := s.restAPIClient.GetMetrics()
+		
+		if metrics.Healthy {
+			health["rest_api_client"] = "healthy"
+		} else {
+			health["rest_api_client"] = fmt.Sprintf("unhealthy (circuit_breaker: %s, failed_requests: %d)", 
+				metrics.CircuitBreakerState, metrics.FailedRequests)
+			health["status"] = "degraded"
+		}
+		
+		// Add detailed metrics if requested
+		if c.Query("details") == "true" {
+			health["rest_api_metrics"] = fmt.Sprintf(
+				"total_requests=%d, successful=%d, failed=%d, cache_hits=%d, cache_misses=%d",
+				metrics.TotalRequests, metrics.SuccessfulRequests, metrics.FailedRequests,
+				metrics.CacheHits, metrics.CacheMisses,
+			)
+		}
+	} else if s.restClientFactory != nil {
 		health["rest_api_client"] = "healthy"
 	} else {
 		health["rest_api_client"] = "unavailable"

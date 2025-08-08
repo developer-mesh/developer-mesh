@@ -187,145 +187,37 @@ func (r *Registry) Disable(name string) error {
 	return nil
 }
 
-// RegisterBuiltinTools registers all built-in tools
+// RegisterBuiltinTools is deprecated - all tools are now managed via REST API
+// This function is kept for backward compatibility but does nothing
 func (r *Registry) RegisterBuiltinTools() error {
-	// Register GitHub tools
-	githubTool := &Tool{
-		Name:        "github",
-		Description: "GitHub integration for repository operations",
-		Version:     "1.0.0",
-		Provider:    "github",
-		Enabled:     true,
-		Metadata: map[string]interface{}{
-			"category": "version_control",
-			"author":   "developer-mesh",
-		},
-	}
-
-	// Create a simple handler for demonstration
-	githubHandler := &genericToolHandler{
-		name: "github",
-		schema: map[string]interface{}{
-			"type": "object",
-			"properties": map[string]interface{}{
-				"action": map[string]interface{}{
-					"type":        "string",
-					"description": "Action to perform",
-					"enum":        []string{"list_repos", "get_repo", "create_issue"},
-				},
-				"params": map[string]interface{}{
-					"type":        "object",
-					"description": "Action-specific parameters",
-				},
-			},
-			"required": []string{"action"},
-		},
-	}
-
-	if err := r.Register(githubTool, githubHandler); err != nil {
-		return fmt.Errorf("failed to register GitHub tool: %w", err)
-	}
-
-	// Register Jira tools
-	jiraTool := &Tool{
-		Name:        "jira",
-		Description: "Jira integration for issue tracking",
-		Version:     "1.0.0",
-		Provider:    "atlassian",
-		Enabled:     true,
-		Metadata: map[string]interface{}{
-			"category": "issue_tracking",
-			"author":   "developer-mesh",
-		},
-	}
-
-	jiraHandler := &genericToolHandler{
-		name: "jira",
-		schema: map[string]interface{}{
-			"type": "object",
-			"properties": map[string]interface{}{
-				"action": map[string]interface{}{
-					"type":        "string",
-					"description": "Action to perform",
-					"enum":        []string{"list_issues", "create_issue", "update_issue"},
-				},
-				"params": map[string]interface{}{
-					"type":        "object",
-					"description": "Action-specific parameters",
-				},
-			},
-			"required": []string{"action"},
-		},
-	}
-
-	if err := r.Register(jiraTool, jiraHandler); err != nil {
-		return fmt.Errorf("failed to register Jira tool: %w", err)
-	}
-
-	// Register Slack tools
-	slackTool := &Tool{
-		Name:        "slack",
-		Description: "Slack integration for team communication",
-		Version:     "1.0.0",
-		Provider:    "slack",
-		Enabled:     true,
-		Metadata: map[string]interface{}{
-			"category": "communication",
-			"author":   "developer-mesh",
-		},
-	}
-
-	slackHandler := &genericToolHandler{
-		name: "slack",
-		schema: map[string]interface{}{
-			"type": "object",
-			"properties": map[string]interface{}{
-				"action": map[string]interface{}{
-					"type":        "string",
-					"description": "Action to perform",
-					"enum":        []string{"send_message", "list_channels", "create_channel"},
-				},
-				"params": map[string]interface{}{
-					"type":        "object",
-					"description": "Action-specific parameters",
-				},
-			},
-			"required": []string{"action"},
-		},
-	}
-
-	if err := r.Register(slackTool, slackHandler); err != nil {
-		return fmt.Errorf("failed to register Slack tool: %w", err)
-	}
-
+	// No builtin tools are registered anymore
+	// All tools are dynamically loaded from the REST API
+	r.logger.Info("Builtin tools registration skipped - using REST API for tool discovery", nil)
 	return nil
 }
 
-// genericToolHandler is a simple implementation of ToolHandler for demonstration
-type genericToolHandler struct {
-	name   string
-	schema map[string]interface{}
+// ProxyToolHandler proxies tool execution to the REST API
+type ProxyToolHandler struct {
+	name       string
+	restClient interface{} // Will be the REST API client
+	logger     observability.Logger
 }
 
-func (h *genericToolHandler) Execute(ctx context.Context, params map[string]interface{}) (interface{}, error) {
-	// This is a placeholder implementation
-	// In production, this would integrate with actual services
+func (h *ProxyToolHandler) Execute(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// This handler would proxy to REST API
+	// Currently returns an error indicating tools should be accessed via REST API
+	return nil, fmt.Errorf("tool %s should be executed via REST API proxy", h.name)
+}
+
+func (h *ProxyToolHandler) GetSchema() map[string]interface{} {
+	// Schema is retrieved from REST API
 	return map[string]interface{}{
-		"tool":   h.name,
-		"status": "success",
-		"result": "Tool execution simulated",
-		"params": params,
-	}, nil
-}
-
-func (h *genericToolHandler) GetSchema() map[string]interface{} {
-	return h.schema
-}
-
-func (h *genericToolHandler) Validate(params map[string]interface{}) error {
-	// Basic validation - check for required action field
-	if _, ok := params["action"]; !ok {
-		return fmt.Errorf("action parameter is required")
+		"type":        "object",
+		"description": "Tool schema available via REST API",
 	}
+}
+
+func (h *ProxyToolHandler) Validate(params map[string]interface{}) error {
+	// Validation is handled by REST API
 	return nil
 }

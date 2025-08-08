@@ -206,6 +206,15 @@ func main() {
 		})
 		os.Exit(1)
 	}
+	if restClient != nil {
+		defer func() {
+			if err := restClient.Close(); err != nil {
+				logger.Error("Failed to close REST API client", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+		}()
+	}
 
 	// Initialize services for multi-agent collaboration with root context
 	services, err := initializeServices(ctx, cfg, db, cacheClient, metricsClient, logger)
@@ -1348,22 +1357,67 @@ func initializeRESTClient(cfg *commonconfig.Config, logger observability.Logger)
 
 	// Create REST client configuration
 	restConfig := clients.RESTClientConfig{
-		BaseURL:         cfg.MCPServer.RestAPI.BaseURL,
-		APIKey:          cfg.MCPServer.RestAPI.APIKey,
-		Timeout:         cfg.MCPServer.RestAPI.Timeout,
-		MaxIdleConns:    100,
-		MaxConnsPerHost: 10,
-		CacheTTL:        30 * time.Second,
-		Logger:          logger,
+		BaseURL:                    cfg.MCPServer.RestAPI.BaseURL,
+		APIKey:                     cfg.MCPServer.RestAPI.APIKey,
+		Timeout:                    cfg.MCPServer.RestAPI.Timeout,
+		MaxIdleConns:               100,
+		MaxConnsPerHost:            10,
+		CacheTTL:                   30 * time.Second,
+		Logger:                     logger,
+		CircuitBreakerMaxFailures:  5,
+		CircuitBreakerTimeout:      60 * time.Second,
+		CircuitBreakerRetryTimeout: 30 * time.Second,
+		HealthCheckInterval:        30 * time.Second,
+		HealthCheckTimeout:         5 * time.Second,
 	}
 
 	logger.Info("Initializing REST API client", map[string]interface{}{
-		"base_url": restConfig.BaseURL,
-		"timeout":  restConfig.Timeout,
+		"base_url":                 restConfig.BaseURL,
+		"timeout":                  restConfig.Timeout,
+		"health_check_interval":    restConfig.HealthCheckInterval,
+		"circuit_breaker_enabled":  true,
 	})
 
-	// Create and return the REST client
-	return clients.NewRESTAPIClient(restConfig), nil
+	// Create the REST client
+	client := clients.NewRESTAPIClient(restConfig)
+	
+	// Validate connection with retries
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	
+	maxAttempts := 5
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		if err := client.HealthCheck(ctx); err != nil {
+			logger.Warn("REST API health check failed", map[string]interface{}{
+				"attempt":      attempt,
+				"max_attempts": maxAttempts,
+				"error":        err.Error(),
+			})
+			
+			if attempt < maxAttempts {
+				time.Sleep(time.Duration(attempt) * 2 * time.Second) // Exponential backoff
+				continue
+			}
+			
+			// If we're in development, we can continue without REST API
+			if cfg.IsDevelopment() {
+				logger.Error("REST API not available, continuing in degraded mode", map[string]interface{}{
+					"error": err.Error(),
+				})
+				return client, nil // Return client anyway for potential future recovery
+			}
+			
+			return nil, fmt.Errorf("REST API health check failed after %d attempts: %w", maxAttempts, err)
+		}
+		
+		// Health check succeeded
+		logger.Info("REST API connection validated", map[string]interface{}{
+			"attempt": attempt,
+		})
+		break
+	}
+	
+	return client, nil
 }
 
 func performHealthCheck() error {
