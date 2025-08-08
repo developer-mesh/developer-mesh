@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -64,7 +65,8 @@ func (api *DynamicToolsAPI) RegisterRoutes(router *gin.RouterGroup) {
 		tools.POST("/:toolId/health/refresh", api.RefreshHealth)
 
 		// Execution
-		tools.POST("/:toolId/execute/:action", api.ExecuteAction)
+		tools.POST("/:toolId/execute", api.ExecuteAction)
+		tools.POST("/:toolId/execute/:action", api.ExecuteAction) // Keep for backward compatibility
 		tools.GET("/:toolId/actions", api.ListActions)
 
 		// Credentials
@@ -517,7 +519,14 @@ func (api *DynamicToolsAPI) ListActions(c *gin.Context) {
 func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 	tenantID := c.GetString("tenant_id")
 	toolID := c.Param("toolId")
-	action := c.Param("action")
+	encodedAction := c.Param("action")
+	
+	// URL-decode the action to handle encoded slashes and special characters
+	action, decodeErr := url.QueryUnescape(encodedAction)
+	if decodeErr != nil {
+		// Fallback to using the raw value if decoding fails
+		action = encodedAction
+	}
 
 	if tenantID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "tenant_id required"})

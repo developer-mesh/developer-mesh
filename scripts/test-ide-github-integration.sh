@@ -39,9 +39,14 @@ ws_send() {
     local timeout="${2:-2}"  # Default 2 second timeout
     local sleep_time="${3:-1}"  # Default 1 second sleep
     
+    # Compact JSON to single line
+    local compact_message
+    compact_message=$(echo "$message" | jq -c . 2>/dev/null || echo "$message")
+    
     # Send message, wait for response, capture first response line
+    # Use printf to send message and keep connection open with sleep
     local response
-    response=$( (echo "$message"; sleep "$sleep_time") | timeout "$timeout" websocat -t --header="X-API-Key: ${API_KEY}" "$MCP_WS_URL" 2>/dev/null | head -n 1 )
+    response=$( (printf "%s\n" "$compact_message"; sleep "$sleep_time") | websocat -t -n1 --header="X-API-Key: ${API_KEY}" "$MCP_WS_URL" 2>/dev/null )
     
     # Return empty JSON if no response
     if [ -z "$response" ]; then
@@ -61,8 +66,8 @@ echo -e "${YELLOW}Step 1: Checking services...${NC}"
 
 # Function to test WebSocket connectivity
 test_ws_connection() {
-    # type: 4 = MessageTypePing
-    local test_msg='{"type": 4, "id": "test-'$(date +%s)'"}'
+    # Use method-based ping instead of type: 4
+    local test_msg='{"type": 0, "id": "test-'$(date +%s)'", "method": "ping"}'
     local response
     response=$(ws_send "$test_msg" 1 0.5)
     
@@ -194,28 +199,39 @@ DISCOVER_RESPONSE=$(ws_send "$DISCOVER_MSG" 2 1)  # 2s timeout, 1s wait
 if echo "$DISCOVER_RESPONSE" | grep -q "github"; then
     echo -e "${GREEN}✓ GitHub tool discovered via MCP${NC}"
     
-    # Extract tool ID from response
+    # Extract tool ID from response - handle both nested and direct result formats
     GITHUB_TOOL_ID=$(echo "$DISCOVER_RESPONSE" | python3 -c "
 import sys, json
 try:
     data = json.load(sys.stdin)
-    tools = data.get('data', {}).get('tools', [])
-    for tool in tools:
-        if 'github' in tool.get('name', '').lower():
-            print(tool.get('id', ''))
-            break
-except:
-    print('')
+    # Try different response structures
+    tools = None
+    if 'result' in data and 'tools' in data['result']:
+        tools = data['result']['tools']
+    elif 'data' in data and 'tools' in data['data']:
+        tools = data['data']['tools']
+    elif 'tools' in data:
+        tools = data['tools']
+    
+    if tools:
+        for tool in tools:
+            if 'github' in str(tool.get('name', '')).lower():
+                print(tool.get('id', ''))
+                break
+except Exception as e:
+    pass
 " 2>/dev/null || echo "")
     
     if [ -z "$GITHUB_TOOL_ID" ]; then
-        echo -e "${YELLOW}Could not extract GitHub tool ID, using known UUID...${NC}"
-        GITHUB_TOOL_ID="3275c744-c7e8-4757-833b-2380f280c2ff"
+        echo -e "${YELLOW}Could not extract GitHub tool ID, will use tool name instead...${NC}"
+        GITHUB_TOOL_ID="github"
+    else
+        echo -e "${GREEN}✓ Extracted GitHub tool UUID: ${GITHUB_TOOL_ID}${NC}"
     fi
 else
     echo -e "${YELLOW}⚠ Tool discovery response: $DISCOVER_RESPONSE${NC}"
-    echo -e "${YELLOW}Using known GitHub tool ID...${NC}"
-    GITHUB_TOOL_ID="3275c744-c7e8-4757-833b-2380f280c2ff"
+    echo -e "${YELLOW}Using tool name 'github' instead of UUID...${NC}"
+    GITHUB_TOOL_ID="github"
 fi
 
 echo -e "${GREEN}✓ GitHub Tool ID: ${GITHUB_TOOL_ID}${NC}"
@@ -280,6 +296,9 @@ try:
     content = None
     if 'data' in data and 'result' in data['data']:
         content = data['data']['result'].get('content', '')
+    elif 'result' in data and 'result' in data['result']:
+        # Handle nested result.result structure
+        content = data['result']['result'].get('content', '')
     elif 'result' in data:
         content = data['result'].get('content', '')
     elif 'content' in data:
@@ -310,6 +329,9 @@ try:
     content = None
     if 'data' in data and 'result' in data['data']:
         content = data['data']['result'].get('content', '')
+    elif 'result' in data and 'result' in data['result']:
+        # Handle nested result.result structure
+        content = data['result']['result'].get('content', '')
     elif 'result' in data:
         content = data['result'].get('content', '')
     elif 'content' in data:
@@ -379,11 +401,12 @@ fi
 echo -e "\n${YELLOW}Step 6: Testing connection persistence...${NC}"
 
 # Send a heartbeat to maintain connection
-# type: 4 = MessageTypePing
+# Use method-based ping instead of type: 4
 HEARTBEAT_MSG=$(cat <<EOF
 {
-    "type": 4,
+    "type": 0,
     "id": "$(uuidgen | tr '[:upper:]' '[:lower:]')",
+    "method": "ping",
     "params": {
         "agent_id": "${AGENT_UUID}",
         "status": "active"

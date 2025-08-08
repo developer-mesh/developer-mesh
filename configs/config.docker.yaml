@@ -7,6 +7,17 @@ _base: config.base.yaml
 # Environment
 environment: "docker"
 
+# MCP Server Configuration for Docker
+mcp_server:
+  listen_address: ":8080"  # MCP server port (WebSocket/MCP protocol)
+  # Connection to REST API for data operations
+  rest_api:
+    enabled: true
+    base_url: "http://rest-api:8080"  # Use Docker service name
+    api_key: "${MCP_API_KEY:-dev-admin-key-1234567890}"
+    timeout: 30s
+    retry_count: 3
+
 # API Server Configuration for Docker
 api:
   listen_address: ":8080"  # Listen on all interfaces in container

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -27,6 +28,13 @@ const (
 	contextKeyConnectionID contextKey = "connection_id"
 	contextKeyAgentID      contextKey = "agent_id"
 )
+
+// isUUID checks if a string is a valid UUID format
+func isUUID(s string) bool {
+	// UUID regex pattern: 8-4-4-4-12 hexadecimal digits
+	uuidPattern := regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+	return uuidPattern.MatchString(strings.ToLower(s))
+}
 
 // mapHTTPErrorToWebSocket maps HTTP error codes to WebSocket error codes
 func mapHTTPErrorToWebSocket(httpError string) (int, string) {
@@ -82,6 +90,9 @@ func (s *Server) RegisterHandlers() {
 		"tool.list":    s.handleToolList,
 		"tool.execute": s.handleToolExecute,
 		"tool.cancel":  s.handleToolCancel,
+
+		// Embedding operations
+		"embedding.generate": s.handleEmbeddingGenerate,
 
 		// Context management
 		"context.create":     s.handleContextCreate,
@@ -196,7 +207,25 @@ func (s *Server) RegisterHandlers() {
 
 // processMessage handles incoming WebSocket messages
 func (s *Server) processMessage(ctx context.Context, conn *Connection, msg *ws.Message) ([]byte, *PostActionConfig, error) {
-	// Validate message
+	// Handle special message types first
+	if msg.Type == ws.MessageTypePing {
+		// Handle ping messages directly
+		pongMsg := &ws.Message{
+			Type: ws.MessageTypePong,
+			ID:   msg.ID,
+			Result: map[string]interface{}{
+				"pong":      true,
+				"timestamp": time.Now().Unix(),
+			},
+		}
+		pongBytes, err := json.Marshal(pongMsg)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to marshal pong: %w", err)
+		}
+		return pongBytes, nil, nil
+	}
+
+	// Validate message for request type
 	if msg.Type != ws.MessageTypeRequest {
 		return nil, nil, fmt.Errorf("invalid message type: %d", msg.Type)
 	}
@@ -451,6 +480,100 @@ func (s *Server) handlePing(ctx context.Context, conn *Connection, params json.R
 	}, nil
 }
 
+// handleEmbeddingGenerate handles embedding generation requests
+func (s *Server) handleEmbeddingGenerate(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
+	var embedParams struct {
+		Text     string `json:"text"`
+		Model    string `json:"model"`
+		TaskType string `json:"task_type"`
+		AgentID  string `json:"agent_id"`
+	}
+
+	if err := json.Unmarshal(params, &embedParams); err != nil {
+		return nil, fmt.Errorf("invalid embedding parameters: %w", err)
+	}
+
+	// Use agent ID from params or connection
+	agentID := embedParams.AgentID
+	if agentID == "" {
+		agentID = conn.AgentID
+	}
+
+	// Default task type if not specified
+	if embedParams.TaskType == "" {
+		embedParams.TaskType = "general_qa"
+	}
+
+	// Log the request
+	logFields := map[string]interface{}{
+		"agent_id":    agentID,
+		"tenant_id":   conn.TenantID,
+		"model":       embedParams.Model,
+		"task_type":   embedParams.TaskType,
+		"text_length": len(embedParams.Text),
+	}
+	s.logger.Info("Embedding generation request", logFields)
+
+	// Check if REST API client is available
+	if s.restAPIClient != nil {
+		startTime := time.Now()
+		
+		// Call REST API to generate embedding
+		result, err := s.restAPIClient.GenerateEmbedding(
+			ctx,
+			conn.TenantID,
+			agentID,
+			embedParams.Text,
+			embedParams.Model,
+			embedParams.TaskType,
+		)
+		
+		duration := time.Since(startTime)
+		logFields["duration_ms"] = duration.Milliseconds()
+		
+		if err != nil {
+			logFields["error"] = err.Error()
+			s.logger.Error("REST API embedding generation failed", logFields)
+			return nil, fmt.Errorf("failed to generate embedding: %w", err)
+		}
+		
+		logFields["embedding_id"] = result.EmbeddingID
+		logFields["dimensions"] = result.Dimensions
+		logFields["provider"] = result.Provider
+		s.logger.Info("REST API embedding generation successful", logFields)
+		
+		// Convert REST API response to MCP format
+		response := map[string]interface{}{
+			"embedding_id": result.EmbeddingID,
+			"success":      result.Success,
+			"model":        result.Model,
+			"provider":     result.Provider,
+			"dimensions":   result.Dimensions,
+			"task_type":    result.TaskType,
+			"created_at":   result.CreatedAt.Format(time.RFC3339),
+		}
+		
+		// Include vector if requested (usually omitted for size)
+		if len(result.Vector) > 0 {
+			response["vector_size"] = len(result.Vector)
+			// Optionally include first few values for verification
+			if len(result.Vector) > 3 {
+				response["vector_sample"] = result.Vector[:3]
+			}
+		}
+		
+		if result.Error != "" {
+			response["error"] = result.Error
+		}
+		
+		return response, nil
+	}
+	
+	// Fallback if no REST API client
+	s.logger.Warn("No REST API client available for embedding generation", logFields)
+	return nil, fmt.Errorf("embedding service not available")
+}
+
 // handleBenchmark performs a benchmark test
 func (s *Server) handleBenchmark(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
 	var benchParams struct {
@@ -682,13 +805,9 @@ func (s *Server) handleToolExecute(ctx context.Context, conn *Connection, params
 	}
 
 	var execParams struct {
-		Tool      string                 `json:"tool"`
-		ToolID    string                 `json:"tool_id"` // Alternative parameter name
-		Name      string                 `json:"name"`    // Alternative parameter name
-		Action    string                 `json:"action"`  // Action for REST API
-		Args      map[string]interface{} `json:"args"`
-		Arguments map[string]interface{} `json:"arguments"` // Alternative parameter name
-		Params    map[string]interface{} `json:"params"`    // Alternative parameter name
+		ToolID     string                 `json:"tool_id"`
+		Action     string                 `json:"action"`
+		Parameters map[string]interface{} `json:"parameters"`
 	}
 
 	if err := json.Unmarshal(params, &execParams); err != nil {
@@ -699,33 +818,20 @@ func (s *Server) handleToolExecute(ctx context.Context, conn *Connection, params
 		return nil, fmt.Errorf("invalid parameters: %w", err)
 	}
 
-	// Handle alternative parameter names
-	toolID := execParams.Tool
+	// Validate required fields
+	toolID := execParams.ToolID
 	if toolID == "" {
-		toolID = execParams.ToolID
-	}
-	if toolID == "" {
-		toolID = execParams.Name
+		return nil, fmt.Errorf("tool_id is required")
 	}
 
-	args := execParams.Args
-	if args == nil {
-		args = execParams.Arguments
-	}
-	if args == nil {
-		args = execParams.Params
-	}
-
-	// Extract action if present (for REST API)
 	action := execParams.Action
 	if action == "" {
-		// Try to extract from tool ID (e.g., "github.read_file" -> "read_file")
-		if parts := strings.SplitN(toolID, ".", 2); len(parts) == 2 {
-			toolID = parts[0]
-			action = parts[1]
-		} else {
-			action = "execute" // Default action
-		}
+		return nil, fmt.Errorf("action is required")
+	}
+
+	args := execParams.Parameters
+	if args == nil {
+		args = make(map[string]interface{})
 	}
 
 	logFields := map[string]interface{}{
@@ -742,8 +848,44 @@ func (s *Server) handleToolExecute(ctx context.Context, conn *Connection, params
 	if s.restAPIClient != nil {
 		s.logger.Debug("Proxying tool.execute to REST API", logFields)
 
+		// Resolve tool name to UUID if needed
+		// Check if toolID is a name (not a UUID format)
+		var actualToolID string
+		if !isUUID(toolID) {
+			// Need to look up the tool UUID by name
+			tools, err := s.restAPIClient.ListTools(ctx, conn.TenantID)
+			if err != nil {
+				s.logger.Error("Failed to list tools for name resolution", map[string]interface{}{
+					"error":    err.Error(),
+					"tool_name": toolID,
+				})
+				return nil, fmt.Errorf("failed to resolve tool name: %w", err)
+			}
+
+			// Find tool by name
+			found := false
+			for _, tool := range tools {
+				if tool.ToolName == toolID {
+					actualToolID = tool.ID
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				return nil, fmt.Errorf("tool not found: %s", toolID)
+			}
+
+			s.logger.Debug("Resolved tool name to UUID", map[string]interface{}{
+				"tool_name": toolID,
+				"tool_uuid": actualToolID,
+			})
+		} else {
+			actualToolID = toolID
+		}
+
 		startTime := time.Now()
-		result, err := s.restAPIClient.ExecuteTool(ctx, conn.TenantID, toolID, action, args)
+		result, err := s.restAPIClient.ExecuteTool(ctx, conn.TenantID, actualToolID, action, args)
 		duration := time.Since(startTime)
 
 		logFields["duration_ms"] = duration.Milliseconds()

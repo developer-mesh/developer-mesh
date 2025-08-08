@@ -346,69 +346,168 @@ func (a *DynamicToolAdapter) getOpenAPISpec(ctx context.Context) (*openapi3.T, e
 	// Get spec URL from tool config
 	specURL, ok := a.tool.Config["spec_url"].(string)
 	if !ok || specURL == "" {
+		a.logger.Error("No OpenAPI spec URL in tool configuration", map[string]interface{}{
+			"tool_name": a.tool.ToolName,
+			"tool_id":   a.tool.ID,
+		})
 		return nil, fmt.Errorf("no OpenAPI spec URL found in tool configuration")
 	}
 
 	// Try cache first
 	spec, err := a.specCache.Get(ctx, specURL)
 	if err == nil {
+		a.logger.Debug("Loaded OpenAPI spec from cache", map[string]interface{}{
+			"tool_name": a.tool.ToolName,
+			"spec_url":  specURL,
+		})
 		return spec, nil
 	}
 
-	// Fetch and cache
-	req, err := http.NewRequestWithContext(ctx, "GET", specURL, nil)
-	if err != nil {
-		return nil, err
-	}
+	a.logger.Info("Spec not in cache, fetching", map[string]interface{}{
+		"tool_name": a.tool.ToolName,
+		"spec_url":  specURL,
+		"cache_err": err.Error(),
+	})
 
-	resp, err := a.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = resp.Body.Close() }()
+	// Implement retry logic with exponential backoff
+	var lastErr error
+	maxRetries := 3
+	baseDelay := time.Second
+	
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		if attempt > 0 {
+			delay := baseDelay * time.Duration(1<<uint(attempt-1))
+			a.logger.Debug("Retrying spec fetch", map[string]interface{}{
+				"attempt": attempt + 1,
+				"delay":   delay.String(),
+			})
+			time.Sleep(delay)
+		}
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to fetch OpenAPI spec: HTTP %d", resp.StatusCode)
-	}
+		// Create request with timeout
+		reqCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+		
+		req, err := http.NewRequestWithContext(reqCtx, "GET", specURL, nil)
+		if err != nil {
+			lastErr = err
+			continue
+		}
 
-	// Read response body
-	bodyData, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read spec response: %w", err)
-	}
+		resp, err := a.httpClient.Do(req)
+		if err != nil {
+			lastErr = err
+			a.logger.Warn("Failed to fetch spec", map[string]interface{}{
+				"attempt": attempt + 1,
+				"error":   err.Error(),
+			})
+			continue
+		}
+		defer func() { _ = resp.Body.Close() }()
 
-	// Parse spec
-	loader := openapi3.NewLoader()
-	spec, err = loader.LoadFromData(bodyData)
-	if err != nil {
-		return nil, err
-	}
+		if resp.StatusCode != http.StatusOK {
+			lastErr = fmt.Errorf("HTTP %d", resp.StatusCode)
+			a.logger.Warn("Spec fetch returned error status", map[string]interface{}{
+				"status_code": resp.StatusCode,
+				"attempt":     attempt + 1,
+			})
+			continue
+		}
 
-	// Cache for 24 hours
-	if err := a.specCache.Set(ctx, specURL, spec, 24*time.Hour); err != nil {
-		a.logger.Warn("Failed to cache OpenAPI spec", map[string]interface{}{
-			"url":   specURL,
-			"error": err.Error(),
+		// Read response body with size limit for large specs
+		limitedReader := io.LimitReader(resp.Body, 10*1024*1024) // 10MB limit
+		bodyData, err := io.ReadAll(limitedReader)
+		if err != nil {
+			lastErr = fmt.Errorf("failed to read spec: %w", err)
+			continue
+		}
+
+		// Parse spec
+		loader := openapi3.NewLoader()
+		loader.IsExternalRefsAllowed = true
+		spec, err = loader.LoadFromData(bodyData)
+		if err != nil {
+			lastErr = fmt.Errorf("failed to parse spec: %w", err)
+			a.logger.Warn("Failed to parse OpenAPI spec", map[string]interface{}{
+				"attempt": attempt + 1,
+				"error":   err.Error(),
+				"size":    len(bodyData),
+			})
+			// Even if parsing fails, try to cache raw data
+			// Some operations might still work
+			continue
+		}
+
+		// Success! Cache the spec
+		if err := a.specCache.Set(ctx, specURL, spec, 24*time.Hour); err != nil {
+			a.logger.Warn("Failed to cache OpenAPI spec", map[string]interface{}{
+				"url":   specURL,
+				"error": err.Error(),
+			})
+		}
+
+		a.logger.Info("Successfully fetched and cached OpenAPI spec", map[string]interface{}{
+			"tool_name":   a.tool.ToolName,
+			"spec_url":    specURL,
+			"paths_count": len(spec.Paths.Map()),
 		})
+
+		// Create router for operation lookup
+		router, err := gorillamux.NewRouter(spec)
+		if err == nil {
+			a.router = router
+		}
+
+		return spec, nil
 	}
 
-	// Create router for operation lookup
-	router, err := gorillamux.NewRouter(spec)
-	if err == nil {
-		a.router = router
-	}
+	// All retries failed
+	a.logger.Error("Failed to fetch OpenAPI spec after retries", map[string]interface{}{
+		"tool_name": a.tool.ToolName,
+		"spec_url":  specURL,
+		"attempts":  maxRetries,
+		"last_err":  lastErr,
+	})
 
-	return spec, nil
+	return nil, fmt.Errorf("failed to fetch OpenAPI spec after %d attempts: %w", maxRetries, lastErr)
 }
 
 // findOperation finds an operation by ID or path/method
 func (a *DynamicToolAdapter) findOperation(spec *openapi3.T, actionID string) (*openapi3.Operation, string, string, error) {
-	// First try by operation ID
+	// Log the search attempt
+	a.logger.Debug("Searching for operation", map[string]interface{}{
+		"action_id": actionID,
+		"tool_name": a.tool.ToolName,
+	})
+
+	// Normalize action ID - handle both slash and hyphen formats
+	// e.g., "repos/get-content" or "repos-get-content"
+	normalizedID := strings.ReplaceAll(actionID, "/", "-")
+	alternativeID := strings.ReplaceAll(actionID, "-", "/")
+	
+	// First try by operation ID (exact match and normalized variants)
 	if spec.Paths != nil {
 		for path, pathItem := range spec.Paths.Map() {
 			for method, operation := range pathItem.Operations() {
-				if operation != nil && operation.OperationID == actionID {
-					return operation, path, method, nil
+				if operation != nil && operation.OperationID != "" {
+					// Try exact match
+					if operation.OperationID == actionID {
+						a.logger.Debug("Found operation by exact ID", map[string]interface{}{
+							"operation_id": operation.OperationID,
+							"path":         path,
+							"method":       method,
+						})
+						return operation, path, method, nil
+					}
+					// Try normalized match
+					if operation.OperationID == normalizedID || operation.OperationID == alternativeID {
+						a.logger.Debug("Found operation by normalized ID", map[string]interface{}{
+							"operation_id": operation.OperationID,
+							"path":         path,
+							"method":       method,
+						})
+						return operation, path, method, nil
+					}
 				}
 			}
 		}
@@ -423,11 +522,37 @@ func (a *DynamicToolAdapter) findOperation(spec *openapi3.T, actionID string) (*
 		if spec.Paths != nil {
 			if pathItem := spec.Paths.Find(path); pathItem != nil {
 				if operation := pathItem.GetOperation(method); operation != nil {
+					a.logger.Debug("Found operation by method_path format", map[string]interface{}{
+						"path":   path,
+						"method": method,
+					})
 					return operation, path, method, nil
 				}
 			}
 		}
 	}
+
+	// Log available operations for debugging
+	availableOps := []string{}
+	if spec.Paths != nil {
+		for _, pathItem := range spec.Paths.Map() {
+			for _, operation := range pathItem.Operations() {
+				if operation != nil && operation.OperationID != "" {
+					availableOps = append(availableOps, operation.OperationID)
+					if len(availableOps) >= 10 {
+						break // Limit logging to first 10
+					}
+				}
+			}
+		}
+	}
+	
+	a.logger.Error("Operation not found", map[string]interface{}{
+		"action_id":     actionID,
+		"tool_name":     a.tool.ToolName,
+		"total_paths":   len(spec.Paths.Map()),
+		"sample_ops":    availableOps,
+	})
 
 	return nil, "", "", fmt.Errorf("operation not found: %s", actionID)
 }

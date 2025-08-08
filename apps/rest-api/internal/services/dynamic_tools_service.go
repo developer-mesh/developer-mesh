@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"regexp"
 	"strings"
 	"sync"
@@ -18,6 +20,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/security"
 	"github.com/developer-mesh/developer-mesh/pkg/tools"
 	"github.com/developer-mesh/developer-mesh/pkg/tools/adapters"
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
@@ -249,6 +252,36 @@ func (s *DynamicToolsService) CreateTool(ctx context.Context, tenantID string, c
 			return nil, fmt.Errorf("failed to encrypt credentials: %w", err)
 		}
 		encryptedCreds = []byte(encryptedJSON)
+	}
+
+	// Pre-cache the OpenAPI spec if available
+	if specURL, ok := config.Config["spec_url"].(string); ok && specURL != "" {
+		s.logger.Info("Pre-caching OpenAPI spec for tool", map[string]interface{}{
+			"tool_name": config.Name,
+			"spec_url":  specURL,
+		})
+		
+		// Create cache repository
+		cacheRepo := pkgrepository.NewOpenAPICacheRepository(s.db)
+		
+		// Attempt to fetch and cache the spec
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			defer cancel()
+			
+			if err := s.preCacheOpenAPISpec(ctx, specURL, cacheRepo); err != nil {
+				s.logger.Error("Failed to pre-cache OpenAPI spec", map[string]interface{}{
+					"tool_name": config.Name,
+					"spec_url":  specURL,
+					"error":     err.Error(),
+				})
+			} else {
+				s.logger.Info("Successfully pre-cached OpenAPI spec", map[string]interface{}{
+					"tool_name": config.Name,
+					"spec_url":  specURL,
+				})
+			}
+		}()
 	}
 
 	// Marshal webhook config if present
@@ -1135,6 +1168,76 @@ func (s *DynamicToolsService) CreateToolsFromMultipleAPIs(ctx context.Context, t
 	}
 
 	return createdTools, nil
+}
+
+// preCacheOpenAPISpec fetches and caches an OpenAPI spec
+func (s *DynamicToolsService) preCacheOpenAPISpec(ctx context.Context, specURL string, cacheRepo pkgrepository.OpenAPICacheRepository) error {
+	// Create HTTP client with timeout
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	// Fetch the spec
+	req, err := http.NewRequestWithContext(ctx, "GET", specURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to fetch spec: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to fetch spec: HTTP %d", resp.StatusCode)
+	}
+
+	// Read the response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read spec body: %w", err)
+	}
+
+	// Parse the OpenAPI spec
+	loader := openapi3.NewLoader()
+	loader.IsExternalRefsAllowed = true
+	
+	// Use LoadFromData to parse the spec
+	spec, err := loader.LoadFromData(body)
+	if err != nil {
+		s.logger.Warn("Failed to parse full OpenAPI spec, attempting minimal parse", map[string]interface{}{
+			"spec_url": specURL,
+			"error":    err.Error(),
+		})
+		// Even if full parsing fails, we can still cache the raw spec
+		// The adapter will handle parsing errors gracefully
+	}
+
+	// Cache the spec with 24 hour TTL
+	if spec != nil {
+		if err := cacheRepo.Set(ctx, specURL, spec, 24*time.Hour); err != nil {
+			return fmt.Errorf("failed to cache spec: %w", err)
+		}
+		
+		// Log success with operation count
+		operationCount := 0
+		if spec.Paths != nil {
+			for _, pathItem := range spec.Paths.Map() {
+				operationCount += len(pathItem.Operations())
+			}
+		}
+		
+		s.logger.Info("Cached OpenAPI spec", map[string]interface{}{
+			"spec_url":        specURL,
+			"paths":           len(spec.Paths.Map()),
+			"operations":      operationCount,
+			"title":           spec.Info.Title,
+			"version":         spec.Info.Version,
+		})
+	}
+
+	return nil
 }
 
 // sanitizeToolName converts a display name to a valid tool_name

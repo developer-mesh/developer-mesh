@@ -28,6 +28,9 @@ type RESTAPIClient interface {
 	// GetToolHealth checks the health status of a tool
 	GetToolHealth(ctx context.Context, tenantID, toolID string) (*models.HealthStatus, error)
 
+	// GenerateEmbedding generates an embedding for the provided text
+	GenerateEmbedding(ctx context.Context, tenantID, agentID, text, model, taskType string) (*models.EmbeddingResponse, error)
+
 	// HealthCheck verifies the REST API is reachable and responding
 	HealthCheck(ctx context.Context) error
 
@@ -287,10 +290,15 @@ func (c *restAPIClient) ListTools(ctx context.Context, tenantID string) ([]*mode
 	}()
 
 	// Parse response
-	var tools []*models.DynamicTool
-	if err := json.NewDecoder(resp.Body).Decode(&tools); err != nil {
+	// The REST API returns {"count": N, "tools": [...]}
+	var response struct {
+		Count int                    `json:"count"`
+		Tools []*models.DynamicTool `json:"tools"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
+	tools := response.Tools
 
 	// Update cache
 	c.cacheMutex.Lock()
@@ -341,15 +349,20 @@ func (c *restAPIClient) GetTool(ctx context.Context, tenantID, toolID string) (*
 
 // ExecuteTool executes a tool action
 func (c *restAPIClient) ExecuteTool(ctx context.Context, tenantID, toolID, action string, params map[string]interface{}) (*models.ToolExecutionResponse, error) {
-	url := fmt.Sprintf("%s/api/v1/tools/%s/execute/%s", c.baseURL, toolID, action)
+	// Use the new endpoint that accepts action in the body
+	apiURL := fmt.Sprintf("%s/api/v1/tools/%s/execute", c.baseURL, toolID)
 
-	// Prepare request body
-	body, err := json.Marshal(params)
+	// Prepare request body with action included
+	requestBody := map[string]interface{}{
+		"action":     action,
+		"parameters": params,
+	}
+	body, err := json.Marshal(requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal params: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -415,6 +428,72 @@ func (c *restAPIClient) GetToolHealth(ctx context.Context, tenantID, toolID stri
 	}
 
 	return &health, nil
+}
+
+// GenerateEmbedding generates an embedding for the provided text
+func (c *restAPIClient) GenerateEmbedding(ctx context.Context, tenantID, agentID, text, model, taskType string) (*models.EmbeddingResponse, error) {
+	// Start distributed tracing span
+	if c.observabilityManager != nil {
+		var span interface{}
+		ctx, span = c.observabilityManager.StartSpan(ctx, "GenerateEmbedding")
+		if s, ok := span.(interface{ End() }); ok {
+			defer s.End()
+		}
+	}
+
+	// Prepare request body
+	reqBody := map[string]interface{}{
+		"text":      text,
+		"agent_id":  agentID,
+		"tenant_id": tenantID,
+		"task_type": taskType,
+	}
+	
+	// Add model if specified
+	if model != "" {
+		reqBody["model"] = model
+	}
+
+	body, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/api/v1/embeddings", c.baseURL)
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	c.setHeaders(req, tenantID)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.doRequest(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute embedding request: %w", err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			c.logger.Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
+
+	var result models.EmbeddingResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	c.logger.Info("Generated embedding via REST API", map[string]interface{}{
+		"tenant_id":   tenantID,
+		"agent_id":    agentID,
+		"model":       model,
+		"task_type":   taskType,
+		"embedding_id": result.EmbeddingID,
+	})
+
+	return &result, nil
 }
 
 // setHeaders sets common headers for all requests
