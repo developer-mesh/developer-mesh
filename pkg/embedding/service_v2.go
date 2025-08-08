@@ -93,7 +93,7 @@ type EmbeddingMetric struct {
 type GenerateEmbeddingRequest struct {
 	AgentID   string                 `json:"agent_id" validate:"required"`
 	Text      string                 `json:"text" validate:"required,max=50000"`
-	Model     string                 `json:"model"`     // Optional model specification (e.g., "bedrock:amazon.titan-embed-text-v1")
+	Model     string                 `json:"model"`     // Optional model specification (e.g., "bedrock:amazon.titan-embed-text-v2:0")
 	TaskType  agents.TaskType        `json:"task_type"`
 	Metadata  map[string]interface{} `json:"metadata"`
 	RequestID string                 `json:"request_id"`
@@ -150,7 +150,7 @@ func NewServiceV2(config ServiceV2Config) (*ServiceV2, error) {
 	return s, nil
 }
 
-// parseModelString parses a model string like "bedrock:amazon.titan-embed-text-v1" into provider and model
+// parseModelString parses a model string like "bedrock:amazon.titan-embed-text-v2:0" into provider and model
 func (s *ServiceV2) parseModelString(modelStr string) (provider, model string) {
 	if modelStr == "" {
 		return "", ""
@@ -241,7 +241,7 @@ func (s *ServiceV2) GenerateEmbedding(ctx context.Context, req GenerateEmbedding
 			provider = "bedrock" // Default provider
 		}
 		if model == "" {
-			model = "amazon.titan-embed-text-v1" // Default model
+			model = "amazon.titan-embed-text-v2:0" // Default model
 		}
 		
 		routingDecision = &RoutingDecision{

@@ -365,7 +365,7 @@ EMBEDDING_MSG=$(cat <<EOF
         "agent_id": "${AGENT_UUID}",
         "text": "# The Go Programming Language - Go is an open source programming language that makes it easy to build simple, reliable, and efficient software.",
         "task_type": "code_analysis",
-        "model": "bedrock:amazon.titan-embed-text-v1"
+        "model": "bedrock:amazon.nova-lite-v1:0"
     }
 }
 EOF
