@@ -248,8 +248,14 @@ func (s *ServiceV2) GenerateEmbedding(ctx context.Context, req GenerateEmbedding
 		// Use model selector for intelligent model selection
 		var agentID *uuid.UUID
 		if req.AgentID != "" {
-			id := uuid.MustParse(req.AgentID)
-			agentID = &id
+			id, err := uuid.Parse(req.AgentID)
+			if err != nil {
+				// Invalid agent ID format, continue without agent context
+				// This allows non-UUID agent identifiers to be used without failing
+				agentID = nil
+			} else {
+				agentID = &id
+			}
 		}
 
 		taskTypeStr := string(taskType)
