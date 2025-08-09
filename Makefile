@@ -195,6 +195,32 @@ test-coverage: ## Run tests with coverage report
 test-coverage-html: test-coverage ## Generate HTML coverage report
 	$(GOCMD) tool cover -html=coverage.out
 
+.PHONY: test-integration
+test-integration: start-test-env ## Run integration tests
+	@echo "Running integration tests..."
+	@TEST_DATABASE_URL="postgres://devmesh:devmesh@localhost:5432/devmesh_test?sslmode=disable" \
+	TEST_REDIS_ADDR="localhost:6379" \
+	$(GOTEST) -v -tags=integration -timeout 30m ./test/functional/... || (make stop-test-env && exit 1)
+	@make stop-test-env
+
+.PHONY: test-e2e
+test-e2e: ## Run end-to-end tests (requires services running)
+	@echo "Running E2E tests..."
+	@E2E_API_URL="http://localhost:8081" \
+	E2E_WS_URL="ws://localhost:8080/ws" \
+	$(GOTEST) -v -tags=e2e -timeout 30m ./test/e2e/...
+
+.PHONY: test-all
+test-all: test test-integration test-e2e ## Run all tests (unit, integration, and E2E)
+
+.PHONY: test-embedding
+test-embedding: ## Run embedding-specific tests
+	@echo "Running embedding system tests..."
+	@$(GOTEST) -v ./pkg/repository/model_catalog/... \
+		./pkg/repository/tenant_models/... \
+		./pkg/repository/embedding_usage/... \
+		./apps/rest-api/internal/services/*model*.go
+
 .PHONY: start-test-env
 start-test-env: ## Start test environment (Redis + PostgreSQL in Docker)
 	@echo "Starting test environment..."

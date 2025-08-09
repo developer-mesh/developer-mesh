@@ -1118,7 +1118,6 @@ func containsIgnoreCase(s, substr string) bool {
 	return strings.Contains(s, substr)
 }
 
-
 // HashPassword creates a secure hash of a password
 func HashPassword(password string, salt []byte) string {
 	hash := pbkdf2.Key([]byte(password), salt, 10000, 32, sha256.New)

@@ -520,7 +520,7 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 	tenantID := c.GetString("tenant_id")
 	toolID := c.Param("toolId")
 	encodedAction := c.Param("action")
-	
+
 	// URL-decode the action to handle encoded slashes and special characters
 	action, decodeErr := url.QueryUnescape(encodedAction)
 	if decodeErr != nil {

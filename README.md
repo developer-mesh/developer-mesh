@@ -38,14 +38,26 @@ DevOps teams struggle to integrate AI effectively - managing multiple models, co
 - **Circuit Breakers**: Automatic failover when agents fail
 - **Priority Queuing**: Critical tasks get processed first
 
-### AWS Bedrock Integration
-- **Multiple Embedding Models**:
-  - Amazon Titan (v1 & v2)
-  - Cohere (English & Multilingual)
-  - Claude 3 (experimental)
-- **Smart Provider Routing**: Automatic failover between models
-- **Cost Tracking**: Per-model usage and cost optimization
-- **Quality Scoring**: Route based on embedding quality needs
+### Multi-Tenant Embedding Model Management
+- **Enterprise-Grade Model Catalog**:
+  - Support for OpenAI, AWS Bedrock, Google, and Anthropic models
+  - Dynamic model discovery with automatic catalog updates
+  - Version tracking and deprecation management
+- **Per-Tenant Configuration**:
+  - Tenant-specific model access and quotas
+  - Monthly and daily token limits with automatic enforcement
+  - Custom rate limiting per model
+  - Priority-based model selection
+- **Intelligent Model Selection**:
+  - Automatic selection based on task type and requirements
+  - Cost-optimized routing with budget constraints
+  - Quota-aware failover to alternative models
+  - Circuit breaker pattern for provider resilience
+- **Comprehensive Cost Management**:
+  - Real-time cost tracking per tenant/model/agent
+  - Budget alerts and automatic spending limits
+  - Usage analytics and optimization recommendations
+  - Detailed billing integration support
 
 ### Real-time Communication
 - **Binary WebSocket Protocol**: Compressed messages for efficiency
@@ -86,17 +98,109 @@ Route alerts to specialized agents based on severity and type
 
 ## 🏗️ Architecture
 
+### System Architecture
 ```mermaid
-graph TD
-    A[AI Agents] -->|WebSocket| B[MCP Server]
-    B --> C[Task Router]
-    C --> D[Assignment Engine]
-    D --> E[Agent Registry]
-    B --> F[REST API]
-    F --> G[Dynamic Tools]
-    B --> H[Vector DB]
-    B --> I[S3 Storage]
-    B --> J[SQS Queue]
+graph TB
+    subgraph "Client Layer"
+        A1[AI Agents]
+        A2[CLI Tools]
+        A3[Web Dashboard]
+    end
+    
+    subgraph "API Gateway"
+        B1[WebSocket Server<br/>:8080]
+        B2[REST API<br/>:8081]
+        B3[Auth Service]
+    end
+    
+    subgraph "Core Services"
+        C1[Task Router]
+        C2[Model Management]
+        C3[Assignment Engine]
+        C4[Cost Tracker]
+        C5[Dynamic Tools]
+    end
+    
+    subgraph "Data Layer"
+        D1[(PostgreSQL<br/>+ pgvector)]
+        D2[(Redis<br/>Cache & Streams)]
+        D3[S3 Storage]
+    end
+    
+    subgraph "External Providers"
+        E1[OpenAI]
+        E2[AWS Bedrock]
+        E3[Google AI]
+        E4[Anthropic]
+    end
+    
+    subgraph "Monitoring"
+        F1[Prometheus]
+        F2[Grafana]
+        F3[Alert Manager]
+    end
+    
+    A1 -->|Binary WS| B1
+    A2 --> B2
+    A3 --> B2
+    B1 --> C1
+    B2 --> B3
+    B3 --> C2
+    C1 --> C3
+    C2 --> C4
+    C2 --> E1
+    C2 --> E2
+    C2 --> E3
+    C2 --> E4
+    C1 --> D1
+    C2 --> D1
+    C2 --> D2
+    C3 --> D1
+    C5 --> D2
+    B1 --> D3
+    C2 --> F1
+    F1 --> F2
+    F1 --> F3
+```
+
+### Embedding Model Management Architecture
+```mermaid
+graph LR
+    subgraph "Model Catalog"
+        MC[Model Catalog<br/>Repository]
+        MD[Model Discovery<br/>Service]
+        MV[Model Validator]
+    end
+    
+    subgraph "Tenant Management"
+        TM[Tenant Models<br/>Repository]
+        TC[Tenant Config<br/>Manager]
+        TQ[Quota Manager]
+    end
+    
+    subgraph "Model Selection"
+        MS[Model Selection<br/>Engine]
+        CB[Circuit Breaker]
+        FO[Failover Logic]
+    end
+    
+    subgraph "Usage Tracking"
+        UT[Usage Tracker]
+        CT[Cost Calculator]
+        BM[Billing Manager]
+    end
+    
+    MD --> MC
+    MV --> MC
+    TC --> TM
+    TQ --> TM
+    MS --> MC
+    MS --> TM
+    MS --> CB
+    CB --> FO
+    UT --> CT
+    CT --> BM
+    MS --> UT
 ```
 
 ### Core Components

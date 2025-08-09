@@ -373,7 +373,7 @@ func (a *DynamicToolAdapter) getOpenAPISpec(ctx context.Context) (*openapi3.T, e
 	var lastErr error
 	maxRetries := 3
 	baseDelay := time.Second
-	
+
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		if attempt > 0 {
 			delay := baseDelay * time.Duration(1<<uint(attempt-1))
@@ -387,7 +387,7 @@ func (a *DynamicToolAdapter) getOpenAPISpec(ctx context.Context) (*openapi3.T, e
 		// Create request with timeout
 		reqCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
-		
+
 		req, err := http.NewRequestWithContext(reqCtx, "GET", specURL, nil)
 		if err != nil {
 			lastErr = err
@@ -484,7 +484,7 @@ func (a *DynamicToolAdapter) findOperation(spec *openapi3.T, actionID string) (*
 	// e.g., "repos/get-content" or "repos-get-content"
 	normalizedID := strings.ReplaceAll(actionID, "/", "-")
 	alternativeID := strings.ReplaceAll(actionID, "-", "/")
-	
+
 	// First try by operation ID (exact match and normalized variants)
 	if spec.Paths != nil {
 		for path, pathItem := range spec.Paths.Map() {
@@ -546,12 +546,12 @@ func (a *DynamicToolAdapter) findOperation(spec *openapi3.T, actionID string) (*
 			}
 		}
 	}
-	
+
 	a.logger.Error("Operation not found", map[string]interface{}{
-		"action_id":     actionID,
-		"tool_name":     a.tool.ToolName,
-		"total_paths":   len(spec.Paths.Map()),
-		"sample_ops":    availableOps,
+		"action_id":   actionID,
+		"tool_name":   a.tool.ToolName,
+		"total_paths": len(spec.Paths.Map()),
+		"sample_ops":  availableOps,
 	})
 
 	return nil, "", "", fmt.Errorf("operation not found: %s", actionID)

@@ -1,0 +1,281 @@
+{
+  "dashboard": {
+    "title": "Multi-Tenant Embedding System Dashboard",
+    "description": "Comprehensive monitoring for the multi-tenant embedding model management system",
+    "tags": ["embedding", "ai", "multi-tenant", "cost"],
+    "timezone": "browser",
+    "schemaVersion": 27,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Embedding Request Rate",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(rate(embedding_requests_total[5m])) by (tenant_id, status)",
+            "legendFormat": "{{tenant_id}} - {{status}}"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Cost per Hour (USD)",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "targets": [
+          {
+            "expr": "embedding:cost_rate_usd_per_hour",
+            "legendFormat": "{{tenant_id}} - {{model}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "currencyUSD",
+            "label": "Cost per Hour"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Request Latency (95th percentile)",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(embedding_request_duration_seconds_bucket[5m])) by (tenant_id, model, le))",
+            "legendFormat": "{{tenant_id}} - {{model}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "s",
+            "label": "Latency"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Quota Usage",
+        "type": "gauge",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+        "targets": [
+          {
+            "expr": "embedding_quota_usage_ratio",
+            "legendFormat": "{{tenant_id}} - {{quota_type}}"
+          }
+        ],
+        "options": {
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "max": 1,
+            "min": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 0.8},
+                {"color": "red", "value": 0.95}
+              ]
+            },
+            "unit": "percentunit"
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Model Distribution",
+        "type": "piechart",
+        "gridPos": {"h": 8, "w": 8, "x": 0, "y": 16},
+        "targets": [
+          {
+            "expr": "sum(increase(embedding_requests_total[1h])) by (model)",
+            "legendFormat": "{{model}}"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Provider Distribution",
+        "type": "piechart",
+        "gridPos": {"h": 8, "w": 8, "x": 8, "y": 16},
+        "targets": [
+          {
+            "expr": "sum(increase(embedding_requests_total[1h])) by (provider)",
+            "legendFormat": "{{provider}}"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Cache Hit Rate",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 8, "x": 16, "y": 16},
+        "targets": [
+          {
+            "expr": "avg(embedding:cache_hit_rate)",
+            "legendFormat": "Overall Cache Hit Rate"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "yellow", "value": 0.3},
+                {"color": "green", "value": 0.5}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 8,
+        "title": "Error Rate by Model",
+        "type": "heatmap",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+        "targets": [
+          {
+            "expr": "sum(rate(embedding_errors_total[5m])) by (model, error_type)",
+            "format": "heatmap",
+            "legendFormat": "{{model}} - {{error_type}}"
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Token Processing Rate",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+        "targets": [
+          {
+            "expr": "embedding:tokens_per_second",
+            "legendFormat": "{{tenant_id}} - {{model}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "ops",
+            "label": "Tokens/sec"
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Model Switches",
+        "type": "table",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 32},
+        "targets": [
+          {
+            "expr": "increase(embedding_model_switches_total[1h])",
+            "format": "table",
+            "instant": true
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {},
+              "indexByName": {},
+              "renameByName": {
+                "tenant_id": "Tenant",
+                "from_model": "From Model",
+                "to_model": "To Model",
+                "reason": "Reason",
+                "Value": "Count"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "Daily Cost Trend",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 40},
+        "targets": [
+          {
+            "expr": "sum(increase(embedding_cost_usd_total[24h])) by (tenant_id)",
+            "legendFormat": "{{tenant_id}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "currencyUSD",
+            "label": "Daily Cost"
+          }
+        ]
+      },
+      {
+        "id": 12,
+        "title": "Active Alerts",
+        "type": "alertlist",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 48},
+        "options": {
+          "showOptions": "current",
+          "maxItems": 10,
+          "sortOrder": 3,
+          "dashboardAlerts": false,
+          "alertName": "",
+          "dashboardTitle": "",
+          "tags": ["embedding"]
+        }
+      }
+    ],
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    },
+    "timepicker": {
+      "refresh_intervals": ["10s", "30s", "1m", "5m", "15m", "30m", "1h", "2h", "1d"]
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "tenant_id",
+          "type": "query",
+          "datasource": "Prometheus",
+          "query": "label_values(embedding_requests_total, tenant_id)",
+          "multi": true,
+          "includeAll": true,
+          "current": {
+            "text": "All",
+            "value": "$__all"
+          }
+        },
+        {
+          "name": "model",
+          "type": "query",
+          "datasource": "Prometheus",
+          "query": "label_values(embedding_requests_total, model)",
+          "multi": true,
+          "includeAll": true,
+          "current": {
+            "text": "All",
+            "value": "$__all"
+          }
+        },
+        {
+          "name": "provider",
+          "type": "query",
+          "datasource": "Prometheus",
+          "query": "label_values(embedding_requests_total, provider)",
+          "multi": true,
+          "includeAll": true,
+          "current": {
+            "text": "All",
+            "value": "$__all"
+          }
+        }
+      ]
+    }
+  }
+}

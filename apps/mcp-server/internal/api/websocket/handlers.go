@@ -480,13 +480,17 @@ func (s *Server) handlePing(ctx context.Context, conn *Connection, params json.R
 	}, nil
 }
 
-// handleEmbeddingGenerate handles embedding generation requests
+// handleEmbeddingGenerate handles embedding generation requests with multi-tenant model selection
+// The model parameter supports dynamic model selection based on tenant configuration:
+// - If specified, uses the requested model (if tenant has access)
+// - If empty, uses tenant's default model
+// - Model selection considers quotas, costs, and availability
 func (s *Server) handleEmbeddingGenerate(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
 	var embedParams struct {
 		Text     string `json:"text"`
-		Model    string `json:"model"`
-		TaskType string `json:"task_type"`
-		AgentID  string `json:"agent_id"`
+		Model    string `json:"model"`     // Optional: specific model to use
+		TaskType string `json:"task_type"` // Optional: task type for optimization
+		AgentID  string `json:"agent_id"`  // Optional: override connection agent ID
 	}
 
 	if err := json.Unmarshal(params, &embedParams); err != nil {
@@ -517,7 +521,7 @@ func (s *Server) handleEmbeddingGenerate(ctx context.Context, conn *Connection, 
 	// Check if REST API client is available
 	if s.restAPIClient != nil {
 		startTime := time.Now()
-		
+
 		// Call REST API to generate embedding
 		result, err := s.restAPIClient.GenerateEmbedding(
 			ctx,
@@ -527,22 +531,22 @@ func (s *Server) handleEmbeddingGenerate(ctx context.Context, conn *Connection, 
 			embedParams.Model,
 			embedParams.TaskType,
 		)
-		
+
 		duration := time.Since(startTime)
 		logFields["duration_ms"] = duration.Milliseconds()
-		
+
 		if err != nil {
 			logFields["error"] = err.Error()
 			s.logger.Error("REST API embedding generation failed", logFields)
 			return nil, fmt.Errorf("failed to generate embedding: %w", err)
 		}
-		
+
 		logFields["embedding_id"] = result.EmbeddingID
 		logFields["dimensions"] = result.Dimensions
 		logFields["provider"] = result.Provider
 		s.logger.Info("REST API embedding generation successful", logFields)
-		
-		// Convert REST API response to MCP format
+
+		// Convert REST API response to MCP format with comprehensive model metadata
 		response := map[string]interface{}{
 			"embedding_id": result.EmbeddingID,
 			"success":      result.Success,
@@ -551,8 +555,27 @@ func (s *Server) handleEmbeddingGenerate(ctx context.Context, conn *Connection, 
 			"dimensions":   result.Dimensions,
 			"task_type":    result.TaskType,
 			"created_at":   result.CreatedAt.Format(time.RFC3339),
+			// Enhanced model metadata for multi-tenant model management
+			"model_metadata": map[string]interface{}{
+				"model_id":   result.Model,
+				"provider":   result.Provider,
+				"dimensions": result.Dimensions,
+				"task_type":  result.TaskType,
+				"tenant_id":  conn.TenantID,
+				"agent_id":   agentID,
+			},
 		}
-		
+
+		// Include usage metadata if available
+		if result.Metadata != nil {
+			if usage, ok := result.Metadata["usage"]; ok {
+				response["usage"] = usage
+			}
+			if cost, ok := result.Metadata["cost"]; ok {
+				response["cost"] = cost
+			}
+		}
+
 		// Include vector if requested (usually omitted for size)
 		if len(result.Vector) > 0 {
 			response["vector_size"] = len(result.Vector)
@@ -561,14 +584,14 @@ func (s *Server) handleEmbeddingGenerate(ctx context.Context, conn *Connection, 
 				response["vector_sample"] = result.Vector[:3]
 			}
 		}
-		
+
 		if result.Error != "" {
 			response["error"] = result.Error
 		}
-		
+
 		return response, nil
 	}
-	
+
 	// Fallback if no REST API client
 	s.logger.Warn("No REST API client available for embedding generation", logFields)
 	return nil, fmt.Errorf("embedding service not available")
@@ -856,7 +879,7 @@ func (s *Server) handleToolExecute(ctx context.Context, conn *Connection, params
 			tools, err := s.restAPIClient.ListTools(ctx, conn.TenantID)
 			if err != nil {
 				s.logger.Error("Failed to list tools for name resolution", map[string]interface{}{
-					"error":    err.Error(),
+					"error":     err.Error(),
 					"tool_name": toolID,
 				})
 				return nil, fmt.Errorf("failed to resolve tool name: %w", err)

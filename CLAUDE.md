@@ -48,6 +48,7 @@ Developer Mesh is a production-ready platform for orchestrating multiple AI agen
 ## Current Focus Areas
 - Redis Streams migration (completed)
 - Dynamic tools implementation with enhanced discovery
+- Multi-tenant embedding model management (completed)
 - Multi-agent orchestration improvements
 - Security hardening
 - Test coverage expansion
@@ -78,6 +79,25 @@ Developer Mesh is a production-ready platform for orchestrating multiple AI agen
 - **Auth**: Universal authentication support
 - **Health**: Automatic health monitoring
 - **Testing**: Use mockserver for tool testing
+
+## Multi-Tenant Embedding Model Management
+- **Model Catalog**: Global registry of all available embedding models
+- **Tenant Configuration**: Per-tenant model access and limits
+- **Agent Preferences**: Fine-grained model selection per agent
+- **Usage Tracking**: Comprehensive usage and cost tracking
+- **Quota Management**: Monthly/daily token and request limits
+- **Model Selection**: Intelligent model selection based on tenant/agent/task
+- **Database Tables**:
+  - `mcp.embedding_model_catalog`: Global model registry
+  - `mcp.tenant_embedding_models`: Tenant-specific configurations
+  - `mcp.agent_embedding_preferences`: Agent-level preferences
+  - `mcp.embedding_usage_tracking`: Usage and cost tracking
+- **Key Services**:
+  - `ModelManagementService`: Core model selection and quota logic
+  - `ModelCatalogRepository`: CRUD for model catalog
+  - `TenantModelsRepository`: Tenant model configurations
+  - `EmbeddingUsageRepository`: Usage tracking and reporting
+- **Test Data**: Run `scripts/db/seed-embedding-models.sql` to populate test tenants
 
 ## Webhook Processing
 - **Producer**: REST API receives webhooks

@@ -260,15 +260,15 @@ func (s *DynamicToolsService) CreateTool(ctx context.Context, tenantID string, c
 			"tool_name": config.Name,
 			"spec_url":  specURL,
 		})
-		
+
 		// Create cache repository
 		cacheRepo := pkgrepository.NewOpenAPICacheRepository(s.db)
-		
+
 		// Attempt to fetch and cache the spec
 		go func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 			defer cancel()
-			
+
 			if err := s.preCacheOpenAPISpec(ctx, specURL, cacheRepo); err != nil {
 				s.logger.Error("Failed to pre-cache OpenAPI spec", map[string]interface{}{
 					"tool_name": config.Name,
@@ -1202,7 +1202,7 @@ func (s *DynamicToolsService) preCacheOpenAPISpec(ctx context.Context, specURL s
 	// Parse the OpenAPI spec
 	loader := openapi3.NewLoader()
 	loader.IsExternalRefsAllowed = true
-	
+
 	// Use LoadFromData to parse the spec
 	spec, err := loader.LoadFromData(body)
 	if err != nil {
@@ -1219,7 +1219,7 @@ func (s *DynamicToolsService) preCacheOpenAPISpec(ctx context.Context, specURL s
 		if err := cacheRepo.Set(ctx, specURL, spec, 24*time.Hour); err != nil {
 			return fmt.Errorf("failed to cache spec: %w", err)
 		}
-		
+
 		// Log success with operation count
 		operationCount := 0
 		if spec.Paths != nil {
@@ -1227,13 +1227,13 @@ func (s *DynamicToolsService) preCacheOpenAPISpec(ctx context.Context, specURL s
 				operationCount += len(pathItem.Operations())
 			}
 		}
-		
+
 		s.logger.Info("Cached OpenAPI spec", map[string]interface{}{
-			"spec_url":        specURL,
-			"paths":           len(spec.Paths.Map()),
-			"operations":      operationCount,
-			"title":           spec.Info.Title,
-			"version":         spec.Info.Version,
+			"spec_url":   specURL,
+			"paths":      len(spec.Paths.Map()),
+			"operations": operationCount,
+			"title":      spec.Info.Title,
+			"version":    spec.Info.Version,
 		})
 	}
 

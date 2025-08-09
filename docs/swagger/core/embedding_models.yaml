@@ -1,0 +1,937 @@
+openapi: 3.0.3
+info:
+  title: Embedding Model Management API
+  description: Multi-tenant embedding model catalog and configuration management
+  version: 1.0.0
+
+paths:
+  /api/v1/embedding-models/catalog:
+    get:
+      tags:
+        - Embedding Models
+      summary: List available embedding models
+      description: Retrieve a paginated list of available embedding models from the catalog
+      operationId: listEmbeddingModels
+      parameters:
+        - name: provider
+          in: query
+          schema:
+            type: string
+            enum: [openai, bedrock, google, anthropic]
+          description: Filter by provider
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [embedding, multimodal]
+          description: Filter by model type
+        - name: available_only
+          in: query
+          schema:
+            type: boolean
+            default: true
+          description: Only show available models
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Successfully retrieved model catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  models:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EmbeddingModel'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+
+    post:
+      tags:
+        - Embedding Models
+      summary: Add new embedding model to catalog
+      description: Register a new embedding model in the catalog (admin only)
+      operationId: createEmbeddingModel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateModelRequest'
+      responses:
+        '201':
+          description: Model successfully created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmbeddingModel'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Model already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+
+  /api/v1/embedding-models/catalog/{id}:
+    get:
+      tags:
+        - Embedding Models
+      summary: Get model details
+      description: Retrieve detailed information about a specific embedding model
+      operationId: getEmbeddingModel
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Model details retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmbeddingModel'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+
+    put:
+      tags:
+        - Embedding Models
+      summary: Update model configuration
+      description: Update an existing embedding model's configuration
+      operationId: updateEmbeddingModel
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateModelRequest'
+      responses:
+        '200':
+          description: Model successfully updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmbeddingModel'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+
+    delete:
+      tags:
+        - Embedding Models
+      summary: Remove model from catalog
+      description: Delete an embedding model from the catalog (admin only)
+      operationId: deleteEmbeddingModel
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Model successfully deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Model is in use by tenants
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+
+  /api/v1/tenant-models:
+    get:
+      tags:
+        - Tenant Models
+      summary: List tenant's configured models
+      description: Retrieve all embedding models configured for the authenticated tenant
+      operationId: listTenantModels
+      parameters:
+        - name: enabled_only
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Only show enabled models
+      responses:
+        '200':
+          description: Tenant models retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  models:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TenantEmbeddingModel'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+
+    post:
+      tags:
+        - Tenant Models
+      summary: Configure model for tenant
+      description: Enable and configure an embedding model for the tenant
+      operationId: configureTenantModel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigureTenantModelRequest'
+      responses:
+        '201':
+          description: Model configured for tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantEmbeddingModel'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Model not found in catalog
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Model already configured for tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+
+  /api/v1/tenant-models/{model_id}:
+    put:
+      tags:
+        - Tenant Models
+      summary: Update tenant model configuration
+      description: Update configuration for a tenant's embedding model
+      operationId: updateTenantModel
+      parameters:
+        - name: model_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTenantModelRequest'
+      responses:
+        '200':
+          description: Configuration updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantEmbeddingModel'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+
+    delete:
+      tags:
+        - Tenant Models
+      summary: Remove model from tenant
+      description: Disable and remove an embedding model from tenant configuration
+      operationId: removeTenantModel
+      parameters:
+        - name: model_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Model removed from tenant
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Cannot remove default model
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+
+  /api/v1/tenant-models/usage:
+    get:
+      tags:
+        - Tenant Models
+      summary: Get usage statistics
+      description: Retrieve embedding usage statistics for the tenant
+      operationId: getTenantUsageStats
+      parameters:
+        - name: model_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by specific model
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [hour, day, week, month]
+            default: day
+          description: Time period for statistics
+      responses:
+        '200':
+          description: Usage statistics retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageStatistics'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+
+  /api/v1/tenant-models/quotas:
+    get:
+      tags:
+        - Tenant Models
+      summary: Get quota status
+      description: Retrieve current quota usage and limits for the tenant
+      operationId: getTenantQuotas
+      responses:
+        '200':
+          description: Quota information retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuotaStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+
+  /api/v1/embedding-models/select:
+    post:
+      tags:
+        - Model Selection
+      summary: Select optimal model
+      description: Select the optimal embedding model based on request parameters and tenant configuration
+      operationId: selectEmbeddingModel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModelSelectionRequest'
+      responses:
+        '200':
+          description: Model selected successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelSelectionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          description: Quota exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuotaExceededError'
+        '503':
+          description: No models available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+
+components:
+  schemas:
+    EmbeddingModel:
+      type: object
+      required:
+        - id
+        - provider
+        - model_name
+        - model_id
+        - dimensions
+        - is_available
+      properties:
+        id:
+          type: string
+          format: uuid
+        provider:
+          type: string
+          enum: [openai, bedrock, google, anthropic]
+        model_name:
+          type: string
+          example: "GPT-3 Embedding"
+        model_id:
+          type: string
+          example: "text-embedding-3-small"
+        model_version:
+          type: string
+          example: "1.0"
+        dimensions:
+          type: integer
+          example: 1536
+        max_tokens:
+          type: integer
+          example: 8192
+        supports_binary:
+          type: boolean
+          default: false
+        supports_dimensionality_reduction:
+          type: boolean
+          default: false
+        min_dimensions:
+          type: integer
+          nullable: true
+        model_type:
+          type: string
+          enum: [embedding, multimodal]
+          default: embedding
+        cost_per_million_tokens:
+          type: number
+          format: float
+          example: 0.02
+        cost_per_million_chars:
+          type: number
+          format: float
+          nullable: true
+        is_available:
+          type: boolean
+        is_deprecated:
+          type: boolean
+          default: false
+        deprecation_date:
+          type: string
+          format: date-time
+          nullable: true
+        minimum_tier:
+          type: string
+          enum: [free, basic, pro, enterprise]
+          nullable: true
+        requires_api_key:
+          type: boolean
+          default: false
+        provider_config:
+          type: object
+          additionalProperties: true
+        capabilities:
+          type: array
+          items:
+            type: string
+        performance_metrics:
+          type: object
+          properties:
+            avg_latency_ms:
+              type: number
+            p95_latency_ms:
+              type: number
+            p99_latency_ms:
+              type: number
+            success_rate:
+              type: number
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    TenantEmbeddingModel:
+      type: object
+      required:
+        - id
+        - tenant_id
+        - model_id
+        - enabled
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        model_id:
+          type: string
+          format: uuid
+        model:
+          $ref: '#/components/schemas/EmbeddingModel'
+        enabled:
+          type: boolean
+        is_default:
+          type: boolean
+          default: false
+        monthly_quota_tokens:
+          type: integer
+          format: int64
+          nullable: true
+        daily_quota_tokens:
+          type: integer
+          format: int64
+          nullable: true
+        rate_limit_rpm:
+          type: integer
+          nullable: true
+        priority:
+          type: integer
+          default: 100
+        custom_settings:
+          type: object
+          additionalProperties: true
+        usage_this_month:
+          type: integer
+          format: int64
+        usage_today:
+          type: integer
+          format: int64
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateModelRequest:
+      type: object
+      required:
+        - provider
+        - model_name
+        - model_id
+        - dimensions
+      properties:
+        provider:
+          type: string
+        model_name:
+          type: string
+        model_id:
+          type: string
+        model_version:
+          type: string
+        dimensions:
+          type: integer
+        max_tokens:
+          type: integer
+        supports_binary:
+          type: boolean
+        cost_per_million_tokens:
+          type: number
+        provider_config:
+          type: object
+        capabilities:
+          type: array
+          items:
+            type: string
+
+    UpdateModelRequest:
+      type: object
+      properties:
+        model_name:
+          type: string
+        max_tokens:
+          type: integer
+        cost_per_million_tokens:
+          type: number
+        is_available:
+          type: boolean
+        is_deprecated:
+          type: boolean
+        deprecation_date:
+          type: string
+          format: date-time
+        provider_config:
+          type: object
+
+    ConfigureTenantModelRequest:
+      type: object
+      required:
+        - model_id
+      properties:
+        model_id:
+          type: string
+          format: uuid
+        enabled:
+          type: boolean
+          default: true
+        is_default:
+          type: boolean
+          default: false
+        monthly_quota:
+          type: integer
+          format: int64
+        daily_quota:
+          type: integer
+          format: int64
+        rate_limit_rpm:
+          type: integer
+        priority:
+          type: integer
+        custom_settings:
+          type: object
+
+    UpdateTenantModelRequest:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        is_default:
+          type: boolean
+        monthly_quota:
+          type: integer
+          format: int64
+        daily_quota:
+          type: integer
+          format: int64
+        rate_limit_rpm:
+          type: integer
+        priority:
+          type: integer
+        custom_settings:
+          type: object
+
+    ModelSelectionRequest:
+      type: object
+      properties:
+        requested_model:
+          type: string
+          description: Specific model ID requested (optional)
+        task_type:
+          type: string
+          enum: [search, clustering, classification, general]
+        estimated_tokens:
+          type: integer
+          description: Estimated number of tokens to process
+        required_dimensions:
+          type: integer
+          description: Required output dimensions
+        priority:
+          type: string
+          enum: [low, normal, high, critical]
+          default: normal
+
+    ModelSelectionResponse:
+      type: object
+      properties:
+        model_id:
+          type: string
+          format: uuid
+        model_name:
+          type: string
+        provider:
+          type: string
+        dimensions:
+          type: integer
+        estimated_cost:
+          type: number
+          format: float
+        quota_remaining:
+          type: integer
+          format: int64
+        selection_reason:
+          type: string
+        fallback_models:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    UsageStatistics:
+      type: object
+      properties:
+        period:
+          type: string
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+        total_requests:
+          type: integer
+          format: int64
+        total_tokens:
+          type: integer
+          format: int64
+        total_cost:
+          type: number
+          format: float
+        by_model:
+          type: array
+          items:
+            type: object
+            properties:
+              model_id:
+                type: string
+                format: uuid
+              model_name:
+                type: string
+              requests:
+                type: integer
+              tokens:
+                type: integer
+              cost:
+                type: number
+        by_agent:
+          type: array
+          items:
+            type: object
+            properties:
+              agent_id:
+                type: string
+                format: uuid
+              requests:
+                type: integer
+              tokens:
+                type: integer
+
+    QuotaStatus:
+      type: object
+      properties:
+        monthly:
+          type: object
+          properties:
+            limit:
+              type: integer
+              format: int64
+            used:
+              type: integer
+              format: int64
+            remaining:
+              type: integer
+              format: int64
+            reset_date:
+              type: string
+              format: date-time
+        daily:
+          type: object
+          properties:
+            limit:
+              type: integer
+              format: int64
+            used:
+              type: integer
+              format: int64
+            remaining:
+              type: integer
+              format: int64
+            reset_time:
+              type: string
+              format: date-time
+        rate_limits:
+          type: array
+          items:
+            type: object
+            properties:
+              model_id:
+                type: string
+                format: uuid
+              rpm_limit:
+                type: integer
+              current_rpm:
+                type: integer
+
+    QuotaExceededError:
+      type: object
+      properties:
+        error:
+          type: string
+        quota_type:
+          type: string
+          enum: [monthly, daily, rate]
+        limit:
+          type: integer
+        used:
+          type: integer
+        reset_time:
+          type: string
+          format: date-time
+        suggested_models:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        pages:
+          type: integer
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        details:
+          type: string
+        code:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    
+    RateLimited:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              retry_after:
+                type: integer
+    
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

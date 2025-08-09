@@ -71,6 +71,16 @@ func (c *PrometheusMetricsClient) registerDefaultMetrics() {
 	// Health check metrics
 	c.getOrCreateGauge("health_check_status", "Health check status (1=healthy, 0=unhealthy)", []string{"component"})
 	c.getOrCreateHistogram("health_check_duration_seconds", "Health check duration", []string{"component"}, prometheus.DefBuckets)
+
+	// Embedding model metrics for multi-tenant management
+	c.getOrCreateCounter("embedding_requests_total", "Total embedding requests", []string{"tenant_id", "model", "provider", "status"})
+	c.getOrCreateHistogram("embedding_request_duration_seconds", "Embedding request duration", []string{"tenant_id", "model", "provider"}, prometheus.DefBuckets)
+	c.getOrCreateCounter("embedding_tokens_total", "Total tokens processed", []string{"tenant_id", "model", "provider"})
+	c.getOrCreateCounter("embedding_cost_usd_total", "Total cost in USD", []string{"tenant_id", "model", "provider"})
+	c.getOrCreateGauge("embedding_quota_usage_ratio", "Quota usage ratio (0-1)", []string{"tenant_id", "quota_type"})
+	c.getOrCreateCounter("embedding_model_switches_total", "Model switch count", []string{"tenant_id", "from_model", "to_model", "reason"})
+	c.getOrCreateCounter("embedding_cache_hits_total", "Embedding cache hits", []string{"tenant_id", "model"})
+	c.getOrCreateCounter("embedding_errors_total", "Embedding errors", []string{"tenant_id", "model", "error_type"})
 }
 
 // RecordCounter records a counter metric
@@ -288,6 +298,79 @@ func (c *PrometheusMetricsClient) mergeLabelValues(labels map[string]string) pro
 	}
 
 	return merged
+}
+
+// RecordEmbeddingOperation records an embedding operation with comprehensive metrics
+func (c *PrometheusMetricsClient) RecordEmbeddingOperation(tenantID, model, provider string, success bool, tokens int, cost float64, duration time.Duration) {
+	status := "success"
+	if !success {
+		status = "failure"
+	}
+
+	labels := map[string]string{
+		"tenant_id": tenantID,
+		"model":     model,
+		"provider":  provider,
+	}
+
+	// Record request count
+	c.IncrementCounterWithLabels("embedding_requests_total", 1, map[string]string{
+		"tenant_id": tenantID,
+		"model":     model,
+		"provider":  provider,
+		"status":    status,
+	})
+
+	// Record duration
+	c.RecordDuration("embedding_request_duration_seconds", duration, labels)
+
+	// Record tokens if successful
+	if success && tokens > 0 {
+		c.RecordCounter("embedding_tokens_total", float64(tokens), labels)
+	}
+
+	// Record cost if provided
+	if cost > 0 {
+		c.RecordCounter("embedding_cost_usd_total", cost, labels)
+	}
+}
+
+// RecordEmbeddingQuotaUsage records quota usage for a tenant
+func (c *PrometheusMetricsClient) RecordEmbeddingQuotaUsage(tenantID string, quotaType string, used, limit int64) {
+	if limit > 0 {
+		ratio := float64(used) / float64(limit)
+		c.RecordGauge("embedding_quota_usage_ratio", ratio, map[string]string{
+			"tenant_id":  tenantID,
+			"quota_type": quotaType,
+		})
+	}
+}
+
+// RecordEmbeddingModelSwitch records when a model switch occurs
+func (c *PrometheusMetricsClient) RecordEmbeddingModelSwitch(tenantID, fromModel, toModel, reason string) {
+	c.IncrementCounterWithLabels("embedding_model_switches_total", 1, map[string]string{
+		"tenant_id":  tenantID,
+		"from_model": fromModel,
+		"to_model":   toModel,
+		"reason":     reason,
+	})
+}
+
+// RecordEmbeddingCacheHit records cache hit for embeddings
+func (c *PrometheusMetricsClient) RecordEmbeddingCacheHit(tenantID, model string) {
+	c.IncrementCounterWithLabels("embedding_cache_hits_total", 1, map[string]string{
+		"tenant_id": tenantID,
+		"model":     model,
+	})
+}
+
+// RecordEmbeddingError records embedding errors
+func (c *PrometheusMetricsClient) RecordEmbeddingError(tenantID, model, errorType string) {
+	c.IncrementCounterWithLabels("embedding_errors_total", 1, map[string]string{
+		"tenant_id":  tenantID,
+		"model":      model,
+		"error_type": errorType,
+	})
 }
 
 // WebSocketMetrics provides WebSocket-specific metrics

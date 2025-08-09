@@ -1,0 +1,256 @@
+# Prometheus Alert Rules for Multi-Tenant Embedding System
+# These alerts monitor the health, performance, and cost of the embedding service
+
+groups:
+  - name: embedding_availability
+    interval: 30s
+    rules:
+      - alert: EmbeddingServiceDown
+        expr: up{job="rest-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: embedding
+        annotations:
+          summary: "Embedding service is down"
+          description: "The embedding service has been down for more than 2 minutes. Tenant: {{ $labels.tenant_id }}"
+
+      - alert: HighEmbeddingErrorRate
+        expr: |
+          (
+            sum(rate(embedding_errors_total[5m])) by (tenant_id, model)
+            /
+            sum(rate(embedding_requests_total[5m])) by (tenant_id, model)
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          service: embedding
+        annotations:
+          summary: "High embedding error rate detected"
+          description: "Error rate for tenant {{ $labels.tenant_id }} using model {{ $labels.model }} is above 5% (current: {{ $value | humanizePercentage }})"
+
+      - alert: EmbeddingProviderDown
+        expr: |
+          sum(rate(embedding_errors_total{error_type="provider_unavailable"}[5m])) by (provider) > 0.1
+        for: 3m
+        labels:
+          severity: critical
+          service: embedding
+        annotations:
+          summary: "Embedding provider {{ $labels.provider }} is unavailable"
+          description: "Provider {{ $labels.provider }} has been returning errors for more than 3 minutes"
+
+  - name: embedding_performance
+    interval: 30s
+    rules:
+      - alert: SlowEmbeddingRequests
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(embedding_request_duration_seconds_bucket[5m])) by (tenant_id, model, le)
+          ) > 5
+        for: 10m
+        labels:
+          severity: warning
+          service: embedding
+        annotations:
+          summary: "Slow embedding request latency"
+          description: "95th percentile latency for tenant {{ $labels.tenant_id }} using model {{ $labels.model }} is above 5 seconds (current: {{ $value | humanizeDuration }})"
+
+      - alert: EmbeddingThroughputDrop
+        expr: |
+          (
+            sum(rate(embedding_requests_total[5m])) by (tenant_id)
+            < 
+            sum(rate(embedding_requests_total[5m] offset 1h)) by (tenant_id) * 0.5
+          )
+        for: 15m
+        labels:
+          severity: warning
+          service: embedding
+        annotations:
+          summary: "Embedding throughput dropped significantly"
+          description: "Throughput for tenant {{ $labels.tenant_id }} dropped by more than 50% compared to 1 hour ago"
+
+  - name: embedding_quotas
+    interval: 60s
+    rules:
+      - alert: TenantQuotaNearLimit
+        expr: embedding_quota_usage_ratio > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          service: embedding
+        annotations:
+          summary: "Tenant approaching quota limit"
+          description: "Tenant {{ $labels.tenant_id }} has used {{ $value | humanizePercentage }} of their {{ $labels.quota_type }} quota"
+
+      - alert: TenantQuotaExceeded
+        expr: embedding_quota_usage_ratio >= 1
+        for: 1m
+        labels:
+          severity: critical
+          service: embedding
+        annotations:
+          summary: "Tenant quota exceeded"
+          description: "Tenant {{ $labels.tenant_id }} has exceeded their {{ $labels.quota_type }} quota"
+
+      - alert: RapidQuotaConsumption
+        expr: |
+          rate(embedding_tokens_total[1h]) > 
+          (avg_over_time(rate(embedding_tokens_total[1h])[24h:1h]) * 3)
+        for: 10m
+        labels:
+          severity: warning
+          service: embedding
+        annotations:
+          summary: "Unusually rapid quota consumption detected"
+          description: "Tenant {{ $labels.tenant_id }} is consuming tokens 3x faster than their 24-hour average"
+
+  - name: embedding_costs
+    interval: 60s
+    rules:
+      - alert: HighEmbeddingCost
+        expr: |
+          sum(increase(embedding_cost_usd_total[1h])) by (tenant_id) > 100
+        for: 5m
+        labels:
+          severity: warning
+          service: embedding
+          cost_alert: true
+        annotations:
+          summary: "High embedding costs detected"
+          description: "Tenant {{ $labels.tenant_id }} has incurred more than $100 in embedding costs in the last hour (current: ${{ $value | humanize }})"
+
+      - alert: UnexpectedCostSpike
+        expr: |
+          (
+            sum(rate(embedding_cost_usd_total[10m])) by (tenant_id)
+            >
+            sum(rate(embedding_cost_usd_total[10m] offset 1h)) by (tenant_id) * 5
+          )
+        for: 5m
+        labels:
+          severity: critical
+          service: embedding
+          cost_alert: true
+        annotations:
+          summary: "Unexpected cost spike detected"
+          description: "Embedding costs for tenant {{ $labels.tenant_id }} increased by 5x compared to 1 hour ago"
+
+      - alert: DailyCostBudgetExceeded
+        expr: |
+          sum(increase(embedding_cost_usd_total[24h])) by (tenant_id) > 1000
+        for: 1m
+        labels:
+          severity: critical
+          service: embedding
+          cost_alert: true
+        annotations:
+          summary: "Daily cost budget exceeded"
+          description: "Tenant {{ $labels.tenant_id }} has exceeded $1000 daily embedding cost budget (current: ${{ $value | humanize }})"
+
+  - name: embedding_model_health
+    interval: 30s
+    rules:
+      - alert: FrequentModelSwitching
+        expr: |
+          sum(rate(embedding_model_switches_total[10m])) by (tenant_id) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+          service: embedding
+        annotations:
+          summary: "Frequent model switching detected"
+          description: "Tenant {{ $labels.tenant_id }} is switching models frequently ({{ $value | humanize }} switches per second), indicating potential issues"
+
+      - alert: ModelFailoverActive
+        expr: |
+          sum(increase(embedding_model_switches_total{reason="failover"}[5m])) by (tenant_id) > 0
+        for: 1m
+        labels:
+          severity: warning
+          service: embedding
+        annotations:
+          summary: "Model failover occurred"
+          description: "Failover from {{ $labels.from_model }} to {{ $labels.to_model }} for tenant {{ $labels.tenant_id }}"
+
+      - alert: LowCacheHitRate
+        expr: |
+          (
+            sum(rate(embedding_cache_hits_total[5m])) by (tenant_id)
+            /
+            sum(rate(embedding_requests_total[5m])) by (tenant_id)
+          ) < 0.1
+        for: 30m
+        labels:
+          severity: info
+          service: embedding
+        annotations:
+          summary: "Low embedding cache hit rate"
+          description: "Cache hit rate for tenant {{ $labels.tenant_id }} is below 10% (current: {{ $value | humanizePercentage }}), consider investigating"
+
+  - name: embedding_capacity
+    interval: 60s
+    rules:
+      - alert: HighTokenUsage
+        expr: |
+          sum(rate(embedding_tokens_total[5m])) by (model) > 10000
+        for: 10m
+        labels:
+          severity: warning
+          service: embedding
+        annotations:
+          summary: "High token usage on model"
+          description: "Model {{ $labels.model }} is processing more than 10,000 tokens per second"
+
+      - alert: ModelCapacityLimit
+        expr: |
+          (
+            sum(rate(embedding_requests_total{status="failure", error_type="rate_limit"}[5m])) by (model)
+            /
+            sum(rate(embedding_requests_total[5m])) by (model)
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          service: embedding
+        annotations:
+          summary: "Model hitting capacity limits"
+          description: "More than 10% of requests to model {{ $labels.model }} are being rate limited"
+
+# Recording rules for efficient querying
+  - name: embedding_recording_rules
+    interval: 30s
+    rules:
+      # Hourly cost rate per tenant
+      - record: embedding:cost_rate_usd_per_hour
+        expr: |
+          sum(rate(embedding_cost_usd_total[1h])) by (tenant_id, model, provider) * 3600
+
+      # Request success rate
+      - record: embedding:request_success_rate
+        expr: |
+          sum(rate(embedding_requests_total{status="success"}[5m])) by (tenant_id, model)
+          /
+          sum(rate(embedding_requests_total[5m])) by (tenant_id, model)
+
+      # Average request latency
+      - record: embedding:request_latency_seconds
+        expr: |
+          histogram_quantile(0.5,
+            sum(rate(embedding_request_duration_seconds_bucket[5m])) by (tenant_id, model, le)
+          )
+
+      # Token processing rate
+      - record: embedding:tokens_per_second
+        expr: |
+          sum(rate(embedding_tokens_total[5m])) by (tenant_id, model, provider)
+
+      # Cache effectiveness
+      - record: embedding:cache_hit_rate
+        expr: |
+          sum(rate(embedding_cache_hits_total[5m])) by (tenant_id, model)
+          /
+          (sum(rate(embedding_cache_hits_total[5m])) by (tenant_id, model) + 
+           sum(rate(embedding_requests_total[5m])) by (tenant_id, model))

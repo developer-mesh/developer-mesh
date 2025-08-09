@@ -292,7 +292,7 @@ func (c *restAPIClient) ListTools(ctx context.Context, tenantID string) ([]*mode
 	// Parse response
 	// The REST API returns {"count": N, "tools": [...]}
 	var response struct {
-		Count int                    `json:"count"`
+		Count int                   `json:"count"`
 		Tools []*models.DynamicTool `json:"tools"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
@@ -448,7 +448,7 @@ func (c *restAPIClient) GenerateEmbedding(ctx context.Context, tenantID, agentID
 		"tenant_id": tenantID,
 		"task_type": taskType,
 	}
-	
+
 	// Add model if specified
 	if model != "" {
 		reqBody["model"] = model
@@ -486,10 +486,10 @@ func (c *restAPIClient) GenerateEmbedding(ctx context.Context, tenantID, agentID
 	}
 
 	c.logger.Info("Generated embedding via REST API", map[string]interface{}{
-		"tenant_id":   tenantID,
-		"agent_id":    agentID,
-		"model":       model,
-		"task_type":   taskType,
+		"tenant_id":    tenantID,
+		"agent_id":     agentID,
+		"model":        model,
+		"task_type":    taskType,
 		"embedding_id": result.EmbeddingID,
 	})
 
