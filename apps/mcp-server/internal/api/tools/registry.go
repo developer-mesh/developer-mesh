@@ -198,9 +198,9 @@ func (r *Registry) RegisterBuiltinTools() error {
 
 // ProxyToolHandler proxies tool execution to the REST API
 type ProxyToolHandler struct {
-	name       string
-	restClient interface{} // Will be the REST API client
-	logger     observability.Logger
+	name string
+	// restClient interface{} // TODO: Add REST API client when proxy is implemented
+	// logger     observability.Logger // TODO: Add logging when methods are implemented
 }
 
 func (h *ProxyToolHandler) Execute(ctx context.Context, params map[string]interface{}) (interface{}, error) {

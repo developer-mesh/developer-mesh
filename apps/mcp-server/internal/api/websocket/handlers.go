@@ -36,29 +36,30 @@ func isUUID(s string) bool {
 	return uuidPattern.MatchString(strings.ToLower(s))
 }
 
+// TODO: Uncomment when HTTP error mapping is needed
 // mapHTTPErrorToWebSocket maps HTTP error codes to WebSocket error codes
-func mapHTTPErrorToWebSocket(httpError string) (int, string) {
-	switch {
-	case strings.Contains(httpError, "HTTP 400"):
-		return ws.ErrCodeInvalidParams, "Invalid request parameters"
-	case strings.Contains(httpError, "HTTP 401"):
-		return ws.ErrCodeAuthFailed, "Authentication required"
-	case strings.Contains(httpError, "HTTP 403"):
-		return ws.ErrCodeAuthFailed, "Permission denied"
-	case strings.Contains(httpError, "HTTP 404"):
-		return ws.ErrCodeMethodNotFound, "Resource not found"
-	case strings.Contains(httpError, "HTTP 429"):
-		return ws.ErrCodeRateLimited, "Rate limit exceeded"
-	case strings.Contains(httpError, "HTTP 500"), strings.Contains(httpError, "HTTP 502"), strings.Contains(httpError, "HTTP 503"):
-		return ws.ErrCodeServerError, "Service temporarily unavailable"
-	case strings.Contains(httpError, "circuit breaker"):
-		return ws.ErrCodeServerError, "Service circuit breaker activated"
-	case strings.Contains(httpError, "timeout"):
-		return ws.ErrCodeServerError, "Request timeout"
-	default:
-		return ws.ErrCodeServerError, "Internal error"
-	}
-}
+// func mapHTTPErrorToWebSocket(httpError string) (int, string) {
+// 	switch {
+// 	case strings.Contains(httpError, "HTTP 400"):
+// 		return ws.ErrCodeInvalidParams, "Invalid request parameters"
+// 	case strings.Contains(httpError, "HTTP 401"):
+// 		return ws.ErrCodeAuthFailed, "Authentication required"
+// 	case strings.Contains(httpError, "HTTP 403"):
+// 		return ws.ErrCodeAuthFailed, "Permission denied"
+// 	case strings.Contains(httpError, "HTTP 404"):
+// 		return ws.ErrCodeMethodNotFound, "Resource not found"
+// 	case strings.Contains(httpError, "HTTP 429"):
+// 		return ws.ErrCodeRateLimited, "Rate limit exceeded"
+// 	case strings.Contains(httpError, "HTTP 500"), strings.Contains(httpError, "HTTP 502"), strings.Contains(httpError, "HTTP 503"):
+// 		return ws.ErrCodeServerError, "Service temporarily unavailable"
+// 	case strings.Contains(httpError, "circuit breaker"):
+// 		return ws.ErrCodeServerError, "Service circuit breaker activated"
+// 	case strings.Contains(httpError, "timeout"):
+// 		return ws.ErrCodeServerError, "Request timeout"
+// 	default:
+// 		return ws.ErrCodeServerError, "Internal error"
+// 	}
+// }
 
 // PostActionConfig defines how a post-response action should be executed
 type PostActionConfig struct {

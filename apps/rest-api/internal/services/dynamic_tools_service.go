@@ -1187,7 +1187,13 @@ func (s *DynamicToolsService) preCacheOpenAPISpec(ctx context.Context, specURL s
 	if err != nil {
 		return fmt.Errorf("failed to fetch spec: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			s.logger.Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to fetch spec: HTTP %d", resp.StatusCode)

@@ -12,7 +12,7 @@ import (
 
 // PerformanceMonitor tracks and analyzes performance metrics
 type PerformanceMonitor struct {
-	mu     sync.RWMutex
+	// mu     sync.RWMutex // TODO: Implement locking when methods are added
 	logger observability.Logger
 
 	// Configuration
@@ -92,18 +92,18 @@ type CachePerformanceMetrics struct {
 	mu sync.RWMutex
 
 	// Hit rates
-	l1HitRate      float64
-	l2HitRate      float64
-	overallHitRate float64
+	l1HitRate float64
+	l2HitRate float64
+	// overallHitRate float64 // TODO: Implement overall hit rate calculation
 
 	// Latencies
 	l1Latencies []time.Duration
 	l2Latencies []time.Duration
 
 	// Efficiency
-	memoryUsage      int64
-	evictionRate     float64
-	warmupEfficiency float64
+	// memoryUsage      int64   // TODO: Implement memory usage tracking
+	// evictionRate     float64 // TODO: Implement eviction rate calculation
+	// warmupEfficiency float64 // TODO: Implement warmup efficiency metrics
 }
 
 // SystemMetrics tracks system resource usage
@@ -111,14 +111,14 @@ type SystemMetrics struct {
 	mu sync.RWMutex
 
 	// Resource usage
-	cpuUsage        float64
-	memoryUsage     int64
-	goroutineCount  int
-	connectionCount int
+	// cpuUsage        float64 // TODO: Implement CPU usage tracking
+	// memoryUsage     int64   // TODO: Implement memory usage tracking
+	// goroutineCount  int     // TODO: Implement goroutine count tracking
+	// connectionCount int     // TODO: Implement connection count tracking
 
 	// Network metrics
-	networkBandwidth int64
-	packetLoss       float64
+	// networkBandwidth int64   // TODO: Implement bandwidth monitoring
+	// packetLoss       float64 // TODO: Implement packet loss tracking
 
 	// Timestamps
 	lastUpdated time.Time

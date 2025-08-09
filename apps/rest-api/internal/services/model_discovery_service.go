@@ -340,56 +340,57 @@ func (s *ModelDiscoveryServiceImpl) ProcessDiscoveryEvent(ctx context.Context, e
 
 // Helper methods
 
-func (s *ModelDiscoveryServiceImpl) getModelDimensions(modelID string) int {
-	// Map of known model dimensions
-	dimensions := map[string]int{
-		"amazon.titan-embed-text-v1":   1536,
-		"amazon.titan-embed-text-v2:0": 1024,
-		"amazon.titan-embed-image-v1":  1024,
-		"cohere.embed-english-v3":      1024,
-		"cohere.embed-multilingual-v3": 1024,
-	}
-
-	if dim, ok := dimensions[modelID]; ok {
-		return dim
-	}
-
-	return 1536 // Default dimension
-}
-
-func (s *ModelDiscoveryServiceImpl) getModelMaxTokens(modelID string) int {
-	// Map of known model token limits
-	tokens := map[string]int{
-		"amazon.titan-embed-text-v1":   8192,
-		"amazon.titan-embed-text-v2:0": 8192,
-		"amazon.titan-embed-image-v1":  0, // Image model
-		"cohere.embed-english-v3":      512,
-		"cohere.embed-multilingual-v3": 512,
-	}
-
-	if tok, ok := tokens[modelID]; ok {
-		return tok
-	}
-
-	return 8192 // Default token limit
-}
-
-func (s *ModelDiscoveryServiceImpl) getModelCost(modelID string) float64 {
-	// Map of known model costs per million tokens
-	costs := map[string]float64{
-		"amazon.titan-embed-text-v1":   0.10,
-		"amazon.titan-embed-text-v2:0": 0.02,
-		"amazon.titan-embed-image-v1":  0.08,
-		"cohere.embed-english-v3":      0.10,
-		"cohere.embed-multilingual-v3": 0.10,
-	}
-
-	if cost, ok := costs[modelID]; ok {
-		return cost
-	}
-
-	return 0.10 // Default cost
-}
+// TODO: Uncomment these helper methods when model metadata enrichment is implemented
+// func (s *ModelDiscoveryServiceImpl) getModelDimensions(modelID string) int {
+// 	// Map of known model dimensions
+// 	dimensions := map[string]int{
+// 		"amazon.titan-embed-text-v1":   1536,
+// 		"amazon.titan-embed-text-v2:0": 1024,
+// 		"amazon.titan-embed-image-v1":  1024,
+// 		"cohere.embed-english-v3":      1024,
+// 		"cohere.embed-multilingual-v3": 1024,
+// 	}
+//
+// 	if dim, ok := dimensions[modelID]; ok {
+// 		return dim
+// 	}
+//
+// 	return 1536 // Default dimension
+// }
+//
+// func (s *ModelDiscoveryServiceImpl) getModelMaxTokens(modelID string) int {
+// 	// Map of known model token limits
+// 	tokens := map[string]int{
+// 		"amazon.titan-embed-text-v1":   8192,
+// 		"amazon.titan-embed-text-v2:0": 8192,
+// 		"amazon.titan-embed-image-v1":  0, // Image model
+// 		"cohere.embed-english-v3":      512,
+// 		"cohere.embed-multilingual-v3": 512,
+// 	}
+//
+// 	if tok, ok := tokens[modelID]; ok {
+// 		return tok
+// 	}
+//
+// 	return 8192 // Default token limit
+// }
+//
+// func (s *ModelDiscoveryServiceImpl) getModelCost(modelID string) float64 {
+// 	// Map of known model costs per million tokens
+// 	costs := map[string]float64{
+// 		"amazon.titan-embed-text-v1":   0.10,
+// 		"amazon.titan-embed-text-v2:0": 0.02,
+// 		"amazon.titan-embed-image-v1":  0.08,
+// 		"cohere.embed-english-v3":      0.10,
+// 		"cohere.embed-multilingual-v3": 0.10,
+// 	}
+//
+// 	if cost, ok := costs[modelID]; ok {
+// 		return cost
+// 	}
+//
+// 	return 0.10 // Default cost
+// }
 
 func (s *ModelDiscoveryServiceImpl) publishDiscoveryEvent(ctx context.Context, provider string, models []*model_catalog.EmbeddingModel, errors []string) {
 	// Convert models to discovered format

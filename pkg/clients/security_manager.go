@@ -21,7 +21,7 @@ import (
 
 // SecurityManager provides comprehensive security features for the REST client
 type SecurityManager struct {
-	mu     sync.RWMutex
+	// mu     sync.RWMutex // TODO: Implement locking when methods are added
 	logger observability.Logger
 
 	// Token management

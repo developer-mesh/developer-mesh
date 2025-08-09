@@ -16,7 +16,7 @@ import (
 
 // PerformanceOptimizer manages performance optimizations
 type PerformanceOptimizer struct {
-	mu     sync.RWMutex
+	// mu     sync.RWMutex // TODO: Implement locking when methods are added
 	logger observability.Logger
 
 	// Connection pool management
@@ -64,7 +64,7 @@ type OptimizationConfig struct {
 
 // ConnectionPoolManager manages dynamic connection pooling
 type ConnectionPoolManager struct {
-	mu sync.RWMutex
+	// mu sync.RWMutex // TODO: Implement locking when methods are added
 
 	// Pool configuration
 	minConns     int
@@ -77,13 +77,13 @@ type ConnectionPoolManager struct {
 	connMutex   sync.RWMutex
 
 	// Pool statistics
-	totalRequests int64
-	poolHits      int64
-	poolMisses    int64
-	avgWaitTime   time.Duration
+	// totalRequests int64          // TODO: Implement request counting
+	poolHits   int64
+	poolMisses int64
+	// avgWaitTime   time.Duration // TODO: Implement wait time tracking
 
 	// Dynamic adjustment
-	lastAdjustment time.Time
+	// lastAdjustment time.Time // TODO: Implement dynamic adjustment
 	adjustInterval time.Duration
 }
 
