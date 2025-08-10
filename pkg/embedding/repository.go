@@ -307,7 +307,7 @@ func (r *Repository) GetModelByName(ctx context.Context, modelName string) (*Mod
 // GetExistingEmbedding checks if an embedding already exists for the given content
 func (r *Repository) GetExistingEmbedding(ctx context.Context, contentHash string, modelName string, tenantID uuid.UUID) (*uuid.UUID, error) {
 	var embeddingID uuid.UUID
-	
+
 	query := `
 		SELECT e.id 
 		FROM mcp.embeddings e
@@ -317,7 +317,7 @@ func (r *Repository) GetExistingEmbedding(ctx context.Context, contentHash strin
 		AND e.tenant_id = $3
 		LIMIT 1
 	`
-	
+
 	err := r.db.QueryRowContext(ctx, query, contentHash, modelName, tenantID).Scan(&embeddingID)
 	if err == sql.ErrNoRows {
 		return nil, nil // No existing embedding found
@@ -325,14 +325,14 @@ func (r *Repository) GetExistingEmbedding(ctx context.Context, contentHash strin
 	if err != nil {
 		return nil, fmt.Errorf("failed to check for existing embedding: %w", err)
 	}
-	
+
 	r.logger.Debug("Found existing embedding", map[string]interface{}{
 		"embedding_id": embeddingID,
 		"content_hash": contentHash,
 		"model":        modelName,
 		"tenant_id":    tenantID,
 	})
-	
+
 	return &embeddingID, nil
 }
 

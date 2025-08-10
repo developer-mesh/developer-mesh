@@ -67,7 +67,7 @@ type Embedding struct {
 
 // InsertRequest represents a request to insert an embedding
 type InsertRequest struct {
-	ContextID            *uuid.UUID      `json:"context_id,omitempty"`  // Optional context reference
+	ContextID            *uuid.UUID      `json:"context_id,omitempty"` // Optional context reference
 	Content              string          `json:"content"`
 	Embedding            []float32       `json:"embedding"`
 	ModelName            string          `json:"model_name"`

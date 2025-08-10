@@ -216,7 +216,7 @@ func (s *ServiceV2) GenerateEmbedding(ctx context.Context, req GenerateEmbedding
 	// First check if we already have this embedding in the database
 	// This is more efficient than generating and then hitting a duplicate key error
 	contentHash := calculateContentHash(req.Text)
-	
+
 	// Determine which model we'll use (needed for deduplication check)
 	modelName := "amazon.titan-embed-text-v2:0" // Default
 	if req.Model != "" {
@@ -225,7 +225,7 @@ func (s *ServiceV2) GenerateEmbedding(ctx context.Context, req GenerateEmbedding
 			modelName = model
 		}
 	}
-	
+
 	// Check for existing embedding
 	existingEmbeddingID, checkErr := s.repository.GetExistingEmbedding(ctx, contentHash, modelName, req.TenantID)
 	if checkErr != nil {
@@ -233,25 +233,25 @@ func (s *ServiceV2) GenerateEmbedding(ctx context.Context, req GenerateEmbedding
 		// Continue with generation even if check fails
 	} else if existingEmbeddingID != nil {
 		// We found an existing embedding - return it immediately
-		
+
 		return &GenerateEmbeddingResponse{
 			EmbeddingID:          *existingEmbeddingID,
 			RequestID:            requestID,
 			ModelUsed:            modelName,
 			Provider:             "cached", // Indicates this was retrieved, not generated
-			Dimensions:           1024, // Default dimensions for Titan v2
+			Dimensions:           1024,     // Default dimensions for Titan v2
 			NormalizedDimensions: StandardDimension,
 			Cached:               true,
-			Metadata:             map[string]interface{}{
+			Metadata: map[string]interface{}{
 				"deduplicated": true,
 				"content_hash": contentHash,
 			},
-			GenerationTimeMs:     time.Since(start).Milliseconds(),
-			CostUSD:              0, // No cost for deduplicated embeddings
-			TokensUsed:           0, // No tokens used
+			GenerationTimeMs: time.Since(start).Milliseconds(),
+			CostUSD:          0, // No cost for deduplicated embeddings
+			TokensUsed:       0, // No tokens used
 		}, nil
 	}
-	
+
 	// Check cache if enabled (for in-memory caching)
 	if s.cache != nil {
 		cacheKey := s.generateCacheKey(req)

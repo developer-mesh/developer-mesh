@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
@@ -16,16 +17,18 @@ import (
 type ThreeTierRepository struct {
 	db     *sqlx.DB
 	schema string
+	logger observability.Logger
 }
 
 // NewThreeTierRepository creates a repository for the three-tier agent architecture
-func NewThreeTierRepository(db *sqlx.DB, schema string) *ThreeTierRepository {
+func NewThreeTierRepository(db *sqlx.DB, schema string, logger observability.Logger) *ThreeTierRepository {
 	if schema == "" {
 		schema = "mcp"
 	}
 	return &ThreeTierRepository{
 		db:     db,
 		schema: schema,
+		logger: logger,
 	}
 }
 
@@ -38,17 +41,17 @@ func (r *ThreeTierRepository) CreateManifest(ctx context.Context, manifest *Agen
 	if manifest.ID == uuid.Nil {
 		manifest.ID = uuid.New()
 	}
-	
+
 	capabilitiesJSON, err := json.Marshal(manifest.Capabilities)
 	if err != nil {
 		return fmt.Errorf("failed to marshal capabilities: %w", err)
 	}
-	
+
 	metadataJSON, err := json.Marshal(manifest.Metadata)
 	if err != nil {
 		return fmt.Errorf("failed to marshal metadata: %w", err)
 	}
-	
+
 	query := fmt.Sprintf(`
 		INSERT INTO %s.agent_manifests (
 			id, agent_id, agent_type, name, description, version,
@@ -65,18 +68,18 @@ func (r *ThreeTierRepository) CreateManifest(ctx context.Context, manifest *Agen
 			status = EXCLUDED.status,
 			updated_at = EXCLUDED.updated_at
 	`, r.schema)
-	
+
 	now := time.Now()
 	_, err = r.db.ExecContext(ctx, query,
 		manifest.ID, manifest.AgentID, manifest.AgentType, manifest.Name, manifest.Description,
 		manifest.Version, capabilitiesJSON, manifest.Requirements, metadataJSON,
 		manifest.Status, now, now,
 	)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to create/update manifest: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -90,38 +93,38 @@ func (r *ThreeTierRepository) GetManifest(ctx context.Context, identifier string
 		FROM %s.agent_manifests
 		WHERE agent_id = $1 OR id = $2
 	`, r.schema)
-	
+
 	var manifest AgentManifest
 	var capabilitiesJSON, metadataJSON []byte
-	
+
 	// Try parsing as UUID first
 	var queryID uuid.UUID
 	if uid, err := uuid.Parse(identifier); err == nil {
 		queryID = uid
 	}
-	
+
 	err := r.db.QueryRowContext(ctx, query, identifier, queryID).Scan(
 		&manifest.ID, &manifest.AgentID, &manifest.AgentType, &manifest.Name,
 		&manifest.Description, &manifest.Version, &capabilitiesJSON,
 		&manifest.Requirements, &metadataJSON, &manifest.Status,
 		&manifest.CreatedAt, &manifest.UpdatedAt,
 	)
-	
+
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("manifest not found: %s", identifier)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get manifest: %w", err)
 	}
-	
+
 	if err := json.Unmarshal(capabilitiesJSON, &manifest.Capabilities); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal capabilities: %w", err)
 	}
-	
+
 	if err := json.Unmarshal(metadataJSON, &manifest.Metadata); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
 	}
-	
+
 	return &manifest, nil
 }
 
@@ -135,35 +138,41 @@ func (r *ThreeTierRepository) ListManifests(ctx context.Context, filter Manifest
 		FROM %s.agent_manifests
 		WHERE 1=1
 	`, r.schema)
-	
+
 	args := []interface{}{}
 	argCount := 0
-	
+
 	if filter.AgentType != "" {
 		argCount++
 		query += fmt.Sprintf(" AND agent_type = $%d", argCount)
 		args = append(args, filter.AgentType)
 	}
-	
+
 	if filter.Status != "" {
 		argCount++
 		query += fmt.Sprintf(" AND status = $%d", argCount)
 		args = append(args, filter.Status)
 	}
-	
+
 	query += " ORDER BY created_at DESC"
-	
+
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list manifests: %w", err)
 	}
-	defer rows.Close()
-	
+	defer func() {
+		if err := rows.Close(); err != nil {
+			r.logger.Warn("Failed to close rows", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
+
 	var manifests []*AgentManifest
 	for rows.Next() {
 		var manifest AgentManifest
 		var capabilitiesJSON, metadataJSON []byte
-		
+
 		err := rows.Scan(
 			&manifest.ID, &manifest.AgentID, &manifest.AgentType, &manifest.Name,
 			&manifest.Description, &manifest.Version, &capabilitiesJSON,
@@ -173,18 +182,18 @@ func (r *ThreeTierRepository) ListManifests(ctx context.Context, filter Manifest
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan manifest: %w", err)
 		}
-		
+
 		if err := json.Unmarshal(capabilitiesJSON, &manifest.Capabilities); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal capabilities: %w", err)
 		}
-		
+
 		if err := json.Unmarshal(metadataJSON, &manifest.Metadata); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
 		}
-		
+
 		manifests = append(manifests, &manifest)
 	}
-	
+
 	return manifests, nil
 }
 
@@ -197,12 +206,12 @@ func (r *ThreeTierRepository) CreateConfiguration(ctx context.Context, config *A
 	if config.ID == uuid.Nil {
 		config.ID = uuid.New()
 	}
-	
+
 	configJSON, err := json.Marshal(config.Configuration)
 	if err != nil {
 		return fmt.Errorf("failed to marshal configuration: %w", err)
 	}
-	
+
 	query := fmt.Sprintf(`
 		INSERT INTO %s.agent_configurations (
 			id, tenant_id, manifest_id, name, enabled,
@@ -222,7 +231,7 @@ func (r *ThreeTierRepository) CreateConfiguration(ctx context.Context, config *A
 			updated_at = EXCLUDED.updated_at
 		RETURNING id
 	`, r.schema)
-	
+
 	now := time.Now()
 	err = r.db.QueryRowContext(ctx, query,
 		config.ID, config.TenantID, config.ManifestID, config.Name, config.Enabled,
@@ -230,11 +239,11 @@ func (r *ThreeTierRepository) CreateConfiguration(ctx context.Context, config *A
 		config.ModelID, config.MaxWorkload, config.CurrentWorkload,
 		now, now,
 	).Scan(&config.ID)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to create/update configuration: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -251,11 +260,11 @@ func (r *ThreeTierRepository) GetConfiguration(ctx context.Context, tenantID, co
 		JOIN %s.agent_manifests m ON m.id = c.manifest_id
 		WHERE c.tenant_id = $1 AND c.id = $2
 	`, r.schema, r.schema)
-	
+
 	var config AgentConfiguration
 	var configJSON []byte
 	var manifestAgentID, manifestType, manifestName string
-	
+
 	err := r.db.QueryRowContext(ctx, query, tenantID, configID).Scan(
 		&config.ID, &config.TenantID, &config.ManifestID, &config.Name, &config.Enabled,
 		&configJSON, &config.SystemPrompt, &config.Temperature, &config.MaxTokens,
@@ -263,18 +272,18 @@ func (r *ThreeTierRepository) GetConfiguration(ctx context.Context, tenantID, co
 		&config.CreatedAt, &config.UpdatedAt,
 		&manifestAgentID, &manifestType, &manifestName,
 	)
-	
+
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("configuration not found")
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get configuration: %w", err)
 	}
-	
+
 	if err := json.Unmarshal(configJSON, &config.Configuration); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal configuration: %w", err)
 	}
-	
+
 	// Add manifest info to metadata for context
 	if config.Configuration == nil {
 		config.Configuration = make(map[string]interface{})
@@ -284,7 +293,7 @@ func (r *ThreeTierRepository) GetConfiguration(ctx context.Context, tenantID, co
 		"type":     manifestType,
 		"name":     manifestName,
 	}
-	
+
 	return &config, nil
 }
 
@@ -299,35 +308,41 @@ func (r *ThreeTierRepository) ListConfigurations(ctx context.Context, tenantID u
 		FROM %s.agent_configurations c
 		WHERE c.tenant_id = $1
 	`, r.schema)
-	
+
 	args := []interface{}{tenantID}
 	argCount := 1
-	
+
 	if filter.Enabled != nil {
 		argCount++
 		query += fmt.Sprintf(" AND c.enabled = $%d", argCount)
 		args = append(args, *filter.Enabled)
 	}
-	
+
 	if filter.ManifestID != nil {
 		argCount++
 		query += fmt.Sprintf(" AND c.manifest_id = $%d", argCount)
 		args = append(args, *filter.ManifestID)
 	}
-	
+
 	query += " ORDER BY c.created_at DESC"
-	
+
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list configurations: %w", err)
 	}
-	defer rows.Close()
-	
+	defer func() {
+		if err := rows.Close(); err != nil {
+			r.logger.Warn("Failed to close rows", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
+
 	var configs []*AgentConfiguration
 	for rows.Next() {
 		var config AgentConfiguration
 		var configJSON []byte
-		
+
 		err := rows.Scan(
 			&config.ID, &config.TenantID, &config.ManifestID, &config.Name, &config.Enabled,
 			&configJSON, &config.SystemPrompt, &config.Temperature, &config.MaxTokens,
@@ -337,14 +352,14 @@ func (r *ThreeTierRepository) ListConfigurations(ctx context.Context, tenantID u
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan configuration: %w", err)
 		}
-		
+
 		if err := json.Unmarshal(configJSON, &config.Configuration); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal configuration: %w", err)
 		}
-		
+
 		configs = append(configs, &config)
 	}
-	
+
 	return configs, nil
 }
 
@@ -357,13 +372,13 @@ func (r *ThreeTierRepository) UpdateWorkload(ctx context.Context, configID uuid.
 		WHERE id = $1
 		RETURNING current_workload
 	`, r.schema)
-	
+
 	var newWorkload int
 	err := r.db.QueryRowContext(ctx, query, configID, delta).Scan(&newWorkload)
 	if err != nil {
 		return fmt.Errorf("failed to update workload: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -377,10 +392,10 @@ func (r *ThreeTierRepository) RegisterInstance(ctx context.Context, reg *AgentRe
 	query := fmt.Sprintf(`
 		SELECT * FROM %s.register_agent_instance($1, $2, $3, $4, $5, $6)
 	`, r.schema)
-	
+
 	connectionDetails, _ := json.Marshal(reg.ConnectionDetails)
 	runtimeConfig, _ := json.Marshal(reg.RuntimeConfig)
-	
+
 	var result RegistrationResult
 	err := r.db.QueryRowContext(ctx, query,
 		reg.TenantID, reg.AgentID, reg.InstanceID, reg.Name,
@@ -392,11 +407,11 @@ func (r *ThreeTierRepository) RegisterInstance(ctx context.Context, reg *AgentRe
 		&result.IsNew,
 		&result.Message,
 	)
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to register instance: %w", err)
 	}
-	
+
 	return &result, nil
 }
 
@@ -417,19 +432,25 @@ func (r *ThreeTierRepository) GetActiveRegistrations(ctx context.Context, tenant
 		  AND r.health_status IN ('healthy', 'degraded')
 		ORDER BY r.last_health_check DESC
 	`, r.schema, r.schema)
-	
+
 	rows, err := r.db.QueryContext(ctx, query, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get active registrations: %w", err)
 	}
-	defer rows.Close()
-	
+	defer func() {
+		if err := rows.Close(); err != nil {
+			r.logger.Warn("Failed to close rows", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
+
 	var registrations []*AgentRegistration
 	for rows.Next() {
 		var reg AgentRegistration
 		var connectionJSON, runtimeJSON []byte
 		var manifestAgentID, manifestType, manifestName string
-		
+
 		err := rows.Scan(
 			&reg.ID, &reg.ManifestID, &reg.TenantID, &reg.InstanceID,
 			&reg.RegistrationStatus, &reg.HealthStatus,
@@ -441,21 +462,21 @@ func (r *ThreeTierRepository) GetActiveRegistrations(ctx context.Context, tenant
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan registration: %w", err)
 		}
-		
+
 		if len(connectionJSON) > 0 {
 			_ = json.Unmarshal(connectionJSON, &reg.ConnectionDetails)
 		}
 		if len(runtimeJSON) > 0 {
 			_ = json.Unmarshal(runtimeJSON, &reg.RuntimeConfig)
 		}
-		
+
 		// Store manifest info
 		reg.AgentID = manifestAgentID
 		reg.Name = manifestName
-		
+
 		registrations = append(registrations, &reg)
 	}
-	
+
 	return registrations, nil
 }
 
@@ -469,12 +490,12 @@ func (r *ThreeTierRepository) UpdateHealth(ctx context.Context, instanceID strin
 		    updated_at = NOW()
 		WHERE instance_id = $1
 	`, r.schema)
-	
+
 	_, err := r.db.ExecContext(ctx, query, instanceID, status)
 	if err != nil {
 		return fmt.Errorf("failed to update health: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -488,12 +509,12 @@ func (r *ThreeTierRepository) DeactivateRegistration(ctx context.Context, instan
 		    updated_at = NOW()
 		WHERE instance_id = $1
 	`, r.schema)
-	
+
 	_, err := r.db.ExecContext(ctx, query, instanceID)
 	if err != nil {
 		return fmt.Errorf("failed to deactivate registration: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -538,18 +559,24 @@ func (r *ThreeTierRepository) GetAvailableAgents(ctx context.Context, tenantID u
 		  AND m.status = 'active'
 		ORDER BY c.current_workload ASC, r.healthy_count DESC
 	`, r.schema, r.schema, r.schema)
-	
+
 	rows, err := r.db.QueryContext(ctx, query, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get available agents: %w", err)
 	}
-	defer rows.Close()
-	
+	defer func() {
+		if err := rows.Close(); err != nil {
+			r.logger.Warn("Failed to close rows", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
+
 	var agents []*AvailableAgent
 	for rows.Next() {
 		var agent AvailableAgent
 		var capabilitiesJSON []byte
-		
+
 		err := rows.Scan(
 			&agent.ConfigID, &agent.ConfigName, &agent.ModelID,
 			&agent.SystemPrompt, &agent.Temperature, &agent.MaxTokens,
@@ -561,24 +588,24 @@ func (r *ThreeTierRepository) GetAvailableAgents(ctx context.Context, tenantID u
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan available agent: %w", err)
 		}
-		
+
 		if err := json.Unmarshal(capabilitiesJSON, &agent.Capabilities); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal capabilities: %w", err)
 		}
-		
+
 		// Calculate availability score
 		agent.AvailabilityScore = r.calculateAvailabilityScore(&agent)
-		
+
 		agents = append(agents, &agent)
 	}
-	
+
 	return agents, nil
 }
 
 // GetAgentMetrics retrieves metrics for a specific agent configuration
 func (r *ThreeTierRepository) GetAgentMetrics(ctx context.Context, configID uuid.UUID, period time.Duration) (*AgentMetrics, error) {
 	since := time.Now().Add(-period)
-	
+
 	query := fmt.Sprintf(`
 		SELECT 
 			c.id,
@@ -598,7 +625,7 @@ func (r *ThreeTierRepository) GetAgentMetrics(ctx context.Context, configID uuid
 		WHERE c.id = $1
 		GROUP BY c.id, c.name, c.current_workload, c.max_workload
 	`, r.schema, r.schema)
-	
+
 	var metrics AgentMetrics
 	err := r.db.QueryRowContext(ctx, query, configID, since).Scan(
 		&metrics.ConfigID,
@@ -611,17 +638,17 @@ func (r *ThreeTierRepository) GetAgentMetrics(ctx context.Context, configID uuid
 		&metrics.AvgFailureCount,
 		&metrics.LastActivity,
 	)
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent metrics: %w", err)
 	}
-	
+
 	// Calculate derived metrics
 	metrics.WorkloadUtilization = float64(metrics.CurrentWorkload) / float64(metrics.MaxWorkload)
 	if metrics.TotalRegistrations > 0 {
 		metrics.HealthRate = float64(metrics.HealthyRegistrations) / float64(metrics.TotalRegistrations)
 	}
-	
+
 	return &metrics, nil
 }
 
@@ -635,11 +662,11 @@ func (r *ThreeTierRepository) calculateAvailabilityScore(agent *AvailableAgent) 
 	// - Workload utilization (lower is better)
 	// - Healthy instances (more is better)
 	// - Active instances (more is better for redundancy)
-	
+
 	workloadScore := 1.0 - (float64(agent.CurrentWorkload) / float64(agent.MaxWorkload))
 	healthScore := float64(agent.HealthyInstances) / float64(max(agent.ActiveInstances, 1))
 	redundancyScore := min(float64(agent.ActiveInstances)/3.0, 1.0) // Ideal is 3+ instances
-	
+
 	// Weighted average
 	return (workloadScore * 0.5) + (healthScore * 0.3) + (redundancyScore * 0.2)
 }
@@ -647,30 +674,30 @@ func (r *ThreeTierRepository) calculateAvailabilityScore(agent *AvailableAgent) 
 // RecordEvent records an agent-related event
 func (r *ThreeTierRepository) RecordEvent(ctx context.Context, event *ThreeTierAgentEvent) error {
 	payloadJSON, _ := json.Marshal(event.Payload)
-	
+
 	query := fmt.Sprintf(`
 		INSERT INTO %s.agent_events (
 			id, agent_id, tenant_id, event_type, event_version,
 			payload, initiated_by, created_at
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`, r.schema)
-	
+
 	_, err := r.db.ExecContext(ctx, query,
 		event.ID, event.AgentID, event.TenantID, event.EventType, event.EventVersion,
 		payloadJSON, event.InitiatedBy, event.CreatedAt,
 	)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to record event: %w", err)
 	}
-	
+
 	return nil
 }
 
 // Cleanup removes stale registrations and updates health status
 func (r *ThreeTierRepository) Cleanup(ctx context.Context, staleThreshold time.Duration) error {
 	threshold := time.Now().Add(-staleThreshold)
-	
+
 	// Mark stale registrations as unhealthy
 	query := fmt.Sprintf(`
 		UPDATE %s.agent_registrations
@@ -681,12 +708,12 @@ func (r *ThreeTierRepository) Cleanup(ctx context.Context, staleThreshold time.D
 		  AND health_status IN ('healthy', 'degraded')
 		  AND registration_status = 'active'
 	`, r.schema)
-	
+
 	_, err := r.db.ExecContext(ctx, query, threshold)
 	if err != nil {
 		return fmt.Errorf("failed to update stale registrations: %w", err)
 	}
-	
+
 	// Deactivate registrations that have been unhealthy too long
 	deactivateThreshold := time.Now().Add(-staleThreshold * 3)
 	query = fmt.Sprintf(`
@@ -698,12 +725,12 @@ func (r *ThreeTierRepository) Cleanup(ctx context.Context, staleThreshold time.D
 		WHERE last_health_check < $1
 		  AND registration_status = 'active'
 	`, r.schema)
-	
+
 	_, err = r.db.ExecContext(ctx, query, deactivateThreshold)
 	if err != nil {
 		return fmt.Errorf("failed to deactivate dead registrations: %w", err)
 	}
-	
+
 	return nil
 }
 
