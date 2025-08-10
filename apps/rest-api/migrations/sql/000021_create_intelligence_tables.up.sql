@@ -355,8 +355,7 @@ CREATE INDEX IF NOT EXISTS idx_semantic_relationships_graph
     ON mcp.semantic_relationships(source_context_id, confidence_score DESC);
 
 CREATE INDEX IF NOT EXISTS idx_content_analysis_recent 
-    ON mcp.content_analysis_cache(tenant_id, created_at DESC) 
-    WHERE expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP;
+    ON mcp.content_analysis_cache(tenant_id, created_at DESC);
 
 -- Grant permissions
 GRANT ALL ON ALL TABLES IN SCHEMA mcp TO devmesh;

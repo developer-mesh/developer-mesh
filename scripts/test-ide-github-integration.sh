@@ -56,12 +56,11 @@ BOLD='\033[1m'
 NC='\033[0m' # No Color
 
 # Performance Metrics
-declare -A METRICS
-METRICS[requests]=0
-METRICS[cache_hits]=0
-METRICS[total_time]=0
-METRICS[embeddings_generated]=0
-METRICS[tools_executed]=0
+METRICS_REQUESTS=0
+METRICS_CACHE_HITS=0
+METRICS_TOTAL_TIME=0
+METRICS_EMBEDDINGS_GENERATED=0
+METRICS_TOOLS_EXECUTED=0
 
 # ============================================================================
 # Helper Functions
@@ -71,7 +70,13 @@ METRICS[tools_executed]=0
 track_metric() {
     local metric="$1"
     local value="${2:-1}"
-    METRICS[$metric]=$((METRICS[$metric] + value))
+    case "$metric" in
+        requests) METRICS_REQUESTS=$((METRICS_REQUESTS + value)) ;;
+        cache_hits) METRICS_CACHE_HITS=$((METRICS_CACHE_HITS + value)) ;;
+        total_time) METRICS_TOTAL_TIME=$((METRICS_TOTAL_TIME + value)) ;;
+        embeddings_generated) METRICS_EMBEDDINGS_GENERATED=$((METRICS_EMBEDDINGS_GENERATED + value)) ;;
+        tools_executed) METRICS_TOOLS_EXECUTED=$((METRICS_TOOLS_EXECUTED + value)) ;;
+    esac
 }
 
 # Timer functions
@@ -762,8 +767,8 @@ EOF
 show_performance_summary() {
     echo -e "\n${BOLD}═══ Performance Summary ═══${NC}"
     
-    local total_requests=${METRICS[requests]}
-    local cache_hits=${METRICS[cache_hits]}
+    local total_requests=${METRICS_REQUESTS}
+    local cache_hits=${METRICS_CACHE_HITS}
     local cache_rate=0
     if [ "$total_requests" -gt 0 ]; then
         cache_rate=$(( (cache_hits * 100) / total_requests ))
@@ -771,16 +776,16 @@ show_performance_summary() {
     
     local avg_time=0
     if [ "$total_requests" -gt 0 ]; then
-        avg_time=$(( METRICS[total_time] / total_requests ))
+        avg_time=$(( METRICS_TOTAL_TIME / total_requests ))
     fi
     
     echo -e "${BOLD}📊 Metrics:${NC}"
     echo -e "  Total Requests: ${CYAN}${total_requests}${NC}"
     echo -e "  Cache Hits: ${CYAN}${cache_hits}${NC} (${cache_rate}%)"
-    echo -e "  Tools Executed: ${CYAN}${METRICS[tools_executed]}${NC}"
-    echo -e "  Embeddings Generated: ${CYAN}${METRICS[embeddings_generated]}${NC}"
+    echo -e "  Tools Executed: ${CYAN}${METRICS_TOOLS_EXECUTED}${NC}"
+    echo -e "  Embeddings Generated: ${CYAN}${METRICS_EMBEDDINGS_GENERATED}${NC}"
     echo -e "  Average Response Time: ${CYAN}${avg_time}ms${NC}"
-    echo -e "  Total Time: ${CYAN}${METRICS[total_time]}ms${NC}"
+    echo -e "  Total Time: ${CYAN}${METRICS_TOTAL_TIME}ms${NC}"
     
     # Performance evaluation
     echo -e "\n${BOLD}Performance Evaluation:${NC}"
@@ -866,9 +871,17 @@ main() {
     echo -e "  ${GREEN}✓${NC} Validated security controls"
     echo -e "  ${GREEN}✓${NC} Confirmed network resilience"
     
-    if [ "$cache_rate" -gt 50 ] && [ "$avg_time" -lt 1000 ]; then
+    # Calculate metrics for final evaluation
+    local final_cache_rate=0
+    local final_avg_time=0
+    if [ "${METRICS_REQUESTS:-0}" -gt 0 ]; then
+        final_cache_rate=$(( (${METRICS_CACHE_HITS:-0} * 100) / ${METRICS_REQUESTS:-0} ))
+        final_avg_time=$(( ${METRICS_TOTAL_TIME:-0} / ${METRICS_REQUESTS:-0} ))
+    fi
+    
+    if [ "$final_cache_rate" -gt 50 ] && [ "$final_avg_time" -lt 1000 ]; then
         echo -e "\n${BOLD}${GREEN}🎉 EXCELLENT PERFORMANCE - Ready for Production!${NC}"
-    elif [ "$avg_time" -lt 2000 ]; then
+    elif [ "$final_avg_time" -lt 2000 ]; then
         echo -e "\n${BOLD}${YELLOW}✅ GOOD PERFORMANCE - Minor optimizations recommended${NC}"
     else
         echo -e "\n${BOLD}${RED}⚠️  PERFORMANCE NEEDS ATTENTION${NC}"
