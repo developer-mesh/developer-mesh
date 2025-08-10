@@ -5,9 +5,9 @@
 CREATE TABLE IF NOT EXISTS mcp.execution_history (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     execution_id UUID NOT NULL UNIQUE,
-    tenant_id UUID NOT NULL REFERENCES mcp.tenants(id) ON DELETE CASCADE,
-    agent_id UUID NOT NULL REFERENCES mcp.agents(id) ON DELETE CASCADE,
-    tool_id UUID NOT NULL REFERENCES mcp.tool_configurations(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL,
+    agent_id UUID NOT NULL,
+    tool_id UUID NOT NULL,
     
     -- Execution details
     action VARCHAR(100) NOT NULL,
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS mcp.execution_history (
     content_type VARCHAR(50),
     intelligence_metadata JSONB,
     context_id UUID,
-    embedding_id UUID REFERENCES mcp.embeddings(id),
+    embedding_id UUID,
     
     -- Performance metrics
     execution_time_ms INTEGER,
@@ -36,16 +36,16 @@ CREATE TABLE IF NOT EXISTS mcp.execution_history (
     -- Timestamps
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     started_at TIMESTAMP WITH TIME ZONE,
-    completed_at TIMESTAMP WITH TIME ZONE,
-    
-    -- Indexes
-    INDEX idx_execution_history_tenant_id (tenant_id),
-    INDEX idx_execution_history_agent_id (agent_id),
-    INDEX idx_execution_history_tool_id (tool_id),
-    INDEX idx_execution_history_status (status),
-    INDEX idx_execution_history_created_at (created_at DESC),
-    INDEX idx_execution_history_execution_id (execution_id)
+    completed_at TIMESTAMP WITH TIME ZONE
 );
+
+-- Create indexes for execution_history
+CREATE INDEX idx_execution_history_tenant_id ON mcp.execution_history(tenant_id);
+CREATE INDEX idx_execution_history_agent_id ON mcp.execution_history(agent_id);
+CREATE INDEX idx_execution_history_tool_id ON mcp.execution_history(tool_id);
+CREATE INDEX idx_execution_history_status ON mcp.execution_history(status);
+CREATE INDEX idx_execution_history_created_at ON mcp.execution_history(created_at DESC);
+CREATE INDEX idx_execution_history_execution_id ON mcp.execution_history(execution_id);
 
 -- Semantic relationships table
 CREATE TABLE IF NOT EXISTS mcp.semantic_relationships (
@@ -55,18 +55,18 @@ CREATE TABLE IF NOT EXISTS mcp.semantic_relationships (
     relationship_type VARCHAR(50) NOT NULL, -- similar, references, extends, contradicts, etc.
     confidence_score FLOAT NOT NULL CHECK (confidence_score >= 0 AND confidence_score <= 1),
     metadata JSONB,
-    tenant_id UUID NOT NULL REFERENCES mcp.tenants(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     
     -- Ensure unique relationships
-    UNIQUE(source_context_id, target_context_id, relationship_type),
-    
-    -- Indexes
-    INDEX idx_semantic_relationships_source (source_context_id),
-    INDEX idx_semantic_relationships_target (target_context_id),
-    INDEX idx_semantic_relationships_type (relationship_type),
-    INDEX idx_semantic_relationships_tenant (tenant_id)
+    UNIQUE(source_context_id, target_context_id, relationship_type)
 );
+
+-- Create indexes for semantic_relationships
+CREATE INDEX idx_semantic_relationships_source ON mcp.semantic_relationships(source_context_id);
+CREATE INDEX idx_semantic_relationships_target ON mcp.semantic_relationships(target_context_id);
+CREATE INDEX idx_semantic_relationships_type ON mcp.semantic_relationships(relationship_type);
+CREATE INDEX idx_semantic_relationships_tenant ON mcp.semantic_relationships(tenant_id);
 
 -- Content analysis cache
 CREATE TABLE IF NOT EXISTS mcp.content_analysis_cache (
@@ -91,19 +91,19 @@ CREATE TABLE IF NOT EXISTS mcp.content_analysis_cache (
     analysis_version VARCHAR(20),
     model_used VARCHAR(100),
     processing_time_ms INTEGER,
-    tenant_id UUID NOT NULL REFERENCES mcp.tenants(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL,
     
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP WITH TIME ZONE,
     
     -- Ensure unique content per tenant
-    UNIQUE(content_hash, tenant_id),
-    
-    -- Indexes
-    INDEX idx_content_analysis_hash (content_hash),
-    INDEX idx_content_analysis_tenant (tenant_id),
-    INDEX idx_content_analysis_expires (expires_at)
+    UNIQUE(content_hash, tenant_id)
 );
+
+-- Create indexes for content_analysis_cache
+CREATE INDEX idx_content_analysis_hash ON mcp.content_analysis_cache(content_hash);
+CREATE INDEX idx_content_analysis_tenant ON mcp.content_analysis_cache(tenant_id);
+CREATE INDEX idx_content_analysis_expires ON mcp.content_analysis_cache(expires_at);
 
 -- Execution checkpoints for recovery
 CREATE TABLE IF NOT EXISTS mcp.execution_checkpoints (
@@ -127,18 +127,18 @@ CREATE TABLE IF NOT EXISTS mcp.execution_checkpoints (
     compensation_executed BOOLEAN DEFAULT FALSE,
     compensation_data JSONB,
     
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    
-    -- Indexes
-    INDEX idx_execution_checkpoints_execution (execution_id),
-    INDEX idx_execution_checkpoints_stage (stage),
-    INDEX idx_execution_checkpoints_status (status)
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Create indexes for execution_checkpoints
+CREATE INDEX idx_execution_checkpoints_execution ON mcp.execution_checkpoints(execution_id);
+CREATE INDEX idx_execution_checkpoints_stage ON mcp.execution_checkpoints(stage);
+CREATE INDEX idx_execution_checkpoints_status ON mcp.execution_checkpoints(status);
 
 -- Cost tracking per tenant
 CREATE TABLE IF NOT EXISTS mcp.intelligence_cost_tracking (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES mcp.tenants(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL,
     date DATE NOT NULL,
     
     -- Cost breakdown
@@ -163,12 +163,12 @@ CREATE TABLE IF NOT EXISTS mcp.intelligence_cost_tracking (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     
     -- Ensure one record per tenant per day
-    UNIQUE(tenant_id, date),
-    
-    -- Indexes
-    INDEX idx_cost_tracking_tenant_date (tenant_id, date DESC),
-    INDEX idx_cost_tracking_budget_exceeded (budget_exceeded)
+    UNIQUE(tenant_id, date)
 );
+
+-- Create indexes for intelligence_cost_tracking
+CREATE INDEX idx_cost_tracking_tenant_date ON mcp.intelligence_cost_tracking(tenant_id, date DESC);
+CREATE INDEX idx_cost_tracking_budget_exceeded ON mcp.intelligence_cost_tracking(budget_exceeded);
 
 -- Performance metrics table
 CREATE TABLE IF NOT EXISTS mcp.intelligence_metrics (
@@ -181,9 +181,9 @@ CREATE TABLE IF NOT EXISTS mcp.intelligence_metrics (
     unit VARCHAR(20),
     
     -- Context
-    tenant_id UUID REFERENCES mcp.tenants(id) ON DELETE CASCADE,
-    agent_id UUID REFERENCES mcp.agents(id) ON DELETE CASCADE,
-    tool_id UUID REFERENCES mcp.tool_configurations(id) ON DELETE CASCADE,
+    tenant_id UUID,
+    agent_id UUID,
+    tool_id UUID,
     execution_id UUID,
     
     -- Labels for filtering
@@ -193,14 +193,14 @@ CREATE TABLE IF NOT EXISTS mcp.intelligence_metrics (
     window_start TIMESTAMP WITH TIME ZONE NOT NULL,
     window_end TIMESTAMP WITH TIME ZONE NOT NULL,
     
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    
-    -- Indexes
-    INDEX idx_intelligence_metrics_type (metric_type),
-    INDEX idx_intelligence_metrics_name (metric_name),
-    INDEX idx_intelligence_metrics_window (window_start, window_end),
-    INDEX idx_intelligence_metrics_tenant (tenant_id)
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Create indexes for intelligence_metrics
+CREATE INDEX idx_intelligence_metrics_type ON mcp.intelligence_metrics(metric_type);
+CREATE INDEX idx_intelligence_metrics_name ON mcp.intelligence_metrics(metric_name);
+CREATE INDEX idx_intelligence_metrics_window ON mcp.intelligence_metrics(window_start, window_end);
+CREATE INDEX idx_intelligence_metrics_tenant ON mcp.intelligence_metrics(tenant_id);
 
 -- Security audit log
 CREATE TABLE IF NOT EXISTS mcp.security_audit_log (
@@ -209,8 +209,8 @@ CREATE TABLE IF NOT EXISTS mcp.security_audit_log (
     event_type VARCHAR(50) NOT NULL,
     
     -- Security context
-    tenant_id UUID NOT NULL REFERENCES mcp.tenants(id) ON DELETE CASCADE,
-    agent_id UUID REFERENCES mcp.agents(id) ON DELETE SET NULL,
+    tenant_id UUID NOT NULL,
+    agent_id UUID,
     user_id UUID,
     
     -- Classification results
@@ -225,14 +225,14 @@ CREATE TABLE IF NOT EXISTS mcp.security_audit_log (
     -- Details
     details JSONB,
     
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    
-    -- Indexes
-    INDEX idx_security_audit_event (event_id),
-    INDEX idx_security_audit_type (event_type),
-    INDEX idx_security_audit_tenant (tenant_id),
-    INDEX idx_security_audit_created (created_at DESC)
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Create indexes for security_audit_log
+CREATE INDEX idx_security_audit_event ON mcp.security_audit_log(event_id);
+CREATE INDEX idx_security_audit_type ON mcp.security_audit_log(event_type);
+CREATE INDEX idx_security_audit_tenant ON mcp.security_audit_log(tenant_id);
+CREATE INDEX idx_security_audit_created ON mcp.security_audit_log(created_at DESC);
 
 -- Create function to auto-generate embeddings on tool execution
 CREATE OR REPLACE FUNCTION mcp.auto_generate_embedding()
@@ -299,21 +299,21 @@ CREATE TABLE IF NOT EXISTS mcp.embedding_queue (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     execution_id UUID UNIQUE,
     content TEXT NOT NULL,
-    tenant_id UUID NOT NULL REFERENCES mcp.tenants(id) ON DELETE CASCADE,
-    agent_id UUID NOT NULL REFERENCES mcp.agents(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL,
+    agent_id UUID NOT NULL,
     metadata JSONB,
     priority INTEGER DEFAULT 2, -- 1 = high, 2 = normal, 3 = low
     status VARCHAR(20) DEFAULT 'pending', -- pending, processing, completed, failed
     retry_count INTEGER DEFAULT 0,
     error_message TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    processed_at TIMESTAMP WITH TIME ZONE,
-    
-    -- Indexes
-    INDEX idx_embedding_queue_status (status),
-    INDEX idx_embedding_queue_priority (priority, created_at),
-    INDEX idx_embedding_queue_tenant (tenant_id)
+    processed_at TIMESTAMP WITH TIME ZONE
 );
+
+-- Create indexes for embedding_queue
+CREATE INDEX idx_embedding_queue_status ON mcp.embedding_queue(status);
+CREATE INDEX idx_embedding_queue_priority ON mcp.embedding_queue(priority, created_at);
+CREATE INDEX idx_embedding_queue_tenant ON mcp.embedding_queue(tenant_id);
 
 -- Create function to clean up old data
 CREATE OR REPLACE FUNCTION mcp.cleanup_old_intelligence_data()
