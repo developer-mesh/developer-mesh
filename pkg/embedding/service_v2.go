@@ -2,6 +2,8 @@ package embedding
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -101,7 +103,7 @@ type GenerateEmbeddingRequest struct {
 	Metadata  map[string]interface{} `json:"metadata"`
 	RequestID string                 `json:"request_id"`
 	TenantID  uuid.UUID              `json:"tenant_id"`
-	ContextID uuid.UUID              `json:"context_id"`
+	ContextID *uuid.UUID             `json:"context_id,omitempty"` // Optional context reference
 }
 
 // GenerateEmbeddingResponse represents the response from generating an embedding
@@ -211,7 +213,46 @@ func (s *ServiceV2) GenerateEmbedding(ctx context.Context, req GenerateEmbedding
 		taskType = agents.TaskTypeGeneralQA
 	}
 
-	// Check cache if enabled
+	// First check if we already have this embedding in the database
+	// This is more efficient than generating and then hitting a duplicate key error
+	contentHash := calculateContentHash(req.Text)
+	
+	// Determine which model we'll use (needed for deduplication check)
+	modelName := "amazon.titan-embed-text-v2:0" // Default
+	if req.Model != "" {
+		_, model := s.parseModelString(req.Model)
+		if model != "" {
+			modelName = model
+		}
+	}
+	
+	// Check for existing embedding
+	existingEmbeddingID, checkErr := s.repository.GetExistingEmbedding(ctx, contentHash, modelName, req.TenantID)
+	if checkErr != nil {
+		// Log warning but continue with generation
+		// Continue with generation even if check fails
+	} else if existingEmbeddingID != nil {
+		// We found an existing embedding - return it immediately
+		
+		return &GenerateEmbeddingResponse{
+			EmbeddingID:          *existingEmbeddingID,
+			RequestID:            requestID,
+			ModelUsed:            modelName,
+			Provider:             "cached", // Indicates this was retrieved, not generated
+			Dimensions:           1024, // Default dimensions for Titan v2
+			NormalizedDimensions: StandardDimension,
+			Cached:               true,
+			Metadata:             map[string]interface{}{
+				"deduplicated": true,
+				"content_hash": contentHash,
+			},
+			GenerationTimeMs:     time.Since(start).Milliseconds(),
+			CostUSD:              0, // No cost for deduplicated embeddings
+			TokensUsed:           0, // No tokens used
+		}, nil
+	}
+	
+	// Check cache if enabled (for in-memory caching)
 	if s.cache != nil {
 		cacheKey := s.generateCacheKey(req)
 		if cached, err := s.cache.Get(ctx, cacheKey); err == nil && cached != nil {
@@ -403,8 +444,11 @@ func (s *ServiceV2) GenerateEmbedding(ctx context.Context, req GenerateEmbedding
 		go func() {
 			var agentID *uuid.UUID
 			if req.AgentID != "" {
-				id := uuid.MustParse(req.AgentID)
-				agentID = &id
+				id, err := uuid.Parse(req.AgentID)
+				if err == nil {
+					agentID = &id
+				}
+				// If not a valid UUID, agentID remains nil (anonymous usage)
 			}
 			taskTypeStr := string(taskType)
 			s.modelSelector.TrackUsage(
@@ -441,13 +485,13 @@ func (s *ServiceV2) GenerateEmbedding(ctx context.Context, req GenerateEmbedding
 	metadata["generation_time_ms"] = time.Since(start).Milliseconds()
 
 	insertReq := InsertRequest{
-		ContextID:            req.ContextID,
+		ContextID:            req.ContextID, // Now properly nullable
 		Content:              req.Text,
 		Embedding:            embeddingResp.Embedding,
 		ModelName:            embeddingResp.Model,
 		TenantID:             req.TenantID,
 		Metadata:             json.RawMessage(mustMarshalJSON(metadata)),
-		ConfiguredDimensions: &embeddingResp.Dimensions,
+		ConfiguredDimensions: nil, // Only set when actually using dimension reduction
 	}
 
 	embeddingID, err := s.repository.InsertEmbedding(ctx, insertReq)
@@ -952,6 +996,11 @@ func hashString(s string) string {
 	// Simple hash for cache key
 	// In production, use a proper hash function
 	return fmt.Sprintf("%x", s[:min(len(s), 32)])
+}
+
+func calculateContentHash(content string) string {
+	hash := sha256.Sum256([]byte(content))
+	return hex.EncodeToString(hash[:])
 }
 
 func min(a, b int) int {

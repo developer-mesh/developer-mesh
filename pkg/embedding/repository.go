@@ -2,7 +2,9 @@ package embedding
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -300,6 +302,44 @@ func (r *Repository) GetModelByName(ctx context.Context, modelName string) (*Mod
 	}
 
 	return &model, nil
+}
+
+// GetExistingEmbedding checks if an embedding already exists for the given content
+func (r *Repository) GetExistingEmbedding(ctx context.Context, contentHash string, modelName string, tenantID uuid.UUID) (*uuid.UUID, error) {
+	var embeddingID uuid.UUID
+	
+	query := `
+		SELECT e.id 
+		FROM mcp.embeddings e
+		JOIN mcp.embedding_models m ON e.model_id = m.id
+		WHERE e.content_hash = $1 
+		AND (m.model_name = $2 OR m.model_id = $2)
+		AND e.tenant_id = $3
+		LIMIT 1
+	`
+	
+	err := r.db.QueryRowContext(ctx, query, contentHash, modelName, tenantID).Scan(&embeddingID)
+	if err == sql.ErrNoRows {
+		return nil, nil // No existing embedding found
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to check for existing embedding: %w", err)
+	}
+	
+	r.logger.Debug("Found existing embedding", map[string]interface{}{
+		"embedding_id": embeddingID,
+		"content_hash": contentHash,
+		"model":        modelName,
+		"tenant_id":    tenantID,
+	})
+	
+	return &embeddingID, nil
+}
+
+// CalculateContentHash generates a SHA256 hash of the content
+func CalculateContentHash(content string) string {
+	hash := sha256.Sum256([]byte(content))
+	return hex.EncodeToString(hash[:])
 }
 
 // GetEmbeddingsByContext retrieves all embeddings for a context

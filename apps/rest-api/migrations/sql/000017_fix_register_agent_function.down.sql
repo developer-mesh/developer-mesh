@@ -1,0 +1,2 @@
+-- Rollback is not needed as we're just fixing a bug in the function
+-- The previous version would have failed anyway

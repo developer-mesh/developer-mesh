@@ -156,6 +156,7 @@ services:
       - DATABASE_SSL_MODE=disable
       - DB_SSLMODE=disable
       - DATABASE_DSN=postgres://devmesh:devmesh@database:5432/devmesh_development?sslmode=disable&search_path=mcp,public
+      - MIGRATIONS_FAIL_FAST=true
       # Redis (using service names)
       - REDIS_HOST=redis
       - REDIS_PORT=6379

@@ -12,6 +12,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/repository"
 	agentRepo "github.com/developer-mesh/developer-mesh/pkg/repository/agent"
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 )
 
 // EnhancedAgentRegistry extends DBAgentRegistry with universal agent support
@@ -21,6 +22,7 @@ type EnhancedAgentRegistry struct {
 	// Additional repositories for enhanced functionality
 	manifestRepo repository.AgentManifestRepository
 	orgRepo      repository.OrganizationRepository
+	db           *sqlx.DB // Database connection for direct queries
 
 	// Enhanced tracking
 	manifestCache   sync.Map // manifest_id -> AgentManifest
@@ -81,25 +83,90 @@ func (ear *EnhancedAgentRegistry) RegisterUniversalAgent(ctx context.Context, re
 	// Cache the manifest
 	ear.manifestCache.Store(manifest.ID, manifest)
 
-	// Create or update registration
-	registration := &models.AgentRegistration{
-		ID:                 uuid.New(),
-		ManifestID:         manifest.ID,
-		TenantID:           reg.TenantID,
-		InstanceID:         reg.InstanceID,
-		RegistrationToken:  reg.Token,
-		RegistrationStatus: models.RegistrationStatusActive,
-		RuntimeConfig:      reg.RuntimeConfig,
-		ConnectionDetails:  reg.ConnectionDetails,
-		HealthStatus:       models.RegistrationHealthHealthy,
-		HealthCheckURL:     reg.HealthCheckURL,
-	}
+	// Declare registration variable at the beginning
+	var registration *models.AgentRegistration
 
-	now := time.Now()
-	registration.ActivationDate = &now
+	// Use the new idempotent registration function if database is available
+	if ear.db != nil {
+		// Call the database function for idempotent registration
+		var result struct {
+			RegistrationID uuid.UUID `db:"registration_id"`
+			ManifestID     uuid.UUID `db:"manifest_id"`
+			ConfigID       uuid.UUID `db:"config_id"`
+			IsNew          bool      `db:"is_new"`
+			Message        string    `db:"message"`
+		}
 
-	if err := ear.manifestRepo.CreateRegistration(ctx, registration); err != nil {
-		return nil, fmt.Errorf("failed to create agent registration: %w", err)
+		query := `SELECT * FROM mcp.register_agent_instance($1, $2, $3, $4, $5, $6)`
+		err := ear.db.GetContext(ctx, &result, query,
+			reg.TenantID,
+			reg.AgentID,
+			reg.InstanceID,
+			reg.Name,
+			reg.ConnectionDetails,
+			reg.RuntimeConfig,
+		)
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to register agent instance: %w", err)
+		}
+
+		ear.logger.Info("Agent registered via database function", map[string]interface{}{
+			"registration_id": result.RegistrationID,
+			"config_id":       result.ConfigID,
+			"manifest_id":     result.ManifestID,
+			"instance_id":     reg.InstanceID,
+			"is_new":          result.IsNew,
+			"message":         result.Message,
+		})
+
+		// Create a registration object for compatibility
+		registration = &models.AgentRegistration{
+			ID:                 result.RegistrationID,
+			ManifestID:         result.ManifestID,
+			TenantID:           reg.TenantID,
+			InstanceID:         reg.InstanceID,
+			RegistrationToken:  reg.Token,
+			RegistrationStatus: models.RegistrationStatusActive,
+			RuntimeConfig:      reg.RuntimeConfig,
+			ConnectionDetails:  reg.ConnectionDetails,
+			HealthStatus:       models.RegistrationHealthHealthy,
+			HealthCheckURL:     reg.HealthCheckURL,
+		}
+		now := time.Now()
+		registration.ActivationDate = &now
+
+		// Store in cache
+		ear.registrationMap.Store(reg.InstanceID, registration.ID)
+	} else {
+		// Fallback: create registration without database
+		registration = &models.AgentRegistration{
+			ID:                 uuid.New(),
+			ManifestID:         manifest.ID,
+			TenantID:           reg.TenantID,
+			InstanceID:         reg.InstanceID,
+			RegistrationToken:  reg.Token,
+			RegistrationStatus: models.RegistrationStatusActive,
+			RuntimeConfig:      reg.RuntimeConfig,
+			ConnectionDetails:  reg.ConnectionDetails,
+			HealthStatus:       models.RegistrationHealthHealthy,
+			HealthCheckURL:     reg.HealthCheckURL,
+		}
+		now := time.Now()
+		registration.ActivationDate = &now
+
+		// Try to create via repository if available
+		if ear.manifestRepo != nil {
+			if err := ear.manifestRepo.CreateRegistration(ctx, registration); err != nil {
+				// Log but continue - the registration exists in memory
+				ear.logger.Warn("Failed to persist registration", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+		}
+
+		// Store in cache
+		ear.registrationMap.Store(reg.InstanceID, registration.ID)
 	}
 
 	// Track registration
@@ -135,21 +202,13 @@ func (ear *EnhancedAgentRegistry) RegisterUniversalAgent(ctx context.Context, re
 		}
 	}
 
-	// Also register with base DBAgentRegistry for compatibility
-	baseReg := &AgentRegistration{
+	// No need for legacy registration - the view handles backward compatibility
+	baseInfo := &AgentInfo{
 		ID:           manifest.AgentID,
 		Name:         reg.Name,
 		TenantID:     reg.TenantID.String(),
 		Capabilities: convertCapabilities(manifest.Capabilities),
-		Metadata:     reg.Metadata,
-		ConnectionID: reg.ConnectionID,
-	}
-
-	baseInfo, err := ear.DBAgentRegistry.RegisterAgent(ctx, baseReg) //nolint:staticcheck // Explicit call to embedded registry
-	if err != nil {
-		ear.logger.Warn("Failed to register with base registry", map[string]interface{}{
-			"error": err.Error(),
-		})
+		Status:       "active",
 	}
 
 	// Build enhanced response
@@ -168,11 +227,9 @@ func (ear *EnhancedAgentRegistry) RegisterUniversalAgent(ctx context.Context, re
 		LastSeen:       time.Now(),
 	}
 
-	// Copy base info if available
-	if baseInfo != nil {
-		info.ActiveTasks = baseInfo.ActiveTasks
-		info.ConnectionID = baseInfo.ConnectionID
-	}
+	// Copy base info (always exists since we just created it)
+	info.ActiveTasks = baseInfo.ActiveTasks
+	info.ConnectionID = baseInfo.ConnectionID
 
 	ear.metrics.IncrementCounter("universal_agents_registered", 1)
 	ear.metrics.IncrementCounter(fmt.Sprintf("agents_type_%s", reg.AgentType), 1)

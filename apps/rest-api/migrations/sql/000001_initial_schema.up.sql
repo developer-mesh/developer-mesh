@@ -728,11 +728,11 @@ DECLARE
     v_actual_dimensions INTEGER;
     v_content_hash VARCHAR(64);
 BEGIN
-    -- Get model info
+    -- Get model info - check both model_id and model_name for compatibility
     SELECT id, provider, dimensions, supports_dimensionality_reduction, min_dimensions
     INTO v_model_id, v_model_provider, v_dimensions, v_supports_reduction, v_min_dimensions
     FROM mcp.embedding_models
-    WHERE model_name = p_model_name
+    WHERE (model_id = p_model_name OR model_name = p_model_name)
     AND is_active = true
     LIMIT 1;
     
@@ -1103,13 +1103,36 @@ CREATE POLICY tenant_isolation_events ON mcp.events
 -- INITIAL DATA
 -- ==============================================================================
 
--- Insert default embedding models
-INSERT INTO mcp.embedding_models (provider, model_name, dimensions, max_tokens, cost_per_token) VALUES
-    ('openai', 'text-embedding-3-small', 1536, 8192, 0.00002),
-    ('openai', 'text-embedding-3-large', 3072, 8192, 0.00013),
-    ('amazon', 'amazon.titan-embed-text-v1', 1536, 8192, 0.00001),
-    ('google', 'text-embedding-004', 768, 2048, 0.00001)
-ON CONFLICT (provider, model_name) DO NOTHING;
+-- Insert default embedding models (Updated 2025)
+INSERT INTO mcp.embedding_models (provider, model_name, model_id, dimensions, max_tokens, cost_per_token, supports_dimensionality_reduction, min_dimensions) VALUES
+    -- OpenAI Models (model_id = model_name for OpenAI)
+    ('openai', 'text-embedding-3-small', 'text-embedding-3-small', 1536, 8191, 0.00002, true, 512),
+    ('openai', 'text-embedding-3-large', 'text-embedding-3-large', 3072, 8191, 0.00013, true, 256),
+    ('openai', 'text-embedding-ada-002', 'text-embedding-ada-002', 1536, 8191, 0.00010, false, NULL),
+    
+    -- AWS Bedrock Titan Models (model_id = model_name for Bedrock)
+    ('bedrock', 'amazon.titan-embed-text-v2:0', 'amazon.titan-embed-text-v2:0', 1024, 8192, 0.00002, true, 256),
+    ('bedrock', 'amazon.titan-embed-text-v1', 'amazon.titan-embed-text-v1', 1536, 8192, 0.00001, false, NULL),
+    ('bedrock', 'amazon.titan-embed-image-v1', 'amazon.titan-embed-image-v1', 1024, 8192, 0.00002, false, NULL),
+    
+    -- Google Vertex AI Models (model_id = model_name for Google)
+    ('google', 'text-embedding-004', 'text-embedding-004', 768, 2048, 0.00001, true, 256),
+    ('google', 'textembedding-gecko@003', 'textembedding-gecko@003', 768, 3072, 0.00001, false, NULL),
+    ('google', 'textembedding-gecko-multilingual@001', 'textembedding-gecko-multilingual@001', 768, 2048, 0.00001, false, NULL),
+    
+    -- Cohere Models (model_id = model_name)
+    ('cohere', 'embed-english-v3.0', 'embed-english-v3.0', 1024, 512, 0.00001, true, 256),
+    ('cohere', 'embed-multilingual-v3.0', 'embed-multilingual-v3.0', 1024, 512, 0.00001, true, 256),
+    
+    -- Voyage AI Models (model_id = model_name)
+    ('voyage', 'voyage-3-large', 'voyage-3-large', 1024, 32000, 0.00012, true, 256),
+    ('voyage', 'voyage-3', 'voyage-3', 1024, 32000, 0.00006, true, 256),
+    ('voyage', 'voyage-code-3', 'voyage-code-3', 1024, 16000, 0.00006, true, 256)
+ON CONFLICT (provider, model_name) DO UPDATE SET
+    dimensions = EXCLUDED.dimensions,
+    max_tokens = EXCLUDED.max_tokens,
+    cost_per_token = EXCLUDED.cost_per_token,
+    is_active = true;
 
 -- ==============================================================================
 -- GRANTS (adjust based on your user requirements)

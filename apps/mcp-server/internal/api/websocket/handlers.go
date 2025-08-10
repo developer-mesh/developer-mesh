@@ -142,8 +142,9 @@ func (s *Server) RegisterHandlers() {
 		"workflow.resume":                s.handleWorkflowResume,
 		"workflow.complete_task":         s.handleWorkflowCompleteTask,
 
-		// Agent management
-		"agent.register":      s.handleAgentRegister,
+		// Agent management - using new idempotent registration
+		"agent.register":      s.handleAgentRegisterIdempotent,
+		"agent.heartbeat":     s.handleAgentHeartbeatProper,
 		"agent.discover":      s.handleAgentDiscover,
 		"agent.delegate":      s.handleAgentDelegate,
 		"agent.collaborate":   s.handleAgentCollaborate,

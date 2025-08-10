@@ -164,8 +164,27 @@ if [ "$REGISTER_RESPONSE" = "{}" ]; then
     echo "  - Server not processing messages"
     echo ""
     echo "Debug: Try running with DEBUG=true for more details"
-elif echo "$REGISTER_RESPONSE" | grep -q "\"status\":\"success\"\|\"type\":\"agent.registered\""; then
+elif echo "$REGISTER_RESPONSE" | grep -q "\"agent_id\"\|\"registered_at\"\|\"capabilities\""; then
     echo -e "${GREEN}✓ Local MCP client registered with DevMesh${NC}"
+    
+    # Extract the assigned agent ID from response
+    ASSIGNED_AGENT_ID=$(echo "$REGISTER_RESPONSE" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    # Handle MCP response format (type:1 is success response)
+    if data.get('type') == 1 and 'result' in data:
+        print(data['result'].get('agent_id', ''))
+    elif 'agent_id' in data:
+        print(data['agent_id'])
+except:
+    pass
+" 2>/dev/null || echo "")
+    
+    if [ -n "$ASSIGNED_AGENT_ID" ]; then
+        echo -e "${GREEN}  Assigned Agent ID: ${ASSIGNED_AGENT_ID}${NC}"
+    fi
+    
     if [ "${DEBUG:-false}" = "true" ]; then
         echo -e "${BLUE}Response: $REGISTER_RESPONSE${NC}"
     fi
@@ -365,7 +384,7 @@ EMBEDDING_MSG=$(cat <<EOF
         "agent_id": "${AGENT_UUID}",
         "text": "# The Go Programming Language - Go is an open source programming language that makes it easy to build simple, reliable, and efficient software.",
         "task_type": "code_analysis",
-        "model": "bedrock:amazon.nova-lite-v1:0"
+        "model": "amazon.titan-embed-text-v2:0"
     }
 }
 EOF
