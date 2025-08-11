@@ -307,8 +307,9 @@ func TestRateLimiterConcurrency(t *testing.T) {
 	wg.Wait()
 
 	// Should allow burst of 10, but due to race conditions might allow slightly more
-	assert.LessOrEqual(t, allowed, int64(12))
-	assert.GreaterOrEqual(t, allowed, int64(8))
+	finalAllowed := atomic.LoadInt64(&allowed)
+	assert.LessOrEqual(t, finalAllowed, int64(12))
+	assert.GreaterOrEqual(t, finalAllowed, int64(8))
 }
 
 // TestConnectionStateManagement tests connection state transitions

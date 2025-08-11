@@ -174,11 +174,11 @@ clean: ## Clean build artifacts
 .PHONY: test
 test: ## Run all unit tests (excludes integration tests and Redis-dependent tests)
 	@echo "Running unit tests..."
-	@$(GOTEST) -v -short \
-		./apps/mcp-server/... \
-		./apps/rest-api/... \
-		./apps/worker/... \
-		$$(go list ./pkg/... | grep -v pkg/embedding/cache)
+	@cd apps/mcp-server && $(GOTEST) -v -short ./... && cd ../.. && \
+	cd apps/rest-api && $(GOTEST) -v -short ./... && cd ../.. && \
+	cd apps/worker && $(GOTEST) -v -short ./... && cd ../.. && \
+	cd apps/mockserver && $(GOTEST) -v -short ./... && cd ../.. && \
+	cd pkg && $(GOTEST) -v -short $$(go list ./... | grep -v embedding/cache) && cd ..
 
 .PHONY: test-with-services
 test-with-services: start-test-env ## Run unit tests that require Redis/PostgreSQL

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/coder/websocket"
@@ -29,6 +30,7 @@ type ConnectionState struct {
 
 // RateLimiter implements token bucket algorithm
 type RateLimiter struct {
+	mu        sync.Mutex
 	tokens    float64
 	capacity  float64
 	rate      float64
@@ -45,6 +47,9 @@ func NewRateLimiter(rate, capacity float64) *RateLimiter {
 }
 
 func (r *RateLimiter) Allow() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	
 	now := time.Now()
 	elapsed := now.Sub(r.lastCheck).Seconds()
 	r.lastCheck = now
