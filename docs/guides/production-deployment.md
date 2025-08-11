@@ -66,7 +66,7 @@ aws sts get-caller-identity --profile production
 - **RDS PostgreSQL**: Primary database with pgvector
 - **ElastiCache Redis**: Caching and session storage
 - **S3**: Object storage for contexts
-- **SQS**: Message queuing
+- **Redis Streams**: Event processing and message queuing
 - **Bedrock**: AI model access
 - **ALB**: Load balancing
 - **Route 53**: DNS management
@@ -102,7 +102,7 @@ aws sts get-caller-identity --profile production
        ├─── RDS PostgreSQL (with pgvector)                        
        ├─── ElastiCache Redis (via SSH tunnel from bastion)       
        ├─── S3 Bucket (sean-mcp-dev-contexts)                     
-       ├─── SQS Queue (sean-mcp-test)                             
+       ├─── Redis Streams (via ElastiCache)                       
        └─── AWS Bedrock (embedding models)                        
 ```
 
@@ -278,22 +278,21 @@ Bucket policy (example for IP restriction):
 ```
 ```
 
-### 6. SQS Queue Setup (Manual)
+### 6. Redis Streams Configuration
 
-Create SQS queue via AWS Console:
+Redis Streams are configured via ElastiCache (already set up in step 4). Configure the following in your application:
 
-```
-Queue name: mcp-production-tasks
-Type: Standard queue
-
-Configuration:
-- Visibility timeout: 30 seconds
-- Message retention: 4 days (default)
-- Maximum message size: 256 KB
-- Receive message wait time: 20 seconds (long polling)
-
-Access policy:
-- Allow your EC2 instance role to send/receive/delete messages
+```yaml
+redis:
+  streams:
+    webhook_events:
+      max_length: 10000
+      consumer_group: webhook_workers
+      block_duration: 5s
+      batch_size: 10
+    dlq:
+      max_length: 1000
+      retention: 14d
 ```
 
 ### 7. AWS Bedrock Access
@@ -309,24 +308,8 @@ Ensure your AWS account has access to Bedrock:
 - Cohere Embed models (if needed)
   })
   
-  kms_master_key_id = "alias/aws/sqs"
-  
-  tags = {
-    Name = "mcp-production-task-queue"
-    Environment = "production"
-  }
-}
-
-resource "aws_sqs_queue" "dlq" {
-  name = "mcp-production-tasks-dlq"
-  
-  message_retention_seconds = 1209600 # 14 days
-  
-  tags = {
-    Name = "mcp-production-dlq"
-    Environment = "production"
-  }
-}
+  # Note: Redis Streams configuration is handled via ElastiCache
+  # Dead letter queue is implemented as a separate Redis stream
 ```
 
 ## Service Deployment
@@ -391,7 +374,9 @@ services:
   worker:
     image: worker:production
     environment:
-      - SQS_QUEUE_URL=${SQS_QUEUE_URL}
+      - REDIS_ADDR=127.0.0.1:6379  # Via SSH tunnel
+      - REDIS_STREAM_NAME=webhook_events
+      - REDIS_CONSUMER_GROUP=webhook_workers
       # Other env vars
     restart: unless-stopped
 ```
@@ -421,7 +406,9 @@ REDIS_ADDR=127.0.0.1:6379
 
 # AWS
 S3_BUCKET=your-mcp-contexts
-SQS_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/YOUR-ACCOUNT/your-queue
+# Redis Streams (configured via ElastiCache)
+REDIS_STREAM_NAME=webhook_events
+REDIS_CONSUMER_GROUP=webhook_workers
 
 # Secrets
 JWT_SECRET=your-jwt-secret
@@ -509,7 +496,9 @@ USE_SSH_TUNNEL_FOR_REDIS=true
 # AWS Services
 AWS_REGION=us-east-1
 S3_BUCKET=your-mcp-contexts
-SQS_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/YOUR-ACCOUNT/your-queue
+# Redis Streams (configured via ElastiCache)
+REDIS_STREAM_NAME=webhook_events
+REDIS_CONSUMER_GROUP=webhook_workers
 
 # Bedrock Configuration
 BEDROCK_ENABLED=true
@@ -706,7 +695,7 @@ sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-config-wizard
 - EC2 Disk Usage
 - RDS CPU and connections
 - ElastiCache CPU and evictions
-- SQS messages and age
+- Redis stream lag and consumer group status
 ```
 
 ### 2. CloudWatch Alarms
@@ -810,7 +799,7 @@ For horizontal scaling, consider:
 - Multiple EC2 instances behind ALB
 - Docker Swarm or manual container distribution
 - Shared Redis/RDS for state
-- SQS for work distribution
+- Redis Streams for event processing and work distribution
 
 ### 3. Database Scaling
 
@@ -1048,7 +1037,7 @@ database:
    # Terminate idle connections if needed
    ```
 
-4. **SQS Processing Issues**
+4. **Redis Stream Processing Issues**
    ```bash
    # Check queue metrics in AWS Console
    # Restart worker if stuck
@@ -1113,7 +1102,7 @@ This guide covers deploying Developer Mesh to AWS using:
 - RDS PostgreSQL with pgvector
 - ElastiCache Redis (via SSH tunnel)
 - S3 for object storage
-- SQS for task queuing
+- Redis Streams for event processing and task queuing
 - AWS Bedrock for embeddings
 
 For high availability and scaling, consider future migration to:

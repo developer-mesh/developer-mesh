@@ -17,7 +17,7 @@ Developer Mesh is an AI Agent Orchestration Platform that enables intelligent ro
 - **Clean Architecture**: Clear separation between business logic, adapters, and infrastructure
 - **Event-Driven Design**: Real-time WebSocket communication with asynchronous task processing <!-- Source: pkg/models/websocket/binary.go -->
 - **Go Workspace**: Monorepo with multiple modules for code sharing and independent deployment
-- **Cloud-Native**: Production AWS integration with Bedrock, SQS, S3, and ElastiCache
+- **Cloud-Native**: Production AWS integration with Bedrock, S3, and ElastiCache
 
 ## System Components
 
@@ -70,7 +70,7 @@ The Worker handles distributed task processing:
 - **Workflow Coordination**: Manages multi-step AI workflows
 
 Key Features:
-- SQS integration for reliable task delivery
+- Redis Streams for reliable event processing and task delivery
 - Concurrent processing with agent workload awareness
 - Cost tracking for AI model usage
 - Dead letter queue for failed task handling

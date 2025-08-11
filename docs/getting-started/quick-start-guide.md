@@ -21,7 +21,7 @@ Get Developer Mesh running locally in under 5 minutes.
 - **Make** (usually pre-installed on Linux/Mac)
 
 ### Optional (for full features)
-- AWS CLI configured (for S3/SQS features)
+- AWS CLI configured (for S3 features)
 - PostgreSQL client tools (for direct DB access)
 
 ## 🚀 Quick Setup
@@ -81,7 +81,7 @@ make docker-compose-logs
 # Note: This command runs:
 # - PostgreSQL 17 with pgvector extension
 # - Redis 7 Alpine
-# - Connects to real AWS services (SQS, S3, Bedrock)
+# - Connects to real AWS services (S3, Bedrock)
 # - Requires AWS credentials configured
 ```
 
@@ -124,7 +124,7 @@ make run-mcp-server
 # Terminal 2 - REST API (port 8081)
 make run-rest-api
 
-# Terminal 3 - Worker (processes SQS messages)
+# Terminal 3 - Worker (processes Redis stream events)
 make run-worker
 ```
 

@@ -44,46 +44,81 @@ graph TB
 
 ### 1. Initialize GitHub Client
 
-```python
-from devops_mcp import MCPClient, GitHubAdapter
-from devops_mcp.github import GitHubConfig
-import os
+```go
+package main
 
-# Initialize MCP client
-mcp = MCPClient(
-    base_url=os.getenv("MCP_BASE_URL", "http://localhost:8080/api/v1"),
-    api_key=os.getenv("MCP_API_KEY")
+import (
+    "context"
+    "os"
+    
+    "github.com/developer-mesh/developer-mesh/pkg/adapters/github"
+    "github.com/developer-mesh/developer-mesh/pkg/client"
+    "github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
-# Configure GitHub adapter
-github_config = GitHubConfig(
-    token=os.getenv("GITHUB_TOKEN"),
-    app_id=os.getenv("GITHUB_APP_ID"),  # Optional: for GitHub App
-    private_key=os.getenv("GITHUB_PRIVATE_KEY"),
-    webhook_secret=os.getenv("GITHUB_WEBHOOK_SECRET")
-)
-
-# Initialize GitHub adapter
-github = GitHubAdapter(mcp, github_config)
+func main() {
+    // Initialize MCP client
+    mcp := client.NewMCPClient(
+        os.Getenv("MCP_BASE_URL"),
+        os.Getenv("MCP_API_KEY"),
+    )
+    
+    // Configure GitHub adapter
+    githubConfig := &github.Config{
+        Token:         os.Getenv("GITHUB_TOKEN"),
+        AppID:         os.Getenv("GITHUB_APP_ID"),
+        PrivateKey:    os.Getenv("GITHUB_PRIVATE_KEY"),
+        WebhookSecret: os.Getenv("GITHUB_WEBHOOK_SECRET"),
+    }
+    
+    // Initialize GitHub adapter with logger
+    logger := observability.NewLogger("github-integration")
+    githubAdapter := github.NewAdapter(githubConfig, logger)
+    
+    // Use the adapter
+    ctx := context.Background()
+    // Example operations follow...
+}
 ```
 
 ### 2. Core GitHub Operations
 
-```python
-from typing import List, Dict, Any, Optional
-from datetime import datetime
+```go
+package operations
 
-class GitHubOperations:
-    """High-level GitHub operations with error handling and retries"""
+import (
+    "context"
+    "fmt"
+    "time"
     
-    def __init__(self, github_adapter: GitHubAdapter):
-        self.github = github_adapter
-        self.retry_policy = RetryPolicy(
-            max_attempts=3,
-            backoff_factor=2.0
-        )
-    
-    ## Secure GitHub Webhook Authentication
+    "github.com/developer-mesh/developer-mesh/pkg/adapters/github"
+    "github.com/developer-mesh/developer-mesh/pkg/resilience"
+)
+
+type GitHubOperations struct {
+    github      *github.Adapter
+    retryPolicy *resilience.RetryPolicy
+}
+
+func NewGitHubOperations(adapter *github.Adapter) *GitHubOperations {
+    return &GitHubOperations{
+        github: adapter,
+        retryPolicy: &resilience.RetryPolicy{
+            MaxAttempts:   3,
+            BackoffFactor: 2.0,
+        },
+    }
+}
+
+// CreateIssue creates a new GitHub issue with retry logic
+func (g *GitHubOperations) CreateIssue(ctx context.Context, repo, title, body string) error {
+    return g.retryPolicy.Execute(func() error {
+        return g.github.CreateIssue(ctx, repo, title, body)
+    })
+}
+```
+
+## Secure GitHub Webhook Authentication
 
 ### Setting up Webhook Authentication
 ```go
@@ -135,105 +170,113 @@ auth:
       client_secret: ${GITHUB_CLIENT_SECRET}
       redirect_url: "https://api.example.com/auth/github/callback"
       scopes: ["repo", "user:email"]
+### 3. Working with Issues
+
+```go
+package github
+
+import (
+    "context"
+    "fmt"
+    "time"
+)
+
+// CreateIssue creates a GitHub issue with metadata
+func (g *GitHubOperations) CreateIssue(
+    ctx context.Context,
+    repo, title, body string,
+    labels []string,
+    assignees []string,
+) (*Issue, error) {
+    // Enrich body with metadata
+    enrichedBody := fmt.Sprintf("%s\n\n---\n_Created via Developer Mesh at %s_",
+        body, time.Now().UTC().Format(time.RFC3339))
+    
+    issue := &IssueRequest{
+        Title:     title,
+        Body:      enrichedBody,
+        Labels:    labels,
+        Assignees: assignees,
+    }
+    
+    result, err := g.github.CreateIssue(ctx, repo, issue)
+    if err != nil {
+        return nil, fmt.Errorf("failed to create issue: %w", err)
+    }
+    
+    // Store in context for future reference
+    _ = g.storeContext(ctx, map[string]interface{}{
+        "type":        "github_issue",
+        "issue_number": result.Number,
+        "repository":   repo,
+        "created_at":   time.Now().UTC(),
+    })
+    
+    return result, nil
+}
+
+// SearchIssues performs advanced issue search with filtering
+func (g *GitHubOperations) SearchIssues(
+    ctx context.Context,
+    query string,
+    repo string,
+    labels []string,
+    state string,
+) ([]*Issue, error) {
+    // Build search query
+    searchParts := []string{query}
+    if repo != "" {
+        searchParts = append(searchParts, fmt.Sprintf("repo:%s", repo))
+    }
+    for _, label := range labels {
+        searchParts = append(searchParts, fmt.Sprintf(`label:"%s"`, label))
+    }
+    if state != "" {
+        searchParts = append(searchParts, fmt.Sprintf("state:%s", state))
+    }
+    
+    searchQuery := strings.Join(searchParts, " ")
+    return g.github.SearchIssues(ctx, searchQuery)
+}
 ```
+
+### 4. Working with Pull Requests
+
+```go
+// CreatePullRequest creates a pull request with advanced options
+func (g *GitHubOperations) CreatePullRequest(
+    ctx context.Context,
+    repo, title, body, head, base string,
+    draft bool,
+) (*PullRequest, error) {
+    // Generate PR template
+    prBody := g.generatePRBody(title, body)
     
-    async def create_issue(
-        self,
-        repo: str,
-        title: str,
-        body: str,
-        labels: List[str] = None,
-        assignees: List[str] = None,
-        milestone: Optional[int] = None
-    ) -> Dict[str, Any]:
-        """Create an issue with rich metadata"""
-        
-        # Format body with metadata
-        enriched_body = f"{body}\n\n---\n_Created via Developer Mesh at {datetime.utcnow().isoformat()}_"
-        
-        result = await self.github.execute_tool("github.create_issue", {
-            "repository": repo,
-            "title": title,
-            "body": enriched_body,
-            "labels": labels or [],
-            "assignees": assignees or [],
-            "milestone": milestone
-        })
-        
-        # Store in context for future reference
-        await self.github.store_context({
-            "type": "github_issue",
-            "issue_number": result["number"],
-            "repository": repo,
-            "created_at": datetime.utcnow().isoformat()
-        })
-        
-        return result
+    pr := &PullRequestRequest{
+        Title: title,
+        Body:  prBody,
+        Head:  head,
+        Base:  base,
+        Draft: draft,
+    }
     
-    async def search_issues(
-        self,
-        query: str,
-        repo: Optional[str] = None,
-        labels: List[str] = None,
-        state: str = "open",
-        sort: str = "created",
-        limit: int = 100
-    ) -> List[Dict[str, Any]]:
-        """Advanced issue search with filtering"""
-        
-        # Build search query
-        search_parts = [query]
-        if repo:
-            search_parts.append(f"repo:{repo}")
-        if labels:
-            for label in labels:
-                search_parts.append(f'label:"{label}"')
-        search_parts.append(f"state:{state}")
-        
-        result = await self.github.execute_tool("github.search_issues", {
-            "q": " ".join(search_parts),
-            "sort": sort,
-            "per_page": min(limit, 100)
-        })
-        
-        return result["items"]
+    result, err := g.github.CreatePullRequest(ctx, repo, pr)
+    if err != nil {
+        return nil, fmt.Errorf("failed to create pull request: %w", err)
+    }
     
-    async def create_pull_request(
-        self,
-        repo: str,
-        title: str,
-        body: str,
-        head: str,
-        base: str = "main",
-        draft: bool = False,
-        maintainer_can_modify: bool = True
-    ) -> Dict[str, Any]:
-        """Create a pull request with advanced options"""
-        
-        # Generate PR template if available
-        pr_body = await self._generate_pr_body(repo, title, body)
-        
-        result = await self.github.execute_tool("github.create_pull_request", {
-            "repository": repo,
-            "title": title,
-            "body": pr_body,
-            "head": head,
-            "base": base,
-            "draft": draft,
-            "maintainer_can_modify": maintainer_can_modify
-        })
-        
-        # Auto-assign reviewers based on CODEOWNERS
-        if result and not draft:
-            await self._assign_reviewers(repo, result["number"])
-        
-        return result
+    // Auto-assign reviewers if not a draft
+    if !draft && result.Number > 0 {
+        _ = g.assignReviewers(ctx, repo, result.Number)
+    }
     
-    async def _generate_pr_body(self, repo: str, title: str, description: str) -> str:
-        """Generate PR body with template and metadata"""
-        template = """
-## Description
-{description}
+    return result, nil
+}
+
+// generatePRBody creates a formatted PR description
+func (g *GitHubOperations) generatePRBody(title, description string) string {
+    template := `## Description
+%s
 
 ## Type of Change
 - [ ] Bug fix (non-breaking change which fixes an issue)
@@ -254,158 +297,106 @@ auth:
 
 ---
 _Generated via Developer Mesh_
-"""
-        return template.format(description=description)
-    
-    async def manage_pull_request(
-        self,
-        repo: str,
-        pr_number: int,
-        action: str,
-        **kwargs
-    ) -> Dict[str, Any]:
-        """Manage PR lifecycle: review, merge, close, etc."""
-        
-        actions = {
-            "approve": self._approve_pr,
-            "request_changes": self._request_changes,
-            "merge": self._merge_pr,
-            "close": self._close_pr,
-            "reopen": self._reopen_pr
-        }
-        
-        handler = actions.get(action)
-        if not handler:
-            raise ValueError(f"Unknown action: {action}")
-        
-        return await handler(repo, pr_number, **kwargs)
-    
-    async def batch_file_operations(
-        self,
-        repo: str,
-        branch: str,
-        operations: List[Dict[str, Any]],
-        commit_message: str
-    ) -> Dict[str, Any]:
-        """Perform multiple file operations in a single commit"""
-        
-        # Get current tree
-        tree_sha = await self.github.execute_tool("github.get_branch", {
-            "repository": repo,
-            "branch": branch
-        })
-        
-        # Build new tree with all changes
-        tree_items = []
-        for op in operations:
-            if op["action"] == "create" or op["action"] == "update":
-                blob = await self.github.execute_tool("github.create_blob", {
-                    "repository": repo,
-                    "content": op["content"],
-                    "encoding": "utf-8"
-                })
-                
-                tree_items.append({
-                    "path": op["path"],
-                    "mode": "100644",
-                    "type": "blob",
-                    "sha": blob["sha"]
-                })
-            elif op["action"] == "delete":
-                tree_items.append({
-                    "path": op["path"],
-                    "mode": "100644",
-                    "type": "blob",
-                    "sha": None  # Deletion
-                })
-        
-        # Create new tree
-        new_tree = await self.github.execute_tool("github.create_tree", {
-            "repository": repo,
-            "tree": tree_items,
-            "base_tree": tree_sha["commit"]["tree"]["sha"]
-        })
-        
-        # Create commit
-        commit = await self.github.execute_tool("github.create_commit", {
-            "repository": repo,
-            "message": commit_message,
-            "tree": new_tree["sha"],
-            "parents": [tree_sha["commit"]["sha"]]
-        })
-        
-        # Update branch reference
-        await self.github.execute_tool("github.update_ref", {
-            "repository": repo,
-            "ref": f"refs/heads/{branch}",
-            "sha": commit["sha"]
-        })
-        
-        return commit
+    return fmt.Sprintf(template, description)
+}
 ```
 
-### 3. Automated Workflows
+### 5. Batch File Operations
+
+```go
+// BatchFileOperation represents a single file operation
+type BatchFileOperation struct {
+    Action  string // "create", "update", "delete"
+    Path    string
+    Content string
+}
+
+// BatchFileOperations performs multiple file operations in a single commit
+func (g *GitHubOperations) BatchFileOperations(
+    ctx context.Context,
+    repo, branch string,
+    operations []BatchFileOperation,
+    commitMessage string,
+) (*Commit, error) {
+    // Implementation would use GitHub's Tree API
+    // to create all changes in a single commit
+    return g.github.CreateCommit(ctx, repo, branch, operations, commitMessage)
+}
+```
+
+### 6. Automated Workflows
 
 #### Intelligent PR Creation
-```python
-class AutomatedWorkflows:
-    """Production-ready automated GitHub workflows"""
+```go
+package workflows
+
+import (
+    "context"
+    "fmt"
+    "strings"
     
-    def __init__(self, github_ops: GitHubOperations, ai_client=None):
-        self.github = github_ops
-        self.ai = ai_client  # Optional AI integration
+    "github.com/developer-mesh/developer-mesh/pkg/adapters/github"
+)
+
+type AutomatedWorkflows struct {
+    github *github.GitHubOperations
+    ai     AIClient // Optional AI integration
+}
+
+// CreateFeatureBranchAndPR creates a feature branch with changes and opens a PR
+func (w *AutomatedWorkflows) CreateFeatureBranchAndPR(
+    ctx context.Context,
+    repo, featureName string,
+    changes []BatchFileOperation,
+) (*PullRequest, error) {
+    // Generate branch name
+    branchName := w.sanitizeBranchName(fmt.Sprintf("feature/%s", featureName))
     
-    async def create_feature_branch_and_pr(
-        self,
-        repo: str,
-        feature_name: str,
-        changes: List[Dict[str, Any]],
-        use_ai: bool = True
-    ) -> Dict[str, Any]:
-        """Create feature branch with changes and open PR"""
-        
-        # Generate branch name
-        branch_name = self._sanitize_branch_name(f"feature/{feature_name}")
-        
-        # Create branch from main
-        await self.github.execute_tool("github.create_branch", {
-            "repository": repo,
-            "branch": branch_name,
-            "from_branch": "main"
-        })
-        
-        # Apply changes in single commit
-        commit = await self.github.batch_file_operations(
-            repo=repo,
-            branch=branch_name,
-            operations=changes,
-            commit_message=f"feat: implement {feature_name}"
-        )
-        
-        # Generate PR description
-        if use_ai and self.ai:
-            pr_description = await self._generate_ai_pr_description(
-                feature_name,
-                changes,
-                commit
-            )
-        else:
-            pr_description = self._generate_standard_pr_description(
-                feature_name,
-                changes
-            )
-        
-        # Create pull request
-        pr = await self.github.create_pull_request(
-            repo=repo,
-            title=f"feat: {feature_name}",
-            body=pr_description,
-            head=branch_name,
-            base="main"
-        )
-        
-        # Run automated checks
-        await self._run_pr_checks(repo, pr["number"])
+    // Create branch from main
+    err := w.github.CreateBranch(ctx, repo, branchName, "main")
+    if err != nil {
+        return nil, fmt.Errorf("failed to create branch: %w", err)
+    }
+    
+    // Apply changes in single commit
+    commitMsg := fmt.Sprintf("feat: implement %s", featureName)
+    _, err = w.github.BatchFileOperations(ctx, repo, branchName, changes, commitMsg)
+    if err != nil {
+        return nil, fmt.Errorf("failed to commit changes: %w", err)
+    }
+    
+    // Generate PR description
+    prDescription := w.generatePRDescription(featureName, changes)
+    
+    // Create pull request
+    pr, err := w.github.CreatePullRequest(
+        ctx, repo,
+        fmt.Sprintf("feat: %s", featureName),
+        prDescription,
+        branchName,
+        "main",
+        false, // not a draft
+    )
+    if err != nil {
+        return nil, fmt.Errorf("failed to create PR: %w", err)
+    }
+    
+    // Run automated checks
+    _ = w.runPRChecks(ctx, repo, pr.Number)
+    
+    return pr, nil
+}
+
+// sanitizeBranchName ensures branch name is valid
+func (w *AutomatedWorkflows) sanitizeBranchName(name string) string {
+    // Replace spaces and special chars with hyphens
+    name = strings.ReplaceAll(name, " ", "-")
+    name = strings.ToLower(name)
+    // Remove any non-alphanumeric characters except hyphens and slashes
+    // Implementation details...
+    return name
+}
+```
         
         return {
             "branch": branch_name,

@@ -12,14 +12,17 @@ Start here if you're new to Developer Mesh
 ### [Architecture](architecture/)
 Understanding the system design
 - [System Overview](architecture/system-overview.md) - High-level architecture
-- [Adapter Pattern](architecture/adapter-pattern.md) - Core design pattern
 - [Go Workspace Structure](architecture/go-workspace-structure.md) - Multi-module organization
+- [Multi-Agent Embedding Architecture](architecture/multi-agent-embedding-architecture.md) - Embedding system design
+- [Package Dependencies](architecture/package-dependencies.md) - Module dependencies
 
 ### [API Reference](api-reference/)
 Complete API documentation
+- [REST API Reference](api-reference/rest-api-reference.md) - REST endpoints
+- [MCP Server Reference](api-reference/mcp-server-reference.md) - WebSocket protocol
 - [Embedding API](api-reference/embedding-api-reference.md) - Multi-agent embedding endpoints
-- [Vector Search API](api-reference/vector-search-api.md) - Semantic search endpoints
-- REST API endpoints and schemas
+- [Webhook API](api-reference/webhook-api-reference.md) - Webhook processing
+- [Authentication API](api-reference/authentication-api-reference.md) - Auth endpoints
 
 ### [Developer Guide](developer/)
 For contributors and developers
@@ -30,15 +33,16 @@ For contributors and developers
 Real-world integration examples
 - [GitHub Integration](examples/github-integration.md) - Using GitHub features
 - [AI Agent Integration](examples/ai-agent-integration.md) - Connecting AI assistants
-- [Vector Search](examples/vector-search-implementation.md) - Implementing semantic search
 - [Custom Tools](examples/custom-tool-integration.md) - Adding new integrations
 - [IDE Integration](examples/ide-integration.md) - Using with Windsurf, Cursor, and other IDEs
+- [Binary WebSocket Protocol](examples/binary-websocket-protocol.md) - Binary protocol examples
+- [Embedding Examples](examples/embedding-examples.md) - Using embeddings
 
 ## 🚀 Quick Links
 
 ### For Users
 - [Quick Start Guide](getting-started/quick-start-guide.md)
-- [Configuration Reference](getting-started/configuration-guide.md)
+- [Local Development](LOCAL_DEVELOPMENT.md)
 - [Examples](examples/README.md)
 
 ### For Developers
@@ -47,9 +51,9 @@ Real-world integration examples
 - [Architecture Overview](architecture/system-overview.md)
 
 ### For Operators
-- [Deployment Guide](operations/deployment-guide.md)
-- [Monitoring & Observability](operations/monitoring.md)
-- [Security Best Practices](operations/security-best-practices.md)
+- [Operations Runbook](operations/OPERATIONS_RUNBOOK.md)
+- [Monitoring](operations/MONITORING.md)
+- [Security](operations/SECURITY.md)
 
 ## 📚 Documentation Structure
 
@@ -80,8 +84,8 @@ docs/
 
 **DevOps Engineer**
 - Check [Operations Guide](operations/)
-- Review [Configuration](getting-started/configuration-guide.md)
-- Understand [Monitoring](operations/monitoring.md)
+- Review [Configuration Guide](operations/configuration-guide.md)
+- Understand [Monitoring](operations/MONITORING.md)
 
 ### By Topic
 
@@ -90,13 +94,12 @@ docs/
 - [AI Agent Setup](examples/ai-agent-integration.md)
 - [Custom Tools](examples/custom-tool-integration.md)
 
-**Vector Search**
-- [Implementation Guide](examples/vector-search-implementation.md)
-- [API Reference](api-reference/vector-search-api.md)
+**Embedding & Search**
+- [Embedding Examples](examples/embedding-examples.md)
+- [Embedding API Reference](api-reference/embedding-api-reference.md)
 
 **Troubleshooting**
-- [Common Issues](troubleshooting/common-issues.md)
-- [Performance Tuning](troubleshooting/performance-tuning.md)
+- [Troubleshooting Guide](TROUBLESHOOTING.md)
 - [Debugging Guide](developer/debugging-guide.md)
 
 ## 📝 Documentation Standards

@@ -301,10 +301,11 @@ kubectl get configmap tool-config -n mcp-prod -o yaml
 
 **Diagnosis:**
 ```bash
-# Check queue depth
-aws sqs get-queue-attributes \
-  --queue-url $QUEUE_URL \
-  --attribute-names ApproximateNumberOfMessages
+# Check Redis stream depth
+redis-cli xlen webhook_events
+
+# Check consumer group lag
+redis-cli xinfo groups webhook_events
 
 # Check worker metrics
 curl http://localhost:8082/metrics | grep worker_
@@ -855,7 +856,7 @@ curl -H "Authorization: token $GITHUB_TOKEN" \
 
 **Symptoms:**
 - S3 access denied
-- SQS message processing failures
+- Redis stream processing failures
 - IAM permission errors
 
 **Solutions:**
@@ -977,7 +978,7 @@ func TracingMiddleware() gin.HandlerFunc {
 | MCP-007 | Context not found | Verify context ID and tenant access |
 | MCP-008 | Webhook validation failed | Check webhook secret configuration |
 | MCP-009 | Vector embedding failed | Verify embedding service is available |
-| MCP-010 | Queue processing error | Check SQS permissions and connectivity |
+| MCP-010 | Queue processing error | Check Redis Streams connectivity and consumer groups |
 
 ### Error Message Patterns
 

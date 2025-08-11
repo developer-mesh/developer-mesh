@@ -1,12 +1,12 @@
 # Queue Package
 
-> **Purpose**: AWS SQS integration for event processing in the Developer Mesh platform
-> **Status**: Basic Implementation
-> **Dependencies**: AWS SQS, LocalStack support, JSON serialization
+> **Purpose**: Redis Streams integration for event processing in the Developer Mesh platform
+> **Status**: Production Ready
+> **Dependencies**: Redis 7+, Consumer Groups, JSON serialization
 
 ## Overview
 
-The queue package provides SQS integration for processing webhook events and other asynchronous tasks. It supports both production AWS SQS and LocalStack for local development, with a mock implementation for testing.
+The queue package provides Redis Streams integration for processing webhook events and other asynchronous tasks. It uses Redis consumer groups for distributed processing with automatic retries and dead letter queue support.
 
 ## Architecture
 
@@ -15,353 +15,272 @@ The queue package provides SQS integration for processing webhook events and oth
 │                      Queue Architecture                      │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  Event Producers ──► SQS Client ──► AWS SQS ──► Workers    │
+│  Event Producers ──► Redis Client ──► Redis Streams ──► Workers │
 │                          │                                   │
-│                          ├── Production SQS                 │
-│                          ├── LocalStack                     │
-│                          └── Mock Queue                     │
+│                          ├── Stream Operations              │
+│                          ├── Consumer Groups                │
+│                          └── Dead Letter Queue              │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ## Core Components
 
-### 1. SQSAdapter Interface
+### 1. StreamsClient Interface
 
 ```go
-// SQSAdapter interface represents the high-level operations needed by the worker
-type SQSAdapter interface {
-    // EnqueueEvent sends a message to SQS
-    EnqueueEvent(ctx context.Context, event SQSEvent) error
+// StreamsClient interface represents Redis Streams operations
+type StreamsClient interface {
+    // AddToStream adds a message to a Redis stream
+    AddToStream(ctx context.Context, stream string, event interface{}) (string, error)
     
-    // ReceiveEvents receives messages from SQS
-    ReceiveEvents(ctx context.Context, maxMessages int32, waitSeconds int32) ([]SQSEvent, []string, error)
+    // ReadFromStream reads messages from a stream using consumer groups
+    ReadFromStream(ctx context.Context, group, consumer string, count int64) ([]StreamMessage, error)
     
-    // DeleteMessage deletes a message from SQS
-    DeleteMessage(ctx context.Context, receiptHandle string) error
+    // AckMessage acknowledges a processed message
+    AckMessage(ctx context.Context, stream, group string, messageID string) error
+    
+    // GetStreamInfo returns stream statistics
+    GetStreamInfo(ctx context.Context, stream string) (*StreamInfo, error)
 }
 ```
 
 ### 2. Event Definition
 
 ```go
-// SQSEvent represents an event in the SQS queue with auth context
-type SQSEvent struct {
-    DeliveryID  string          `json:"delivery_id"`
+// StreamEvent represents an event in the Redis stream with auth context
+type StreamEvent struct {
+    ID          string          `json:"id"`
     EventType   string          `json:"event_type"`
-    RepoName    string          `json:"repo_name"`
-    SenderName  string          `json:"sender_name"`
+    Repository  string          `json:"repository"`
+    TenantID    string          `json:"tenant_id"`
     Payload     json.RawMessage `json:"payload"`
-    AuthContext *EventAuthContext `json:"auth_context,omitempty"`
-}
-
-// EventAuthContext contains authentication context for queue events
-type EventAuthContext struct {
-    TenantID       string                 `json:"tenant_id"`
-    PrincipalID    string                 `json:"principal_id"`
-    PrincipalType  string                 `json:"principal_type"`
-    InstallationID *int64                 `json:"installation_id,omitempty"`
-    AppID          *int64                 `json:"app_id,omitempty"`
-    Permissions    []string               `json:"permissions,omitempty"`
-    Metadata       map[string]interface{} `json:"metadata,omitempty"`
+    AuthContext AuthContext     `json:"auth_context,omitempty"`
+    Timestamp   time.Time       `json:"timestamp"`
+    RetryCount  int             `json:"retry_count"`
 }
 ```
 
-### 3. SQS Client Implementation
+### 3. Consumer Group Configuration
 
 ```go
-// SQSClient provides basic SQS operations
-type SQSClient struct {
-    Client   SQSAPI
-    QueueURL string
-}
-
-// SQSClientAdapter adapts between production SQS, LocalStack, and mock implementations
-type SQSClientAdapter struct {
-    client   SQSReceiverDeleter
-    queueURL string
-    config   *SQSAdapterConfig
-}
-
-// SQSAdapterConfig holds configuration for the SQS adapter
-type SQSAdapterConfig struct {
-    MockMode      bool   `json:"mock_mode"`
-    UseLocalStack bool   `json:"use_localstack"`
-    Region        string `json:"region"`
-    QueueName     string `json:"queue_name"`
-    QueueURL      string `json:"queue_url"`
-    Endpoint      string `json:"endpoint"`
-    AccessKey     string `json:"access_key"`
-    SecretKey     string `json:"secret_key"`
+type ConsumerConfig struct {
+    Stream         string        // Stream name
+    Group          string        // Consumer group name
+    Consumer       string        // Consumer identifier
+    BlockDuration  time.Duration // Block timeout for XREADGROUP
+    BatchSize      int           // Number of messages to read
+    MaxRetries     int           // Maximum retry attempts
+    RetryDelay     time.Duration // Delay between retries
 }
 ```
 
-## Implementation Types
+## Usage Examples
 
-### 1. Production SQS Client
+### Producer
 
 ```go
-// Production AWS SQS client
-func NewSQSClient(ctx context.Context) (*SQSClient, error) {
-    cfg, err := config.LoadDefaultConfig(ctx)
+import (
+    "github.com/developer-mesh/developer-mesh/pkg/queue"
+    "github.com/developer-mesh/developer-mesh/pkg/redis"
+)
+
+// Create Redis client
+redisClient := redis.NewClient(&redis.Options{
+    Addr: "localhost:6379",
+})
+
+// Create streams client
+streamsClient := queue.NewRedisStreamsClient(redisClient)
+
+// Produce an event
+event := &StreamEvent{
+    EventType:  "webhook.github.push",
+    Repository: "owner/repo",
+    TenantID:   "tenant-123",
+    Payload:    rawPayload,
+    Timestamp:  time.Now(),
+}
+
+messageID, err := streamsClient.AddToStream(ctx, "webhook_events", event)
+if err != nil {
+    log.Fatal("Failed to add event:", err)
+}
+```
+
+### Consumer
+
+```go
+// Configure consumer
+config := &ConsumerConfig{
+    Stream:        "webhook_events",
+    Group:         "webhook_workers",
+    Consumer:      "worker-1",
+    BlockDuration: 5 * time.Second,
+    BatchSize:     10,
+    MaxRetries:    3,
+}
+
+// Create consumer
+consumer := queue.NewConsumer(streamsClient, config)
+
+// Process messages
+for {
+    messages, err := consumer.ReadMessages(ctx)
     if err != nil {
-        return nil, err
-    }
-    client := sqs.NewFromConfig(cfg)
-    queueURL := os.Getenv("SQS_QUEUE_URL")
-    return &SQSClient{Client: client, QueueURL: queueURL}, nil
-}
-```
-
-### 2. LocalStack Support
-
-```go
-// LocalStack SQS client for development
-func createLocalStackSQSClient(ctx context.Context, config *SQSAdapterConfig) (*sqs.Client, error) {
-    // Custom HTTP client to allow insecure connections for LocalStack
-    customTransport := http.DefaultTransport.(*http.Transport).Clone()
-    customTransport.TLSClientConfig = &tls.Config{
-        MinVersion:         tls.VersionTLS12,
-        InsecureSkipVerify: true, // LocalStack development only
+        log.Error("Failed to read messages:", err)
+        continue
     }
     
-    // Create AWS config with LocalStack endpoint
-    cfg, err := awsconfig.LoadDefaultConfig(ctx,
-        awsconfig.WithHTTPClient(customHTTPClient),
-        awsconfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
-            config.AccessKey, config.SecretKey, "")),
-        awsconfig.WithRegion(config.Region),
-    )
-    
-    // Create SQS client with custom endpoint
-    sqsClient := sqs.NewFromConfig(cfg, func(o *sqs.Options) {
-        o.BaseEndpoint = aws.String(config.Endpoint)
-    })
-    return sqsClient, nil
-}
-```
-
-### 3. Mock Implementation
-
-```go
-// MockSQSClient for testing
-type MockSQSClient struct {
-    messages []*types.Message
-}
-
-func NewMockSQSClient() *SQSClientAdapter {
-    mockClient := &MockSQSClient{
-        messages: []*types.Message{},
-    }
-    
-    return &SQSClientAdapter{
-        client:   mockClient,
-        queueURL: "mock-queue-url",
-        config:   &SQSAdapterConfig{MockMode: true},
+    for _, msg := range messages {
+        // Process message
+        err := processMessage(msg)
+        if err != nil {
+            // Message will be retried
+            consumer.NackMessage(ctx, msg.ID)
+        } else {
+            // Acknowledge successful processing
+            consumer.AckMessage(ctx, msg.ID)
+        }
     }
 }
-```
-
-## Basic Operations
-
-### 1. Sending Events
-
-```go
-// Create SQS client
-client, err := NewSQSClient(ctx)
-if err != nil {
-    return err
-}
-
-// Create event
-event := SQSEvent{
-    DeliveryID: "webhook-123",
-    EventType:  "push",
-    RepoName:   "owner/repo",
-    SenderName: "user",
-    Payload:    json.RawMessage(`{"ref": "refs/heads/main"}`),
-    AuthContext: &EventAuthContext{
-        TenantID:      "tenant-123",
-        PrincipalID:   "user-456",
-        PrincipalType: "user",
-    },
-}
-
-// Send to SQS
-err = client.EnqueueEvent(ctx, event)
-```
-
-### 2. Receiving Events
-
-```go
-// Receive up to 10 messages with 20s long polling
-events, receiptHandles, err := client.ReceiveEvents(ctx, 10, 20)
-if err != nil {
-    return err
-}
-
-// Process events
-for i, event := range events {
-    // Process event
-    processEvent(event)
-    
-    // Delete message after processing
-    err = client.DeleteMessage(ctx, receiptHandles[i])
-    if err != nil {
-        log.Printf("Failed to delete message: %v", err)
-    }
-}
-```
-
-### 3. Using the Adapter
-
-```go
-// Load configuration
-config := LoadSQSConfigFromEnv()
-
-// Create adapter (supports production, LocalStack, mock)
-adapter, err := NewSQSClientAdapter(ctx, config)
-if err != nil {
-    return err
-}
-
-// Use same interface regardless of implementation
-err = adapter.EnqueueEvent(ctx, event)
-events, handles, err := adapter.ReceiveEvents(ctx, 10, 20)
-err = adapter.DeleteMessage(ctx, handle)
-
 ```
 
 ## Configuration
 
-### Environment Variables
+Configure via environment variables or config file:
 
+```yaml
+redis:
+  addr: "localhost:6379"
+  password: ""
+  db: 0
+  
+streams:
+  webhook_events:
+    max_length: 10000
+    consumer_group: "webhook_workers"
+    block_duration: "5s"
+    batch_size: 10
+    max_retries: 3
+    
+  dlq:
+    stream_name: "webhook_events_dlq"
+    max_length: 1000
+    retention: "168h"  # 7 days
+```
+
+## Monitoring
+
+### Stream Info
 ```bash
-# SQS Configuration
-SQS_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/594992249511/sean-mcp-test
-AWS_REGION=us-east-1
+# Check stream length
+redis-cli xlen webhook_events
 
-# LocalStack Configuration (development)
-USE_LOCALSTACK=true
-AWS_ENDPOINT_URL=http://localstack:4566
-AWS_ACCESS_KEY_ID=test
-AWS_SECRET_ACCESS_KEY=test
-SQS_QUEUE_NAME=tasks
+# Check consumer group info
+redis-cli xinfo groups webhook_events
 
-# Mock Mode (testing)
-WORKER_MOCK_MODE=true
+# Check consumer lag
+redis-cli xpending webhook_events webhook_workers
 ```
 
-### Configuration Structure
+### Metrics
+
+The package exposes the following Prometheus metrics:
+
+- `queue_messages_produced_total` - Total messages produced
+- `queue_messages_consumed_total` - Total messages consumed
+- `queue_messages_failed_total` - Total failed messages
+- `queue_consumer_lag` - Consumer group lag
+- `queue_processing_duration_seconds` - Message processing duration
+
+## Error Handling
+
+### Retry Logic
+
+Failed messages are automatically retried with exponential backoff:
+1. First retry: immediate
+2. Second retry: after 1 second
+3. Third retry: after 2 seconds
+
+After max retries, messages are moved to the dead letter queue.
+
+### Dead Letter Queue
+
+Messages that fail processing after max retries are moved to a DLQ stream:
 
 ```go
-// LoadSQSConfigFromEnv loads SQS configuration from environment
-func LoadSQSConfigFromEnv() *SQSAdapterConfig {
-    config := &SQSAdapterConfig{
-        MockMode:      os.Getenv("WORKER_MOCK_MODE") == "true",
-        UseLocalStack: os.Getenv("USE_LOCALSTACK") == "true",
-        Region:        getEnvWithDefault("AWS_REGION", "us-east-1"),
-        QueueName:     getEnvWithDefault("SQS_QUEUE_NAME", "tasks"),
-        QueueURL:      os.Getenv("SQS_QUEUE_URL"),
-        Endpoint:      os.Getenv("AWS_ENDPOINT_URL"),
-        AccessKey:     getEnvWithDefault("AWS_ACCESS_KEY_ID", "test"),
-        SecretKey:     getEnvWithDefault("AWS_SECRET_ACCESS_KEY", "test"),
-    }
-    
-    if config.UseLocalStack && config.Endpoint == "" {
-        config.Endpoint = "http://localstack:4566"
-    }
-    
-    return config
-}
+// Check DLQ
+dlqMessages, err := streamsClient.ReadFromStream(
+    ctx, 
+    "webhook_events_dlq",
+    "$",  // Read all messages
+    10,   // Limit
+)
 ```
-
-## Testing
-
-### Using Mock Client
-
-```go
-// Create mock client for testing
-mockClient := NewMockSQSClient()
-
-// Use in tests
-event := SQSEvent{
-    DeliveryID: "test-123",
-    EventType:  "push",
-}
-
-err := mockClient.EnqueueEvent(ctx, event)
-events, handles, err := mockClient.ReceiveEvents(ctx, 10, 0)
-```
-
-### Integration Testing
-
-```go
-func TestSQSIntegration(t *testing.T) {
-    if testing.Short() {
-        t.Skip("skipping integration test")
-    }
-    
-    ctx := context.Background()
-    
-    // Use real SQS or LocalStack
-    config := &SQSAdapterConfig{
-        UseLocalStack: true,
-        Region:        "us-east-1",
-        QueueName:     "test-queue",
-        Endpoint:      "http://localhost:4566",
-    }
-    
-    client, err := NewSQSClientAdapter(ctx, config)
-    assert.NoError(t, err)
-    
-    // Test operations
-    event := SQSEvent{
-        DeliveryID: "test-123",
-        EventType:  "push",
-    }
-    
-    err = client.EnqueueEvent(ctx, event)
-    assert.NoError(t, err)
-    
-    events, handles, err := client.ReceiveEvents(ctx, 1, 5)
-    assert.NoError(t, err)
-    assert.Len(t, events, 1)
-    
-    err = client.DeleteMessage(ctx, handles[0])
-    assert.NoError(t, err)
-}
-```
-
-## Implementation Status
-
-**Implemented:**
-- Basic SQS client with send/receive/delete operations
-- SQS adapter supporting production AWS, LocalStack, and mock
-- Event structure with authentication context
-- Configuration loading from environment
-- Mock implementation for testing
-
-**Not Implemented:**
-- Task/Worker abstractions (only webhook events)
-- Priority queues or FIFO queues
-- Retry mechanisms
-- Dead letter queue handling
-- Visibility timeout management
-- Metrics and monitoring
-- Batch operations
-- Advanced error handling
 
 ## Best Practices
 
-1. **Message Size**: Keep messages under 256KB for SQS
-2. **Long Polling**: Use wait time to reduce API calls
-3. **Idempotency**: Ensure event processing is idempotent
-4. **Error Handling**: Delete messages only after successful processing
-5. **Auth Context**: Include authentication context in events
-6. **LocalStack**: Use for local development to avoid AWS costs
+1. **Consumer Groups**: Always use consumer groups for distributed processing
+2. **Acknowledgment**: Explicitly acknowledge processed messages
+3. **Idempotency**: Ensure message processing is idempotent
+4. **Monitoring**: Monitor consumer lag and DLQ size
+5. **Trimming**: Set max_length to prevent unbounded growth
+6. **Error Handling**: Implement proper retry and DLQ strategies
 
----
+## Testing
 
-Package Version: 0.1.0 (Basic Implementation)
-Last Updated: 2024-01-23
+```go
+// Use mock streams client for testing
+mockClient := queue.NewMockStreamsClient()
+
+// Set up expectations
+mockClient.On("AddToStream", ctx, "test_stream", mock.Anything).
+    Return("1234567890-0", nil)
+
+// Use in tests
+producer := queue.NewProducer(mockClient)
+err := producer.SendEvent(ctx, event)
+assert.NoError(t, err)
+```
+
+## Migration from SQS
+
+If migrating from AWS SQS:
+
+1. **Message Format**: Convert SQS JSON to Redis Streams format
+2. **Consumer Groups**: Replace SQS visibility timeout with Redis consumer groups
+3. **DLQ**: Replace SQS DLQ with Redis DLQ stream
+4. **Metrics**: Update CloudWatch metrics to Prometheus metrics
+5. **IAM**: Remove SQS IAM policies, use Redis ACLs if needed
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Consumer Lag Growing**
+   - Check processing errors
+   - Scale up consumers
+   - Increase batch size
+
+2. **Messages Not Acknowledged**
+   - Verify ACK is called after successful processing
+   - Check for processing timeouts
+
+3. **DLQ Growing**
+   - Review error logs
+   - Check message format
+   - Verify downstream services
+
+### Debug Commands
+
+```bash
+# Read last 10 messages
+redis-cli xread count 10 streams webhook_events $
+
+# Check pending messages
+redis-cli xpending webhook_events webhook_workers - + 10
+
+# Claim stuck messages
+redis-cli xclaim webhook_events webhook_workers consumer-1 3600000 1234567890-0
+```

@@ -8,7 +8,7 @@ Batch: aa
 
 ## Overview
 
-The Webhook API enables the Developer Mesh platform to receive and process real-time events from GitHub. It provides secure webhook endpoints with signature validation and asynchronous event processing via AWS SQS.
+The Webhook API enables the Developer Mesh platform to receive and process real-time events from GitHub. It provides secure webhook endpoints with signature validation and asynchronous event processing via Redis Streams.
 
 ## Webhook Endpoints
 

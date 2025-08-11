@@ -12,7 +12,7 @@ Batch: aa
 
 ## Overview
 
-This guide covers testing strategies, tools, and best practices for Developer Mesh with emphasis on testing against real AWS services (S3, SQS, Bedrock, ElastiCache). Note that many advanced testing tools mentioned (Cypress, Playwright, Gatling, Pact) are not currently implemented but shown as examples of potential testing approaches.
+This guide covers testing strategies, tools, and best practices for Developer Mesh with emphasis on testing against real AWS services (S3, Bedrock, ElastiCache) and Redis Streams. Note that many advanced testing tools mentioned (Cypress, Playwright, Gatling, Pact) are not currently implemented but shown as examples of potential testing approaches.
 
 ## Testing Pyramid
 
