@@ -56,43 +56,45 @@ func (s *Service) GetOrCompute(
 	cacheKey := s.generateCacheKey(req)
 	parametersHash := s.hashParameters(req.Parameters)
 
-	// Try L1 cache (Redis) first for hot data
+	// Try L1 cache (Redis) first for hot data (if Redis is available)
 	redisKey := fmt.Sprintf("cache:%s:%s", req.TenantID, cacheKey)
-	if cached, err := s.redis.Get(ctx, redisKey).Result(); err == nil && cached != "" {
-		s.logger.Debug("Cache hit from Redis", map[string]interface{}{
-			"tenant_id": req.TenantID,
-			"tool_id":   req.ToolID,
-			"action":    req.Action,
-			"cache_key": cacheKey,
-			"latency":   time.Since(startTime).Milliseconds(),
-		})
-
-		// Update stats
-		go s.updateStats(ctx, req.TenantID, true, time.Since(startTime).Milliseconds())
-
-		// Try to unmarshal as ToolExecutionResponse first
-		var toolResponse models.ToolExecutionResponse
-		if err := json.Unmarshal([]byte(cached), &toolResponse); err == nil {
-			// Add cache metadata to the response
-			toolResponse.FromCache = true
-			toolResponse.CacheHit = true
-			toolResponse.CacheLevel = "L1_redis"
-			s.logger.Info("Returning cached ToolExecutionResponse from Redis", map[string]interface{}{
-				"from_cache":  toolResponse.FromCache,
-				"cache_hit":   toolResponse.CacheHit,
-				"cache_level": toolResponse.CacheLevel,
+	if s.redis != nil {
+		if cached, err := s.redis.Get(ctx, redisKey).Result(); err == nil && cached != "" {
+			s.logger.Debug("Cache hit from Redis", map[string]interface{}{
+				"tenant_id": req.TenantID,
+				"tool_id":   req.ToolID,
+				"action":    req.Action,
+				"cache_key": cacheKey,
+				"latency":   time.Since(startTime).Milliseconds(),
 			})
-			return &toolResponse, nil
-		}
 
-		// Fallback to map if not a ToolExecutionResponse
-		var result map[string]interface{}
-		if err := json.Unmarshal([]byte(cached), &result); err == nil {
-			// Add cache metadata
-			result["from_cache"] = true
-			result["cache_hit"] = true
-			result["cache_level"] = "L1_redis"
-			return result, nil
+			// Update stats
+			go s.updateStats(ctx, req.TenantID, true, time.Since(startTime).Milliseconds())
+
+			// Try to unmarshal as ToolExecutionResponse first
+			var toolResponse models.ToolExecutionResponse
+			if err := json.Unmarshal([]byte(cached), &toolResponse); err == nil {
+				// Add cache metadata to the response
+				toolResponse.FromCache = true
+				toolResponse.CacheHit = true
+				toolResponse.CacheLevel = "L1_redis"
+				s.logger.Info("Returning cached ToolExecutionResponse from Redis", map[string]interface{}{
+					"from_cache":  toolResponse.FromCache,
+					"cache_hit":   toolResponse.CacheHit,
+					"cache_level": toolResponse.CacheLevel,
+				})
+				return &toolResponse, nil
+			}
+
+			// Fallback to map if not a ToolExecutionResponse
+			var result map[string]interface{}
+			if err := json.Unmarshal([]byte(cached), &result); err == nil {
+				// Add cache metadata
+				result["from_cache"] = true
+				result["cache_hit"] = true
+				result["cache_level"] = "L1_redis"
+				return result, nil
+			}
 		}
 	}
 
@@ -114,14 +116,16 @@ func (s *Service) GetOrCompute(
 			"latency":   time.Since(startTime).Milliseconds(),
 		})
 
-		// Populate Redis for next time (write-through)
-		go func() {
-			ttl := time.Duration(req.TTLSeconds) * time.Second
-			if ttl == 0 {
-				ttl = time.Hour
-			}
-			_ = s.redis.Set(context.Background(), redisKey, string(entry.ResponseData), ttl).Err()
-		}()
+		// Populate Redis for next time (write-through) if Redis is available
+		if s.redis != nil {
+			go func() {
+				ttl := time.Duration(req.TTLSeconds) * time.Second
+				if ttl == 0 {
+					ttl = time.Hour
+				}
+				_ = s.redis.Set(context.Background(), redisKey, string(entry.ResponseData), ttl).Err()
+			}()
+		}
 
 		// Update stats
 		go s.updateStats(ctx, req.TenantID, true, time.Since(startTime).Milliseconds())
@@ -246,19 +250,21 @@ func (s *Service) storeInCaches(ctx context.Context, req *ExecutionRequest, cach
 		})
 	}
 
-	// Store in Redis
-	redisKey := fmt.Sprintf("cache:%s:%s", req.TenantID, cacheKey)
-	ttl := time.Duration(req.TTLSeconds) * time.Second
-	if ttl == 0 {
-		ttl = time.Hour
-	}
+	// Store in Redis (if available)
+	if s.redis != nil {
+		redisKey := fmt.Sprintf("cache:%s:%s", req.TenantID, cacheKey)
+		ttl := time.Duration(req.TTLSeconds) * time.Second
+		if ttl == 0 {
+			ttl = time.Hour
+		}
 
-	if err := s.redis.Set(backgroundCtx, redisKey, data, ttl).Err(); err != nil {
-		s.logger.Warn("Failed to store in Redis cache", map[string]interface{}{
-			"error":     err.Error(),
-			"tenant_id": req.TenantID,
-			"tool_id":   req.ToolID,
-		})
+		if err := s.redis.Set(backgroundCtx, redisKey, data, ttl).Err(); err != nil {
+			s.logger.Warn("Failed to store in Redis cache", map[string]interface{}{
+				"error":     err.Error(),
+				"tenant_id": req.TenantID,
+				"tool_id":   req.ToolID,
+			})
+		}
 	}
 }
 
@@ -278,15 +284,17 @@ func (s *Service) updateStats(ctx context.Context, tenantID string, isHit bool, 
 }
 
 func (s *Service) InvalidatePattern(ctx context.Context, tenantID, pattern string) error {
-	// Invalidate Redis entries
-	redisPattern := fmt.Sprintf("cache:%s:%s*", tenantID, pattern)
-	iter := s.redis.Scan(ctx, 0, redisPattern, 0).Iterator()
-	for iter.Next(ctx) {
-		if err := s.redis.Del(ctx, iter.Val()).Err(); err != nil {
-			s.logger.Warn("Failed to delete Redis key", map[string]interface{}{
-				"error": err.Error(),
-				"key":   iter.Val(),
-			})
+	// Invalidate Redis entries (if Redis is available)
+	if s.redis != nil {
+		redisPattern := fmt.Sprintf("cache:%s:%s*", tenantID, pattern)
+		iter := s.redis.Scan(ctx, 0, redisPattern, 0).Iterator()
+		for iter.Next(ctx) {
+			if err := s.redis.Del(ctx, iter.Val()).Err(); err != nil {
+				s.logger.Warn("Failed to delete Redis key", map[string]interface{}{
+					"error": err.Error(),
+					"key":   iter.Val(),
+				})
+			}
 		}
 	}
 

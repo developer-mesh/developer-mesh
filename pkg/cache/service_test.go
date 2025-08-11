@@ -244,6 +244,62 @@ func TestGenerateCacheKey(t *testing.T) {
 	assert.NotEqual(t, key1, key3)
 }
 
+func TestGetOrCompute_NilRedis(t *testing.T) {
+	// Setup service with nil Redis
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Logf("Failed to close database: %v", err)
+		}
+	})
+
+	sqlxDB := sqlx.NewDb(db, "postgres")
+	logger := &mockLogger{}
+
+	// Create service with nil Redis client
+	service := NewService(sqlxDB, nil, logger)
+	ctx := context.Background()
+
+	req := &ExecutionRequest{
+		TenantID:   "test-tenant",
+		ToolID:     "test-tool",
+		Action:     "test-action",
+		Parameters: map[string]interface{}{"key": "value"},
+		TTLSeconds: 3600,
+	}
+
+	// Mock database query for cache lookup (returns no rows for cache miss)
+	mock.ExpectQuery("SELECT \\* FROM mcp.get_or_create_cache_entry").
+		WithArgs(sqlmock.AnyArg(), "test-tenant", "test-tool", "test-action", sqlmock.AnyArg(), 3600).
+		WillReturnRows(sqlmock.NewRows([]string{"key_hash", "tenant_id", "response_data", "from_cache", "hit_count", "created_at"}))
+
+	// Mock database exec for cache storage
+	mock.ExpectExec("SELECT \\* FROM mcp.get_or_create_cache_entry").
+		WithArgs(sqlmock.AnyArg(), "test-tenant", "test-tool", "test-action", sqlmock.AnyArg(), sqlmock.AnyArg(), 3600).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	// Mock update stats
+	mock.ExpectExec("SELECT mcp.update_cache_stats").
+		WithArgs("test-tenant", false, sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	// Compute function
+	computeFn := func(ctx context.Context) (interface{}, error) {
+		return &models.ToolExecutionResponse{
+			Success:    true,
+			StatusCode: 200,
+			Body:       map[string]interface{}{"result": "computed"},
+			ExecutedAt: time.Now(),
+		}, nil
+	}
+
+	// Should work without Redis
+	result, err := service.GetOrCompute(ctx, req, computeFn)
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+}
+
 func TestInvalidatePattern(t *testing.T) {
 	service, mr, mock := setupTestService(t)
 	ctx := context.Background()
