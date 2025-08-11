@@ -269,4 +269,3 @@ func TestInvalidatePattern(t *testing.T) {
 	assert.False(t, mr.Exists("cache:test-tenant:pattern2"))
 	assert.True(t, mr.Exists("cache:other-tenant:pattern1"))
 }
-
