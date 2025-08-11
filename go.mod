@@ -10,12 +10,12 @@ toolchain go1.24.2
 require (
 	github.com/coder/websocket v1.8.13
 	github.com/developer-mesh/developer-mesh/pkg v0.0.0-20250726235130-db2ab86a8baf
-	github.com/go-redis/redis/v8 v8.11.5
 	github.com/golang-migrate/migrate/v4 v4.18.3
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/lib/pq v1.10.9
+	github.com/redis/go-redis/v9 v9.12.1
 	github.com/stretchr/testify v1.10.0
 )
 
@@ -102,6 +102,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sqs v1.38.6 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/go-redis/redis/v8 v8.11.5 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.1 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect

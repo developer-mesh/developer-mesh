@@ -10,7 +10,6 @@ require (
 	github.com/developer-mesh/developer-mesh/pkg v0.0.0-00010101000000-000000000000
 	github.com/getkin/kin-openapi v0.132.0
 	github.com/gin-gonic/gin v1.9.1
-	github.com/go-redis/redis/v8 v8.11.5
 	github.com/golang-migrate/migrate/v4 v4.18.3
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
@@ -18,6 +17,7 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/mattn/go-sqlite3 v1.14.22
 	github.com/prometheus/client_golang v1.22.0
+	github.com/redis/go-redis/v9 v9.12.0
 	github.com/stretchr/testify v1.10.0
 	github.com/swaggo/files v1.0.1
 	github.com/swaggo/gin-swagger v1.6.0

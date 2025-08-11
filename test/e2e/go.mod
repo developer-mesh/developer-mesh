@@ -52,7 +52,6 @@ require (
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.15.5 // indirect
-	github.com/go-redis/redis/v8 v8.11.5 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
@@ -74,6 +73,7 @@ require (
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.62.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
+	github.com/redis/go-redis/v9 v9.12.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect

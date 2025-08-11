@@ -8,9 +8,9 @@ require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/developer-mesh/developer-mesh/pkg v0.0.0-00010101000000-000000000000
-	github.com/go-redis/redis/v8 v8.11.5
 	github.com/google/uuid v1.6.0
 	github.com/jmoiron/sqlx v1.4.0
+	github.com/redis/go-redis/v9 v9.12.0
 	github.com/stretchr/testify v1.10.0
 	go.opentelemetry.io/otel v1.37.0
 	go.opentelemetry.io/otel/trace v1.37.0
