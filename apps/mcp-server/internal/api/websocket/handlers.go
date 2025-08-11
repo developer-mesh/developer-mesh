@@ -948,7 +948,7 @@ func (s *Server) handleToolExecute(ctx context.Context, conn *Connection, params
 		if result != nil {
 			if result.Success {
 				response["result"] = result.Body
-				
+
 				// Pass through cache metadata from the ToolExecutionResponse
 				if result.FromCache || result.CacheHit {
 					response["from_cache"] = result.FromCache

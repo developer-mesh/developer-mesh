@@ -108,12 +108,12 @@ type ToolExecutionResponse struct {
 	Error      string              `json:"error,omitempty"`
 	Duration   int64               `json:"duration_ms"`
 	ExecutedAt time.Time           `json:"executed_at"`
-	
+
 	// Cache metadata fields
-	FromCache   bool   `json:"from_cache,omitempty"`
-	CacheHit    bool   `json:"cache_hit,omitempty"`
-	CacheLevel  string `json:"cache_level,omitempty"`
-	HitCount    int    `json:"hit_count,omitempty"`
+	FromCache  bool   `json:"from_cache,omitempty"`
+	CacheHit   bool   `json:"cache_hit,omitempty"`
+	CacheLevel string `json:"cache_level,omitempty"`
+	HitCount   int    `json:"hit_count,omitempty"`
 }
 
 // DiscoveryHint provides user-supplied hints for API discovery

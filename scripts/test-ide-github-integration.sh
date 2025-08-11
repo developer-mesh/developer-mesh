@@ -120,10 +120,15 @@ ws_send() {
     if [ -z "$response" ]; then
         echo "{}"
     else
-        # Check for cache hit indicators
-        if echo "$response" | grep -q '"cached":true\|"cache_hit":true\|"from_cache":true'; then
+        # Debug: Show the response for cache checking
+        [ "${DEBUG:-false}" = "true" ] && echo -e "${YELLOW}DEBUG: Response: ${response:0:500}${NC}" >&2
+        
+        # Check for cache hit indicators in the result object
+        if echo "$response" | jq -e '.result | .from_cache == true or .cache_hit == true' > /dev/null 2>&1; then
             track_metric "cache_hits"
             [ "${DEBUG:-false}" = "true" ] && echo -e "${GREEN}💾 Cache hit!${NC}" >&2
+        else
+            [ "${DEBUG:-false}" = "true" ] && echo -e "${YELLOW}DEBUG: No cache indicators found in response${NC}" >&2
         fi
         echo "$response"
     fi
@@ -580,7 +585,7 @@ EOF
         local improvement=$(( ($cold_time - $warm_time) * 100 / $cold_time ))
         echo -e "${GREEN}✓ Cache hit: ${improvement}% faster (${cold_time}ms → ${warm_time}ms)${NC}"
         
-        if echo "$warm_response" | grep -q '"from_cache":true\|"cached":true'; then
+        if echo "$warm_response" | jq -e '.result | .from_cache == true or .cache_hit == true' > /dev/null 2>&1; then
             echo -e "${GREEN}✓ Cache hit confirmed in response${NC}"
         fi
     else

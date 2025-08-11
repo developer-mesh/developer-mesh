@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/storage"
+	pkgcache "github.com/developer-mesh/developer-mesh/pkg/cache"
 	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
 	"github.com/developer-mesh/developer-mesh/pkg/models"
-	pkgcache "github.com/developer-mesh/developer-mesh/pkg/cache"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	pkgrepository "github.com/developer-mesh/developer-mesh/pkg/repository"
 	"github.com/developer-mesh/developer-mesh/pkg/security"
@@ -732,6 +732,9 @@ func (s *DynamicToolsService) ExecuteToolAction(ctx context.Context, tenantID, t
 			}
 			return nil, err
 		}
+
+		// The cache service now properly handles ToolExecutionResponse types
+		// and adds cache metadata directly to the struct
 
 		// Record success metrics
 		if s.metricsClient != nil {

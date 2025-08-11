@@ -20,9 +20,9 @@ import (
 
 	"github.com/developer-mesh/developer-mesh/pkg/agents"
 	"github.com/developer-mesh/developer-mesh/pkg/auth"
+	pkgcache "github.com/developer-mesh/developer-mesh/pkg/cache"
 	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
 	"github.com/developer-mesh/developer-mesh/pkg/common/config"
-	pkgcache "github.com/developer-mesh/developer-mesh/pkg/cache"
 	"github.com/developer-mesh/developer-mesh/pkg/database"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/security"
@@ -398,7 +398,7 @@ func (s *Server) setupRoutes(ctx context.Context) {
 		})
 	}
 	encryptionService := security.NewEncryptionService(encryptionKey)
-	
+
 	// Create Redis client for cache service
 	// Get Redis configuration from environment or use defaults
 	redisAddr := os.Getenv("REDIS_ADDR")
@@ -406,13 +406,13 @@ func (s *Server) setupRoutes(ctx context.Context) {
 		redisAddr = "localhost:6379"
 	}
 	redisPassword := os.Getenv("REDIS_PASSWORD")
-	
+
 	redisClient := redis.NewClient(&redis.Options{
 		Addr:     redisAddr,
 		Password: redisPassword,
 		DB:       0,
 	})
-	
+
 	// Test Redis connection
 	if err := redisClient.Ping(ctx).Err(); err != nil {
 		s.logger.Warn("Redis not available, cache will be PostgreSQL-only", map[string]interface{}{
@@ -421,10 +421,10 @@ func (s *Server) setupRoutes(ctx context.Context) {
 		// Set redisClient to nil to indicate Redis is not available
 		redisClient = nil
 	}
-	
+
 	// Create cache service for tool execution results
 	cacheService := pkgcache.NewService(s.db, redisClient, s.logger)
-	
+
 	dynamicToolsService := services.NewDynamicToolsService(
 		s.db,
 		s.logger,
