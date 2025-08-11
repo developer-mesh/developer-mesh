@@ -73,7 +73,7 @@ func setupTestDB(t *testing.T) *sqlx.DB {
 	_, _ = db.Exec("DROP TABLE IF EXISTS tool_executions CASCADE")
 	_, _ = db.Exec("DROP TABLE IF EXISTS tool_discovery_sessions CASCADE")
 	_, _ = db.Exec("DROP TABLE IF EXISTS tool_configurations CASCADE")
-	
+
 	// Create mcp schema if it doesn't exist
 	_, _ = db.Exec("CREATE SCHEMA IF NOT EXISTS mcp")
 
