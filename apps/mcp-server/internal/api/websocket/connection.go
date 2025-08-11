@@ -49,7 +49,7 @@ func NewRateLimiter(rate, capacity float64) *RateLimiter {
 func (r *RateLimiter) Allow() bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	
+
 	now := time.Now()
 	elapsed := now.Sub(r.lastCheck).Seconds()
 	r.lastCheck = now
