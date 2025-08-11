@@ -19,17 +19,17 @@ import (
 // mockLogger implements observability.Logger for testing
 type mockLogger struct{}
 
-func (m *mockLogger) Debug(msg string, fields map[string]interface{})    {}
-func (m *mockLogger) Info(msg string, fields map[string]interface{})     {}
-func (m *mockLogger) Warn(msg string, fields map[string]interface{})     {}
-func (m *mockLogger) Error(msg string, fields map[string]interface{})    {}
-func (m *mockLogger) Fatal(msg string, fields map[string]interface{})    {}
-func (m *mockLogger) Debugf(format string, args ...interface{})          {}
-func (m *mockLogger) Infof(format string, args ...interface{})           {}
-func (m *mockLogger) Warnf(format string, args ...interface{})           {}
-func (m *mockLogger) Errorf(format string, args ...interface{})          {}
-func (m *mockLogger) Fatalf(format string, args ...interface{})          {}
-func (m *mockLogger) WithPrefix(prefix string) observability.Logger      { return m }
+func (m *mockLogger) Debug(msg string, fields map[string]interface{})         {}
+func (m *mockLogger) Info(msg string, fields map[string]interface{})          {}
+func (m *mockLogger) Warn(msg string, fields map[string]interface{})          {}
+func (m *mockLogger) Error(msg string, fields map[string]interface{})         {}
+func (m *mockLogger) Fatal(msg string, fields map[string]interface{})         {}
+func (m *mockLogger) Debugf(format string, args ...interface{})               {}
+func (m *mockLogger) Infof(format string, args ...interface{})                {}
+func (m *mockLogger) Warnf(format string, args ...interface{})                {}
+func (m *mockLogger) Errorf(format string, args ...interface{})               {}
+func (m *mockLogger) Fatalf(format string, args ...interface{})               {}
+func (m *mockLogger) WithPrefix(prefix string) observability.Logger           { return m }
 func (m *mockLogger) With(fields map[string]interface{}) observability.Logger { return m }
 
 func setupTestService(t *testing.T) (*Service, *miniredis.Miniredis, sqlmock.Sqlmock) {
@@ -127,7 +127,7 @@ func TestGetOrCompute_RedisHit(t *testing.T) {
 		ExecutedAt: time.Now(),
 	}
 	cachedJSON, _ := json.Marshal(cachedResponse)
-	
+
 	cacheKey := service.generateCacheKey(req)
 	redisKey := "cache:test-tenant:" + cacheKey
 	mr.Set(redisKey, string(cachedJSON))
@@ -175,7 +175,7 @@ func TestGetOrCompute_PostgreSQLHit(t *testing.T) {
 	// Mock database query for cache hit
 	rows := sqlmock.NewRows([]string{"key_hash", "tenant_id", "response_data", "from_cache", "hit_count", "created_at"}).
 		AddRow("test-hash", "test-tenant", cachedJSON, true, 5, time.Now())
-	
+
 	mock.ExpectQuery("SELECT \\* FROM mcp.get_or_create_cache_entry").
 		WithArgs(sqlmock.AnyArg(), "test-tenant", "test-tool", "test-action", sqlmock.AnyArg(), 3600).
 		WillReturnRows(rows)
