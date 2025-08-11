@@ -11,8 +11,8 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/redis"
 	"github.com/developer-mesh/developer-mesh/pkg/repository"
-	redisclient "github.com/redis/go-redis/v9"
 	"github.com/google/uuid"
+	redisclient "github.com/redis/go-redis/v9"
 )
 
 // AgentMessageBroker handles message routing between universal agents

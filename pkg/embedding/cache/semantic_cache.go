@@ -11,8 +11,8 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/auth"
 	"github.com/developer-mesh/developer-mesh/pkg/embedding/cache/audit"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
-	"github.com/redis/go-redis/v9"
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 )
 
 // SemanticCache implements similarity-based caching for embeddings.

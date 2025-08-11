@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/redis/go-redis/v9"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"

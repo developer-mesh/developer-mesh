@@ -10,8 +10,8 @@ import (
 
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/redis"
-	redisclient "github.com/redis/go-redis/v9"
 	"github.com/google/uuid"
+	redisclient "github.com/redis/go-redis/v9"
 )
 
 // ContextState represents the storage tier of a context

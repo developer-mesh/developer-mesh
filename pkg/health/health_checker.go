@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/redis/go-redis/v9"
 	"github.com/pkg/errors"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )

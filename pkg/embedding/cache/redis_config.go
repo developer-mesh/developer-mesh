@@ -72,16 +72,16 @@ func LowLatencyRedisPoolConfig() *RedisPoolConfig {
 // ToRedisOptions converts pool config to redis.Options
 func (c *RedisPoolConfig) ToRedisOptions(addr string, db int) *redis.Options {
 	return &redis.Options{
-		Addr:               addr,
-		DB:                 db,
-		PoolSize:           c.PoolSize,
-		MinIdleConns:       c.MinIdleConns,
-		MaxRetries:         c.MaxRetries,
-		DialTimeout:        c.DialTimeout,
-		ReadTimeout:        c.ReadTimeout,
-		WriteTimeout:       c.WriteTimeout,
-		PoolTimeout:        c.PoolTimeout,
-		ConnMaxIdleTime:    c.IdleTimeout,
+		Addr:            addr,
+		DB:              db,
+		PoolSize:        c.PoolSize,
+		MinIdleConns:    c.MinIdleConns,
+		MaxRetries:      c.MaxRetries,
+		DialTimeout:     c.DialTimeout,
+		ReadTimeout:     c.ReadTimeout,
+		WriteTimeout:    c.WriteTimeout,
+		PoolTimeout:     c.PoolTimeout,
+		ConnMaxIdleTime: c.IdleTimeout,
 	}
 }
 

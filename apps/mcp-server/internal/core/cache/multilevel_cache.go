@@ -11,8 +11,8 @@ import (
 
 	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
-	redis "github.com/redis/go-redis/v9"
 	lru "github.com/hashicorp/golang-lru/v2"
+	redis "github.com/redis/go-redis/v9"
 )
 
 // MultiLevelCache implements a tiered caching strategy for optimal performance
