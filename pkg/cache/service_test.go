@@ -45,7 +45,11 @@ func setupTestService(t *testing.T) (*Service, *miniredis.Miniredis, sqlmock.Sql
 	// Setup mock DB
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	t.Cleanup(func() { db.Close() })
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Logf("Failed to close database: %v", err)
+		}
+	})
 
 	sqlxDB := sqlx.NewDb(db, "postgres")
 
@@ -130,7 +134,8 @@ func TestGetOrCompute_RedisHit(t *testing.T) {
 
 	cacheKey := service.generateCacheKey(req)
 	redisKey := "cache:test-tenant:" + cacheKey
-	mr.Set(redisKey, string(cachedJSON))
+	err := mr.Set(redisKey, string(cachedJSON))
+	require.NoError(t, err)
 
 	// Compute function should not be called
 	computeFn := func(ctx context.Context) (interface{}, error) {
@@ -244,16 +249,19 @@ func TestInvalidatePattern(t *testing.T) {
 	ctx := context.Background()
 
 	// Set some Redis keys
-	mr.Set("cache:test-tenant:pattern1", "value1")
-	mr.Set("cache:test-tenant:pattern2", "value2")
-	mr.Set("cache:other-tenant:pattern1", "value3")
+	err := mr.Set("cache:test-tenant:pattern1", "value1")
+	require.NoError(t, err)
+	err = mr.Set("cache:test-tenant:pattern2", "value2")
+	require.NoError(t, err)
+	err = mr.Set("cache:other-tenant:pattern1", "value3")
+	require.NoError(t, err)
 
 	// Mock database update
 	mock.ExpectExec("UPDATE mcp.cache_entries").
 		WithArgs("test-tenant", "pattern%").
 		WillReturnResult(sqlmock.NewResult(0, 2))
 
-	err := service.InvalidatePattern(ctx, "test-tenant", "pattern")
+	err = service.InvalidatePattern(ctx, "test-tenant", "pattern")
 	assert.NoError(t, err)
 
 	// Check that only test-tenant keys were deleted
@@ -261,3 +269,4 @@ func TestInvalidatePattern(t *testing.T) {
 	assert.False(t, mr.Exists("cache:test-tenant:pattern2"))
 	assert.True(t, mr.Exists("cache:other-tenant:pattern1"))
 }
+
