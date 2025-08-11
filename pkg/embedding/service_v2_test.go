@@ -313,7 +313,7 @@ func TestGenerateEmbedding(t *testing.T) {
 
 		mockAgentService.AssertExpectations(t)
 		mockCache.AssertExpectations(t)
-		
+
 		// Verify all database expectations were met
 		if err := mockDB.ExpectationsWereMet(); err != nil {
 			t.Errorf("Database expectations not met: %v", err)
@@ -392,7 +392,7 @@ func TestGenerateEmbedding(t *testing.T) {
 		}()
 
 		// No database queries expected when all providers fail early
-		
+
 		repo := NewRepository(db)
 
 		config := ServiceV2Config{
@@ -428,7 +428,7 @@ func TestGenerateEmbedding(t *testing.T) {
 
 		mockAgentService.AssertExpectations(t)
 		mockCache.AssertExpectations(t)
-		
+
 		// Verify all database expectations were met
 		if err := mockDB.ExpectationsWereMet(); err != nil {
 			t.Errorf("Database expectations not met: %v", err)
