@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
@@ -205,7 +205,7 @@ func BenchmarkLRU_Eviction(b *testing.B) {
 			for i := 0; i < entries; i++ {
 				key := fmt.Sprintf("bench:{%s}:q:%d", tenantID.String(), i)
 				pipe.Set(ctx, key, "test data", 0)
-				pipe.ZAdd(ctx, scoreKey, &redis.Z{
+				pipe.ZAdd(ctx, scoreKey, redis.Z{
 					Score:  float64(time.Now().Add(-time.Duration(i) * time.Second).Unix()),
 					Member: key,
 				})

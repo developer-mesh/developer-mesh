@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 	"github.com/google/uuid"
 
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
@@ -197,7 +197,7 @@ func (t *AsyncTracker) flush(ctx context.Context, scoreKey string, updates []acc
 		for _, update := range updates {
 			// Update score with timestamp
 			score := float64(update.Timestamp.Unix())
-			pipe.ZAdd(ctx, scoreKey, &redis.Z{
+			pipe.ZAdd(ctx, scoreKey, redis.Z{
 				Score:  score,
 				Member: update.Key,
 			})

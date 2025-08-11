@@ -9,7 +9,7 @@ import (
 
 	awsconfig "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime"
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 	"github.com/google/uuid"
 
 	"github.com/developer-mesh/developer-mesh/pkg/observability"

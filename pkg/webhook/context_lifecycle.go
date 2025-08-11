@@ -10,7 +10,7 @@ import (
 
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/redis"
-	redisclient "github.com/go-redis/redis/v8"
+	redisclient "github.com/redis/go-redis/v9"
 	"github.com/google/uuid"
 )
 
@@ -242,7 +242,7 @@ func (m *ContextLifecycleManager) StoreContext(ctx context.Context, tenantID str
 	// Add to transition tracking sorted set
 	transitionTime := time.Now().Add(m.config.HotDuration).Unix()
 	transitionKey := fmt.Sprintf("%s:%s", tenantID, metadata.ID)
-	client.ZAdd(ctx, transitionSetHotToWarm, &redisclient.Z{
+	client.ZAdd(ctx, transitionSetHotToWarm, redisclient.Z{
 		Score:  float64(transitionTime),
 		Member: transitionKey,
 	})
@@ -253,13 +253,13 @@ func (m *ContextLifecycleManager) StoreContext(ctx context.Context, tenantID str
 
 	// Add to tenant-specific index
 	tenantSetKey := fmt.Sprintf(contextsByTenantSet, tenantID)
-	client.ZAdd(ctx, tenantSetKey, &redisclient.Z{
+	client.ZAdd(ctx, tenantSetKey, redisclient.Z{
 		Score:  float64(createdTime),
 		Member: contextIndexKey,
 	})
 
 	// Add to global index
-	client.ZAdd(ctx, allContextsSet, &redisclient.Z{
+	client.ZAdd(ctx, allContextsSet, redisclient.Z{
 		Score:  float64(createdTime),
 		Member: contextIndexKey,
 	})
@@ -878,7 +878,7 @@ func (m *ContextLifecycleManager) promoteFromColdToWarm(ctx context.Context, ten
 	// Add to warm->cold transition tracking
 	transitionTime := time.Now().Add(m.config.WarmDuration).Unix()
 	transitionKey := fmt.Sprintf("%s:%s", tenantID, contextID)
-	client.ZAdd(ctx, transitionSetWarmToCold, &redisclient.Z{
+	client.ZAdd(ctx, transitionSetWarmToCold, redisclient.Z{
 		Score:  float64(transitionTime),
 		Member: transitionKey,
 	})

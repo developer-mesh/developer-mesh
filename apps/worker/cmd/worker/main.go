@@ -16,7 +16,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/queue"
 	pkgworker "github.com/developer-mesh/developer-mesh/pkg/worker"
-	redis "github.com/go-redis/redis/v8"
+	redis "github.com/redis/go-redis/v9"
 )
 
 // Version information (set via ldflags during build)

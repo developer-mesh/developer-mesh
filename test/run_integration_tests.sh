@@ -45,27 +45,27 @@ cleanup() {
 trap cleanup EXIT
 
 # Check if containers are running
-if ! docker-compose ps postgres | grep -q "Up"; then
+if ! docker-compose -f docker-compose.local.yml ps postgres | grep -q "Up"; then
     echo "Starting PostgreSQL container..."
-    docker-compose up -d postgres
+    docker-compose -f docker-compose.local.yml up -d postgres
     
     # Wait for PostgreSQL to start
     echo "Waiting for PostgreSQL to be ready..."
     sleep 5
 fi
 
-if ! docker-compose ps redis | grep -q "Up"; then
+if ! docker-compose -f docker-compose.local.yml ps redis | grep -q "Up"; then
     echo "Starting Redis container..."
-    docker-compose up -d redis
+    docker-compose -f docker-compose.local.yml up -d redis
     
     # Wait for Redis to start
     echo "Waiting for Redis to be ready..."
     sleep 3
 fi
 
-if ! docker-compose ps mockserver | grep -q "Up"; then
+if ! docker-compose -f docker-compose.local.yml ps mockserver | grep -q "Up"; then
     echo "Starting Mock Server container..."
-    docker-compose up -d mockserver
+    docker-compose -f docker-compose.local.yml up -d mockserver
     
     # Wait for Mock Server to start
     echo "Waiting for Mock Server to be ready..."

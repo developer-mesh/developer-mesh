@@ -11,7 +11,7 @@ import (
 
 	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
-	redis "github.com/go-redis/redis/v8"
+	redis "github.com/redis/go-redis/v9"
 	lru "github.com/hashicorp/golang-lru/v2"
 )
 

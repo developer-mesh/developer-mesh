@@ -11,7 +11,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/database"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/queue"
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 )
 
 // HealthStatus represents the health status of a component

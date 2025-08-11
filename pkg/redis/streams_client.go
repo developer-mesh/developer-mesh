@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 )
 
 // StreamsConfig represents the configuration for Redis Streams
@@ -102,6 +102,9 @@ func (c *StreamsClient) connect() error {
 
 	if c.config.SentinelEnabled {
 		// Sentinel mode for high availability
+		if len(c.config.SentinelAddrs) == 0 {
+			return fmt.Errorf("no Sentinel addresses configured")
+		}
 		client = redis.NewFailoverClient(&redis.FailoverOptions{
 			MasterName:       c.config.MasterName,
 			SentinelAddrs:    c.config.SentinelAddrs,
@@ -112,9 +115,8 @@ func (c *StreamsClient) connect() error {
 			MinRetryBackoff:  c.config.RetryBackoff,
 			PoolSize:         c.config.PoolSize,
 			MinIdleConns:     c.config.MinIdleConns,
-			MaxConnAge:       c.config.MaxConnAge,
 			PoolTimeout:      c.config.PoolTimeout,
-			IdleTimeout:      c.config.IdleTimeout,
+			ConnMaxIdleTime:  c.config.IdleTimeout,
 			TLSConfig:        c.config.TLSConfig,
 		})
 	} else if c.config.ClusterEnabled {
@@ -126,9 +128,8 @@ func (c *StreamsClient) connect() error {
 			MinRetryBackoff: c.config.RetryBackoff,
 			PoolSize:        c.config.PoolSize,
 			MinIdleConns:    c.config.MinIdleConns,
-			MaxConnAge:      c.config.MaxConnAge,
 			PoolTimeout:     c.config.PoolTimeout,
-			IdleTimeout:     c.config.IdleTimeout,
+			ConnMaxIdleTime: c.config.IdleTimeout,
 			TLSConfig:       c.config.TLSConfig,
 			ReadOnly:        c.config.ReadOnly,
 			RouteByLatency:  c.config.RouteByLatency,
@@ -147,9 +148,8 @@ func (c *StreamsClient) connect() error {
 			MinRetryBackoff: c.config.RetryBackoff,
 			PoolSize:        c.config.PoolSize,
 			MinIdleConns:    c.config.MinIdleConns,
-			MaxConnAge:      c.config.MaxConnAge,
 			PoolTimeout:     c.config.PoolTimeout,
-			IdleTimeout:     c.config.IdleTimeout,
+			ConnMaxIdleTime: c.config.IdleTimeout,
 			TLSConfig:       c.config.TLSConfig,
 		})
 	}

@@ -11,7 +11,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/auth"
 	"github.com/developer-mesh/developer-mesh/pkg/embedding/cache/audit"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 	"github.com/google/uuid"
 )
 

@@ -3,7 +3,7 @@ package cache
 import (
 	"time"
 
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 )
 
 // RedisPoolConfig contains Redis connection pool configuration
@@ -81,9 +81,7 @@ func (c *RedisPoolConfig) ToRedisOptions(addr string, db int) *redis.Options {
 		ReadTimeout:        c.ReadTimeout,
 		WriteTimeout:       c.WriteTimeout,
 		PoolTimeout:        c.PoolTimeout,
-		IdleTimeout:        c.IdleTimeout,
-		IdleCheckFrequency: c.IdleCheckFreq,
-		MaxConnAge:         c.MaxConnAge,
+		ConnMaxIdleTime:    c.IdleTimeout,
 	}
 }
 

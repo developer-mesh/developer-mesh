@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 )
 
 // GetTestRedisAddr returns the Redis address for tests, defaulting to localhost:6379

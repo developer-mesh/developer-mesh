@@ -11,7 +11,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/redis"
 	"github.com/developer-mesh/developer-mesh/pkg/repository"
-	redisclient "github.com/go-redis/redis/v8"
+	redisclient "github.com/redis/go-redis/v9"
 	"github.com/google/uuid"
 )
 

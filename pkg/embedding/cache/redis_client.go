@@ -7,7 +7,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/resilience"
 	"github.com/developer-mesh/developer-mesh/pkg/retry"
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 )
 
 // ResilientRedisClient wraps Redis client with circuit breaker and retry logic
