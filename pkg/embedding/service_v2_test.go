@@ -259,12 +259,26 @@ func TestGenerateEmbedding(t *testing.T) {
 			AgentID: "test-agent",
 		}
 
+		// Create a mock database for the repository
+		db, mockDB, err := sqlmock.New()
+		require.NoError(t, err)
+		defer func() {
+			if err := db.Close(); err != nil {
+				t.Logf("Failed to close database: %v", err)
+			}
+		}()
+
+		// Don't expect any database queries since we're returning from cache
+		// The service checks cache before hitting the database
+
+		repo := NewRepository(db)
+
 		config := ServiceV2Config{
 			Providers: map[string]providers.Provider{
 				"openai": providers.NewMockProvider("openai"),
 			},
 			AgentService: mockAgentService,
-			Repository:   &Repository{},
+			Repository:   repo,
 			Cache:        mockCache,
 		}
 
@@ -299,6 +313,11 @@ func TestGenerateEmbedding(t *testing.T) {
 
 		mockAgentService.AssertExpectations(t)
 		mockCache.AssertExpectations(t)
+		
+		// Verify all database expectations were met
+		if err := mockDB.ExpectationsWereMet(); err != nil {
+			t.Errorf("Database expectations not met: %v", err)
+		}
 	})
 
 	t.Run("agent config not found continues with fallback", func(t *testing.T) {
@@ -363,12 +382,25 @@ func TestGenerateEmbedding(t *testing.T) {
 			},
 		}
 
+		// Create a mock database for the repository
+		db, mockDB, err := sqlmock.New()
+		require.NoError(t, err)
+		defer func() {
+			if err := db.Close(); err != nil {
+				t.Logf("Failed to close database: %v", err)
+			}
+		}()
+
+		// No database queries expected when all providers fail early
+		
+		repo := NewRepository(db)
+
 		config := ServiceV2Config{
 			Providers: map[string]providers.Provider{
 				"failing": mockProvider,
 			},
 			AgentService: mockAgentService,
-			Repository:   &Repository{},
+			Repository:   repo,
 			MetricsRepo:  mockMetricsRepo,
 			Cache:        mockCache,
 		}
@@ -396,6 +428,11 @@ func TestGenerateEmbedding(t *testing.T) {
 
 		mockAgentService.AssertExpectations(t)
 		mockCache.AssertExpectations(t)
+		
+		// Verify all database expectations were met
+		if err := mockDB.ExpectationsWereMet(); err != nil {
+			t.Errorf("Database expectations not met: %v", err)
+		}
 	})
 }
 
