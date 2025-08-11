@@ -1,0 +1,2 @@
+-- This is a fix migration, no need to revert
+-- The previous version had bugs, so we don't want to restore it

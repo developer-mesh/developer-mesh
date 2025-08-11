@@ -15,6 +15,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/storage"
 	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
 	"github.com/developer-mesh/developer-mesh/pkg/models"
+	pkgcache "github.com/developer-mesh/developer-mesh/pkg/cache"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	pkgrepository "github.com/developer-mesh/developer-mesh/pkg/repository"
 	"github.com/developer-mesh/developer-mesh/pkg/security"
@@ -71,6 +72,7 @@ type DynamicToolsService struct {
 	patternRepo              *storage.DiscoveryPatternRepository
 	multiAPIDiscoveryService *adapters.MultiAPIDiscoveryService
 	dynamicToolRepo          pkgrepository.DynamicToolRepository
+	cacheService             *pkgcache.Service // Execution result cache
 }
 
 // NewDynamicToolsService creates a new dynamic tools service
@@ -80,6 +82,7 @@ func NewDynamicToolsService(
 	metricsClient observability.MetricsClient,
 	encryptionSvc *security.EncryptionService,
 	patternRepo *storage.DiscoveryPatternRepository,
+	cacheService *pkgcache.Service,
 ) DynamicToolsServiceInterface {
 	// Create discovery service with pattern repository
 	discoveryService := NewEnhancedDiscoveryService(
@@ -111,6 +114,7 @@ func NewDynamicToolsService(
 		patternRepo:              patternRepo,
 		multiAPIDiscoveryService: multiAPIDiscoveryService,
 		dynamicToolRepo:          dynamicToolRepo,
+		cacheService:             cacheService,
 	}
 }
 
@@ -684,6 +688,70 @@ func (s *DynamicToolsService) ListToolActions(ctx context.Context, tenantID, too
 func (s *DynamicToolsService) ExecuteToolAction(ctx context.Context, tenantID, toolID, action string, params map[string]interface{}) (interface{}, error) {
 	start := time.Now()
 
+	// Extract cache TTL from params if provided
+	cacheTTL := 3600 // Default 1 hour
+	if ttl, ok := params["cache_ttl"].(int); ok {
+		cacheTTL = ttl
+		delete(params, "cache_ttl") // Remove from params before execution
+	}
+
+	// Remove explicit cache key from params if provided
+	if _, ok := params["cache_key"].(string); ok {
+		delete(params, "cache_key") // Remove from params before execution
+	}
+
+	// Use cache service for execution
+	if s.cacheService != nil {
+		req := &pkgcache.ExecutionRequest{
+			TenantID:   tenantID,
+			ToolID:     toolID,
+			Action:     action,
+			Parameters: params,
+			TTLSeconds: cacheTTL,
+		}
+
+		result, err := s.cacheService.GetOrCompute(ctx, req, func(ctx context.Context) (interface{}, error) {
+			// This function only runs on cache miss
+			return s.executeToolActionInternal(ctx, tenantID, toolID, action, params)
+		})
+
+		if err != nil {
+			s.logger.Error("Failed to execute tool action", map[string]interface{}{
+				"tenant_id": tenantID,
+				"tool_id":   toolID,
+				"action":    action,
+				"error":     err.Error(),
+			})
+			// Record failure metric
+			if s.metricsClient != nil {
+				s.metricsClient.IncrementCounterWithLabels("tools.actions.execute.error", 1, map[string]string{
+					"tenant_id": tenantID,
+					"tool_id":   toolID,
+					"action":    action,
+				})
+			}
+			return nil, err
+		}
+
+		// Record success metrics
+		if s.metricsClient != nil {
+			s.metricsClient.RecordHistogram("tools.actions.execute.duration", float64(time.Since(start).Milliseconds()), map[string]string{
+				"tenant_id": tenantID,
+				"tool_id":   toolID,
+				"action":    action,
+				"status":    "completed",
+			})
+		}
+
+		return result, nil
+	}
+
+	// Fallback to direct execution if cache service not available
+	return s.executeToolActionInternal(ctx, tenantID, toolID, action, params)
+}
+
+// executeToolActionInternal performs the actual tool execution (called by cache on miss)
+func (s *DynamicToolsService) executeToolActionInternal(ctx context.Context, tenantID, toolID, action string, params map[string]interface{}) (interface{}, error) {
 	// Get the tool
 	tool, err := s.GetTool(ctx, tenantID, toolID)
 	if err != nil {
@@ -707,20 +775,6 @@ func (s *DynamicToolsService) ExecuteToolAction(ctx context.Context, tenantID, t
 	// Execute the action
 	result, err := adapter.ExecuteAction(ctx, action, params)
 	if err != nil {
-		s.logger.Error("Failed to execute tool action", map[string]interface{}{
-			"tenant_id": tenantID,
-			"tool_id":   toolID,
-			"action":    action,
-			"error":     err.Error(),
-		})
-		// Record failure metric
-		if s.metricsClient != nil {
-			s.metricsClient.IncrementCounterWithLabels("tools.actions.execute.error", 1, map[string]string{
-				"tenant_id": tenantID,
-				"tool_id":   toolID,
-				"action":    action,
-			})
-		}
 		return nil, err
 	}
 
@@ -750,16 +804,6 @@ func (s *DynamicToolsService) ExecuteToolAction(ctx context.Context, tenantID, t
 	if dbErr != nil {
 		s.logger.Warn("Failed to log tool execution", map[string]interface{}{
 			"error": dbErr.Error(),
-		})
-	}
-
-	// Record success metrics
-	if s.metricsClient != nil {
-		s.metricsClient.RecordHistogram("tools.actions.execute.duration", float64(time.Since(start).Milliseconds()), map[string]string{
-			"tenant_id": tenantID,
-			"tool_id":   toolID,
-			"action":    action,
-			"status":    status,
 		})
 	}
 
