@@ -58,9 +58,7 @@ func TestRedisPoolConfig_ToRedisOptions(t *testing.T) {
 	assert.Equal(t, config.ReadTimeout, options.ReadTimeout)
 	assert.Equal(t, config.WriteTimeout, options.WriteTimeout)
 	assert.Equal(t, config.PoolTimeout, options.PoolTimeout)
-	assert.Equal(t, config.IdleTimeout, options.IdleTimeout)
-	assert.Equal(t, config.IdleCheckFreq, options.IdleCheckFrequency)
-	assert.Equal(t, config.MaxConnAge, options.MaxConnAge)
+	assert.Equal(t, config.IdleTimeout, options.ConnMaxIdleTime)
 }
 
 func TestNewRedisClientWithPool(t *testing.T) {
