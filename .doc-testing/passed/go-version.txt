@@ -1,1 +1,0 @@
-Go version: 1.24

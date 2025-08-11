@@ -1,8 +1,0 @@
-database
-localstack
-localstack-init
-redis
-rest-api
-mcp-server
-mockserver
-worker

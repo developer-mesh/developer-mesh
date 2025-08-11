@@ -1,4 +1,0 @@
-Dockerfile found: ./apps/mcp-server/Dockerfile for mcp-server
-Dockerfile found: ./apps/mockserver/Dockerfile for mockserver
-Dockerfile found: ./apps/worker/Dockerfile for worker
-Dockerfile found: ./apps/rest-api/Dockerfile for rest-api

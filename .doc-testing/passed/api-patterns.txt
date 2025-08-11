@@ -1,5 +1,0 @@
-API pattern: /health
-API pattern: /api/v1
-API pattern: /metrics
-API pattern: /ws
-API pattern: /webhook

@@ -1,9 +1,0 @@
-Code Verification Summary
-========================
-Handlers Found:      311
-Endpoints Found:      743
-TODOs Found:       69
-Test Files:      294
-Make Targets:       80
-Docker Services:        8
-Environment Vars:      111

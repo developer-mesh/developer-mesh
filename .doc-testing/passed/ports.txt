@@ -1,6 +1,0 @@
-Port mapping: 8080:8080
-Port mapping: 8081:8080
-Port mapping: 8082:8081
-Port mapping: 5432:5432
-Port mapping: 6379:6379
-Port mapping: 4566:4566
