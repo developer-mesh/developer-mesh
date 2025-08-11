@@ -1,0 +1,6 @@
+apps/
+pkg/
+configs/
+scripts/
+docs/
+test/

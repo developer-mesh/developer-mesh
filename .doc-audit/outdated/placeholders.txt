@@ -1,0 +1,1575 @@
+./SCHEMA_GAPS_FINAL_ANALYSIS.md:    auth_config JSONB DEFAULT '{}',
+./SCHEMA_GAPS_FINAL_ANALYSIS.md:    health_check_config JSONB DEFAULT '{}',
+./SCHEMA_GAPS_FINAL_ANALYSIS.md:    input_data JSONB DEFAULT '{}',
+./test/e2e/README.md:    Subprotocols: []string{"mcp.v1"},  // REQUIRED
+./test/e2e/README.md:        "Authorization": []string{"Bearer " + apiKey},
+./test/functional/mcp/MCP_TEST_SUMMARY.md:- ✅ `/api/v1/mcp/tools/{name}` - Tool details
+./test/functional/TLS_TESTING.md:    cert_file: "${TLS_CERT_FILE}"
+./test/functional/TLS_TESTING.md:    key_file: "${TLS_KEY_FILE}"
+./.claude/snippets.md:        s.logger.Warn("Failed to close resource", map[string]interface{}{
+./.claude/snippets.md:        c.JSON(http.StatusBadRequest, gin.H{"error": "tenant_id required"})
+./.claude/snippets.md:    Return(&Result{ID: "123"}, nil)
+./.claude/snippets.md:        input:   InputType{},
+./.claude/snippets.md:        want:    OutputType{},
+./.claude/snippets.md:    s.logger.Warn("Failed to cache", map[string]interface{}{"error": err.Error()})
+./.claude/snippets.md:s.logger.Info("Operation completed", map[string]interface{}{
+./.claude/snippets.md:s.logger.Error("Operation failed", map[string]interface{}{
+./.claude/templates/README.md:This directory contains Go template files that use placeholder syntax (e.g., `{Resource}`, `{Method}`) for generating new code.
+./.claude/templates/README.md:func (api *{Resource}API) Handle{Resource}(c *gin.Context) {
+./.claude/templates/README.md:2. Replace all placeholders (text in `{braces}`) with actual values
+./docs/webhook-multi-org-setup.md:      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
+./docs/webhook-multi-org-setup.md:      - WEBHOOK_ORG_CLIENT_A_SECRET=${CLIENT_A_WEBHOOK_SECRET}
+./docs/webhook-multi-org-setup.md:    metadata JSONB DEFAULT '{}',
+./docs/dynamic_tools_api.md:GET /api/v1/tools/{toolId}
+./docs/dynamic_tools_api.md:PUT /api/v1/tools/{toolId}
+./docs/dynamic_tools_api.md:DELETE /api/v1/tools/{toolId}
+./docs/dynamic_tools_api.md:GET /api/v1/tools/discover/{sessionId}
+./docs/dynamic_tools_api.md:POST /api/v1/tools/discover/{sessionId}/confirm
+./docs/dynamic_tools_api.md:GET /api/v1/tools/{toolId}/health
+./docs/dynamic_tools_api.md:POST /api/v1/tools/{toolId}/health/refresh
+./docs/dynamic_tools_api.md:GET /api/v1/tools/{toolId}/actions
+./docs/dynamic_tools_api.md:POST /api/v1/tools/{toolId}/execute/{action}
+./docs/dynamic_tools_api.md:PUT /api/v1/tools/{toolId}/credentials
+./docs/dynamic_tools_api.md:curl -X POST http://localhost:8080/api/v1/tools/{toolId}/execute/{action} \
+./docs/dynamic_tools_api.md:  -d '{"parameters": {...}}'
+./docs/dynamic_tools_api.md:curl -X POST http://localhost:8080/api/v1/tools/{toolId}/execute/create_issue \
+./docs/developer/testing-uuid-guidelines.md:        Scopes:   []string{"read", "write", "admin"},
+./docs/developer/testing-uuid-guidelines.md:          actual: uuid.UUID(uuid.UUID{...})
+./docs/developer/debugging-guide.md:func (a *Adapter) Method() {} // Pointer receiver
+./docs/developer/debugging-guide.md:func (a Adapter) Method() {}  // Value receiver
+./docs/developer/debugging-guide.md:func (a *Adapter) Get() (interface{}, error) { // Wrong
+./docs/developer/debugging-guide.md:    return &Model{}, nil
+./docs/developer/debugging-guide.md:    return &Model{}, nil
+./docs/developer/debugging-guide.md:func (a *Adapter) Execute(req Request) error {} // Wrong
+./docs/developer/debugging-guide.md:func (a *Adapter) Execute(ctx context.Context, req Request) error {} // Correct
+./docs/developer/debugging-guide.md:func (m vectorMatcher) Match(actual interface{}) bool {
+./docs/developer/debugging-guide.md:    expected: []float32{0.1, 0.2, 0.3},
+./docs/developer/debugging-guide.md:mockRepo.AssertCalled(t, "Method", mock.MatchedBy(func(req interface{}) bool {
+./docs/developer/debugging-guide.md:    "remotePath": "${workspaceFolder}",
+./docs/developer/debugging-guide.md:time_namelookup:  %{time_namelookup}\n
+./docs/developer/debugging-guide.md:time_connect:     %{time_connect}\n
+./docs/developer/debugging-guide.md:time_appconnect:  %{time_appconnect}\n
+./docs/developer/debugging-guide.md:time_pretransfer: %{time_pretransfer}\n
+./docs/developer/debugging-guide.md:time_redirect:    %{time_redirect}\n
+./docs/developer/debugging-guide.md:time_starttransfer: %{time_starttransfer}\n
+./docs/developer/debugging-guide.md:time_total:       %{time_total}\n
+./docs/developer/debugging-guide.md:import { check } from 'k6';
+./docs/developer/debugging-guide.md:    { headers: { 'Content-Type': 'application/json' }}
+./docs/developer/debugging-guide.md:    status := map[string]interface{}{
+./docs/developer/authentication-implementation-guide.md:    Scopes:   []string{"read", "write"},
+./docs/developer/authentication-implementation-guide.md:    "api":     {Limit: 1000, Period: time.Minute},
+./docs/developer/authentication-implementation-guide.md:    "webhook": {Limit: 100, Period: time.Minute},
+./docs/developer/authentication-implementation-guide.md:    "auth":    {Limit: 50, Period: time.Minute},
+./docs/developer/authentication-implementation-guide.md:    c.JSON(429, gin.H{"error": "rate limit exceeded"})
+./docs/developer/authentication-implementation-guide.md:            c.JSON(429, gin.H{"error": "rate limit exceeded"})
+./docs/developer/authentication-implementation-guide.md:    c.JSON(401, gin.H{"error": "unauthorized"})
+./docs/developer/authentication-implementation-guide.md:        c.JSON(403, gin.H{"error": "forbidden"})
+./docs/developer/authentication-implementation-guide.md:            c.JSON(401, gin.H{"error": "invalid signature"})
+./docs/developer/testing-guide.md:    adapter := &GitHubAdapter{client: mockClient}
+./docs/developer/testing-guide.md:            payload:   `{"action":"opened"}`,
+./docs/developer/testing-guide.md:            payload:   `{"action":"opened"}`,
+./docs/developer/testing-guide.md:            payload:   `{"action":"opened"}`,
+./docs/developer/testing-guide.md:go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//g' | awk '{if ($1 < 85) exit 1}'
+./docs/developer/testing-guide.md:        Return(&Issue{ID: 123}, nil).
+./docs/developer/testing-guide.md:    content := []byte(`{"test": "data"}`)
+./docs/developer/testing-guide.md:    messageBody := fmt.Sprintf(`{"taskId": "test-%d", "type": "integration-test"}`, time.Now().Unix())
+./docs/developer/testing-guide.md:        MessageAttributeNames: []string{"All"},
+./docs/developer/testing-guide.md:    input := map[string]interface{}{
+./docs/developer/testing-guide.md:    var response map[string]interface{}
+./docs/developer/testing-guide.md:    embedding, ok := response["embedding"].([]interface{})
+./docs/developer/testing-guide.md:    client := &http.Client{Timeout: 30 * time.Second}
+./docs/developer/testing-guide.md:            "metadata": {"test": true}
+./docs/developer/testing-guide.md:        searchPayload := `{"query":"platform vector search","limit":10}`
+./docs/developer/testing-guide.md:            "X-Agent-ID": []string{"test-agent-" + uuid.New().String()},
+./docs/developer/testing-guide.md:        registration := map[string]interface{}{
+./docs/developer/testing-guide.md:            "payload": map[string]interface{}{
+./docs/developer/testing-guide.md:                "capabilities": []string{"code_analysis", "embedding"},
+./docs/developer/testing-guide.md:        var response map[string]interface{}
+./docs/developer/testing-guide.md:import { test, expect } from '@playwright/test';
+./docs/developer/testing-guide.md:  test.beforeAll(async ({ playwright }) => {
+./docs/developer/testing-guide.md:    const { token } = await loginResponse.json();
+./docs/developer/testing-guide.md:        'Authorization': `Bearer ${authToken}`
+./docs/developer/testing-guide.md:    const updateResponse = await apiContext.put(`/api/v1/contexts/${context.id}`, {
+./docs/developer/testing-guide.md:        'Authorization': `Bearer ${authToken}`
+./docs/developer/testing-guide.md:        'Authorization': `Bearer ${authToken}`
+./docs/developer/testing-guide.md:    const deleteResponse = await apiContext.delete(`/api/v1/contexts/${context.id}`, {
+./docs/developer/testing-guide.md:        'Authorization': `Bearer ${authToken}`
+./docs/developer/testing-guide.md:    value := map[string]interface{}{
+./docs/developer/testing-guide.md:import { check, sleep } from 'k6';
+./docs/developer/testing-guide.md:import { Rate } from 'k6/metrics';
+./docs/developer/testing-guide.md:    { duration: '2m', target: 100 }, // Ramp up
+./docs/developer/testing-guide.md:    { duration: '5m', target: 100 }, // Stay at 100
+./docs/developer/testing-guide.md:    { duration: '2m', target: 1000 }, // Spike to 1000
+./docs/developer/testing-guide.md:    { duration: '5m', target: 1000 }, // Stay at 1000
+./docs/developer/testing-guide.md:    { duration: '2m', target: 100 }, // Scale down
+./docs/developer/testing-guide.md:    { duration: '5m', target: 0 }, // Ramp down
+./docs/developer/testing-guide.md:    `${API_BASE}/api/v1/contexts`,
+./docs/developer/testing-guide.md:      name: `Load Test ${__VU}-${__ITER}`,
+./docs/developer/testing-guide.md:    `${API_BASE}/api/v1/contexts/search`,
+./docs/developer/testing-guide.md:    JSON.stringify({ query: 'Load Test' }),
+./docs/developer/testing-guide.md:    .body(StringBody("""{"name":"Gatling Test","content":"Load test"}"""))
+./docs/developer/testing-guide.md:    .get("/api/v1/contexts/${contextId}")
+./docs/developer/testing-guide.md:const { Pact } = require('@pact-foundation/pact');
+./docs/developer/testing-guide.md:const { getContext } = require('../src/api-client');
+./docs/developer/testing-guide.md:        PactURLs:           []string{"./pacts/frontend-mcp-api.json"},
+./docs/developer/testing-guide.md:        Metadata: map[string]interface{}{
+./docs/developer/testing-guide.md:          go-version: ${{ env.GO_VERSION }}
+./docs/developer/testing-guide.md:          go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//g' | awk '{if ($1 < 85) exit 1}'
+./docs/developer/testing-guide.md:          go-version: ${{ env.GO_VERSION }}
+./docs/developer/testing-guide.md:          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+./docs/developer/testing-guide.md:          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+./docs/developer/testing-guide.md:          aws-region: ${{ env.AWS_REGION }}
+./docs/developer/testing-guide.md:        Payload: json.RawMessage(`{"test": true}`),
+./docs/developer/testing-guide.md:func TestCreateContext_WithValidData_ReturnsCreatedContext(t *testing.T) {}
+./docs/developer/testing-guide.md:func TestCreateContext_WithMissingName_ReturnsValidationError(t *testing.T) {}
+./docs/developer/testing-guide.md:func TestBedrockProvider_GenerateEmbedding_HandlesRateLimit(t *testing.T) {}
+./docs/developer/testing-guide.md:func TestCreate(t *testing.T) {}
+./docs/developer/testing-guide.md:func TestError(t *testing.T) {}
+./docs/developer/development-environment.md:            input: Request{ID: "123"},
+./docs/developer/development-environment.md:            want:  Response{Status: "success"},
+./docs/developer/development-environment.md:            input:   Request{},
+./docs/developer/development-environment.md:  ghcr.io/${GITHUB_USERNAME}/developer-mesh-mcp-server:latest
+./docs/developer/development-environment.md:  ghcr.io/${GITHUB_USERNAME}/developer-mesh-rest-api:latest
+./docs/configuration/encryption-keys.md:      - DEVMESH_ENCRYPTION_KEY=${DEVMESH_ENCRYPTION_KEY}
+./docs/configuration/encryption-keys.md:      - ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY}
+./docs/SERVICE_INITIALIZATION.md:    logger.Info("Database connection failed, retrying...", map[string]interface{}{
+./docs/redis-migration-guide.md:   redis_stream_length{stream="webhook-events"}
+./docs/redis-migration-guide.md:   webhook_event_processing_duration_seconds{quantile="0.99"}
+./docs/redis-migration-guide.md:   redis_stream_consumer_lag{group="webhook-processors"}
+./docs/redis-migration-guide.md:  expr: redis_stream_length{stream="webhook-events"} > 10000
+./docs/redis-migration-guide.md:  expr: up{job="redis"} == 0
+./docs/swagger/README.md:**Note**: GitHub, Harness, and SonarQube tools are implemented through the generic tool endpoints (`/api/v1/tools/{tool}/actions/{action}`). The tool-specific endpoints documented in `tools/github/api.yaml` are not implemented.
+./docs/swagger/README.md:- `GET /api/v1/tools/{tool}` - Get tool details (e.g., `/api/v1/tools/github`)
+./docs/swagger/README.md:- `GET /api/v1/tools/{tool}/actions` - List available actions for a tool
+./docs/swagger/README.md:- `GET /api/v1/tools/{tool}/actions/{action}` - Get action details
+./docs/swagger/README.md:- `POST /api/v1/tools/{tool}/actions/{action}` - Execute a tool action
+./docs/swagger/README.md:- `POST /api/v1/tools/{tool}/queries` - Query tool data
+./docs/swagger/README.md:Tool-specific endpoint patterns (like `/tools/github/{tool_name}`) are not implemented.
+./docs/security/per-tenant-credential-encryption.md:curl -X PUT https://api.example.com/api/v1/tools/{toolId}/credentials \
+./docs/security/per-tenant-credential-encryption.md:   - `encryption_operations_total{operation="encrypt|decrypt", status="success|failure"}`
+./docs/auth-integration-complete.md:    Metadata       map[string]interface{} `json:"metadata,omitempty"`
+./docs/deployment-fixes-needed.md:- Fix variable escaping (use `${variable}` consistently)
+./docs/context-lifecycle-benefits.md:Semantic: {action: "deploy", service: "X", env: "prod", config: "Y"}
+./docs/api-reference/embedding-api-reference.md:    "metadata": {"doc_id": "1"}
+./docs/api-reference/embedding-api-reference.md:    "metadata": {"doc_id": "2"}
+./docs/api-reference/embedding-api-reference.md:      "metadata": {"doc_id": "1"}
+./docs/api-reference/embedding-api-reference.md:      "metadata": {"doc_id": "2"}
+./docs/api-reference/embedding-api-reference.md:**Endpoint:** `GET /embeddings/agents/{agentId}`
+./docs/api-reference/embedding-api-reference.md:**Endpoint:** `PUT /embeddings/agents/{agentId}`
+./docs/api-reference/embedding-api-reference.md:**Endpoint:** `GET /embeddings/agents/{agentId}/models?task_type=general_qa`
+./docs/api-reference/embedding-api-reference.md:**Endpoint:** `GET /embeddings/agents/{agentId}/costs?period_days=30`
+./docs/api-reference/mcp-server-reference.md:  "query_params": {...},
+./docs/api-reference/mcp-server-reference.md:  "configuration": {...},
+./docs/api-reference/mcp-server-reference.md:  "configuration": {...},
+./docs/api-reference/mcp-server-reference.md:  "configuration": {...},
+./docs/api-reference/mcp-server-reference.md:  "configuration": {...},
+./docs/api-reference/mcp-server-reference.md:          "owner": {"type": "string"},
+./docs/api-reference/mcp-server-reference.md:          "repo": {"type": "string"},
+./docs/api-reference/mcp-server-reference.md:          "title": {"type": "string"},
+./docs/api-reference/mcp-server-reference.md:          "body": {"type": "string"}
+./docs/api-reference/mcp-server-reference.md:        tools: {},
+./docs/api-reference/mcp-server-reference.md:        prompts: {},
+./docs/api-reference/mcp-server-reference.md:        resources: {}
+./docs/api-reference/mcp-server-reference.md:      ...BigInt(Date.now()).toString(16).padStart(16, '0').match(/.{2}/g).map(b => parseInt(b, 16))
+./docs/api-reference/mcp-server-reference.md:        {Role: "user", Content: "Hello"},
+./docs/api-reference/mcp-server-reference.md:result, err := client.Tools().Execute("github", "create_issue", map[string]interface{}{
+./docs/api-reference/mcp-server-reference.md:    content=[{"role": "user", "content": "Hello"}]
+./docs/api-reference/webhook-api-reference.md:    "processing_options": {...},
+./docs/api-reference/webhook-api-reference.md:    "filters": {...},
+./docs/api-reference/webhook-api-reference.md:    "agent_routing": {...}
+./docs/api-reference/webhook-api-reference.md:    "issue": {...},
+./docs/api-reference/webhook-api-reference.md:    "repository": {...}
+./docs/api-reference/webhook-api-reference.md:    return res.status(401).json({ error: 'Invalid signature' });
+./docs/api-reference/webhook-api-reference.md:        return jsonify({'error': 'Invalid signature'}), 401
+./docs/api-reference/authentication-api-reference.md:            Scopes:   []string{"read", "write", "admin"},
+./docs/api-reference/authentication-api-reference.md:    Scopes:    []string{"read", "write", "admin"},
+./docs/api-reference/authentication-api-reference.md:    Metadata  map[string]interface{} `json:"metadata,omitempty"`
+./docs/api-reference/authentication-api-reference.md:        c.JSON(401, gin.H{"error": "unauthorized"})
+./docs/api-reference/swagger-integration-guide.md:// @Success 200 {object} SonarQubeExecutionResponse
+./docs/api-reference/swagger-integration-guide.md:// @Router /tools/sonarqube/{tool_name} [post]
+./docs/api-reference/swagger-integration-guide.md:- Operations: `list{Tool}Tools`, `get{Tool}ToolSchema`, `execute{Tool}Tool`
+./docs/api-reference/swagger-integration-guide.md:- Schemas: `{Tool}Pipeline`, `{Tool}Execution`, `{Tool}Result`
+./docs/api-reference/swagger-integration-guide.md:    AllowOrigins:     []string{"*"},
+./docs/api-reference/swagger-integration-guide.md:    AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},
+./docs/api-reference/swagger-integration-guide.md:    AllowHeaders:     []string{"Authorization", "Content-Type"},
+./docs/api-reference/swagger-integration-guide.md:    ExposeHeaders:    []string{"X-Total-Count"},
+./docs/api-reference/swagger-integration-guide.md:$ref: './tools/github/api.yaml#/paths/~1tools~1github~1{tool_name}'
+./docs/api-reference/rest-api-reference.md:  "from_entity": {...},
+./docs/api-reference/rest-api-reference.md:  "to_entity": {...},
+./docs/api-reference/rest-api-reference.md:  "properties": {...},
+./docs/api-reference/rest-api-reference.md:import { DevOpsMCPClient } from '@developer-mesh/rest-client';
+./docs/api-reference/rest-api-reference.md:  content: [{ type: 'message', role: 'user', content: 'Analyze my Python code' }]
+./docs/api-reference/rest-api-reference.md:    content=[{"type": "message", "role": "user", "content": "Hello"}]
+./docs/api-reference/rest-api-reference.md:    Content: []ContextItem{{Type: "message", Role: "user", Content: "Hello"}},
+./docs/api-reference/rest-api-reference.md:    ContextIDs: []string{ctx.ID},
+./docs/features/enhanced-discovery.md:    A[Start Discovery] --> B{OpenAPI URL provided?}
+./docs/features/enhanced-discovery.md:    B -->|No| D{Hints provided?}
+./docs/features/enhanced-discovery.md:    D -->|No| F{Learned patterns exist?}
+./docs/features/enhanced-discovery.md:    E --> I{Success?}
+./docs/MULTI_TENANT_API_IMPLEMENTATION_PLAN.md:ADD COLUMN IF NOT EXISTS allowed_services TEXT[] DEFAULT '{}';
+./docs/MULTI_TENANT_API_IMPLEMENTATION_PLAN.md:    rate_limit_config JSONB NOT NULL DEFAULT '{}',
+./docs/MULTI_TENANT_API_IMPLEMENTATION_PLAN.md:    service_tokens JSONB DEFAULT '{}', -- {"github": "encrypted_token", ...}
+./docs/MULTI_TENANT_API_IMPLEMENTATION_PLAN.md:    allowed_origins TEXT[] DEFAULT '{}',
+./docs/MULTI_TENANT_API_IMPLEMENTATION_PLAN.md:    features JSONB DEFAULT '{}',
+./docs/MULTI_TENANT_API_IMPLEMENTATION_PLAN.md:func (kt *KeyType) Scan(value interface{}) error {
+./docs/MULTI_TENANT_API_IMPLEMENTATION_PLAN.md:            s.logger.Warn("API key not found", map[string]interface{}{
+./docs/MULTI_TENANT_API_IMPLEMENTATION_PLAN.md:        Metadata: map[string]interface{}{
+./docs/MULTI_TENANT_API_IMPLEMENTATION_PLAN.md:            if metadata, ok := u.Metadata.(map[string]interface{}); ok {
+./docs/MULTI_TENANT_API_IMPLEMENTATION_PLAN.md:        f.logger.Info("Using passthrough GitHub token", map[string]interface{}{
+./docs/MULTI_TENANT_API_IMPLEMENTATION_PLAN.md:        ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token.Token})
+./docs/MULTI_TENANT_API_IMPLEMENTATION_PLAN.md:        s.logger.Error("Failed to decrypt tokens", map[string]interface{}{
+./docs/MULTI_TENANT_API_IMPLEMENTATION_PLAN.md:        s.logger.Warn("Failed to load tenant config", map[string]interface{}{
+./docs/MULTI_TENANT_API_IMPLEMENTATION_PLAN.md:        AllowedServices: []string{"github"},
+./docs/troubleshooting/TROUBLESHOOTING.md:   kubectl get secret db-credentials -n mcp-prod -o jsonpath='{.data.password}' | base64 -d
+./docs/troubleshooting/TROUBLESHOOTING.md:       headers: { 'Content-Type': 'application/json' },
+./docs/troubleshooting/TROUBLESHOOTING.md:       body: JSON.stringify({ refresh_token: refreshToken })
+./docs/troubleshooting/TROUBLESHOOTING.md:   kubectl get secret jwt-secret -n mcp-prod -o jsonpath='{.data.secret}' | base64 -d
+./docs/troubleshooting/TROUBLESHOOTING.md:   curl -X PATCH http://localhost:8081/api/v1/auth/keys/{key_id} \
+./docs/troubleshooting/TROUBLESHOOTING.md:       New: func() interface{} {
+./docs/troubleshooting/TROUBLESHOOTING.md:   func (sm *ShardedMap) Get(key string) (interface{}, bool) {
+./docs/troubleshooting/TROUBLESHOOTING.md:for i in {1..20}; do
+./docs/troubleshooting/TROUBLESHOOTING.md:  -d '{"level": "debug"}'
+./docs/troubleshooting/TROUBLESHOOTING.md:curl "http://localhost:16686/api/traces/{traceID}"
+./docs/troubleshooting/TROUBLESHOOTING.md:  awk -F'"error":"' '{print $2}' | \
+./docs/troubleshooting/TROUBLESHOOTING.md:  awk -F'"' '{print $1}' | \
+./docs/troubleshooting/embedding_models_troubleshooting.md:  -d '{"priority": 10}'
+./docs/troubleshooting/embedding_models_troubleshooting.md:redis-cli keys "circuit:*" | xargs -I {} redis-cli get {}
+./docs/troubleshooting/embedding_models_troubleshooting.md:redis-cli keys "rate:*" | head -20 | xargs -I {} redis-cli ttl {}
+./docs/troubleshooting/embedding_models_troubleshooting.md:rate(embedding_requests_total{status="error"}[5m]) / rate(embedding_requests_total[5m])
+./docs/troubleshooting/embedding_models_troubleshooting.md:redis-cli keys "circuit:*" | xargs -I {} redis-cli del {}
+./docs/operations/embedding-operations-guide.md:    image: ${DOCKER_REGISTRY}/developer-mesh/rest-api:${VERSION}
+./docs/operations/embedding-operations-guide.md:      - OPENAI_ENABLED=${OPENAI_ENABLED}
+./docs/operations/embedding-operations-guide.md:      - OPENAI_API_KEY=${OPENAI_API_KEY}
+./docs/operations/embedding-operations-guide.md:      - BEDROCK_ENABLED=${BEDROCK_ENABLED}
+./docs/operations/embedding-operations-guide.md:      - AWS_REGION=${AWS_REGION}
+./docs/operations/embedding-operations-guide.md:      - DATABASE_HOST=${DATABASE_HOST}
+./docs/operations/embedding-operations-guide.md:      - REDIS_CLUSTER_ENDPOINTS=${REDIS_CLUSTER_ENDPOINTS}
+./docs/operations/embedding-operations-guide.md:      - POSTGRES_PASSWORD=${DB_PASSWORD}
+./docs/operations/embedding-operations-guide.md:        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
+./docs/operations/embedding-operations-guide.md:          description: "Error rate is {{ $value }} errors per second"
+./docs/operations/embedding-operations-guide.md:        expr: embedding_provider_health{status="unhealthy"} == 1
+./docs/operations/embedding-operations-guide.md:          summary: "Embedding provider {{ $labels.provider }} is down"
+./docs/operations/embedding-operations-guide.md:          description: "Cost rate is ${{ $value }} per hour"
+./docs/operations/embedding-operations-guide.md:        expr: circuit_breaker_state{state="open"} == 1
+./docs/operations/embedding-operations-guide.md:          summary: "Circuit breaker open for {{ $labels.provider }}"
+./docs/operations/embedding-operations-guide.md:    - ssn: '\d{3}-\d{2}-\d{4}'
+./docs/operations/embedding-operations-guide.md:    - email: '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
+./docs/operations/embedding-operations-guide.md:    - phone: '\+?1?\d{10,14}'
+./docs/operations/sqs-security-recommendations.md:    "RedrivePolicy": "{\"deadLetterTargetArn\":\"'$DLQ_ARN'\",\"maxReceiveCount\":3}"
+./docs/operations/sqs-security-recommendations.md:    queue_url: "${SQS_QUEUE_URL}"
+./docs/operations/sqs-security-recommendations.md:    region: "${AWS_REGION}"
+./docs/operations/OPERATIONS_RUNBOOK.md:DISK_USAGE=$(df -h / | awk 'NR==2 {print $5}' | sed 's/%//')
+./docs/operations/OPERATIONS_RUNBOOK.md:    echo "✓ PASS (${DISK_USAGE}% used)"
+./docs/operations/OPERATIONS_RUNBOOK.md:    echo "✗ WARNING - Disk usage at ${DISK_USAGE}%"
+./docs/operations/OPERATIONS_RUNBOOK.md:ERROR_RATE=$(curl -s http://localhost:9090/api/v1/query?query='rate(http_requests_total{status=~"5.."}[1h])' | jq -r '.data.result[0].value[1]')
+./docs/operations/OPERATIONS_RUNBOOK.md:    echo "✓ PASS (${ERROR_RATE})"
+./docs/operations/OPERATIONS_RUNBOOK.md:    echo "✗ WARNING - Error rate: ${ERROR_RATE}"
+./docs/operations/OPERATIONS_RUNBOOK.md:cosign verify ghcr.io/${GITHUB_USERNAME}/developer-mesh-mcp-server:latest
+./docs/operations/OPERATIONS_RUNBOOK.md:cosign verify ghcr.io/${GITHUB_USERNAME}/developer-mesh-rest-api:latest
+./docs/operations/OPERATIONS_RUNBOOK.md:cosign verify ghcr.io/${GITHUB_USERNAME}/developer-mesh-worker:latest
+./docs/operations/OPERATIONS_RUNBOOK.md:echo "Updating Developer Mesh to version ${VERSION}"
+./docs/operations/OPERATIONS_RUNBOOK.md:GITHUB_USERNAME=your-github-username ./scripts/pull-images.sh ${VERSION}
+./docs/operations/OPERATIONS_RUNBOOK.md:docker images | grep developer-mesh | grep ${VERSION}
+./docs/operations/OPERATIONS_RUNBOOK.md:export VERSION=${VERSION}
+./docs/operations/OPERATIONS_RUNBOOK.md:echo "Verifying image: ${IMAGE}"
+./docs/operations/OPERATIONS_RUNBOOK.md:cosign verify ${IMAGE}
+./docs/operations/OPERATIONS_RUNBOOK.md:    aquasec/trivy image ${IMAGE}
+./docs/operations/OPERATIONS_RUNBOOK.md:docker inspect ${IMAGE} | jq '.[0].Config.Labels'
+./docs/operations/OPERATIONS_RUNBOOK.md:cosign download sbom ${IMAGE} > sbom.json
+./docs/operations/OPERATIONS_RUNBOOK.md:echo "Rolling update of ${SERVICE} to ${VERSION}"
+./docs/operations/OPERATIONS_RUNBOOK.md:    --image ghcr.io/${GITHUB_USERNAME}/developer-mesh-${SERVICE}:${VERSION} \
+./docs/operations/OPERATIONS_RUNBOOK.md:    mcp_${SERVICE}
+./docs/operations/OPERATIONS_RUNBOOK.md:kubectl set image deployment/${SERVICE} \
+./docs/operations/OPERATIONS_RUNBOOK.md:    ${SERVICE}=ghcr.io/${GITHUB_USERNAME}/developer-mesh-${SERVICE}:${VERSION} \
+./docs/operations/OPERATIONS_RUNBOOK.md:kubectl rollout status deployment/${SERVICE} -n mcp-prod
+./docs/operations/OPERATIONS_RUNBOOK.md:mkdir -p /tmp/backup_${TIMESTAMP}
+./docs/operations/OPERATIONS_RUNBOOK.md:  -f /tmp/backup_${TIMESTAMP}/database.sql
+./docs/operations/OPERATIONS_RUNBOOK.md:cp -r /home/ec2-user/developer-mesh/.env* /tmp/backup_${TIMESTAMP}/
+./docs/operations/OPERATIONS_RUNBOOK.md:cp -r /home/ec2-user/developer-mesh/configs /tmp/backup_${TIMESTAMP}/
+./docs/operations/OPERATIONS_RUNBOOK.md:aws s3 cp /tmp/backup_${TIMESTAMP}/ \
+./docs/operations/OPERATIONS_RUNBOOK.md:  s3://your-backup-bucket/backups/${TIMESTAMP}/ \
+./docs/operations/OPERATIONS_RUNBOOK.md:BACKUP_DIR="/backups/mcp_${TIMESTAMP}"
+./docs/operations/OPERATIONS_RUNBOOK.md:echo "Starting manual backup at ${TIMESTAMP}"
+./docs/operations/OPERATIONS_RUNBOOK.md:mkdir -p ${BACKUP_DIR}
+./docs/operations/OPERATIONS_RUNBOOK.md:pg_dump -h localhost -U mcp_user -d mcp -F c -f ${BACKUP_DIR}/postgres_mcp.dump
+./docs/operations/OPERATIONS_RUNBOOK.md:cp /var/lib/redis/dump.rdb ${BACKUP_DIR}/redis.rdb
+./docs/operations/OPERATIONS_RUNBOOK.md:tar -czf ${BACKUP_DIR}/configs.tar.gz /etc/mcp/
+./docs/operations/OPERATIONS_RUNBOOK.md:pg_dump -h localhost -U mcp_user -d mcp -t vector_embeddings -F c -f ${BACKUP_DIR}/vectors.dump
+./docs/operations/OPERATIONS_RUNBOOK.md:docker images | grep developer-mesh | grep -v "<none>" > ${BACKUP_DIR}/image_versions.txt
+./docs/operations/OPERATIONS_RUNBOOK.md:docker-compose -f docker-compose.prod.yml ps --format json > ${BACKUP_DIR}/running_services.json
+./docs/operations/OPERATIONS_RUNBOOK.md:aws s3 cp ${BACKUP_DIR} s3://mcp-backups-prod/${TIMESTAMP}/ --recursive
+./docs/operations/OPERATIONS_RUNBOOK.md:aws s3 ls s3://mcp-backups-prod/${TIMESTAMP}/ --recursive
+./docs/operations/OPERATIONS_RUNBOOK.md:echo "WARNING: This will restore from backup ${BACKUP_DATE}"
+./docs/operations/OPERATIONS_RUNBOOK.md:aws s3 cp s3://mcp-backups-prod/${BACKUP_DATE}/ /tmp/restore/ --recursive
+./docs/operations/OPERATIONS_RUNBOOK.md:import { check, sleep } from 'k6';
+./docs/operations/OPERATIONS_RUNBOOK.md:    { duration: '5m', target: 100 },  // Ramp up
+./docs/operations/OPERATIONS_RUNBOOK.md:    { duration: '10m', target: 100 }, // Stay at 100 users
+./docs/operations/OPERATIONS_RUNBOOK.md:    { duration: '5m', target: 200 },  // Ramp to 200
+./docs/operations/OPERATIONS_RUNBOOK.md:    { duration: '10m', target: 200 }, // Stay at 200
+./docs/operations/OPERATIONS_RUNBOOK.md:    { duration: '5m', target: 0 },    // Ramp down
+./docs/operations/OPERATIONS_RUNBOOK.md:      name: `perf-test-${__VU}-${__ITER}`,
+./docs/operations/OPERATIONS_RUNBOOK.md:    { headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY } }
+./docs/operations/OPERATIONS_RUNBOOK.md:echo "Total Memory: $(free -h | grep Mem | awk '{print $2}')"
+./docs/operations/OPERATIONS_RUNBOOK.md:echo "Disk Space: $(df -h / | tail -1 | awk '{print $4}' ) available"
+./docs/operations/OPERATIONS_RUNBOOK.md:docker stats --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}"
+./docs/operations/OPERATIONS_RUNBOOK.md:MAINTENANCE_DURATION=${1:-"30"} # Default 30 minutes
+./docs/operations/OPERATIONS_RUNBOOK.md:echo "Entering maintenance mode for ${MAINTENANCE_DURATION} minutes"
+./docs/operations/OPERATIONS_RUNBOOK.md:  duration: "${MAINTENANCE_DURATION}m"
+./docs/operations/OPERATIONS_RUNBOOK.md:GITHUB_USERNAME=${GITHUB_USERNAME:-your-github-username}
+./docs/operations/OPERATIONS_RUNBOOK.md:echo "Deploying ${SERVICE} version ${VERSION}"
+./docs/operations/OPERATIONS_RUNBOOK.md:docker pull ghcr.io/${GITHUB_USERNAME}/developer-mesh-${SERVICE}:${VERSION}
+./docs/operations/OPERATIONS_RUNBOOK.md:cosign verify ghcr.io/${GITHUB_USERNAME}/developer-mesh-${SERVICE}:${VERSION}
+./docs/operations/OPERATIONS_RUNBOOK.md:kubectl set image deployment/${SERVICE} ${SERVICE}=ghcr.io/${GITHUB_USERNAME}/developer-mesh-${SERVICE}:${VERSION} -n mcp-prod
+./docs/operations/OPERATIONS_RUNBOOK.md:kubectl rollout status deployment/${SERVICE} -n mcp-prod
+./docs/operations/OPERATIONS_RUNBOOK.md:HEALTH=$(curl -s http://${SERVICE}.mcp.svc.cluster.local:8080/health | jq -r '.status')
+./docs/operations/OPERATIONS_RUNBOOK.md:    kubectl rollout undo deployment/${SERVICE} -n mcp-prod
+./docs/operations/OPERATIONS_RUNBOOK.md:echo "${SERVICE}:${VERSION}" >> /var/log/deployments.log
+./docs/operations/OPERATIONS_RUNBOOK.md:EXPIRY_EPOCH=$(date -d "${CERT_EXPIRY}" +%s)
+./docs/operations/OPERATIONS_RUNBOOK.md:echo "Certificate expires in ${DAYS_LEFT} days"
+./docs/operations/OPERATIONS_RUNBOOK.md:        -p '{"spec":{"tls":[{"secretName":"mcp-tls-new","hosts":["api.mcp.example.com"]}]}}'
+./docs/operations/OPERATIONS_RUNBOOK.md:echo "Security incident detected: ${INCIDENT_TYPE}"
+./docs/operations/OPERATIONS_RUNBOOK.md:  podSelector: {}
+./docs/operations/OPERATIONS_RUNBOOK.md:./notify-security.sh "Security incident: ${INCIDENT_TYPE}"
+./docs/operations/OPERATIONS_RUNBOOK.md:./restore.sh $(aws s3 ls s3://mcp-backups-prod/ | grep -E 'PRE' | sort | tail -2 | head -1 | awk '{print $2}' | sed 's/\///')
+./docs/operations/OPERATIONS_RUNBOOK.md:    response=$(curl -s -o /dev/null -w "%{http_code}" $url)
+./docs/operations/OPERATIONS_RUNBOOK.md:        echo "✓ Replication Lag: ${LAG}s"
+./docs/operations/OPERATIONS_RUNBOOK.md:        echo "✗ Replication Lag: ${LAG}s (WARNING)"
+./docs/operations/OPERATIONS_RUNBOOK.md:ERROR_RATE=$(curl -s "http://localhost:9090/api/v1/query?query=rate(http_requests_total{status=~\"5..\"}[5m])" | jq -r '.data.result[0].value[1]' 2>/dev/null || echo "N/A")
+./docs/operations/OPERATIONS_RUNBOOK.md:    echo "✓ Error Rate: ${ERROR_RATE}"
+./docs/operations/OPERATIONS_RUNBOOK.md:    curl -s http://localhost:9090/api/v1/targets | jq '.data.activeTargets[] | {job: .job, health: .health}'
+./docs/operations/authentication-operations-guide.md:   make migrate-up dsn="${DATABASE_URL}"
+./docs/operations/authentication-operations-guide.md:   psql "${DATABASE_URL}" -c "SELECT COUNT(*) FROM api_keys;"
+./docs/operations/authentication-operations-guide.md:   curl -H "Authorization: Bearer ${TEST_API_KEY}" https://api.example.com/health
+./docs/operations/authentication-operations-guide.md:         value: Bearer ${HEALTH_CHECK_KEY}
+./docs/operations/authentication-operations-guide.md:    secret: ${JWT_SECRET} # From environment/secrets
+./docs/operations/authentication-operations-guide.md:    s.logger.Info("Configuration reloaded", map[string]interface{}{
+./docs/operations/authentication-operations-guide.md:   rate(auth_attempts_total{status="success"}[5m]) / 
+./docs/operations/authentication-operations-guide.md:     rate(auth_attempts_total{status="failure"}[5m])
+./docs/operations/authentication-operations-guide.md:   api_keys_total{status="expired"}
+./docs/operations/authentication-operations-guide.md:   api_keys_expiring_soon{days="7"}
+./docs/operations/authentication-operations-guide.md:          (rate(auth_attempts_total{status="failure"}[5m]) / 
+./docs/operations/authentication-operations-guide.md:          summary: "High authentication failure rate: {{ $value | humanizePercentage }}"
+./docs/operations/authentication-operations-guide.md:        expr: up{job="auth-service"} == 0
+./docs/operations/configuration-guide.md:2. `config.{environment}.yaml` - Environment-specific settings
+./docs/operations/configuration-guide.md:3. `config.{environment}.local.yaml` - Local overrides (optional)
+./docs/operations/configuration-guide.md:Create `config.{environment}.local.yaml` for local customization:
+./docs/operations/configuration-guide.md:  host: "${DB_HOST}"
+./docs/operations/configuration-guide.md:  password: "${DB_PASSWORD}"
+./docs/operations/configuration-guide.md:  port: ${DB_PORT:-5432}  # With default value
+./docs/operations/configuration-guide.md:    secret: "${JWT_SECRET}"
+./docs/operations/configuration-guide.md:    aws_region: "${AWS_REGION}"
+./docs/operations/configuration-guide.md:    secret: "${JWT_SECRET}"
+./docs/operations/configuration-guide.md:  host: "${DB_HOST}"
+./docs/operations/configuration-guide.md:  username: "${DB_USER}"
+./docs/operations/configuration-guide.md:  password: "${DB_PASSWORD}"
+./docs/operations/configuration-guide.md:  database: "${DB_NAME}"
+./docs/operations/configuration-guide.md:  address: "${REDIS_ADDR:-localhost:6379}"
+./docs/operations/configuration-guide.md:  password: "${REDIS_PASSWORD}"
+./docs/operations/configuration-guide.md:    enabled: ${CACHE_TLS_ENABLED:-false}
+./docs/operations/configuration-guide.md:      api_key: ${OPENAI_API_KEY}
+./docs/operations/configuration-guide.md:      api_key: ${GOOGLE_API_KEY}
+./docs/operations/configuration-guide.md:    image: ghcr.io/${GITHUB_USERNAME}/developer-mesh-mcp-server:${VERSION:-latest}
+./docs/operations/configuration-guide.md:      DATABASE_USER: ${DATABASE_USER}
+./docs/operations/configuration-guide.md:      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+./docs/operations/configuration-guide.md:     host: ${DB_HOST:-localhost}
+./docs/operations/configuration-guide.md:     host: "${DB_HOST}"
+./docs/operations/configuration-guide.md:       secret: "${JWT_SECRET}"
+./docs/operations/configuration-guide.md:   Symptom: Seeing ${VAR} in config values
+./docs/operations/configuration-guide.md:  address: "${REDIS_ADDR:-localhost:6379}"
+./docs/operations/api-key-management.md:API keys follow this format: `{prefix}_{base64_encoded_random_bytes}`
+./docs/operations/api-key-management.md:      static_keys: {}  # No hardcoded keys
+./docs/operations/elasticache-secure-access-guide.md:    --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=elasticache-bastion}]' \
+./docs/operations/elasticache-secure-access-guide.md:    --authentication-options Type=certificate-authentication,MutualAuthentication={ClientRootCertificateChainArn=<client-cert-arn>} \
+./docs/operations/elasticache-secure-access-guide.md:    ssh -N -f -L ${LOCAL_PORT}:${ELASTICACHE_ENDPOINT}:${REMOTE_PORT} \
+./docs/operations/elasticache-secure-access-guide.md:        ec2-user@${BASTION_IP}
+./docs/operations/elasticache-secure-access-guide.md:        echo "Tunnel established on localhost:${LOCAL_PORT}"
+./docs/operations/elasticache-secure-access-guide.md:    pkill -f "ssh.*${LOCAL_PORT}:${ELASTICACHE_ENDPOINT}"
+./docs/operations/elasticache-secure-access-guide.md:    if pgrep -f "ssh.*${LOCAL_PORT}:${ELASTICACHE_ENDPOINT}" > /dev/null; then
+./docs/operations/elasticache-secure-access-guide.md:        echo "Usage: $0 {start|stop|restart|status}"
+./docs/operations/MONITORING.md:        replacement: '${1}'
+./docs/operations/MONITORING.md:        []string{"protocol_version", "agent_type"},
+./docs/operations/MONITORING.md:        []string{"protocol_version", "status"},
+./docs/operations/MONITORING.md:        []string{"message_type", "compressed", "protocol_version"},
+./docs/operations/MONITORING.md:        []string{"message_type", "protocol_version"},
+./docs/operations/MONITORING.md:        []string{"direction", "message_type", "compressed"},
+./docs/operations/MONITORING.md:    labels := []string{msg.Type.String(), compressed, msg.Version.String()}
+./docs/operations/MONITORING.md:        []string{"agent_type", "model", "status"},
+./docs/operations/MONITORING.md:        []string{"agent_id", "agent_type"},
+./docs/operations/MONITORING.md:        []string{"agent_id", "agent_type", "task_type", "status"},
+./docs/operations/MONITORING.md:        []string{"agent_type", "task_type"},
+./docs/operations/MONITORING.md:{"level":"info","ts":"2024-01-23T10:00:00Z","caller":"main.go:42","msg":"Server started","port":8080}
+./docs/operations/MONITORING.md:        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+./docs/operations/MONITORING.md:        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+./docs/operations/MONITORING.md:          "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m])) by (service) / sum(rate(http_requests_total[5m])) by (service)"
+./docs/operations/MONITORING.md:        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+./docs/operations/MONITORING.md:        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+./docs/operations/MONITORING.md:        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+./docs/operations/MONITORING.md:        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+./docs/operations/MONITORING.md:          "legendFormat": "Sent - {{message_type}}"
+./docs/operations/MONITORING.md:          "legendFormat": "Received - {{message_type}}"
+./docs/operations/MONITORING.md:        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+./docs/operations/MONITORING.md:        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+./docs/operations/MONITORING.md:        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+./docs/operations/MONITORING.md:        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+./docs/operations/MONITORING.md:        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+./docs/operations/MONITORING.md:        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+./docs/operations/MONITORING.md:          "legendFormat": "{{agent_id}} ({{agent_type}})"
+./docs/operations/MONITORING.md:        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+./docs/operations/MONITORING.md:        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+./docs/operations/MONITORING.md:          sum(rate(http_requests_total{status=~"5.."}[5m])) by (service) 
+./docs/operations/MONITORING.md:          summary: "High error rate on {{ $labels.service }}"
+./docs/operations/MONITORING.md:          description: "{{ $labels.service }} has {{ $value | humanizePercentage }} error rate"
+./docs/operations/MONITORING.md:          summary: "High latency on {{ $labels.service }}"
+./docs/operations/MONITORING.md:          description: "P99 latency is {{ $value }}s"
+./docs/operations/MONITORING.md:          summary: "Potential memory leak in {{ $labels.service }}"
+./docs/operations/MONITORING.md:  slack_api_url: ${SLACK_WEBHOOK_URL}
+./docs/operations/MONITORING.md:        text: '{{ range .Alerts }}{{ .Annotations.summary }}\n{{ end }}'
+./docs/operations/MONITORING.md:      - service_key: ${PAGERDUTY_SERVICE_KEY}
+./docs/operations/MONITORING.md:      sum(rate(http_requests_total{status!~"5.."}[5m])) 
+./docs/operations/MONITORING.md:      sum(rate(http_requests_total{status=~"5.."}[5m])) 
+./docs/operations/MONITORING.md:        "expr": "1 - (sum(rate(http_requests_total{status=~\"5..\"}[30d])) / sum(rate(http_requests_total[30d])))"
+./docs/operations/MONITORING.md:        {"value": 0.999, "color": "green"},
+./docs/operations/MONITORING.md:        {"value": 0.995, "color": "yellow"},
+./docs/operations/MONITORING.md:        {"value": 0, "color": "red"}
+./docs/operations/SECURITY.md:    Metadata     map[string]interface{} `json:"metadata,omitempty"`
+./docs/operations/SECURITY.md:            "log_stream_name": "{instance_id}",
+./docs/operations/SECURITY.md:     -d '{"username":"test","password":"wrong"}' \
+./docs/operations/SECURITY.md:   for i in {1..200}; do
+./docs/dynamic_tools_passthrough.md:curl -X POST http://localhost:8080/api/v1/tools/{toolId}/execute/create_issue \
+./docs/dynamic_tools_passthrough.md:dynamic_tools_executions{auth_method="passthrough"} 
+./docs/dynamic_tools_passthrough.md:dynamic_tools_executions{auth_method="service_account"}
+./docs/redis-webhook-production-deployment.md:REDIS_PASSWORD=${REDIS_PASSWORD}
+./docs/redis-webhook-production-deployment.md:ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY}  # 32+ character key
+./docs/redis-webhook-production-deployment.md:OPENAI_API_KEY=${OPENAI_API_KEY}
+./docs/redis-webhook-production-deployment.md:AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+./docs/redis-webhook-production-deployment.md:AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+./docs/redis-webhook-production-deployment.md:      - ${REDIS_NODE1}
+./docs/redis-webhook-production-deployment.md:      - ${REDIS_NODE2}
+./docs/redis-webhook-production-deployment.md:      - ${REDIS_NODE3}
+./docs/redis-webhook-production-deployment.md:    password: ${REDIS_PASSWORD}
+./docs/redis-webhook-production-deployment.md:      provider: ${AI_EMBEDDING_PROVIDER}
+./docs/redis-webhook-production-deployment.md:      model: ${AI_EMBEDDING_MODEL}
+./docs/redis-webhook-production-deployment.md:      model: ${AI_SUMMARIZATION_MODEL}
+./docs/redis-webhook-production-deployment.md:    push_gateway: ${PROMETHEUS_PUSHGATEWAY}
+./docs/redis-webhook-production-deployment.md:    endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT}
+./docs/redis-webhook-production-deployment.md:  --from-literal=redis-password=${REDIS_PASSWORD} \
+./docs/redis-webhook-production-deployment.md:  --from-literal=encryption-key=${ENCRYPTION_MASTER_KEY} \
+./docs/redis-webhook-production-deployment.md:  --from-literal=openai-api-key=${OPENAI_API_KEY} \
+./docs/redis-webhook-production-deployment.md:  -H "Authorization: token ${GITHUB_TOKEN}" \
+./docs/redis-webhook-production-deployment.md:      "secret": "${WEBHOOK_SECRET}",
+./docs/redis-webhook-production-deployment.md:      "github": "'${GITHUB_WEBHOOK_SECRET}'",
+./docs/redis-webhook-production-deployment.md:      "jira": "'${JIRA_WEBHOOK_SECRET}'",
+./docs/redis-webhook-production-deployment.md:      "gitlab": "'${GITLAB_WEBHOOK_SECRET}'"
+./docs/redis-webhook-production-deployment.md:          summary: Circuit breaker is open for {{ $labels.tool_id }}
+./docs/redis-webhook-production-deployment.md:  num_workers: ${CORES * 3}  # 3 workers per CPU core
+./docs/redis-webhook-production-deployment.md:  SQS_QUEUE_URL=${OLD_SQS_QUEUE} \
+./docs/redis-webhook-production-deployment.md:  SQS_QUEUE_URL=${OLD_SQS_QUEUE} \
+./docs/architecture/universal-agent-architecture.md:    requirements JSONB,       -- {"min_memory": "2GB", "apis": ["github"]}
+./docs/architecture/universal-agent-architecture.md:    connection_config JSONB,  -- {"heartbeat": "30s", "timeout": "5m"}
+./docs/architecture/universal-agent-architecture.md:    auth_config JSONB,        -- {"type": "oauth", "provider": "github"}
+./docs/architecture/universal-agent-architecture.md:            s.logger.Warn("Cross-org access blocked", map[string]interface{}{
+./docs/architecture/universal-agent-architecture.md:    Payload          map[string]interface{}
+./docs/architecture/universal-agent-architecture.md:    requirements JSONB DEFAULT '{}',
+./docs/architecture/universal-agent-architecture.md:    connection_config JSONB DEFAULT '{}',
+./docs/architecture/universal-agent-architecture.md:    auth_config JSONB DEFAULT '{}',
+./docs/architecture/universal-agent-architecture.md:    metadata JSONB DEFAULT '{}',
+./docs/architecture/universal-agent-architecture.md:    connection_details JSONB DEFAULT '{}',
+./docs/architecture/universal-agent-architecture.md:    parameters JSONB DEFAULT '{}',
+./docs/architecture/universal-agent-architecture.md:    channel_config JSONB DEFAULT '{}',
+./docs/architecture/universal-agent-architecture.md:mcp_agent_manifests_total{organization, type}
+./docs/architecture/universal-agent-architecture.md:mcp_agent_registrations_active{organization, type}
+./docs/architecture/universal-agent-architecture.md:mcp_agent_health_status{agent_id, status}
+./docs/architecture/universal-agent-architecture.md:mcp_cross_agent_messages_total{source_type, target_type}
+./docs/architecture/universal-agent-architecture.md:mcp_cross_org_attempts_blocked{source_org, target_org}
+./docs/architecture/universal-agent-architecture.md:mcp_tenant_isolation_mode{organization, mode}
+./docs/architecture/universal-agent-architecture.md:mcp_rate_limit_exceeded{type, agent_id}
+./docs/architecture/universal-agent-architecture.md:mcp_rate_limit_current_rps{type}
+./docs/architecture/universal-agent-architecture.md:mcp_circuit_breaker_state{agent_id, state}
+./docs/architecture/universal-agent-architecture.md:mcp_circuit_breaker_trips{agent_id}
+./docs/architecture/multi-agent-embedding-architecture.md:    Admin->>API: PUT /agents/{id}
+./docs/architecture/system-overview.md:    Execute(ctx context.Context, action string, params map[string]interface{}) (interface{}, error)
+./docs/architecture/go-workspace-structure.md:    NotifyTaskAssigned(ctx context.Context, agentID string, task interface{}) error
+./docs/architecture/go-workspace-structure.md:    BroadcastToAgents(ctx context.Context, agentIDs []string, message interface{}) error
+./docs/architecture/package-dependencies.md:go list -f '{{.ImportPath}} -> {{join .Imports " "}}' ./... | grep -E "pkg/.* -> .*pkg/"
+./docs/architecture/package-dependencies.md:go list -f '{{.ImportPath}} {{len .Imports}}' ./pkg/... | sort -k2 -n
+./docs/getting-started/quick-start-guide.md:# {"status":"healthy","version":"1.0.0"}
+./docs/getting-started/quick-start-guide.md:# {"status":"healthy","components":{"database":"up","redis":"up"}}
+./docs/getting-started/embedding-quick-start.md:      "metadata": {"doc_id": "1"}
+./docs/getting-started/embedding-quick-start.md:      "metadata": {"doc_id": "2"}
+./docs/getting-started/embedding-quick-start.md:      "metadata": {"doc_id": "3"}
+./docs/getting-started/authentication-quick-start.md:# Response: {"error":"Authentication required"}
+./docs/getting-started/authentication-quick-start.md:# Response: {"message":"Hello, authenticated user!","user_id":"system","tenant":"default"}
+./docs/getting-started/authentication-quick-start.md:                Scopes:   []string{"read", "write", "admin"},
+./docs/getting-started/authentication-quick-start.md:            c.JSON(403, gin.H{"error": "insufficient permissions"})
+./docs/getting-started/authentication-quick-start.md:for i in {1..101}; do
+./docs/getting-started/authentication-quick-start.md:# After 100 requests: {"error":"Too many authentication attempts"}
+./docs/getting-started/authentication-quick-start.md:        c.JSON(400, gin.H{"error": "missing tenant"})
+./docs/getting-started/authentication-quick-start.md:            c.JSON(401, gin.H{"error": "unauthorized"})
+./docs/getting-started/authentication-quick-start.md:        c.JSON(400, gin.H{"error": "invalid request"})
+./docs/getting-started/authentication-quick-start.md:        c.JSON(401, gin.H{"error": "invalid credentials"})
+./docs/getting-started/authentication-quick-start.md:        c.JSON(500, gin.H{"error": "token generation failed"})
+./docs/getting-started/authentication-quick-start.md:        c.JSON(401, gin.H{"error": "invalid signature"})
+./docs/getting-started/authentication-quick-start.md:        c.JSON(400, gin.H{"error": "invalid payload"})
+./docs/redis-environment-variables.md:export REDIS_PASSWORD=${REDIS_PASSWORD_FROM_SECRETS}
+./docs/guides/production-deployment.md:      - DATABASE_HOST=${RDS_ENDPOINT}
+./docs/guides/production-deployment.md:      - DATABASE_PASSWORD=${DB_PASSWORD}
+./docs/guides/production-deployment.md:      - S3_BUCKET=${S3_BUCKET}
+./docs/guides/production-deployment.md:      - JWT_SECRET=${JWT_SECRET}
+./docs/guides/production-deployment.md:      - SQS_QUEUE_URL=${SQS_QUEUE_URL}
+./docs/guides/production-deployment.md:DATABASE_PASSWORD=${DB_PASSWORD}
+./docs/guides/production-deployment.md:JWT_SECRET=${JWT_SECRET}
+./docs/guides/production-deployment.md:ADMIN_API_KEY=${ADMIN_API_KEY}
+./docs/guides/production-deployment.md:READER_API_KEY=${READER_API_KEY}
+./docs/guides/production-deployment.md:  --instance-type '{"Value": "t3.xlarge"}'
+./docs/guides/production-deployment.md:  --instance-type '{"Value": "t3.medium"}'
+./docs/guides/rag-patterns.md:    c.memory.AddMessage(UserMessage{Content: message})
+./docs/guides/rag-patterns.md:    c.memory.AddMessage(AssistantMessage{Content: response})
+./docs/guides/rag-patterns.md:    "factual":    &DenseRetrievalStrategy{topK: 5},
+./docs/guides/rag-patterns.md:    "analytical": &ChainOfThoughtStrategy{steps: 3},
+./docs/guides/rag-patterns.md:    "creative":   &DiverseRetrievalStrategy{temperature: 0.8},
+./docs/guides/rag-patterns.md:    "technical":  &HybridSearchStrategy{codeWeight: 0.7},
+./docs/guides/rag-patterns.md:            results <- AgentResult{AgentID: agentID, Result: result}
+./docs/guides/rag-patterns.md:    sem := make(chan struct{}, b.parallelism)
+./docs/guides/rag-patterns.md:            sem <- struct{}{}
+./docs/guides/rag-patterns.md:            defer func() { <-sem }()
+./docs/guides/rag-patterns.md:        {Name: "minimal", RetrievalCount: 3, Model: "small"},
+./docs/guides/rag-patterns.md:        {Name: "balanced", RetrievalCount: 5, Model: "medium"},
+./docs/guides/rag-patterns.md:        {Name: "comprehensive", RetrievalCount: 10, Model: "large"},
+./docs/guides/ai-agent-integration-complete.md:            Languages: []string{"go", "python", "javascript"},
+./docs/guides/ai-agent-integration-complete.md:                PrimaryModels:  []string{"gpt-4", "claude-2"},
+./docs/guides/ai-agent-integration-complete.md:                FallbackModels: []string{"gpt-3.5-turbo"},
+./docs/guides/ai-agent-integration-complete.md:                PrimaryModels:  []string{"claude-2"},
+./docs/guides/ai-agent-integration-complete.md:                FallbackModels: []string{"gpt-3.5-turbo"},
+./docs/guides/ai-agent-integration-complete.md:        "Authorization": []string{fmt.Sprintf("Bearer %s", apiKey)},
+./docs/guides/ai-agent-integration-complete.md:        "X-Agent-ID":    []string{a.ID},
+./docs/guides/ai-agent-integration-complete.md:        "X-Agent-Type":  []string{string(a.Type)},
+./docs/guides/ai-agent-integration-complete.md:        Metadata: map[string]interface{}{
+./docs/guides/ai-agent-integration-complete.md:        Body: map[string]interface{}{
+./docs/guides/ai-agent-integration-complete.md:            Code:     "func main() { fmt.Println(\"Hello\") }",
+./docs/guides/ai-agent-integration-complete.md:        DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
+./docs/guides/ai-agent-integration-complete.md:        KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+./docs/guides/ai-agent-integration-complete.md:        []string{"agent_id", "task_type", "status"},
+./docs/guides/ai-agent-integration-complete.md:        []string{"agent_id", "task_type"},
+./docs/guides/ai-agent-integration-complete.md:        []string{"agent_id"},
+./docs/guides/rag-mcp-architecture.md:        EmbeddingModels:   []string{"text-embedding-ada-002", "titan-embed"},
+./docs/guides/rag-mcp-architecture.md:        VectorDimensions:  []int{1536, 768},
+./docs/guides/rag-mcp-architecture.md:        ChunkingStrategies: []string{"semantic", "sliding-window"},
+./docs/guides/rag-mcp-architecture.md:        Languages:         []string{"en", "es", "zh"},
+./docs/guides/rag-mcp-architecture.md:        Specializations:   []string{"code", "documentation"},
+./docs/guides/rag-mcp-architecture.md:    Agents: []string{"code", "performance", "docs", "synthesis"},
+./docs/guides/agent-specialization-patterns.md:                    Languages:   []string{"go", "python", "javascript"},
+./docs/guides/agent-specialization-patterns.md:                    Specialties: []string{"error-detection", "style-checking"},
+./docs/guides/agent-specialization-patterns.md:                    Specialties: []string{"security", "OWASP", "injection"},
+./docs/guides/agent-specialization-patterns.md:                    Specialties: []string{"complexity", "bottlenecks", "memory"},
+./docs/guides/agent-specialization-patterns.md:                "comprehensive": ComprehensiveReviewStrategy{},
+./docs/guides/agent-specialization-patterns.md:                "security":      SecurityFocusedStrategy{},
+./docs/guides/agent-specialization-patterns.md:                "performance":   PerformanceFocusedStrategy{},
+./docs/guides/agent-specialization-patterns.md:        Findings:  []SecurityFinding{},
+./docs/guides/agent-specialization-patterns.md:    suggestions := []Optimization{}
+./docs/guides/agent-specialization-patterns.md:    opportunities := []RefactoringOpportunity{}
+./docs/guides/agent-specialization-patterns.md:                    Focus: []string{"appsec", "infrasec", "compliance"},
+./docs/guides/agent-specialization-patterns.md:                    Focus: []string{"ci/cd", "automation", "monitoring"},
+./docs/guides/agent-specialization-patterns.md:        designs <- ComponentDesign{Type: "frontend", Design: design}
+./docs/guides/agent-specialization-patterns.md:        designs <- ComponentDesign{Type: "backend", Design: design}
+./docs/guides/agent-specialization-patterns.md:        designs <- ComponentDesign{Type: "database", Design: design}
+./docs/guides/agent-specialization-patterns.md:        designs <- ComponentDesign{Type: "infrastructure", Design: design}
+./docs/guides/agent-specialization-patterns.md:    components := make(map[string]interface{})
+./docs/guides/agent-specialization-patterns.md:        Results:   []BenchmarkResult{},
+./docs/guides/agent-specialization-patterns.md:        Synergies:  []Synergy{},
+./docs/guides/agent-specialization-patterns.md:    opportunities := []SpecializationOpportunity{}
+./docs/guides/agent-specialization-patterns.md:    opportunities := []LearningOpportunity{}
+./docs/guides/agent-specialization-patterns.md:        NewCapabilities: []Capability{},
+./docs/guides/agent-specialization-patterns.md:        Enhanced:        []Enhancement{},
+./docs/guides/agent-specialization-patterns.md:        []string{"specialist", "capability"},
+./docs/guides/agent-specialization-patterns.md:        []string{"specialist", "task_type"},
+./docs/guides/agent-specialization-patterns.md:        []string{"agent", "capability"},
+./docs/guides/observability-best-practices.md:func (c *Cache) Get(ctx context.Context, key string) (interface{}, error) {
+./docs/guides/observability-best-practices.md:        []string{"method", "endpoint", "status"},
+./docs/guides/observability-best-practices.md:        []string{"type", "status"},
+./docs/guides/observability-best-practices.md:        []string{"protocol_version"},
+./docs/guides/observability-best-practices.md:        []string{"queue_name", "priority"},
+./docs/guides/observability-best-practices.md:        []string{"method", "endpoint"},
+./docs/guides/observability-best-practices.md:        []string{"model", "provider"},
+./docs/guides/observability-best-practices.md:            Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
+./docs/guides/observability-best-practices.md:        []string{"task_type"},
+./docs/guides/observability-best-practices.md:        []string{"product", "tier", "region"},
+./docs/guides/observability-best-practices.md:        []string{"tier", "endpoint"},
+./docs/guides/observability-best-practices.md:        []string{"model", "provider", "tenant"},
+./docs/guides/observability-best-practices.md:            return slog.Attr{Key: "timestamp", Value: a.Value}
+./docs/guides/observability-best-practices.md:    key := fmt.Sprintf("%s{%s}", name, strings.Join(labels, ","))
+./docs/guides/observability-best-practices.md:    case l.buffer <- logEntry{Level: slog.LevelInfo, Msg: msg, Attrs: attrs}:
+./docs/guides/observability-best-practices.md:        lazyAttr("mean", func() interface{} { return calculateMean(data) }),
+./docs/guides/observability-best-practices.md:        lazyAttr("stddev", func() interface{} { return calculateStdDev(data) }),
+./docs/guides/observability-best-practices.md:        wrapped := &responseWriter{ResponseWriter: w, statusCode: 200}
+./docs/guides/observability-best-practices.md:    return func(ctx context.Context, payload interface{}) error {
+./docs/guides/auth-implementation-status.md:    {Subject: "admin", Resource: "*", Action: "*"},
+./docs/guides/auth-implementation-status.md:    {Subject: "user", Resource: "contexts", Action: "read"},
+./docs/guides/auth-implementation-status.md:    {Subject: "admin", Resource: "*", Action: "*"},
+./docs/guides/auth-implementation-status.md:    Scopes:   []string{"read", "write"},
+./docs/guides/auth-implementation-status.md:    Scopes:   []string{"contexts:read", "agents:write"},
+./docs/guides/ai-agent-orchestration.md:    Metadata     map[string]interface{} `json:"metadata,omitempty"`
+./docs/guides/ai-agent-orchestration.md:        TaskTypes:  []TaskType{TaskTypeCodeReview, TaskTypeBugDetection},
+./docs/guides/ai-agent-orchestration.md:        Languages:  []string{"go", "python", "javascript"},
+./docs/guides/ai-agent-orchestration.md:        TaskTypes:  []TaskType{TaskTypeSecurityAudit},
+./docs/guides/ai-agent-orchestration.md:        Specialties: []string{"OWASP", "CVE", "dependency-check"},
+./docs/guides/ai-agent-orchestration.md:            results <- SubResult{Result: result, Error: err}
+./docs/guides/ai-agent-orchestration.md:    Transform func(interface{}) interface{}
+./docs/guides/ai-agent-orchestration.md:    Validate  func(interface{}) error
+./docs/guides/ai-agent-orchestration.md:func (p *PipelineCoordinator) Execute(ctx context.Context, input interface{}) (interface{}, error) {
+./docs/guides/ai-agent-orchestration.md:        {Name: "parse", Agent: codeParser},
+./docs/guides/ai-agent-orchestration.md:        {Name: "analyze", Agent: staticAnalyzer},
+./docs/guides/ai-agent-orchestration.md:        {Name: "security", Agent: securityScanner},
+./docs/guides/ai-agent-orchestration.md:        {Name: "report", Agent: reportGenerator},
+./docs/guides/ai-agent-orchestration.md:        []string{"agent_id", "task_type", "status"},
+./docs/guides/ai-agent-orchestration.md:        []string{"agent_id", "task_type"},
+./docs/guides/ai-agent-orchestration.md:        []string{"agent_id"},
+./docs/guides/ai-agent-orchestration.md:        {Type: "syntax", Agent: s.agents["syntax-analyzer"]},
+./docs/guides/ai-agent-orchestration.md:        {Type: "style", Agent: s.agents["style-checker"]},
+./docs/guides/ai-agent-orchestration.md:        {Type: "complexity", Agent: s.agents["complexity-analyzer"]},
+./docs/guides/ai-agent-orchestration.md:        {Type: "tests", Agent: s.agents["test-analyzer"]},
+./docs/guides/distributed-tracing-guide.md:    Attributes  map[string]interface{}
+./docs/guides/distributed-tracing-guide.md:            propagation.TraceContext{},
+./docs/guides/distributed-tracing-guide.md:            propagation.Baggage{},
+./docs/guides/distributed-tracing-guide.md:            &AWSPropagator{}, // For X-Ray compatibility
+./docs/guides/distributed-tracing-guide.md:            &MCPPropagator{}, // Custom MCP context
+./docs/guides/distributed-tracing-guide.md:type MCPPropagator struct{}
+./docs/guides/distributed-tracing-guide.md:  service_name: ${SERVICE_NAME}
+./docs/guides/distributed-tracing-guide.md:  service_version: ${SERVICE_VERSION}
+./docs/guides/distributed-tracing-guide.md:  environment: ${ENVIRONMENT}
+./docs/guides/distributed-tracing-guide.md:        msg.TraceContext = &TraceContext{}
+./docs/guides/distributed-tracing-guide.md:                    ExampleTraces: []string{trace.TraceID},
+./docs/guides/distributed-tracing-guide.md:curl "http://localhost:16686/api/traces/${TRACE_ID}" | jq '.data[0].spans | map({operation: .operationName, duration: .duration, service: .process.serviceName}) | sort_by(.duration) | reverse'
+./docs/guides/distributed-tracing-guide.md:curl "http://localhost:16686/api/traces/${TRACE_ID}" | jq '.data[0].spans | map(select(.duration > 1000000)) | map({operation: .operationName, duration_ms: (.duration / 1000), tags: .tags})'
+./docs/guides/distributed-tracing-guide.md:        Errors:  []ErrorDetail{},
+./docs/guides/distributed-tracing-guide.md:    r.events = append(r.events, trace.Event{Name: name, Options: opts})
+./docs/guides/distributed-tracing-guide.md:    exporterCheck := HealthCheck{Name: "exporter"}
+./docs/guides/distributed-tracing-guide.md:    samplingCheck := HealthCheck{Name: "sampling"}
+./docs/guides/distributed-tracing-guide.md:    completenessCheck := HealthCheck{Name: "completeness"}
+./docs/guides/agent-sdk-guide.md:agent := sdk.NewAgent("my-agent", []string{"code_analysis"})
+./docs/guides/auth-audit-logging.md:logger.Info("User authenticated", map[string]interface{}{
+./docs/guides/auth-audit-logging.md:    Metadata     map[string]interface{} `json:"metadata,omitempty" db:"metadata"`
+./docs/guides/auth-audit-logging.md:    LogAuthEvent(ctx context.Context, eventType EventType, userID *uuid.UUID, result AuthResult, metadata map[string]interface{}) error
+./docs/guides/auth-audit-logging.md:    _, err = a.db.NamedExecContext(ctx, query, map[string]interface{}{
+./docs/guides/auth-audit-logging.md:        a.logger.Error("Failed to write audit log", map[string]interface{}{
+./docs/guides/auth-audit-logging.md:    logData := map[string]interface{}{
+./docs/guides/auth-audit-logging.md:    return &EventEnricher{}
+./docs/guides/auth-audit-logging.md:        event.Metadata = make(map[string]interface{})
+./docs/guides/auth-audit-logging.md:            event.Metadata = make(map[string]interface{})
+./docs/guides/auth-audit-logging.md:    event.ComplianceFlags = []string{}
+./docs/guides/auth-audit-logging.md:        map[string]interface{}{
+./docs/guides/auth-audit-logging.md:            map[string]interface{}{
+./docs/guides/auth-audit-logging.md:        map[string]interface{}{
+./docs/guides/auth-audit-logging.md:            Metadata: map[string]interface{}{
+./docs/guides/auth-audit-logging.md:        Metadata: map[string]interface{}{
+./docs/guides/auth-audit-logging.md:    args := map[string]interface{}{}
+./docs/guides/auth-audit-logging.md:            "credit_card": regexp.MustCompile(`\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b`),
+./docs/guides/auth-audit-logging.md:func (s *LogSanitizer) Sanitize(data map[string]interface{}) map[string]interface{} {
+./docs/guides/auth-audit-logging.md:    sanitized := make(map[string]interface{})
+./docs/guides/auth-audit-logging.md:        case map[string]interface{}:
+./docs/guides/auth-audit-logging.md:// @Success 200 {object} AuditLogsResponse
+./docs/guides/auth-audit-logging.md:        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+./docs/guides/auth-audit-logging.md:// @Success 200 {object} AuditAnalyticsResponse
+./docs/guides/auth-audit-logging.md:            Metadata: map[string]interface{}{
+./docs/guides/auth-audit-logging.md:        []string{"event_type", "result", "tenant_id"},
+./docs/guides/auth-audit-logging.md:        []string{"event_type"},
+./docs/guides/auth-audit-logging.md:          rate(auth_audit_events_total{result="failure"}[5m]) > 10
+./docs/guides/auth-audit-logging.md:          increase(auth_audit_events_total{event_type="security.suspicious.activity"}[1h]) > 5
+./docs/guides/cost-optimization-guide.md:            {'Type': 'DIMENSION', 'Key': 'SERVICE'},
+./docs/guides/cost-optimization-guide.md:            {'Type': 'TAG', 'Key': 'Environment'}
+./docs/guides/cost-optimization-guide.md:func (po *PromptOptimizer) OptimizePrompt(original string, context map[string]interface{}) string {
+./docs/guides/cost-optimization-guide.md:func (r *DBRouter) Query(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
+./docs/guides/cost-optimization-guide.md:  service_name = "com.amazonaws.${var.region}.s3"
+./docs/guides/cost-optimization-guide.md:  service_name = "com.amazonaws.${var.region}.dynamodb"
+./docs/guides/cost-optimization-guide.md:  service_name        = "com.amazonaws.${var.region}.bedrock-runtime"
+./docs/guides/cost-optimization-guide.md:            {'Name': 'tag:Environment', 'Values': ['dev']},
+./docs/guides/cost-optimization-guide.md:            {'Name': 'instance-state-name', 'Values': ['running', 'stopped']}
+./docs/guides/cost-optimization-guide.md:        return {'statusCode': 200, 'body': 'No instances found'}
+./docs/guides/cost-optimization-guide.md:        message = f"Started {len(instance_ids)} instances"
+./docs/guides/cost-optimization-guide.md:        message = f"Stopped {len(instance_ids)} instances"
+./docs/guides/cost-optimization-guide.md:    return {'statusCode': 200, 'body': message}
+./docs/guides/cost-optimization-guide.md:    result := CleanupResult{}
+./docs/guides/trace-based-debugging.md:open http://localhost:16686/trace/{traceId}
+./docs/guides/trace-based-debugging.md:# {"trace_id":"4bf92f3577b34da6a3ce929d0e0e4736","msg":"Request processed"}
+./docs/guides/trace-based-debugging.md:            'sampler': {'type': 'const', 'param': 1},
+./docs/guides/trace-based-debugging.md:    print(f"P99 latency for {operation}: {p99}ms")
+./docs/guides/trace-based-debugging.md:    print(f"Found {len(outliers)} outlier requests")
+./docs/guides/trace-based-debugging.md:logcli query '{service="mcp-server"} |= "'$trace_id'"' --limit=1000
+./docs/guides/trace-based-debugging.md:rate(http_requests_total{service="mcp-server"}[5m])
+./docs/guides/trace-based-debugging.md:rate(http_requests_total{service="mcp-server",status=~"5.."}[5m])
+./docs/guides/trace-based-debugging.md:mysql_connections_active{service="mcp-server"}
+./docs/guides/trace-based-debugging.md:      "query": "trace:{{traceId}}"
+./docs/guides/trace-based-debugging.md:      "query": "{service=\"$service\"} |= \"$traceId\""
+./docs/guides/trace-based-debugging.md:      "query": "rate(http_requests_total{service=\"$service\"}[5m])"
+./docs/guides/trace-based-debugging.md:    print(f"Total trace duration: {total_duration}ms")
+./docs/guides/trace-based-debugging.md:        print(f"{i+1}. {span.operation_name}: {span.duration}ms ({percentage:.1f}%)")
+./docs/guides/trace-based-debugging.md:    A[Issue Reported] --> B{Known Error Pattern?}
+./docs/guides/multi-agent-collaboration.md:                FileTypeStrategy{},
+./docs/guides/multi-agent-collaboration.md:                ComplexityStrategy{},
+./docs/guides/multi-agent-collaboration.md:                DependencyStrategy{},
+./docs/guides/multi-agent-collaboration.md:                IssueAggregator{},
+./docs/guides/multi-agent-collaboration.md:                SuggestionAggregator{},
+./docs/guides/multi-agent-collaboration.md:                MetricsAggregator{},
+./docs/guides/multi-agent-collaboration.md:func (p *PipelineCoordinator) Execute(ctx context.Context, input interface{}) (interface{}, error) {
+./docs/guides/multi-agent-collaboration.md:    Decision   interface{}
+./docs/guides/multi-agent-collaboration.md:                    BlueGreenStrategy{},
+./docs/guides/multi-agent-collaboration.md:                    CanaryStrategy{},
+./docs/guides/multi-agent-collaboration.md:                    RollingUpdateStrategy{},
+./docs/guides/multi-agent-collaboration.md:    LocalState   interface{}
+./docs/guides/multi-agent-collaboration.md:        Sets:     make(map[string][]interface{}),
+./docs/guides/multi-agent-collaboration.md:        Maps:     make(map[string]map[string]interface{}),
+./docs/guides/multi-agent-collaboration.md:    Payload   interface{}
+./docs/guides/multi-agent-collaboration.md:    Metadata  map[string]interface{}
+./docs/guides/multi-agent-collaboration.md:        LastWriteWins{},
+./docs/guides/multi-agent-collaboration.md:        HighestPriorityWins{},
+./docs/guides/multi-agent-collaboration.md:        MergeCompatible{},
+./docs/guides/multi-agent-collaboration.md:        ConsensusRequired{},
+./docs/guides/multi-agent-collaboration.md:        []string{"pattern", "agents", "status"},
+./docs/guides/multi-agent-collaboration.md:        []string{"source", "destination", "message_type"},
+./docs/guides/multi-agent-collaboration.md:        []string{"topic", "participants"},
+./docs/guides/agent-integration-examples.md:    Params interface{} `json:"params,omitempty"`
+./docs/guides/agent-integration-examples.md:    Result interface{} `json:"result,omitempty"`
+./docs/guides/agent-integration-examples.md:        Params: map[string]interface{}{
+./docs/guides/agent-integration-examples.md:            "capabilities": []map[string]interface{}{
+./docs/guides/agent-integration-examples.md:    params := msg.Params.(map[string]interface{})
+./docs/guides/agent-integration-examples.md:        Params: map[string]interface{}{
+./docs/guides/agent-integration-examples.md:            "result": map[string]interface{}{
+./docs/guides/agent-integration-examples.md:            Specialties: []string{"cpu", "memory", "performance"},
+./docs/guides/agent-integration-examples.md:            Specialties: []string{"availability", "latency", "errors"},
+./docs/guides/agent-integration-examples.md:    report := map[string]interface{}{
+./docs/guides/agent-integration-examples.md:        "metrics": map[string]interface{}{
+./docs/guides/agent-integration-examples.md:        "workload": map[string]interface{}{
+./docs/guides/agent-integration-examples.md:            Languages:   []string{"go", "python", "javascript", "typescript", "java"},
+./docs/guides/agent-integration-examples.md:            Specialties: []string{"owasp", "authentication", "authorization", "injection"},
+./docs/guides/agent-integration-examples.md:            Specialties: []string{"complexity", "memory", "cpu", "bottlenecks"},
+./docs/guides/agent-integration-examples.md:    codeData := task.Context.(map[string]interface{})
+./docs/guides/agent-integration-examples.md:    return g.CompleteTask(task.ID, map[string]interface{}{
+./docs/guides/agent-integration-examples.md:            Specialties: []string{"api-docs", "readme", "guides", "tutorials"},
+./docs/guides/agent-integration-examples.md:            Specialties: []string{"architecture", "design-patterns", "algorithms"},
+./docs/guides/agent-integration-examples.md:            Specialties: []string{"clarity", "structure", "examples"},
+./docs/guides/agent-integration-examples.md:    data := task.Context.(map[string]interface{})
+./docs/guides/agent-integration-examples.md:    codeFiles := data["files"].([]interface{})
+./docs/guides/agent-integration-examples.md:    return c.CompleteTask(task.ID, map[string]interface{}{
+./docs/guides/agent-integration-examples.md:    data := task.Context.(map[string]interface{})
+./docs/guides/agent-integration-examples.md:    return c.CompleteTask(task.ID, map[string]interface{}{
+./docs/guides/agent-integration-examples.md:    client := &http.Client{Timeout: 30 * time.Second}
+./docs/guides/agent-integration-examples.md:func (c *ClaudeDocAgent) buildDocPrompt(codeFiles []interface{}, docType string) string {
+./docs/guides/agent-integration-examples.md:        fileData := file.(map[string]interface{})
+./docs/guides/agent-integration-examples.md:func (c *ClaudeDocAgent) structureDocumentation(content, docType string) interface{} {
+./docs/guides/agent-integration-examples.md:        var spec map[string]interface{}
+./docs/guides/agent-integration-examples.md:        return map[string]interface{}{
+./docs/guides/agent-integration-examples.md:            strategy: &CapabilityBasedStrategy{},
+./docs/guides/agent-integration-examples.md:                Capabilities: []string{"reasoning", "analysis", "writing"},
+./docs/guides/agent-integration-examples.md:                Capabilities: []string{"chat", "general", "code"},
+./docs/guides/agent-integration-examples.md:                Capabilities: []string{"summarization", "qa", "extraction"},
+./docs/guides/agent-integration-examples.md:                Capabilities: []string{"generation", "classification"},
+./docs/guides/agent-integration-examples.md:    request := map[string]interface{}{
+./docs/guides/agent-integration-examples.md:    request := map[string]interface{}{
+./docs/guides/agent-integration-examples.md:func (b *BedrockMultiModelAgent) invokeModel(ctx context.Context, modelID string, request interface{}, task Task) error {
+./docs/guides/agent-integration-examples.md:    return b.CompleteTask(task.ID, map[string]interface{}{
+./docs/guides/agent-integration-examples.md:type CapabilityBasedStrategy struct{}
+./docs/guides/agent-integration-examples.md:            &SQLInjectionScanner{},
+./docs/guides/agent-integration-examples.md:            &XSSScanner{},
+./docs/guides/agent-integration-examples.md:            &CryptoScanner{},
+./docs/guides/agent-integration-examples.md:            &AuthScanner{},
+./docs/guides/agent-integration-examples.md:            &PathTraversalScanner{},
+./docs/guides/agent-integration-examples.md:type SQLInjectionScanner struct{}
+./docs/guides/agent-integration-examples.md:        "raw_query":     regexp.MustCompile(`(?i)\.Raw\s*\(\s*['"\x60].*?\$\{.*?\}.*?['"\x60]`),
+./docs/guides/agent-integration-examples.md:type CryptoScanner struct{}
+./docs/guides/agent-integration-examples.md:    data := task.Context.(map[string]interface{})
+./docs/guides/agent-integration-examples.md:    return s.CompleteTask(task.ID, map[string]interface{}{
+./docs/guides/agent-integration-examples.md:                &ComplexityCheck{},
+./docs/guides/agent-integration-examples.md:                &AllocationCheck{},
+./docs/guides/agent-integration-examples.md:                &LoopCheck{},
+./docs/guides/agent-integration-examples.md:                &ConcurrencyCheck{},
+./docs/guides/agent-integration-examples.md:type ComplexityCheck struct{}
+./docs/guides/agent-integration-examples.md:type AllocationCheck struct{}
+./docs/guides/agent-integration-examples.md:    data := task.Context.(map[string]interface{})
+./docs/guides/agent-integration-examples.md:    return p.CompleteTask(task.ID, map[string]interface{}{
+./docs/guides/agent-integration-examples.md:    data := task.Context.(map[string]interface{})
+./docs/guides/agent-integration-examples.md:func (c *CodeAnalysisCoordinator) reduceResults(results chan SubTaskResult) map[string]interface{} {
+./docs/guides/agent-integration-examples.md:    report := map[string]interface{}{
+./docs/guides/agent-integration-examples.md:        "analyses":  map[string]interface{}{},
+./docs/guides/agent-integration-examples.md:        "summary":   map[string]interface{}{},
+./docs/guides/agent-integration-examples.md:    severityCounts := map[string]int{}
+./docs/guides/agent-integration-examples.md:            report["analyses"].(map[string]interface{})[result.AgentType] = map[string]interface{}{
+./docs/guides/agent-integration-examples.md:        report["analyses"].(map[string]interface{})[result.AgentType] = result.Result
+./docs/guides/agent-integration-examples.md:        if issues, ok := result.Result["issues"].([]interface{}); ok {
+./docs/guides/agent-integration-examples.md:                if severity, ok := issue.(map[string]interface{})["severity"].(string); ok {
+./docs/guides/agent-integration-examples.md:    report["summary"] = map[string]interface{}{
+./docs/guides/agent-integration-examples.md:            []string{"task_type"},
+./docs/guides/agent-integration-examples.md:            []string{"task_type"},
+./docs/guides/agent-integration-examples.md:                Buckets: []float64{0.1, 0.5, 1, 2, 5, 10, 30},
+./docs/guides/agent-integration-examples.md:            []string{"task_type"},
+./docs/guides/agent-integration-examples.md:        Context: map[string]interface{}{
+./docs/guides/agent-websocket-protocol.md:    Subprotocols: []string{"mcp.v1"}, // REQUIRED
+./docs/guides/agent-websocket-protocol.md:        "Authorization": []string{"Bearer " + apiKey},
+./docs/guides/agent-websocket-protocol.md:        "X-Agent-ID":    []string{agentID},
+./docs/guides/agent-websocket-protocol.md:        "X-Agent-Type":  []string{agentType},
+./docs/guides/agent-websocket-protocol.md:        "X-Protocol":    []string{"mcpw-binary-v1"},
+./docs/guides/agent-websocket-protocol.md:        []string{"agent_type", "protocol"},
+./docs/guides/agent-websocket-protocol.md:        []string{"type", "method", "status"},
+./docs/guides/agent-websocket-protocol.md:            Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0},
+./docs/guides/agent-websocket-protocol.md:        []string{"method"},
+./docs/guides/agent-websocket-protocol.md:supportedVersions := []uint8{1, 2}
+./docs/guides/rag-integration-guide.md:    bedrockProvider := factory.CreateProvider("bedrock", map[string]interface{}{
+./docs/guides/rag-integration-guide.md:    msg := map[string]interface{}{
+./docs/guides/rag-integration-guide.md:        "capabilities": []string{"document_search", "code_analysis"},
+./docs/guides/rag-integration-guide.md:provider := factory.CreateProvider("bedrock", map[string]interface{}{
+./docs/guides/rag-integration-guide.md:    logger.Info("Embedding cost", map[string]interface{}{
+./docs/guides/rag-integration-guide.md:        var msg map[string]interface{}
+./docs/guides/rag-integration-guide.md:func (a *RAGCapableAgent) handleRAGTask(ctx context.Context, msg map[string]interface{}) {
+./docs/guides/rag-integration-guide.md:    query := msg["parameters"].(map[string]interface{})["query"].(string)
+./docs/guides/rag-integration-guide.md:    result := map[string]interface{}{
+./docs/guides/rag-integration-guide.md:        Metadata: map[string]interface{}{
+./docs/guides/rag-integration-guide.md:    semaphore := make(chan struct{}, 10) // Limit concurrency
+./docs/guides/rag-integration-guide.md:        semaphore <- struct{}{}
+./docs/guides/rag-integration-guide.md:            defer func() { <-semaphore }()
+./docs/guides/rag-integration-guide.md:    span.SetAttributes(map[string]interface{}{
+./docs/guides/rag-integration-guide.md:    provider := factory.CreateProvider("bedrock", map[string]interface{}{
+./docs/guides/rag-integration-guide.md:    provider := factory.CreateProvider("bedrock", map[string]interface{}{
+./docs/guides/rag-integration-guide.md:    queries := []string{"test query 1", "test query 2", "test query 3"}
+./docs/guides/cross-service-tracing.md:    return func(ctx context.Context, method string, req, reply interface{}, 
+./docs/guides/cross-service-tracing.md:    return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo,
+./docs/guides/cross-service-tracing.md:        handler grpc.UnaryHandler) (interface{}, error) {
+./docs/guides/cross-service-tracing.md:func (s *MCPServer) CallRESTAPI(ctx context.Context, endpoint string, data interface{}) error {
+./docs/guides/cross-service-tracing.md:            propagation.TraceContext{},
+./docs/guides/cross-service-tracing.md:            propagation.Baggage{},
+./docs/guides/cross-service-tracing.md:            &MCPPropagator{},
+./docs/guides/cross-service-tracing.md:type MCPPropagator struct{}
+./docs/guides/cross-service-tracing.md:    mcpCtx := &MCPContext{}
+./docs/guides/cross-service-tracing.md:    rdb.AddHook(redisotel.TracingHook{})
+./docs/guides/cross-service-tracing.md:    headers := http.Header{}
+./docs/guides/cross-service-tracing.md:        mcpCtx := &MCPContext{TenantID: tenantID}
+./docs/guides/cross-service-tracing.md:    Details map[string]interface{}
+./docs/guides/cross-service-tracing.md:func WrapErrorWithTrace(ctx context.Context, err error, details ...map[string]interface{}) error {
+./docs/guides/cross-service-tracing.md:        Details: make(map[string]interface{}),
+./docs/guides/cross-service-tracing.md:        return WrapErrorWithTrace(ctx, err, map[string]interface{}{
+./docs/guides/cross-service-tracing.md:        return WrapErrorWithTrace(ctx, err, map[string]interface{}{
+./docs/guides/cross-service-tracing.md:    carrier := propagation.HeaderCarrier(http.Header{})
+./docs/guides/cross-service-tracing.md:        vegeta.Rate{Freq: 1000, Per: time.Second}, // 1000 RPS
+./docs/guides/agent-integration-troubleshooting.md:if curl -s -o /dev/null -w "%{http_code}" https://mcp.example.com/health | grep -q "200"; then
+./docs/guides/agent-integration-troubleshooting.md:    "Authorization": []string{fmt.Sprintf("Bearer %s", apiKey)},
+./docs/guides/agent-integration-troubleshooting.md:    "X-Agent-ID":    []string{agentID},
+./docs/guides/agent-integration-troubleshooting.md:    "X-Agent-Type":  []string{agentType},
+./docs/guides/agent-integration-troubleshooting.md:registration := map[string]interface{}{
+./docs/guides/agent-integration-troubleshooting.md:    "params": map[string]interface{}{
+./docs/guides/agent-integration-troubleshooting.md:        "metadata": map[string]interface{}{
+./docs/guides/agent-integration-troubleshooting.md:func validateTaskResult(result interface{}) error {
+./docs/guides/agent-integration-troubleshooting.md:    var resultMap map[string]interface{}
+./docs/guides/agent-integration-troubleshooting.md:func (a *Agent) submitLargeResult(taskID string, result interface{}) error {
+./docs/guides/agent-integration-troubleshooting.md:        return a.completeTask(taskID, map[string]interface{}{
+./docs/guides/agent-integration-troubleshooting.md:    shutdown chan struct{}
+./docs/guides/agent-integration-troubleshooting.md:    var data map[string]interface{}
+./docs/guides/agent-integration-troubleshooting.md:    var data map[string]interface{}
+./docs/guides/agent-integration-troubleshooting.md:            var newest interface{}
+./docs/guides/agent-integration-troubleshooting.md:        upgrader := websocket.Upgrader{}
+./docs/guides/agent-integration-troubleshooting.md:        return RetryableError{Err: mcpErr}
+./docs/guides/agent-integration-troubleshooting.md:        return RetryableError{Err: mcpErr}
+./docs/guides/agent-integration-troubleshooting.md:        return RetryableError{Err: mcpErr}
+./docs/guides/oauth-providers-guide.md:        "client_id":     {g.clientID},
+./docs/guides/oauth-providers-guide.md:        "redirect_uri":  {g.redirectURI},
+./docs/guides/oauth-providers-guide.md:        "response_type": {"code"},
+./docs/guides/oauth-providers-guide.md:        "scope":         {strings.Join(g.scopes, " ")},
+./docs/guides/oauth-providers-guide.md:        "state":         {state},
+./docs/guides/oauth-providers-guide.md:        "access_type":   {"offline"}, // Request refresh token
+./docs/guides/oauth-providers-guide.md:        "prompt":        {"consent"}, // Force consent to get refresh token
+./docs/guides/oauth-providers-guide.md:        "client_id":     {g.clientID},
+./docs/guides/oauth-providers-guide.md:        "client_secret": {g.clientSecret},
+./docs/guides/oauth-providers-guide.md:        "code":          {code},
+./docs/guides/oauth-providers-guide.md:        "redirect_uri":  {g.redirectURI},
+./docs/guides/oauth-providers-guide.md:        "grant_type":    {"authorization_code"},
+./docs/guides/oauth-providers-guide.md:        Metadata: map[string]interface{}{
+./docs/guides/oauth-providers-guide.md:        "client_id":    {g.clientID},
+./docs/guides/oauth-providers-guide.md:        "redirect_uri": {g.redirectURI},
+./docs/guides/oauth-providers-guide.md:        "scope":        {strings.Join(g.scopes, " ")},
+./docs/guides/oauth-providers-guide.md:        "state":        {state},
+./docs/guides/oauth-providers-guide.md:        "client_id":     {g.clientID},
+./docs/guides/oauth-providers-guide.md:        "client_secret": {g.clientSecret},
+./docs/guides/oauth-providers-guide.md:        "code":          {code},
+./docs/guides/oauth-providers-guide.md:        "redirect_uri":  {g.redirectURI},
+./docs/guides/oauth-providers-guide.md:        scopes:       []string{"openid", "profile", "email"},
+./docs/guides/oauth-providers-guide.md:        c.JSON(http.StatusBadRequest, gin.H{"error": "Unknown provider"})
+./docs/guides/oauth-providers-guide.md:        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid state"})
+./docs/guides/oauth-providers-guide.md:        c.JSON(http.StatusBadRequest, gin.H{"error": "Unknown provider"})
+./docs/guides/oauth-providers-guide.md:        h.logger.Error("Token exchange failed", map[string]interface{}{
+./docs/guides/oauth-providers-guide.md:        c.JSON(http.StatusInternalServerError, gin.H{"error": "Authentication failed"})
+./docs/guides/oauth-providers-guide.md:        h.logger.Error("Failed to get user info", map[string]interface{}{
+./docs/guides/oauth-providers-guide.md:        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user info"})
+./docs/guides/oauth-providers-guide.md:        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+./docs/guides/oauth-providers-guide.md:        h.logger.Warn("Failed to store OAuth tokens", map[string]interface{}{
+./docs/guides/oauth-providers-guide.md:        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+./docs/guides/oauth-providers-guide.md:        Roles:    []string{"user"},
+./docs/guides/oauth-providers-guide.md:        s.logger.Warn("Failed to create OAuth link", map[string]interface{}{
+./docs/guides/oauth-providers-guide.md:      client_id: ${GOOGLE_OAUTH_CLIENT_ID}
+./docs/guides/oauth-providers-guide.md:      client_secret: ${GOOGLE_OAUTH_CLIENT_SECRET}
+./docs/guides/oauth-providers-guide.md:      client_id: ${GITHUB_OAUTH_CLIENT_ID}
+./docs/guides/oauth-providers-guide.md:      client_secret: ${GITHUB_OAUTH_CLIENT_SECRET}
+./docs/guides/oauth-providers-guide.md:      client_id: ${MICROSOFT_OAUTH_CLIENT_ID}
+./docs/guides/oauth-providers-guide.md:      client_secret: ${MICROSOFT_OAUTH_CLIENT_SECRET}
+./docs/guides/oauth-providers-guide.md:      client_id: ${OIDC_CLIENT_ID}
+./docs/guides/oauth-providers-guide.md:      client_secret: ${OIDC_CLIENT_SECRET}
+./docs/guides/oauth-providers-guide.md:        window.location.href = `/api/v1/auth/login/${provider}`;
+./docs/guides/oauth-providers-guide.md:            <button onClick={() => handleOAuthLogin('google')}>
+./docs/guides/oauth-providers-guide.md:            <button onClick={() => handleOAuthLogin('github')}>
+./docs/guides/oauth-providers-guide.md:            <button onClick={() => handleOAuthLogin('microsoft')}>
+./docs/guides/oauth-providers-guide.md:import { useEffect } from 'react';
+./docs/guides/oauth-providers-guide.md:import { useNavigate } from 'react-router-dom';
+./docs/guides/configuration-scenarios.md:	migrate -path ./migrations -database $${DATABASE_URL} up
+./docs/guides/configuration-scenarios.md:DATABASE_URL=postgresql://mcp_user:${DB_PASSWORD}@mcp-staging.cluster-abc123.us-east-1.rds.amazonaws.com:5432/mcp_staging
+./docs/guides/configuration-scenarios.md:DATABASE_URL=postgresql://mcp_prod:${DB_PASSWORD}@mcp-prod.cluster-xyz789.us-east-1.rds.amazonaws.com:5432/mcp_production
+./docs/guides/configuration-scenarios.md:REDIS_AUTH_TOKEN=${REDIS_AUTH_TOKEN}
+./docs/guides/configuration-scenarios.md:    values  map[string]interface{}
+./docs/guides/auth-best-practices.md:key := &APIKey{} // No ExpiresAt set
+./docs/guides/auth-best-practices.md:logger.Info("API key used", map[string]interface{}{
+./docs/guides/auth-best-practices.md:    token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+./docs/guides/auth-best-practices.md:        document.cookie = `auth_token=${token}; path=/; secure; httpOnly; samesite=strict`;
+./docs/guides/auth-best-practices.md:        Data:      make(map[string]interface{}),
+./docs/guides/auth-best-practices.md:        c.JSON(404, gin.H{"error": "not found"})
+./docs/guides/auth-best-practices.md:        c.JSON(403, gin.H{"error": "forbidden"})
+./docs/guides/auth-best-practices.md:            sm.alerter.Alert("Multiple failed login attempts", map[string]interface{}{
+./docs/guides/auth-best-practices.md:        sm.alerter.Alert("Privilege escalation attempt", map[string]interface{}{
+./docs/guides/auth-best-practices.md:            sm.alerter.Alert("Unusual access pattern", map[string]interface{}{
+./docs/guides/auth-best-practices.md:    }{}
+./docs/guides/cost-management.md:    Details     map[string]interface{}
+./docs/guides/cost-management.md:        []string{"model", "operation"},
+./docs/guides/cost-management.md:        []string{"service"},
+./docs/guides/cost-management.md:        []string{"budget_type"},
+./docs/guides/cost-management.md:   WHERE tags IS NULL OR tags = '{}'
+./docs/guides/task-routing-algorithms.md:                Filter: AllTasksFilter{},
+./docs/guides/task-routing-algorithms.md:                        Filter: TaskTypeFilter{Types: []string{"code", "review"}},
+./docs/guides/task-routing-algorithms.md:                                Filter: SecurityTaskFilter{},
+./docs/guides/task-routing-algorithms.md:                        Filter: TaskTypeFilter{Types: []string{"docs", "api"}},
+./docs/guides/task-routing-algorithms.md:    features := []float64{}
+./docs/guides/task-routing-algorithms.md:        []string{"algorithm", "task_type", "selected_agent"},
+./docs/guides/task-routing-algorithms.md:        []string{"algorithm"},
+./docs/guides/task-routing-algorithms.md:        []string{"algorithm", "error_type"},
+./docs/guides/observability-architecture.md:    []string{"service", "method", "status"},
+./docs/guides/observability-architecture.md:    []string{"type", "protocol"},
+./docs/guides/observability-architecture.md:    []string{"service", "method"},
+./docs/guides/observability-architecture.md:    []string{"task_type", "agent_type"},
+./docs/guides/observability-architecture.md:    Value interface{}
+./docs/guides/observability-architecture.md:        {"trace_id", trace.SpanFromContext(ctx).SpanContext().TraceID()},
+./docs/guides/observability-architecture.md:        {"span_id", trace.SpanFromContext(ctx).SpanContext().SpanID()},
+./docs/guides/observability-architecture.md:        {"user_id", ctx.Value("user_id")},
+./docs/guides/observability-architecture.md:        {"tenant_id", ctx.Value("tenant_id")},
+./docs/guides/observability-architecture.md:        {"service", ServiceName},
+./docs/guides/observability-architecture.md:        {"version", Version},
+./docs/guides/observability-architecture.md:        {"environment", Environment},
+./docs/guides/observability-architecture.md:        Field{"request_id", req.ID},
+./docs/guides/observability-architecture.md:        Field{"method", req.Method},
+./docs/guides/observability-architecture.md:            Field{"error", err.Error()},
+./docs/guides/observability-architecture.md:            Field{"stack_trace", debug.Stack()},
+./docs/guides/observability-architecture.md:          template: '{{ .Value }}'
+./docs/guides/observability-architecture.md:          expression: '([0-9]{4}-){3}[0-9]{4}'
+./docs/guides/observability-architecture.md:            &CustomSpanProcessor{},
+./docs/guides/observability-architecture.md:            propagation.TraceContext{},
+./docs/guides/observability-architecture.md:            propagation.Baggage{},
+./docs/guides/observability-architecture.md:type CustomSpanProcessor struct{}
+./docs/guides/observability-architecture.md:        logger := log.With(Field{"trace_id", traceID.String()})
+./docs/guides/observability-architecture.md:    logger := log.With(Field{"trace_id", span.SpanContext().TraceID().String()})
+./docs/guides/observability-architecture.md:    logger.Info("Making HTTP request", Field{"url", req.URL.String()})
+./docs/guides/observability-architecture.md:    result := &ObservabilityResult{}
+./docs/guides/observability-architecture.md:    logQuery := fmt.Sprintf(`{trace_id="%s"}`, q.TraceID)
+./docs/guides/observability-architecture.md:        `mcp_request_duration_seconds{service="%s"}[%s]`,
+./docs/guides/observability-architecture.md:          summary: "High latency detected for {{ $labels.service }}"
+./docs/guides/observability-architecture.md:          description: "P95 latency is {{ $value | humanizeDuration }}"
+./docs/guides/observability-architecture.md:          sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)
+./docs/guides/observability-architecture.md:          summary: "High error rate for {{ $labels.service }}"
+./docs/guides/observability-architecture.md:          description: "Error rate is {{ $value | humanizePercentage }}"
+./docs/guides/observability-architecture.md:          description: "Current rate: ${{ $value | humanize }} per hour"
+./docs/guides/observability-architecture.md:      - service_key: '${PAGERDUTY_KEY}'
+./docs/guides/observability-architecture.md:        description: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+./docs/guides/observability-architecture.md:      - api_url: '${SLACK_WEBHOOK}'
+./docs/guides/observability-architecture.md:        title: 'Alert: {{ .GroupLabels.alertname }}'
+./docs/guides/observability-architecture.md:        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+./docs/guides/observability-architecture.md:            []string{"method", "status"},
+./docs/guides/observability-architecture.md:            []string{"method"},
+./docs/guides/observability-architecture.md:    logger := s.logger.With(Field{"trace_id", span.SpanContext().TraceID()})
+./docs/guides/observability-architecture.md:        logger.Error("Request failed", Field{"error", err})
+./docs/guides/observability-architecture.md:          - metric: "rate(requests_total{status=~'5..'}[5m]) / rate(requests_total[5m])"
+./docs/guides/openapi-sync-guide.md:// @Success 201 {object} models.Agent
+./docs/guides/openapi-sync-guide.md:// @Failure 400 {object} models.ErrorResponse
+./docs/guides/openapi-sync-guide.md:// @Failure 409 {object} models.ErrorResponse
+./docs/guides/openapi-sync-guide.md:  - GET `/resources/{id}` - Get single resource
+./docs/guides/openapi-sync-guide.md:  - PUT `/resources/{id}` - Update resource
+./docs/guides/openapi-sync-guide.md:  - PATCH `/resources/{id}` - Partial update
+./docs/guides/openapi-sync-guide.md:  - DELETE `/resources/{id}` - Delete resource
+./docs/guides/openapi-sync-guide.md:// OpenAPI: /agents/{id}
+./docs/guides/openapi-sync-guide.md:// @Router /api/v1/agents/{id} [get]
+./docs/guides/building-custom-ai-agents.md:mkdir -p {cmd/agent,internal/{agent,tasks,models,capabilities},pkg/{client,config},configs,scripts,deployments}
+./docs/guides/building-custom-ai-agents.md:    shutdownChan chan struct{}
+./docs/guides/building-custom-ai-agents.md:        shutdownChan: make(chan struct{}),
+./docs/guides/building-custom-ai-agents.md:    Parameters  map[string]interface{} `json:"parameters"`
+./docs/guides/building-custom-ai-agents.md:        Parameters: map[string]interface{}{
+./docs/guides/building-custom-ai-agents.md:            "languages": []string{"go", "python", "javascript"},
+./docs/guides/building-custom-ai-agents.md:        Parameters: map[string]interface{}{
+./docs/guides/building-custom-ai-agents.md:            "formats": []string{"markdown", "html", "pdf"},
+./docs/guides/building-custom-ai-agents.md:            "templates": []string{"api", "readme", "guide"},
+./docs/guides/building-custom-ai-agents.md:    Payload     interface{}            `json:"payload"`
+./docs/guides/building-custom-ai-agents.md:    Metadata    map[string]interface{} `json:"metadata"`
+./docs/guides/building-custom-ai-agents.md:    workerPool  chan struct{}
+./docs/guides/building-custom-ai-agents.md:        workerPool: make(chan struct{}, cfg.workers),
+./docs/guides/building-custom-ai-agents.md:        p.workerPool <- struct{}{}
+./docs/guides/building-custom-ai-agents.md:        p.workerPool <- struct{}{}
+./docs/guides/building-custom-ai-agents.md:    Payload   interface{}   `json:"payload"`
+./docs/guides/building-custom-ai-agents.md:        "Authorization": []string{fmt.Sprintf("Bearer %s", c.apiKey)},
+./docs/guides/building-custom-ai-agents.md:                c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+./docs/guides/building-custom-ai-agents.md:    taskContext  map[string]interface{}
+./docs/guides/building-custom-ai-agents.md:    results := []MemoryItem{}
+./docs/guides/building-custom-ai-agents.md:    Metadata    map[string]interface{}
+./docs/guides/building-custom-ai-agents.md:        {Type: capabilities.CapabilityTypeAnalysis},
+./docs/guides/casbin-integration-guide.md:        c.logger.Error("Authorization check failed", map[string]interface{}{
+./docs/guides/casbin-integration-guide.md:    c.logger.Info("Authorization decision", map[string]interface{}{
+./docs/guides/casbin-integration-guide.md:        s.logger.Error("Failed to add policy", map[string]interface{}{
+./docs/guides/casbin-integration-guide.md:// @Success 201 {object} PolicyResponse
+./docs/guides/casbin-integration-guide.md:        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+./docs/guides/casbin-integration-guide.md:        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+./docs/guides/casbin-integration-guide.md:        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+./docs/guides/casbin-integration-guide.md:        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+./docs/guides/casbin-integration-guide.md:        {"admin", "default", "*", "*", "allow"},
+./docs/guides/casbin-integration-guide.md:        {"user", "default", "contexts", "read", "allow"},
+./docs/guides/casbin-integration-guide.md:        {"user", "default", "contexts", "create", "allow"},
+./docs/guides/casbin-integration-guide.md:        {"user", "default", "contexts", "update", "allow"},
+./docs/guides/casbin-integration-guide.md:        {"viewer", "default", "*", "read", "allow"},
+./docs/guides/casbin-integration-guide.md:                c.logger.Error("Failed to reload policies", map[string]interface{}{
+./docs/guides/casbin-integration-guide.md:    casbin.AddFunction("resourceMatch", func(args ...interface{}) (interface{}, error) {
+./docs/guides/casbin-integration-guide.md:        []string{"tenant", "allowed"},
+./docs/guides/casbin-integration-guide.md:        []string{"type"},
+./docs/guides/casbin-integration-guide.md:    l.logger.Debug("Policy evaluated", map[string]interface{}{
+./docs/guides/trace-sampling-guide.md:            {Name: "errors", Rate: 1.0},
+./docs/guides/trace-sampling-guide.md:            {Name: "slow_requests", Rate: 0.5},
+./docs/guides/trace-sampling-guide.md:            {Name: "websocket", Rate: 0.001},
+./docs/guides/trace-sampling-guide.md:            {Name: "health_checks", Rate: 0.0001},
+./docs/guides/trace-sampling-guide.md:            {Name: "admin_endpoints", Rate: 1.0},
+./docs/guides/trace-sampling-guide.md:    Conditions map[string]interface{}
+./docs/guides/trace-sampling-guide.md:    return trace.SamplingResult{Decision: trace.Drop}
+./docs/guides/trace-sampling-guide.md:        return trace.SamplingResult{Decision: trace.Drop}
+./docs/guides/trace-sampling-guide.md:type ErrorPolicy struct{}
+./docs/guides/trace-sampling-guide.md:        []string{"decision", "reason"},
+./docs/guides/trace-sampling-guide.md:        []string{"service"},
+./docs/guides/performance-tuning-guide.md:    New: func() interface{} {
+./docs/guides/performance-tuning-guide.md:            c.Writer = &gzipWriter{ResponseWriter: c.Writer, Writer: gz}
+./docs/guides/performance-tuning-guide.md:            c.JSON(400, gin.H{"error": err.Error()})
+./docs/guides/performance-tuning-guide.md:        sem := make(chan struct{}, 10) // Max 10 concurrent
+./docs/guides/performance-tuning-guide.md:                sem <- struct{}{}        // Acquire
+./docs/guides/performance-tuning-guide.md:                defer func() { <-sem }() // Release
+./docs/guides/performance-tuning-guide.md:func (c *MultiLevelCache) Get(ctx context.Context, key string, value interface{}) (bool, error) {
+./docs/guides/performance-tuning-guide.md:        c.queuePrefetch(key, &context, map[string]interface{}{
+./docs/guides/performance-tuning-guide.md:        c.queuePrefetch(key, &context, map[string]interface{}{
+./docs/guides/performance-tuning-guide.md:            var data map[string]interface{}
+./docs/guides/performance-tuning-guide.md:            ch <- EmbeddingResult{Err: err}
+./docs/guides/performance-tuning-guide.md:            ch <- EmbeddingResult{Embedding: embeddings[idx]}
+./docs/guides/performance-tuning-guide.md:  resource_id        = "service/${var.cluster_name}/${var.service_name}"
+./docs/guides/performance-tuning-guide.md:  name               = "${var.service_name}-cpu-scaling"
+./docs/guides/performance-tuning-guide.md:  name               = "${var.service_name}-rps-scaling"
+./docs/guides/performance-tuning-guide.md:func (db *DBManager) Query(ctx context.Context, query string, args ...interface{}) (pgx.Rows, error) {
+./docs/guides/performance-tuning-guide.md:            Buckets: []float64{.001, .005, .01, .025, .05, .1, .25, .5, 1},
+./docs/guides/performance-tuning-guide.md:        []string{"query_type", "table"},
+./docs/guides/performance-tuning-guide.md:        []string{"cache_level", "cache_type"},
+./docs/guides/performance-tuning-guide.md:import { check, sleep } from 'k6';
+./docs/guides/performance-tuning-guide.md:import { Rate } from 'k6/metrics';
+./docs/guides/performance-tuning-guide.md:    { duration: '2m', target: 100 },  // Ramp up
+./docs/guides/performance-tuning-guide.md:    { duration: '5m', target: 100 },  // Stay at 100 users
+./docs/guides/performance-tuning-guide.md:    { duration: '2m', target: 200 },  // Ramp up
+./docs/guides/performance-tuning-guide.md:    { duration: '5m', target: 200 },  // Stay at 200 users
+./docs/guides/performance-tuning-guide.md:    { duration: '2m', target: 0 },    // Ramp down
+./docs/guides/performance-tuning-guide.md:      'Authorization': `Bearer ${__ENV.API_KEY}`,
+./docs/guides/performance-tuning-guide.md:    New: func() interface{} {
+./docs/guides/performance-tuning-guide.md:        pgx.Identifier{"items"},
+./docs/guides/performance-tuning-guide.md:        []string{"id", "name", "value"},
+./docs/guides/performance-tuning-guide.md:        pgx.CopyFromSlice(len(items), func(i int) ([]interface{}, error) {
+./docs/guides/performance-tuning-guide.md:            return []interface{}{
+./docs/guides/agent-registration-guide.md:        Subprotocols: []string{"mcp.v1"}, // REQUIRED!
+./docs/guides/agent-registration-guide.md:            "Authorization": []string{"Bearer " + apiKey},
+./docs/guides/agent-registration-guide.md:    registration := map[string]interface{}{
+./docs/guides/agent-registration-guide.md:        "capabilities": []string{"code_analysis", "documentation", "debugging"},
+./docs/guides/agent-registration-guide.md:        "requirements": map[string]interface{}{  // NEW: Agent requirements
+./docs/guides/agent-registration-guide.md:            "apis":       []string{"github", "jira"},
+./docs/guides/agent-registration-guide.md:        "metadata": map[string]interface{}{
+./docs/guides/agent-registration-guide.md:    var response map[string]interface{}
+./docs/guides/agent-registration-guide.md:        metadata: { version: '1.0.0' }
+./docs/guides/agent-registration-guide.md:        "Authorization": f"Bearer {api_key}"
+./docs/guides/agent-registration-guide.md:            'metadata': {'version': '1.0.0'}
+./docs/guides/agent-registration-guide.md:            print(f"Agent registered! ID: {response['agent_id']}")
+./docs/guides/agent-registration-guide.md:        Subprotocols: []string{"mcp.v1"}, // REQUIRED!
+./docs/guides/agent-registration-guide.md:            "Authorization": []string{"Bearer " + apiKey},
+./docs/guides/agent-registration-guide.md:    msg := map[string]interface{}{
+./docs/guides/agent-registration-guide.md:        "metadata": map[string]interface{}{
+./docs/guides/agent-registration-guide.md:    var response map[string]interface{}
+./docs/guides/agent-registration-guide.md:        var msg map[string]interface{}
+./docs/guides/agent-registration-guide.md:func (a *Agent) handleTask(ctx context.Context, msg map[string]interface{}) {
+./docs/guides/agent-registration-guide.md:    result := map[string]interface{}{
+./docs/guides/agent-registration-guide.md:        "result": map[string]interface{}{
+./docs/guides/agent-registration-guide.md:    pong := map[string]interface{}{"type": "pong"}
+./docs/guides/agent-registration-guide.md:    agent := NewAgent("Example Agent", []string{"code_analysis", "documentation"})
+./docs/guides/agent-registration-guide.md:    select {}
+./docs/examples/ide-integration.md:      'Authorization': `Bearer ${this.apiKey}`,
+./docs/examples/ide-integration.md:      const response = await fetch(`${this.mcpUrl}/status`, {
+./docs/examples/ide-integration.md:        throw new Error(`Failed to initialize MCP connection: ${response.statusText}`);
+./docs/examples/ide-integration.md:      const response = await fetch(`${this.mcpUrl}/tools/${toolName}/actions/${action}`, {
+./docs/examples/ide-integration.md:        throw new Error(`Tool call failed: ${response.statusText}`);
+./docs/examples/ide-integration.md:      console.error(`Error calling ${toolName}/${action}:`, error);
+./docs/examples/ide-integration.md:    return { owner: 'example-owner', repo: 'example-repo' };
+./docs/examples/ide-integration.md:import { MCPIntegration } from './mcp-integration';
+./docs/examples/ide-integration.md:        {}
+./docs/examples/ide-integration.md:        const title = await vscode.window.showInputBox({ prompt: 'Issue Title' });
+./docs/examples/ide-integration.md:              body: `Code Reference:\n\`\`\`\n${selection}\n\`\`\``
+./docs/examples/ide-integration.md:            vscode.window.showInformationMessage(`Issue #${issue.number} created`);
+./docs/examples/ide-integration.md:            vscode.window.showErrorMessage(`Failed to create issue: ${error.message}`);
+./docs/examples/ide-integration.md:    panel.webview.html = `<h1>Error loading DevOps data</h1><p>${error.message}</p>`;
+./docs/examples/ide-integration.md:          repository: `${gitInfo.owner}/${gitInfo.repo}`,
+./docs/examples/ide-integration.md:    enhancedPrompt += `\n\nRepository: ${context.repositoryInfo?.full_name || 'Unknown'}`;
+./docs/examples/ide-integration.md:        enhancedPrompt += `\n- #${issue.number}: ${issue.title}`;
+./docs/examples/ide-integration.md:      enhancedPrompt += `\n\nLatest Build: ${context.buildStatus.status}`;
+./docs/examples/ide-integration.md:        enhancedPrompt += `\n- ${comment.body}`;
+./docs/examples/ide-integration.md:  async storeCodeEmbedding(filepath: string, codeBlock: string, metadata: any = {}): Promise<void> {
+./docs/examples/production-aws-usage.md:        Metadata: map[string]interface{}{
+./docs/examples/production-aws-usage.md:        Payload: map[string]interface{}{
+./docs/examples/production-aws-usage.md:    jwt_secret: "${JWT_SECRET}"  # From environment/secrets
+./docs/examples/production-aws-usage.md:      admin: "${ADMIN_API_KEY}"
+./docs/examples/production-aws-usage.md:  dsn: "${DATABASE_URL}"  # RDS connection string
+./docs/examples/authentication-patterns.md:    body: JSON.stringify({ username, password }),
+./docs/examples/authentication-patterns.md:  axios.defaults.headers.common['Authorization'] = `Bearer ${data.access_token}`;
+./docs/examples/authentication-patterns.md:    body: JSON.stringify({ refresh_token: refreshToken }),
+./docs/examples/authentication-patterns.md:        return f"{self.base_url}/oauth/authorize?{urlencode(params)}"
+./docs/examples/authentication-patterns.md:        response = requests.post(f"{self.base_url}/oauth/token", data={
+./docs/examples/authentication-patterns.md:            c.JSON(401, gin.H{"error": "unauthorized"})
+./docs/examples/authentication-patterns.md:            c.JSON(403, gin.H{"error": "forbidden"})
+./docs/examples/authentication-patterns.md:curl -X POST http://localhost:8081/api/v1/auth/keys/{key_id}/rotate \
+./docs/examples/authentication-patterns.md:          MCP_API_KEY: ${{ secrets.MCP_API_KEY }}
+./docs/examples/authentication-patterns.md:          MCP_TENANT_ID: ${{ secrets.MCP_TENANT_ID }}
+./docs/examples/authentication-patterns.md:import { MCPClient } from '@developer-mesh/sdk';
+./docs/examples/authentication-patterns.md:curl -X GET http://localhost:8081/api/v1/auth/keys/{key_id} \
+./docs/examples/authentication-patterns.md:  api_key: ${MCP_API_KEY}
+./docs/examples/authentication-patterns.md:  tenant_id: ${MCP_TENANT_ID}
+./docs/examples/custom-tool-integration.md:func (s *SecureToolExecutor) ExecuteTool(ctx context.Context, toolName string, params map[string]interface{}) (interface{}, error) {
+./docs/examples/custom-tool-integration.md:    Metadata    map[string]interface{} `json:"metadata"`
+./docs/examples/custom-tool-integration.md:        Metadata: map[string]interface{}{
+./docs/examples/custom-tool-integration.md:        cfg := &gitlab.Config{}
+./docs/examples/custom-tool-integration.md:        cfg := &github.Config{}
+./docs/examples/custom-tool-integration.md:        cfg := &circleci.Config{}
+./docs/examples/custom-tool-integration.md:                    "project": {"type": "string", "description": "GitLab job name"},
+./docs/examples/custom-tool-integration.md:                    "branch": {"type": "string", "description": "Git branch to build"},
+./docs/examples/custom-tool-integration.md:                    "commit": {"type": "string", "description": "Git commit SHA"},
+./docs/examples/custom-tool-integration.md:                    "build_id": {"type": "string", "description": "Build identifier"}
+./docs/examples/custom-tool-integration.md:                    "build_id": {"type": "string", "description": "Build identifier"},
+./docs/examples/custom-tool-integration.md:                    "lines": {"type": "integer", "description": "Number of log lines to retrieve", "default": 100}
+./docs/examples/custom-tool-integration.md:                    "project": {"type": "string", "description": "GitLab job name"},
+./docs/examples/custom-tool-integration.md:                    "limit": {"type": "integer", "description": "Maximum number of builds", "default": 10}
+./docs/examples/custom-tool-integration.md:func (p *ToolProvider) ExecuteTool(ctx context.Context, tool string, input json.RawMessage) (interface{}, error) {
+./docs/examples/custom-tool-integration.md:            Parameters map[string]interface{} `json:"parameters"`
+./docs/examples/custom-tool-integration.md:        return map[string]interface{}{
+./docs/examples/custom-tool-integration.md:        return map[string]interface{}{
+./docs/examples/custom-tool-integration.md:    contextData := map[string]interface{}{
+./docs/examples/custom-tool-integration.md:        embedding := map[string]interface{}{
+./docs/examples/custom-tool-integration.md:      url: ${GITLAB_URL}
+./docs/examples/custom-tool-integration.md:      username: ${GITLAB_USERNAME}
+./docs/examples/custom-tool-integration.md:      token: ${GITLAB_TOKEN}
+./docs/examples/custom-tool-integration.md:        secret: ${JENKINS_WEBHOOK_SECRET}
+./docs/examples/custom-tool-integration.md:      GITLAB_URL: ${GITLAB_URL}
+./docs/examples/custom-tool-integration.md:      GITLAB_USERNAME: ${GITLAB_USERNAME}
+./docs/examples/custom-tool-integration.md:      GITLAB_TOKEN: ${GITLAB_TOKEN}
+./docs/examples/custom-tool-integration.md:        print(f"Build triggered: {build_id}")
+./docs/examples/custom-tool-integration.md:        print(f"URL: {result['url']}")
+./docs/examples/custom-tool-integration.md:            print(f"Status: {status['status']}")
+./docs/examples/custom-tool-integration.md:                "query": f"gitlab build failed {logs['error_pattern']}",
+./docs/examples/custom-tool-integration.md:                    print(f"- {s['build_id']}: {s['resolution']}")
+./docs/examples/custom-tool-integration.md:    print(f"\nBuild completed with status: {result['status']}")
+./docs/examples/custom-tool-integration.md:    print(f"Duration: {result['duration']}")
+./docs/examples/custom-tool-integration.md:                "project": f"{project}-deploy",
+./docs/examples/custom-tool-integration.md:            return f"Deployment started for {project} to {env}. Monitor at: {result['url']}"
+./docs/examples/custom-tool-integration.md:                response += f"\n- {build['id']}: {build['failure_reason']}"
+./docs/examples/custom-tool-integration.md:                response += f"\n  Failed at: {build['failed_stage']}"
+./docs/examples/custom-tool-integration.md:    Details map[string]interface{}
+./docs/examples/custom-tool-integration.md:        Details: map[string]interface{}{
+./docs/examples/custom-tool-integration.md:    New: func() interface{} {
+./docs/examples/custom-tool-integration.md:    sem := make(chan struct{}, 10)
+./docs/examples/custom-tool-integration.md:            sem <- struct{}{}
+./docs/examples/custom-tool-integration.md:            defer func() { <-sem }()
+./docs/examples/binary-websocket-protocol.md:import { MCPBinaryClient } from '@developer-mesh/client';
+./docs/examples/binary-websocket-protocol.md:    console.log(`Agent ${agentId} state update:`, JSON.parse(state));
+./docs/examples/binary-websocket-protocol.md:    { model: 'ada-002', context: 'code-review' }
+./docs/examples/binary-websocket-protocol.md:      { id: 1, value: 0.95, labels: 0x01, flags: 0 },
+./docs/examples/binary-websocket-protocol.md:      { id: 2, value: 42.5, labels: 0x02, flags: 0 },
+./docs/examples/binary-websocket-protocol.md:      { id: 3, value: 128, labels: 0x04, flags: 0 }
+./docs/examples/binary-websocket-protocol.md:    metadata map[string]interface{},
+./docs/examples/binary-websocket-protocol.md:        headers = {"Authorization": f"Bearer {self.api_key}"}
+./docs/examples/binary-websocket-protocol.md:    "metadata": {"model": "ada-002", "timestamp": 1234567890}
+./docs/examples/binary-websocket-protocol.md:        client.send(data, { compress: false });
+./docs/examples/binary-websocket-protocol.md:            Buckets: []float64{0.1, 0.3, 0.5, 0.7, 0.9},
+./docs/examples/ai-agent-integration.md:  -d '{"content": "AI agent context data"}'
+./docs/examples/ai-agent-integration.md:        "id": f"conv-{session_id}",
+./docs/examples/ai-agent-integration.md:        "metadata": {**current.metadata, "messages": messages}
+./docs/examples/ai-agent-integration.md:            content = f"{speaker}: {msg['content']}\n\n"
+./docs/examples/ai-agent-integration.md:                current_speakers = {m["role"] for m in messages[overlap_start:i]}
+./docs/examples/ai-agent-integration.md:        return "".join([f"{m['role']}: {m['content']}\n\n" for m in messages])
+./docs/examples/ai-agent-integration.md:            "filters": filters or {}
+./docs/examples/ai-agent-integration.md:                "filters": {"user_id": user_id} if user_id else {}
+./docs/examples/ai-agent-integration.md:        search_params = {"q": query}
+./docs/examples/ai-agent-integration.md:            search_params["q"] += f" repo:{repo}"
+./docs/examples/ai-agent-integration.md:            search_params["q"] += f" language:{language}"
+./docs/examples/ai-agent-integration.md:            "content_preview": item.get("text_matches", [{}])[0].get("fragment", ""),
+./docs/examples/ai-agent-integration.md:                        "matchLabels": {"app": deployment_name}
+./docs/examples/ai-agent-integration.md:                            "labels": {"app": deployment_name}
+./docs/examples/ai-agent-integration.md:                                "ports": [{"containerPort": 8080}]
+./docs/examples/ai-agent-integration.md:        self.active_sessions: Dict[str, ConversationState] = {}
+./docs/examples/ai-agent-integration.md:            raise ValueError(f"Session {session_id} not found")
+./docs/examples/ai-agent-integration.md:        state.messages.append({"role": "user", "content": message})
+./docs/examples/ai-agent-integration.md:        state.messages.append({"role": "assistant", "content": response["content"]})
+./docs/examples/ai-agent-integration.md:            filters={"user_id": state.user_id, "type": "ai_conversation"},
+./docs/examples/ai-agent-integration.md:            prompt += f"\n- {ctx['text'][:200]}..."
+./docs/examples/ai-agent-integration.md:                prompt += f"\n- From {ctx['conversation_metadata']['created_at']}: {ctx['text'][:150]}..."
+./docs/examples/ai-agent-integration.md:                prompt += f"\n- {tool['tool']}: {tool['result']['success']}"
+./docs/examples/ai-agent-integration.md:                            "repo": {"type": "string"},
+./docs/examples/ai-agent-integration.md:                            "title": {"type": "string"},
+./docs/examples/ai-agent-integration.md:                            "body": {"type": "string"},
+./docs/examples/ai-agent-integration.md:                            "labels": {"type": "array", "items": {"type": "string"}}
+./docs/examples/ai-agent-integration.md:                            "query": {"type": "string"},
+./docs/examples/ai-agent-integration.md:                            "repo": {"type": "string"},
+./docs/examples/ai-agent-integration.md:                            "language": {"type": "string"}
+./docs/examples/ai-agent-integration.md:                {"role": "system", "content": system_prompt},
+./docs/examples/ai-agent-integration.md:                    result = {"error": f"Unknown tool: {tool_name}"}
+./docs/examples/ai-agent-integration.md:    print(f"Assistant: {response1['content']}")
+./docs/examples/ai-agent-integration.md:    print(f"Assistant: {response2['content']}")
+./docs/examples/ai-agent-integration.md:    print(f"Tool Results: {response2['tool_results']}")
+./docs/examples/ai-agent-integration.md:    print(f"Assistant: {response3['content']}")
+./docs/examples/ai-agent-integration.md:    print(f"Created Issue: {response3['tool_results'][0]['result']['issue_url']}")
+./docs/examples/ai-agent-integration.md:Tool Results: [{'tool': 'search_github_code', 'args': {'query': 'TODO', 'repo': 'developer-mesh/developer-mesh'}, 'result': [...]}]
+./docs/examples/ai-agent-integration.md:        self.thread_contexts = {}  # Map thread_id to context_id
+./docs/examples/ai-agent-integration.md:                return {"status": "completed", "tools_used": tools_used}
+./docs/examples/ai-agent-integration.md:                raise Exception(f"Run failed: {run.last_error}")
+./docs/examples/ai-agent-integration.md:{tool_descriptions}
+./docs/examples/ai-agent-integration.md:{{"param1": "value1", "param2": "value2"}}
+./docs/examples/ai-agent-integration.md:            messages=[{"role": "user", "content": message}]
+./docs/examples/ai-agent-integration.md:            logger.error(f"Tool execution failed: {e}")
+./docs/examples/github-integration.md:webhookConfig := map[string]interface{}{
+./docs/examples/github-integration.md:    "github": map[string]interface{}{
+./docs/examples/github-integration.md:        "allowed_events": []string{"push", "pull_request", "issues"},
+./docs/examples/github-integration.md:      client_id: ${GITHUB_CLIENT_ID}
+./docs/examples/github-integration.md:      client_secret: ${GITHUB_CLIENT_SECRET}
+./docs/examples/github-integration.md:        enriched_body = f"{body}\n\n---\n_Created via Developer Mesh at {datetime.utcnow().isoformat()}_"
+./docs/examples/github-integration.md:            search_parts.append(f"repo:{repo}")
+./docs/examples/github-integration.md:                search_parts.append(f'label:"{label}"')
+./docs/examples/github-integration.md:        search_parts.append(f"state:{state}")
+./docs/examples/github-integration.md:{description}
+./docs/examples/github-integration.md:            raise ValueError(f"Unknown action: {action}")
+./docs/examples/github-integration.md:            "ref": f"refs/heads/{branch}",
+./docs/examples/github-integration.md:        branch_name = self._sanitize_branch_name(f"feature/{feature_name}")
+./docs/examples/github-integration.md:            commit_message=f"feat: implement {feature_name}"
+./docs/examples/github-integration.md:            title=f"feat: {feature_name}",
+./docs/examples/github-integration.md:        Feature: {feature_name}
+./docs/examples/github-integration.md:        {self._format_changes(changes)}
+./docs/examples/github-integration.md:        Commit: {commit['message']}
+./docs/examples/github-integration.md:        return f"{ai_response}\n\n---\n_Generated with AI assistance via Developer Mesh_"
+./docs/examples/github-integration.md:            feature_name=f"fix-issue-{issue_number}",
+./docs/examples/github-integration.md:            "body": f"I've created PR #{result['pr_number']} to fix this issue: {result['pr_url']}\n\nProposed changes:\n{fix_proposal['summary']}"
+./docs/examples/github-integration.md:        print(f"Successfully created fix: {result['pr_url']}")
+./docs/examples/github-integration.md:        print(f"Could not auto-fix: {result['reason']}")
+./docs/examples/github-integration.md:            comment = f"This issue appears to be related to: {', '.join([f'#{n}' for n in duplicates])}"
+./docs/examples/github-integration.md:        self.handlers: Dict[str, List[Callable]] = {}
+./docs/examples/github-integration.md:            return {"status": "duplicate", "delivery_id": delivery_id}
+./docs/examples/github-integration.md:            "type": f"github.{event_type}",
+./docs/examples/github-integration.md:            "labels": [f"size/{size_label}"]
+./docs/examples/github-integration.md:        return {"checks": checks, "size": size_label}
+./docs/examples/ide-passthrough-auth-example.md:import { MCPClient } from '@developer-mesh/ide-client';
+./docs/examples/ide-passthrough-auth-example.md:    console.log(`Created issue #${result.number}`);
+./docs/examples/ide-passthrough-auth-example.md:  console.log(`Found ${result.issues.length} open issues assigned to you`);
+./docs/examples/ide-passthrough-auth-example.md:console.log(`Making request with token: ${credentials.github.token}`);
+./docs/examples/ide-passthrough-auth-example.md:console.log(`Making request with GitHub credentials (***${credentials.github.token.slice(-4)})`);
+./docs/examples/ide-passthrough-auth-example.md:  await context.secrets.store(`mcp.${tool}.token`, token);
+./docs/examples/ide-passthrough-auth-example.md:  return await context.secrets.get(`mcp.${tool}.token`);
+./docs/examples/ide-passthrough-auth-example.md:    const result = await client.callTool('github', 'get_authenticated_user', {}, {
+./docs/examples/ide-passthrough-auth-example.md:      github: { token }
+./docs/examples/ide-passthrough-auth-example.md:      prompt: `Enter your ${tool} token`,
+./docs/examples/ide-passthrough-auth-example.md:        vscode.window.showInformationMessage(`${tool} credentials saved`);
+./docs/examples/ide-passthrough-auth-example.md:        vscode.window.showErrorMessage(`Invalid ${tool} token`);
+./docs/examples/ide-passthrough-auth-example.md:      console.log(`Using service account for ${tool}`);
+./docs/examples/ide-passthrough-auth-example.md:      return await client.callTool(tool, action, params, { use_service_account: true });
+./docs/examples/embedding-examples.md:      "metadata": {"chapter": 1, "section": "intro"}
+./docs/examples/embedding-examples.md:      "metadata": {"chapter": 2, "section": "neural-nets"}
+./docs/examples/embedding-examples.md:            f"{self.base_url}/embeddings",
+./docs/examples/embedding-examples.md:            f"{self.base_url}/embeddings/batch",
+./docs/examples/embedding-examples.md:            f"{self.base_url}/embeddings/search",
+./docs/examples/embedding-examples.md:    metadata={"source": "documentation"}
+./docs/examples/embedding-examples.md:print(f"Embedding ID: {result['embedding_id']}")
+./docs/examples/embedding-examples.md:print(f"Model used: {result['model_used']}")
+./docs/examples/embedding-examples.md:print(f"Cost: ${result['cost_usd']:.6f}")
+./docs/examples/embedding-examples.md:        "metadata": {"doc_id": "func-001"}
+./docs/examples/embedding-examples.md:        "metadata": {"doc_id": "paradigm-001"}
+./docs/examples/embedding-examples.md:print(f"Generated {batch_result['count']} embeddings")
+./docs/examples/embedding-examples.md:    const response = await fetch(`${this.baseUrl}/embeddings`, {
+./docs/examples/embedding-examples.md:      throw new Error(`HTTP error! status: ${response.status}`);
+./docs/examples/embedding-examples.md:    const response = await fetch(`${this.baseUrl}/embeddings/batch`, {
+./docs/examples/embedding-examples.md:      throw new Error(`HTTP error! status: ${response.status}`);
+./docs/examples/embedding-examples.md:      metadata: { source: 'tutorial' }
+./docs/examples/embedding-examples.md:    console.log(`Embedding ID: ${result.embedding_id}`);
+./docs/examples/embedding-examples.md:    console.log(`Cost: $${result.cost_usd.toFixed(6)}`);
+./docs/examples/embedding-examples.md:    console.log(`Generation time: ${result.generation_time_ms}ms`);
+./docs/examples/embedding-examples.md:      metadata: { framework: 'react' }
+./docs/examples/embedding-examples.md:      metadata: { framework: 'vue' }
+./docs/examples/embedding-examples.md:    console.log(`Generated ${result.count} embeddings`);
+./docs/examples/embedding-examples.md:      console.log(`[${index}] Model: ${embedding.model_used}, Cost: $${embedding.cost_usd}`);
+./docs/examples/embedding-examples.md:    Metadata map[string]interface{} `json:"metadata,omitempty"`
+./docs/examples/embedding-examples.md:    Metadata             map[string]interface{} `json:"metadata,omitempty"`
+./docs/examples/embedding-examples.md:        Metadata: map[string]interface{}{
+./docs/examples/embedding-examples.md:print(f"Generated {len(embeddings)} embeddings for document")
+./docs/examples/embedding-examples.md:        self.embeddings_cache = {}
+./docs/examples/embedding-examples.md:                'metadata': emb.get('metadata', {})
+./docs/examples/embedding-examples.md:{context}
+./docs/examples/embedding-examples.md:Question: {question}
+./docs/examples/embedding-examples.md:        self.cost_data[date][f"{agent_id}:{model}"] += cost
+./docs/examples/embedding-examples.md:            if key.startswith(f"{agent_id}:")
+./docs/examples/embedding-examples.md:            print(f"Primary agent failed: {e}, trying fallback")
+./docs/examples/embedding-examples.md:                print(f"Fallback also failed: {e2}")
+./docs/examples/embedding-examples.md:            f"{self.base_url}/embeddings",
+./docs/examples/embedding-examples.md:                    "text": f"Test document number {i}",
+./docs/examples/embedding-examples.md:                    "metadata": {"test_id": i}
+./docs/examples/embedding-examples.md:    print(f"Processed {results['total_requests']} requests")
+./docs/examples/embedding-examples.md:    print(f"Average time: {results['average_time']:.3f} seconds")
+./docs/examples/embedding-examples.md:    print(f"Throughput: {results['requests_per_second']:.1f} req/s")
+./docs/examples/crdt-collaboration-examples.md:import { GCounter, CRDTClient } from '@developer-mesh/crdt';
+./docs/examples/crdt-collaboration-examples.md:      `metrics:${endpoint}`,
+./docs/examples/crdt-collaboration-examples.md:func (cm *ConfigManager) UpdateConfig(key string, value interface{}) error {
+./docs/examples/crdt-collaboration-examples.md:    config := map[string]interface{}{
+./docs/examples/crdt-collaboration-examples.md:func (cm *ConfigManager) GetConfig() interface{} {
+./docs/examples/crdt-collaboration-examples.md:        updated_task = {**task, "assigned_to": self.agent_id}
+./docs/examples/crdt-collaboration-examples.md:        TaskQueue(f"agent-{i}", "wss://mcp.example.com/ws")
+./docs/examples/crdt-collaboration-examples.md:            f"task-{i}",
+./docs/examples/crdt-collaboration-examples.md:            {"type": "analyze", "target": f"repo-{i}"}
+./docs/examples/crdt-collaboration-examples.md:                    print(f"Agent {agent_id} claimed {task['id']}")
+./docs/examples/crdt-collaboration-examples.md:                    result = f"Processed by agent-{agent_id}"
+./docs/examples/crdt-collaboration-examples.md:                    print(f"Agent {agent_id} completed {task['id']}")
+./docs/examples/crdt-collaboration-examples.md:    CRDTRegistry.register(`resources:${resourceType}`, this.counter);
+./docs/examples/crdt-collaboration-examples.md:        self.votes = {}  # proposal_id -> GCounter
+./docs/examples/crdt-collaboration-examples.md:        CRDTRegistry.register(f"votes:{proposal_id}", vote_counter)
+./docs/examples/crdt-collaboration-examples.md:    this.lockId = `lock:${resourceId}`;
+./docs/examples/crdt-collaboration-examples.md:    CRDTRegistry.register(`${this.lockId}:owner`, this.ownership);
+./docs/examples/crdt-collaboration-examples.md:    CRDTRegistry.register(`${this.lockId}:heartbeat`, this.heartbeat);
+./docs/examples/crdt-collaboration-examples.md:    transition := map[string]interface{}{
+./docs/examples/crdt-collaboration-examples.md:        self.state = {}
+./docs/examples/crdt-collaboration-examples.md:    this.root.add({ path, type: crdtType, created: Date.now() });
+./docs/ISSUE_RESOLUTION_PLAN.md:  - ENCRYPTION_KEY=${ENCRYPTION_KEY:-dev_encryption_key_32_chars_long}
+./docs/ISSUE_RESOLUTION_PLAN.md:  - ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY:-dev_master_key_32_chars_long}
+./docs/ISSUE_RESOLUTION_PLAN.md:  - DEVMESH_ENCRYPTION_KEY=${DEVMESH_ENCRYPTION_KEY:-dev_mesh_key_32_chars_long}
+./docs/docker-registry.md:- **Image Namespace**: `developer-mesh-{service}` (local build)
+./docs/docker-registry.md:developer-mesh-{service}:{tag}
+./docs/docker-registry.md:- `{branch-name}` - For feature branches (e.g., `feat/new-feature`)
+./docs/docker-registry.md:- `pr-{number}` - For pull requests (e.g., `pr-123`)
+./docs/docker-registry.md:- `{short-sha}` - Short commit SHA (e.g., `abc1234`)
+./docs/ENVIRONMENT_SWITCHING.md:DATABASE_PASSWORD=${from_secrets}
+./docs/ENVIRONMENT_SWITCHING.md:AWS_ACCESS_KEY_ID=${real_key}
+./docs/ENVIRONMENT_SWITCHING.md:AWS_SECRET_ACCESS_KEY=${real_secret}
+./docs/WEBSOCKET_CLIENT_REQUIREMENTS.md:    Subprotocols: []string{"mcp.v1"},  // REQUIRED
+./docs/WEBSOCKET_CLIENT_REQUIREMENTS.md:        "Authorization": []string{"Bearer " + apiKey},
+./docs/WEBSOCKET_CLIENT_REQUIREMENTS.md:ws.setRequestHeader('Authorization', `Bearer ${apiKey}`);
+./docs/WEBSOCKET_CLIENT_REQUIREMENTS.md:    "Authorization": f"Bearer {api_key}"
+./README.md:        Capabilities: []string{"security", "vulnerability-scan"},
+./DOCUMENTATION_UPDATE_SUMMARY.md:- **Removed {github-username} Placeholders**: Found and replaced all instances in docs/docker-registry.md and docs/operations/OPERATIONS_RUNBOOK.md
+./DOCUMENTATION_UPDATE_SUMMARY.md:grep -r "SQS\|{github-username}\|TODO\|FIXME" README.md docs/
+./configs/README.md:2. `config.{environment}.yaml` - Environment-specific overrides
+./configs/README.md:3. `config.{environment}.local.yaml` - Local overrides (git-ignored)
+./configs/README.md:    bucket: "${CACHE_BUCKET}"
+./scripts/update-deployment-workflow.md:      --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
+./scripts/update-deployment-workflow.md:        "export IMAGE_TAG=main-${{ steps.short-sha.outputs.short_sha }}",
+./scripts/update-deployment-workflow.md:ELASTICACHE_ENDPOINTS=${{ secrets.REDIS_ENDPOINT }}
+./scripts/update-deployment-workflow.md:GITHUB_WEBHOOK_SECRET=${{ secrets.GITHUB_WEBHOOK_SECRET }}
+./scripts/update-deployment-workflow.md:      --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
+./scripts/update-deployment-workflow.md:        "curl -s https://raw.githubusercontent.com/developer-mesh/developer-mesh/${{ github.sha }}/configs/config.base.yaml > configs/config.base.yaml",
+./scripts/update-deployment-workflow.md:        "curl -s https://raw.githubusercontent.com/developer-mesh/developer-mesh/${{ github.sha }}/configs/config.production.yaml > configs/config.production.yaml",
+./scripts/update-deployment-workflow.md:        "curl -s https://raw.githubusercontent.com/developer-mesh/developer-mesh/${{ github.sha }}/configs/auth.production.yaml > configs/auth.production.yaml",
+./scripts/update-deployment-workflow.md:        "curl -s https://raw.githubusercontent.com/developer-mesh/developer-mesh/${{ github.sha }}/docker-compose.production.yml > docker-compose.production.yml",
+./scripts/update-deployment-workflow.md:      --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
+./.github/workflows/README.md:     REDIS_ADDR: ${{ secrets.REDIS_ENDPOINT }}
+./.github/README.md:GITHUB_USERNAME={github-username} ./scripts/pull-images.sh
+./.github/README.md:- `ghcr.io/{github-username}/developer-mesh-mcp-server` - MCP protocol server
+./.github/README.md:- `ghcr.io/{github-username}/developer-mesh-rest-api` - REST API service
+./.github/README.md:- `ghcr.io/{github-username}/developer-mesh-worker` - Event processing worker
+./.github/README.md:- `ghcr.io/{github-username}/developer-mesh-mockserver` - Mock server for testing
+./DOCUMENTATION_CHANGES.md:### 6. {github-username} Placeholder
+./build/swagger-docs/swagger/README.md:**Note**: GitHub, Harness, and SonarQube tools are implemented through the generic tool endpoints (`/api/v1/tools/{tool}/actions/{action}`). The tool-specific endpoints documented in `tools/github/api.yaml` are not implemented.
+./build/swagger-docs/swagger/README.md:- `GET /api/v1/tools/{tool}` - Get tool details (e.g., `/api/v1/tools/github`)
+./build/swagger-docs/swagger/README.md:- `GET /api/v1/tools/{tool}/actions` - List available actions for a tool
+./build/swagger-docs/swagger/README.md:- `GET /api/v1/tools/{tool}/actions/{action}` - Get action details
+./build/swagger-docs/swagger/README.md:- `POST /api/v1/tools/{tool}/actions/{action}` - Execute a tool action
+./build/swagger-docs/swagger/README.md:- `POST /api/v1/tools/{tool}/queries` - Query tool data
+./build/swagger-docs/swagger/README.md:Tool-specific endpoint patterns (like `/tools/github/{tool_name}`) are not implemented.
+./VERIFICATION_REPORT.md:| Docker Registry | {github-username} | No registry (local build) | docker-compose.local.yml |
+./VERIFICATION_REPORT.md:   - Remove placeholder `{github-username}`
+./apps/mcp-server/CLAUDE.md:  "payload": {...}
+./apps/mcp-server/CLAUDE.md:    s.logger.Error("Failed to write WebSocket message", map[string]interface{}{
+./apps/worker/README.md:webhook_events_received_total{event_type, tool_id}
+./apps/worker/README.md:webhook_events_processed_total{event_type, tool_id, status}
+./apps/worker/README.md:webhook_event_processing_duration_seconds{event_type, tool_id, status}
+./apps/worker/README.md:webhook_retry_attempts_total{attempt, reason}
+./apps/worker/README.md:webhook_dlq_entries_total{event_type, reason}
+./apps/worker/README.md:webhook_dlq_retries_total{status}
+./apps/worker/README.md:webhook_health_checks_total{component, status}
+./apps/worker/README.md:webhook_health_check_duration_seconds{component}
+./apps/rest-api/README.md:      api_key: ${OPENAI_API_KEY}
+./pkg/repository/README.md:    List(ctx context.Context, opts ...interface{}) ([]T, error)
+./pkg/repository/README.md:    testAgent := &models.Agent{ID: "test-123"}
+./pkg/core/README.md:    map[string]interface{}{
+./pkg/core/README.md:    Metadata: map[string]interface{}{
+./pkg/core/README.md:s3://bucket/contexts/{context_id}/
+./pkg/core/README.md:fallback.LogEvent("Service degraded", map[string]interface{}{
+./pkg/auth/README.md:        c.JSON(401, gin.H{"error": "unauthorized"})
+./pkg/auth/README.md:    Scopes:   []string{"read", "write"},
+./pkg/auth/README.md:    Scopes:   []string{"contexts:read", "agents:write"},
+./pkg/auth/README.md:        c.JSON(403, gin.H{"error": "forbidden"})
+./pkg/auth/README.md:    scopes TEXT[] DEFAULT '{}',
+./pkg/auth/README.md:token, _ := testProvider.GenerateTestToken(userID, tenantID, "admin", []string{"all"})
+./pkg/health/README.md:    Metadata    map[string]interface{} `json:"metadata,omitempty"`
+./pkg/health/README.md:        Details:   make(map[string]interface{}),
+./pkg/health/README.md:func (c *DatabaseHealthCheck) Name() string     { return "database" }
+./pkg/health/README.md:func (c *DatabaseHealthCheck) Type() CheckType  { return CheckTypeReadiness }
+./pkg/health/README.md:func (c *DatabaseHealthCheck) Critical() bool   { return true }
+./pkg/health/README.md:    return &RedisHealthCheck{client: client}
+./pkg/health/README.md:        Details:   make(map[string]interface{}),
+./pkg/health/README.md:    if memInfo, ok := result.Details["redis_info"].(map[string]interface{}); ok {
+./pkg/health/README.md:func (c *RedisHealthCheck) Name() string     { return "redis" }
+./pkg/health/README.md:func (c *RedisHealthCheck) Type() CheckType  { return CheckTypeReadiness }
+./pkg/health/README.md:func (c *RedisHealthCheck) Critical() bool   { return false }
+./pkg/health/README.md:        Details:   make(map[string]interface{}),
+./pkg/health/README.md:func (c *S3HealthCheck) Name() string     { return "s3" }
+./pkg/health/README.md:func (c *S3HealthCheck) Type() CheckType  { return CheckTypeReadiness }
+./pkg/health/README.md:func (c *S3HealthCheck) Critical() bool   { return false }
+./pkg/health/README.md:        Details:   make(map[string]interface{}),
+./pkg/health/README.md:      bucket: ${S3_BUCKET}
+./pkg/health/README.md:      queue_url: ${SQS_QUEUE_URL}
+./pkg/embedding/cache/README.md:        Metadata: map[string]interface{}{
+./pkg/embedding/cache/README.md:        Metadata: map[string]interface{}{
+./pkg/embedding/cache/README.md:devmesh_cache_operation_duration_seconds{operation="get",tenant_id="...",status="hit"}
+./pkg/embedding/cache/README.md:devmesh_cache_operation_count{operation="set",tenant_id="..."}
+./pkg/embedding/cache/README.md:devmesh_cache_eviction_count{tenant_id="..."}
+./pkg/embedding/cache/README.md:devmesh_cache_eviction_duration_seconds{tenant_id="..."}
+./pkg/embedding/cache/README.md:devmesh_cache_rate_limit_exceeded{tenant_id="...",operation="read"}
+./pkg/embedding/cache/README.md:1. **Redis Cluster**: Use hash tags `{tenant_id}` for cluster compatibility
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:    defer func() { _ = db.Close() }()
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:    embedding := []float32{0.1, 0.2, 0.3}
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:    defer func() { _ = db.Close() }()
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:    embedding := []float32{0.1, 0.2, 0.3}
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:    rows := sqlmock.NewRows([]string{"cache_key", "query_hash", "similarity", "hit_count", "last_accessed_at"}).
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:        regexp.MustCompile(`\b\d{3}-?\d{2}-?\d{4}\b`), // SSN
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:        regexp.MustCompile(`\b\d{13,19}\b`), // Credit card
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:        result = pattern.ReplaceAllString(result, "${1}${2}[REDACTED]")
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:func (r *SensitiveDataRedactor) RedactMap(data map[string]interface{}) map[string]interface{} {
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:    result := make(map[string]interface{})
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:func (l *SafeLogger) Error(msg string, fields map[string]interface{}) {
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:func (l *SafeLogger) Warn(msg string, fields map[string]interface{}) {
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:func (l *SafeLogger) Info(msg string, fields map[string]interface{}) {
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:func (l *SafeLogger) Debug(msg string, fields map[string]interface{}) {
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:        stopCh:        make(chan struct{}),
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:    Details map[string]interface{} `json:"details,omitempty"`
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:    err := c.redisClient.Execute(ctx, func() (interface{}, error) {
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:            Details: map[string]interface{}{
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:        Details: map[string]interface{}{
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:            Details: map[string]interface{}{
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:        Details: map[string]interface{}{
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:        Details: map[string]interface{}{
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:        Details: map[string]interface{}{
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:        c.JSON(500, gin.H{"error": "health check failed", "details": err.Error()})
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:    GetStats() map[string]interface{}
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:    StoreEmbedding(ctx context.Context, id string, embedding []float32, metadata map[string]interface{}) error
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:    SearchSimilarWithFilter(ctx context.Context, embedding []float32, threshold float32, limit int, filter map[string]interface{}) ([]SearchResult, error)
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:    c.cache.Range(func(key, value interface{}) bool {
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:    c.cache.Range(func(key, value interface{}) bool {
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:        config = &Config{}
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:    mc.entries.Range(func(key, value interface{}) bool {
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:        mc.entries.Range(func(key, value interface{}) bool {
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:        err := c.redis.Execute(ctx, func() (interface{}, error) {
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:    Metadata    map[string]interface{} `json:"metadata,omitempty"`
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:        event.Metadata = map[string]interface{}{
+./pkg/embedding/cache/PRODUCTION_READY_IMPLEMENTATION_PLAN.md:    al.logger.Info("AUDIT", map[string]interface{}{
+./pkg/embedding/README.md:    AgentCapabilities: []string{"premium"},
+./pkg/embedding/README.md:    Filters: map[string]interface{}{
+./pkg/embedding/README.md:    Metadata: map[string]interface{}{
+./pkg/embedding/README.md:    EnabledProviders: []string{"openai", "bedrock"},
+./pkg/agents/README.md:    Capabilities: map[string]interface{}{
+./pkg/agents/README.md:        "features": []string{"code_editing", "debugging", "testing"},
+./pkg/agents/README.md:        "languages": []string{"go", "python", "javascript"},
+./pkg/agents/README.md:    Configuration: map[string]interface{}{
+./pkg/agents/README.md:    ConnectionDetails: map[string]interface{}{
+./pkg/models/README.md:    Metadata     map[string]interface{} `json:"metadata" db:"metadata"`
+./pkg/models/README.md:    Input           map[string]interface{} `json:"input"`
+./pkg/models/README.md:    Config          map[string]interface{} `json:"config"`
+./pkg/models/README.md:    AgentStatusOffline:     {AgentStatusStarting},
+./pkg/models/README.md:    AgentStatusStarting:    {AgentStatusActive, AgentStatusError},
+./pkg/models/README.md:    AgentStatusActive:      {AgentStatusDraining, AgentStatusMaintenance, AgentStatusError, AgentStatusStopping},
+./pkg/models/README.md:type JSONMap map[string]interface{}
+./pkg/models/README.md:func (m *JSONMap) Scan(value interface{}) error
+./pkg/models/README.md:    Definition  map[string]interface{} `json:"definition" db:"definition"`
+./pkg/models/README.md:    Metrics        map[string]interface{} `json:"metrics,omitempty"`
+./pkg/observability/README.md:    observability.DefaultLogger.Info("Starting operation", map[string]interface{}{
+./pkg/observability/README.md:observability.DefaultLogger.Info("Processing request", map[string]interface{}{
+./pkg/observability/README.md:observability.DefaultLogger.Warn("Warning message", map[string]interface{}{"count": 10})
+./pkg/observability/README.md:observability.DefaultLogger.Error("Error occurred", map[string]interface{}{"error": err.Error()})
+./pkg/observability/README.md:span.AddEvent("Processing started", map[string]interface{}{
+./pkg/observability/README.md:    Debug(msg string, fields map[string]interface{})
+./pkg/observability/README.md:    Info(msg string, fields map[string]interface{})
+./pkg/observability/README.md:    Warn(msg string, fields map[string]interface{})
+./pkg/observability/README.md:    Error(msg string, fields map[string]interface{})
+./pkg/observability/README.md:    Fatal(msg string, fields map[string]interface{})
+./pkg/observability/README.md:    Debugf(format string, args ...interface{})
+./pkg/observability/README.md:    Infof(format string, args ...interface{})
+./pkg/observability/README.md:    Warnf(format string, args ...interface{})
+./pkg/observability/README.md:    Errorf(format string, args ...interface{})
+./pkg/observability/README.md:    Fatalf(format string, args ...interface{})
+./pkg/observability/README.md:    With(fields map[string]interface{}) Logger
+./pkg/observability/README.md:    SetAttribute(key string, value interface{})
+./pkg/observability/README.md:    AddEvent(name string, attributes map[string]interface{})
+./pkg/observability/README.md:logger.Info("Task processed", map[string]interface{}{
+./pkg/observability/README.md:    logger.Error("Operation failed", map[string]interface{}{
+./pkg/observability/README.md:    observability.Initialize(observability.Config{})
+./pkg/observability/README.md:    logger.Info("Processing complete", map[string]interface{}{
+./pkg/adapters/README.md:    ProviderConfig: map[string]interface{}{
+./pkg/common/README.md:    Get(ctx context.Context, key string, dest interface{}) error
+./pkg/common/README.md:    Set(ctx context.Context, key string, value interface{}, ttl time.Duration) error
+./pkg/common/README.md:    Details    map[string]interface{}
+./pkg/common/README.md:    Details: map[string]interface{}{
+./pkg/common/README.md:    Payload:   map[string]interface{}{"task_id": taskID},
+./pkg/common/README.md:logger.SetFormatter(&logrus.JSONFormatter{})
+./pkg/common/README.md:    []string{"status", "type"},
+./pkg/common/README.md:    []string{"operation"},
+./pkg/common/README.md:    []string{"capability"},
+./pkg/queue/README.md:    Metadata       map[string]interface{} `json:"metadata,omitempty"`
+./pkg/queue/README.md:    return &SQSClient{Client: client, QueueURL: queueURL}, nil
+./pkg/queue/README.md:        messages: []*types.Message{},
+./pkg/queue/README.md:        config:   &SQSAdapterConfig{MockMode: true},
+./pkg/queue/README.md:    Payload:    json.RawMessage(`{"ref": "refs/heads/main"}`),
+./pkg/rules/README.md:    Metadata   map[string]interface{} `json:"metadata" db:"metadata"`
+./pkg/rules/README.md:    Metadata map[string]interface{} `json:"metadata,omitempty"`
+./pkg/rules/README.md:    Evaluate(ctx context.Context, ruleName string, data interface{}) (*Decision, error)
+./pkg/rules/README.md:    UpdateRule(ctx context.Context, ruleID uuid.UUID, updates map[string]interface{}) error
+./pkg/rules/README.md:    GetRules(ctx context.Context, category string, filters map[string]interface{}) ([]Rule, error)
+./pkg/rules/README.md:func (e *engine) evaluateExpression(expr string, params map[string]interface{}) (interface{}, error) {
+./pkg/rules/README.md:data := map[string]interface{}{
+./pkg/rules/README.md:data := map[string]interface{}{
+./pkg/rules/README.md:        data     map[string]interface{}
+./pkg/rules/README.md:            data:     map[string]interface{}{"value": 15},
+./pkg/rules/README.md:            data:     map[string]interface{}{"value": 5},
+./pkg/worker/README.md:	redisAdapter := &redisAdapter{client: redisClient}
+./pkg/events/README.md:    Data          interface{}
+./pkg/events/README.md:    Data() interface{}
+./pkg/events/README.md:    EventData    interface{}       `json:"event_data"`
+./pkg/events/README.md:func NewBaseEvent(eventType string, aggregateID string, data interface{}) *BaseEvent {
+./pkg/events/README.md:    Changes   map[string]interface{} `json:"changes"`
+./pkg/events/README.md:    Result     interface{} `json:"result"`
+./pkg/events/README.md:    Content     interface{} `json:"content"`
+./pkg/events/README.md:    Data: map[string]interface{}{
+./pkg/events/README.md:        serializer:  &JSONEventSerializer{},
+./pkg/events/README.md:    a.UncommittedEvents = []Event{}
+./pkg/events/README.md:    context := &Context{}
+./pkg/events/README.md:        []string{"event_type"},
+./pkg/events/README.md:        []string{"event_type", "handler", "status"},
+./pkg/events/README.md:        []string{"event_type", "handler"},
+./pkg/events/README.md:        []string{"queue_name"},
+./pkg/services/README.md:    Parameters: map[string]interface{}{
+./pkg/services/README.md:            Dependencies: []string{},
+./pkg/services/README.md:            Dependencies: []string{"build"},
+./pkg/services/README.md:            Dependencies: []string{"test"},
+./pkg/services/README.md:    Variables: map[string]interface{}{
+./pkg/services/README.md:    Outputs: map[string]interface{}{
+./pkg/services/README.md:        Features: []string{"code_review", "ci_cd"},
+./pkg/services/README.md:    Capabilities: []Capability{CapabilityCodeAnalysis},
+./pkg/services/README.md:    Requirements: []string{"security_scan", "code_analysis"},
+./pkg/services/README.md:result, err := service.WithCircuitBreaker("external-api", func() (interface{}, error) {

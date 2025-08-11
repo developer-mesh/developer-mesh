@@ -1,0 +1,11 @@
+Go module: .
+Go module: ./test/e2e
+Go module: ./test/functional
+Go module: ./test/github-live
+Go module: ./apps/mcp-server
+Go module: ./apps/mcp-server/tests/integration
+Go module: ./apps/mockserver
+Go module: ./apps/worker
+Go module: ./apps/rest-api
+Go module: ./pkg
+Go module: ./pkg/tests/integration

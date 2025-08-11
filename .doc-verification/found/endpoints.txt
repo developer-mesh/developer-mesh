@@ -1,0 +1,743 @@
+apps/mcp-server/cmd/server/main.go:	// Handle backward compatibility - rate_limit as integer
+apps/mcp-server/cmd/server/main.go:		// Handle structured rate_limit configuration
+apps/mcp-server/internal/core/mocks/engine.go:// HandleAdapterWebhook mocks the HandleAdapterWebhook method
+apps/mcp-server/internal/core/mocks/engine.go:func (m *MockEngine) HandleAdapterWebhook(ctx context.Context, adapterType string, eventType string, payload []byte) error {
+apps/mcp-server/internal/core/context_manager.go:	// Handle content updates
+apps/mcp-server/internal/core/context/manager.go:	// Handle content updates
+apps/mcp-server/internal/core/context/manager.go:			// Handle item metadata the same way as context metadata
+apps/mcp-server/internal/core/context/manager.go:		// Handle item metadata the same way as context metadata
+apps/mcp-server/internal/core/interfaces.go:	// HandleAdapterWebhook handles a webhook event using the appropriate adapter
+apps/mcp-server/internal/core/interfaces.go:	HandleAdapterWebhook(ctx context.Context, adapterType string, eventType string, payload []byte) error
+apps/mcp-server/internal/core/engine_test.go:func (m *MockAdapterTest) HandleWebhook(ctx context.Context, eventType string, payload []byte) error {
+apps/mcp-server/internal/core/engine_test.go:func TestSetupEventHandlers(t *testing.T) {
+apps/mcp-server/internal/core/engine_test.go:	// This test needs to be updated since the setupGithubEventHandlers method has been refactored
+apps/mcp-server/internal/core/adapter_context_bridge.go:	// HandleWebhook handles a webhook from the adapter
+apps/mcp-server/internal/core/adapter_context_bridge.go:	HandleWebhook(ctx context.Context, eventType string, payload []byte) error
+apps/mcp-server/internal/core/adapter_context_bridge.go:// HandleToolWebhook handles a webhook from a tool
+apps/mcp-server/internal/core/adapter_context_bridge.go:func (b *AdapterContextBridge) HandleToolWebhook(ctx context.Context, tool string, eventType string, payload []byte) error {
+apps/mcp-server/internal/core/adapter_context_bridge.go:	// Handle the webhook with the adapter
+apps/mcp-server/internal/core/adapter_context_bridge.go:	return adapter.HandleWebhook(ctx, eventType, payload)
+apps/mcp-server/internal/core/engine.go:// WebhookHandler defines the interface for handling webhooks
+apps/mcp-server/internal/core/engine.go:type WebhookHandler interface {
+apps/mcp-server/internal/core/engine.go:	// HandleWebhook handles a webhook event
+apps/mcp-server/internal/core/engine.go:	HandleWebhook(ctx context.Context, eventType string, payload []byte) error
+apps/mcp-server/internal/core/engine.go:// HandleAdapterWebhook handles a webhook event using the appropriate adapter
+apps/mcp-server/internal/core/engine.go:func (e *Engine) HandleAdapterWebhook(ctx context.Context, adapterType string, eventType string, payload []byte) error {
+apps/mcp-server/internal/core/engine.go:	if webhookHandler, ok := adapter.(WebhookHandler); ok {
+apps/mcp-server/internal/core/engine.go:		return webhookHandler.HandleWebhook(ctx, eventType, payload)
+apps/mcp-server/internal/core/tool/tool.go:// ToolHandler is a function that handles a tool call
+apps/mcp-server/internal/core/tool/tool.go:type ToolHandler func(params map[string]interface{}) (interface{}, error)
+apps/mcp-server/internal/core/tool/tool.go:	Handler    ToolHandler
+apps/mcp-server/internal/core/adapter_context_bridge_test.go:func (m *MockAdapter) HandleWebhook(ctx context.Context, eventType string, payload []byte) error {
+apps/mcp-server/internal/core/adapter_context_bridge_test.go:func TestHandleToolWebhook(t *testing.T) {
+apps/mcp-server/internal/core/adapter_context_bridge_test.go:	mockAdapter.On("HandleWebhook", ctx, eventType, jsonPayload).Return(nil)
+apps/mcp-server/internal/core/adapter_context_bridge_test.go:	// Handle the webhook
+apps/mcp-server/internal/core/adapter_context_bridge_test.go:	err := bridge.HandleToolWebhook(ctx, tool, eventType, jsonPayload)
+apps/mcp-server/internal/adapters/openapi/adapter.go:			// Handle OAuth2 if needed in future
+apps/mcp-server/internal/api/websocket/workflow_engine.go:			// Handle both []string and []interface{} cases
+apps/mcp-server/internal/api/websocket/handlers_extended.go:// RegisterExtendedHandlers adds universal agent handlers to the server
+apps/mcp-server/internal/api/websocket/handlers_extended.go:func (es *ExtendedServer) RegisterExtendedHandlers() {
+apps/mcp-server/internal/api/websocket/handlers_extended.go:	universalHandlers := map[string]MessageHandler{
+apps/mcp-server/internal/api/websocket/handlers_extended.go:		"agent.universal.register": es.HandleUniversalAgentRegister,
+apps/mcp-server/internal/api/websocket/handlers_extended.go:		"agent.universal.discover": es.HandleUniversalAgentDiscover,
+apps/mcp-server/internal/api/websocket/handlers_extended.go:		"agent.universal.message":  es.HandleAgentMessage,
+apps/mcp-server/internal/api/websocket/handlers_extended.go:		"agent.universal.health":   es.HandleAgentHealth,
+apps/mcp-server/internal/api/websocket/handlers_extended.go:		"agent.register": es.HandleUniversalAgentRegister,
+apps/mcp-server/internal/api/websocket/handlers_extended.go:		"agent.discover": es.HandleUniversalAgentDiscover,
+apps/mcp-server/internal/api/websocket/handlers_extended.go:	for name, handler := range universalHandlers {
+apps/mcp-server/internal/api/websocket/handlers_extended.go:		"handler_count": len(universalHandlers),
+apps/mcp-server/internal/api/websocket/agent_id_handling_test.go:			// Simulate the connection initialization logic from HandleWebSocket
+apps/mcp-server/internal/api/websocket/agent_id_handling_test.go:// TestAgentIDPersistenceInHandlers tests that agent ID is properly passed through message handlers
+apps/mcp-server/internal/api/websocket/agent_id_handling_test.go:func TestAgentIDPersistenceInHandlers(t *testing.T) {
+apps/mcp-server/internal/api/websocket/server.go:	handlers    map[string]interface{} // Can be MessageHandler or MessageHandlerWithPostAction
+apps/mcp-server/internal/api/websocket/server.go:	tracingHandler *TracingHandler
+apps/mcp-server/internal/api/websocket/server.go:		tracingHandler: NewTracingHandler(tracerFunc, metrics, logger),
+apps/mcp-server/internal/api/websocket/server.go:	s.RegisterHandlers()
+apps/mcp-server/internal/api/websocket/server.go:func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
+apps/mcp-server/internal/api/websocket/universal_agent_handlers_extended.go:// HandleUniversalAgentRegister handles universal agent registration using the manifest system
+apps/mcp-server/internal/api/websocket/universal_agent_handlers_extended.go:func (es *ExtendedServer) HandleUniversalAgentRegister(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
+apps/mcp-server/internal/api/websocket/universal_agent_handlers_extended.go:// HandleUniversalAgentDiscover discovers agents using capability-based routing
+apps/mcp-server/internal/api/websocket/universal_agent_handlers_extended.go:func (es *ExtendedServer) HandleUniversalAgentDiscover(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
+apps/mcp-server/internal/api/websocket/universal_agent_handlers_extended.go:// HandleAgentMessage handles message routing between agents
+apps/mcp-server/internal/api/websocket/universal_agent_handlers_extended.go:func (es *ExtendedServer) HandleAgentMessage(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
+apps/mcp-server/internal/api/websocket/universal_agent_handlers_extended.go:// HandleAgentHealth handles agent health status updates
+apps/mcp-server/internal/api/websocket/universal_agent_handlers_extended.go:func (es *ExtendedServer) HandleAgentHealth(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
+apps/mcp-server/internal/api/websocket/handlers.go:// MessageHandler processes a specific message type
+apps/mcp-server/internal/api/websocket/handlers.go:type MessageHandler func(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error)
+apps/mcp-server/internal/api/websocket/handlers.go:// MessageHandlerWithPostAction is an enhanced handler that can return a post-response action
+apps/mcp-server/internal/api/websocket/handlers.go:type MessageHandlerWithPostAction func(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, *PostActionConfig, error)
+apps/mcp-server/internal/api/websocket/handlers.go:// RegisterHandlers sets up all message handlers
+apps/mcp-server/internal/api/websocket/handlers.go:func (s *Server) RegisterHandlers() {
+apps/mcp-server/internal/api/websocket/handlers.go:	// Initialize handlers as MessageHandler type
+apps/mcp-server/internal/api/websocket/handlers.go:	handlers := map[string]MessageHandler{
+apps/mcp-server/internal/api/websocket/handlers.go:	s.handlers["protocol.set_binary"] = MessageHandlerWithPostAction(s.handleSetBinaryProtocolWithPostAction)
+apps/mcp-server/internal/api/websocket/handlers.go:// Handler dependencies are already integrated into the Server struct in server.go:
+apps/mcp-server/internal/api/websocket/handlers.go:// - handlers map[string]MessageHandler
+apps/mcp-server/internal/api/websocket/handlers.go:	// Handle special message types first
+apps/mcp-server/internal/api/websocket/handlers.go:		// Handle ping messages directly
+apps/mcp-server/internal/api/websocket/handlers.go:	if handlerWithPost, ok := handlerInterface.(MessageHandlerWithPostAction); ok {
+apps/mcp-server/internal/api/websocket/handlers.go:		// Handler supports post-action
+apps/mcp-server/internal/api/websocket/handlers.go:		if s.tracingHandler != nil {
+apps/mcp-server/internal/api/websocket/handlers.go:			err = s.tracingHandler.HandleWithTracing(ctx, msg.Method, func(tracedCtx context.Context) error {
+apps/mcp-server/internal/api/websocket/handlers.go:	} else if handler, ok := handlerInterface.(MessageHandler); ok {
+apps/mcp-server/internal/api/websocket/handlers.go:		if s.tracingHandler != nil {
+apps/mcp-server/internal/api/websocket/handlers.go:			err = s.tracingHandler.HandleWithTracing(ctx, msg.Method, func(tracedCtx context.Context) error {
+apps/mcp-server/internal/api/websocket/handlers.go:		s.logger.Error("Handler error", map[string]interface{}{
+apps/mcp-server/internal/api/websocket/handlers.go:	// Handle empty params case
+apps/mcp-server/internal/api/websocket/connection_test.go:	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+apps/mcp-server/internal/api/websocket/connection_test.go:	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+apps/mcp-server/internal/api/websocket/connection_test.go:	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+apps/mcp-server/internal/api/websocket/monitoring.go:		monitor.GET("/stats", m.handleStats)
+apps/mcp-server/internal/api/websocket/monitoring.go:		monitor.GET("/connections", m.handleConnections)
+apps/mcp-server/internal/api/websocket/monitoring.go:		monitor.GET("/health", m.handleHealth)
+apps/mcp-server/internal/api/websocket/monitoring.go:		monitor.GET("/metrics", m.handleMetrics)
+apps/mcp-server/internal/api/websocket/tracing_handler.go:// TracingHandler wraps handlers with distributed tracing
+apps/mcp-server/internal/api/websocket/tracing_handler.go:type TracingHandler struct {
+apps/mcp-server/internal/api/websocket/tracing_handler.go:// NewTracingHandler creates a new tracing handler wrapper
+apps/mcp-server/internal/api/websocket/tracing_handler.go:func NewTracingHandler(tracer observability.StartSpanFunc, metrics observability.MetricsClient, logger observability.Logger) *TracingHandler {
+apps/mcp-server/internal/api/websocket/tracing_handler.go:	return &TracingHandler{
+apps/mcp-server/internal/api/websocket/tracing_handler.go:// HandleWithTracing wraps a handler function with tracing and metrics
+apps/mcp-server/internal/api/websocket/tracing_handler.go:func (h *TracingHandler) HandleWithTracing(ctx context.Context, method string, handler func(context.Context) error) error {
+apps/mcp-server/internal/api/websocket/tracing_handler.go:// HandleMessageWithTracing wraps message handlers with tracing
+apps/mcp-server/internal/api/websocket/tracing_handler.go:func (h *TracingHandler) HandleMessageWithTracing(ctx context.Context, msg *ws.Message, handler func(context.Context, *ws.Message) (*ws.Message, error)) (*ws.Message, error) {
+apps/mcp-server/internal/api/websocket/tracing_handler.go:// HandleNotificationWithTracing wraps notification handlers with tracing
+apps/mcp-server/internal/api/websocket/tracing_handler.go:func (h *TracingHandler) HandleNotificationWithTracing(ctx context.Context, method string, params interface{}, handler func(context.Context, interface{}) error) error {
+apps/mcp-server/internal/api/websocket/tracing_handler.go:func (h *TracingHandler) recordMetrics(method string, success bool, duration time.Duration) {
+apps/mcp-server/internal/api/websocket/tracing_handler.go:func (h *TracingHandler) recordMessageMetrics(method string, success bool, duration time.Duration) {
+apps/mcp-server/internal/api/websocket/tracing_handler.go:func (h *TracingHandler) recordNotificationMetrics(method string, success bool, duration time.Duration) {
+apps/mcp-server/internal/api/websocket/tracing_handler.go:// WrapHandler wraps a simple handler function with tracing
+apps/mcp-server/internal/api/websocket/tracing_handler.go:func (h *TracingHandler) WrapHandler(method string, handler func(context.Context) error) func(context.Context) error {
+apps/mcp-server/internal/api/websocket/tracing_handler.go:		return h.HandleWithTracing(ctx, method, handler)
+apps/mcp-server/internal/api/websocket/tracing_handler.go:// WrapMessageHandler wraps a message handler function with tracing
+apps/mcp-server/internal/api/websocket/tracing_handler.go:func (h *TracingHandler) WrapMessageHandler(handler func(context.Context, *ws.Message) (*ws.Message, error)) func(context.Context, *ws.Message) (*ws.Message, error) {
+apps/mcp-server/internal/api/websocket/tracing_handler.go:		return h.HandleMessageWithTracing(ctx, msg, handler)
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:// AgentMessageHandler defines the interface for agent-specific message handlers
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:type AgentMessageHandler interface {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:	HandleMessage(ctx context.Context, msg *AgentMessage) (*AgentMessage, error)
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:// BaseMessageHandler provides common functionality for all handlers
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:type BaseMessageHandler struct {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:// IDEMessageHandler handles messages for IDE agents
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:type IDEMessageHandler struct {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:	BaseMessageHandler
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:// NewIDEMessageHandler creates a new IDE message handler
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func NewIDEMessageHandler(logger observability.Logger, metrics observability.MetricsClient, broker *AgentMessageBroker) *IDEMessageHandler {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:	return &IDEMessageHandler{
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:		BaseMessageHandler: BaseMessageHandler{
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (h *IDEMessageHandler) GetAgentType() string {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (h *IDEMessageHandler) GetSupportedMessageTypes() []string {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (h *IDEMessageHandler) ValidateMessage(msg *AgentMessage) error {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (h *IDEMessageHandler) HandleMessage(ctx context.Context, msg *AgentMessage) (*AgentMessage, error) {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:	// Handle different message types
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (h *IDEMessageHandler) handleCodeCompletion(ctx context.Context, msg *AgentMessage) (*AgentMessage, error) {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (h *IDEMessageHandler) handleCodeAnalysis(ctx context.Context, msg *AgentMessage) (*AgentMessage, error) {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (h *IDEMessageHandler) routeToJira(ctx context.Context, msg *AgentMessage) (*AgentMessage, error) {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (h *IDEMessageHandler) routeToDocumentation(ctx context.Context, msg *AgentMessage) (*AgentMessage, error) {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (h *IDEMessageHandler) routeToCICD(ctx context.Context, msg *AgentMessage) (*AgentMessage, error) {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (h *IDEMessageHandler) handleDefault(ctx context.Context, msg *AgentMessage) (*AgentMessage, error) {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:// SlackMessageHandler handles messages for Slack agents
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:type SlackMessageHandler struct {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:	BaseMessageHandler
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:// NewSlackMessageHandler creates a new Slack message handler
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func NewSlackMessageHandler(logger observability.Logger, metrics observability.MetricsClient, broker *AgentMessageBroker) *SlackMessageHandler {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:	return &SlackMessageHandler{
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:		BaseMessageHandler: BaseMessageHandler{
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (h *SlackMessageHandler) GetAgentType() string {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (h *SlackMessageHandler) GetSupportedMessageTypes() []string {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (h *SlackMessageHandler) ValidateMessage(msg *AgentMessage) error {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (h *SlackMessageHandler) HandleMessage(ctx context.Context, msg *AgentMessage) (*AgentMessage, error) {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (h *SlackMessageHandler) handleNotification(ctx context.Context, msg *AgentMessage) (*AgentMessage, error) {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (h *SlackMessageHandler) handleAlert(ctx context.Context, msg *AgentMessage) (*AgentMessage, error) {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (h *SlackMessageHandler) getColorForSeverity(severity string) string {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (h *SlackMessageHandler) routeToIDE(ctx context.Context, msg *AgentMessage) (*AgentMessage, error) {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (h *SlackMessageHandler) routeToJira(ctx context.Context, msg *AgentMessage) (*AgentMessage, error) {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (h *SlackMessageHandler) routeToCICD(ctx context.Context, msg *AgentMessage) (*AgentMessage, error) {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (h *SlackMessageHandler) handleDefault(ctx context.Context, msg *AgentMessage) (*AgentMessage, error) {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:// MonitoringMessageHandler handles messages for monitoring agents
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:type MonitoringMessageHandler struct {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:	BaseMessageHandler
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:// NewMonitoringMessageHandler creates a new monitoring message handler
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func NewMonitoringMessageHandler(logger observability.Logger, metrics observability.MetricsClient, broker *AgentMessageBroker) *MonitoringMessageHandler {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:	return &MonitoringMessageHandler{
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:		BaseMessageHandler: BaseMessageHandler{
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (h *MonitoringMessageHandler) GetAgentType() string {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (h *MonitoringMessageHandler) GetSupportedMessageTypes() []string {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (h *MonitoringMessageHandler) ValidateMessage(msg *AgentMessage) error {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (h *MonitoringMessageHandler) HandleMessage(ctx context.Context, msg *AgentMessage) (*AgentMessage, error) {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (h *MonitoringMessageHandler) handleMetricReport(ctx context.Context, msg *AgentMessage) (*AgentMessage, error) {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (h *MonitoringMessageHandler) handleMetricThreshold(ctx context.Context, msg *AgentMessage) (*AgentMessage, error) {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (h *MonitoringMessageHandler) handleHealthCheck(ctx context.Context, msg *AgentMessage) (*AgentMessage, error) {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (h *MonitoringMessageHandler) handleAlertTrigger(ctx context.Context, msg *AgentMessage) (*AgentMessage, error) {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (h *MonitoringMessageHandler) routeToIncidentManagement(ctx context.Context, msg *AgentMessage) (*AgentMessage, error) {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (h *MonitoringMessageHandler) routeToSlack(ctx context.Context, msg *AgentMessage) (*AgentMessage, error) {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (h *MonitoringMessageHandler) handleDefault(ctx context.Context, msg *AgentMessage) (*AgentMessage, error) {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:// MessageHandlerRegistry manages all message handlers
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:type MessageHandlerRegistry struct {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:	handlers map[string]AgentMessageHandler
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:// NewMessageHandlerRegistry creates a new handler registry
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func NewMessageHandlerRegistry(logger observability.Logger, metrics observability.MetricsClient, broker *AgentMessageBroker) *MessageHandlerRegistry {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:	registry := &MessageHandlerRegistry{
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:		handlers: make(map[string]AgentMessageHandler),
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:	registry.RegisterHandler("ide", NewIDEMessageHandler(logger, metrics, broker))
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:	registry.RegisterHandler("slack", NewSlackMessageHandler(logger, metrics, broker))
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:	registry.RegisterHandler("monitoring", NewMonitoringMessageHandler(logger, metrics, broker))
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:// RegisterHandler registers a message handler for an agent type
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (r *MessageHandlerRegistry) RegisterHandler(agentType string, handler AgentMessageHandler) {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:// GetHandler returns the handler for an agent type
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (r *MessageHandlerRegistry) GetHandler(agentType string) (AgentMessageHandler, bool) {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (r *MessageHandlerRegistry) ProcessMessage(ctx context.Context, msg *AgentMessage) (*AgentMessage, error) {
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:	handler, exists := r.GetHandler(handlerType)
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:	response, err := handler.HandleMessage(ctx, msg)
+apps/mcp-server/internal/api/websocket/agent_message_handlers.go:func (r *MessageHandlerRegistry) GetSupportedMessageTypes() map[string][]string {
+apps/mcp-server/internal/api/websocket/server_test.go:// TestHandleWebSocket tests WebSocket connection handling
+apps/mcp-server/internal/api/websocket/server_test.go:func TestHandleWebSocket(t *testing.T) {
+apps/mcp-server/internal/api/websocket/server_test.go:	ts := httptest.NewServer(http.HandlerFunc(server.HandleWebSocket))
+apps/mcp-server/internal/api/tools/registry.go:// ToolHandler defines the interface for tool execution
+apps/mcp-server/internal/api/tools/registry.go:type ToolHandler interface {
+apps/mcp-server/internal/api/tools/registry.go:	handlers map[string]ToolHandler
+apps/mcp-server/internal/api/tools/registry.go:		handlers: make(map[string]ToolHandler),
+apps/mcp-server/internal/api/tools/registry.go:func (r *Registry) Register(tool *Tool, handler ToolHandler) error {
+apps/mcp-server/internal/api/tools/registry.go:// ProxyToolHandler proxies tool execution to the REST API
+apps/mcp-server/internal/api/tools/registry.go:type ProxyToolHandler struct {
+apps/mcp-server/internal/api/tools/registry.go:func (h *ProxyToolHandler) Execute(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+apps/mcp-server/internal/api/tools/registry.go:func (h *ProxyToolHandler) GetSchema() map[string]interface{} {
+apps/mcp-server/internal/api/tools/registry.go:func (h *ProxyToolHandler) Validate(params map[string]interface{}) error {
+apps/mcp-server/internal/api/tools/github/github_tools_test.go:// newTestGitHubToolsHandler creates a test-only constructor
+apps/mcp-server/internal/api/tools/github/github_tools_test.go:func newTestGitHubToolsHandler(mockAdapter *MockGitHubAdapter, logger observability.Logger) *GitHubToolsHandler {
+apps/mcp-server/internal/api/tools/github/github_tools_test.go:		Handler: func(params map[string]interface{}) (interface{}, error) {
+apps/mcp-server/internal/api/tools/github/github_tools_test.go:	return &GitHubToolsHandler{
+apps/mcp-server/internal/api/tools/github/github_tools_test.go:func TestGitHubToolsHandler_ListTools(t *testing.T) {
+apps/mcp-server/internal/api/tools/github/github_tools_test.go:	handler := newTestGitHubToolsHandler(mockAdapter, logger)
+apps/mcp-server/internal/api/tools/github/github_tools_test.go:func TestGitHubToolsHandler_GetToolSchema(t *testing.T) {
+apps/mcp-server/internal/api/tools/github/github_tools_test.go:	handler := newTestGitHubToolsHandler(mockAdapter, logger)
+apps/mcp-server/internal/api/tools/github/github_tools_test.go:func TestGitHubToolsHandler_ExecuteTool(t *testing.T) {
+apps/mcp-server/internal/api/tools/github/github_tools_test.go:	handler := newTestGitHubToolsHandler(mockAdapter, logger)
+apps/mcp-server/internal/api/tools/github/github_tools_test.go:		Handler: func(params map[string]interface{}) (interface{}, error) {
+apps/mcp-server/internal/api/tools/github/github_tools_test.go:	result, err := retrievedTool.Handler(map[string]interface{}{
+apps/mcp-server/internal/api/tools/github/github_tools.go:// GitHubToolsHandler handles GitHub tool endpoints
+apps/mcp-server/internal/api/tools/github/github_tools.go:type GitHubToolsHandler struct {
+apps/mcp-server/internal/api/tools/github/github_tools.go:// NewGitHubToolsHandler creates a new GitHub tools handler
+apps/mcp-server/internal/api/tools/github/github_tools.go:func NewGitHubToolsHandler(
+apps/mcp-server/internal/api/tools/github/github_tools.go:) *GitHubToolsHandler {
+apps/mcp-server/internal/api/tools/github/github_tools.go:	return &GitHubToolsHandler{
+apps/mcp-server/internal/api/tools/github/github_tools.go:func (h *GitHubToolsHandler) RegisterRoutes(router *gin.RouterGroup) {
+apps/mcp-server/internal/api/tools/github/github_tools.go:func (h *GitHubToolsHandler) listTools(c *gin.Context) {
+apps/mcp-server/internal/api/tools/github/github_tools.go:func (h *GitHubToolsHandler) getToolSchema(c *gin.Context) {
+apps/mcp-server/internal/api/tools/github/github_tools.go:func (h *GitHubToolsHandler) executeTool(c *gin.Context) {
+apps/mcp-server/internal/api/tools/github/github_tools.go:	result, err := t.Handler(req.Parameters)
+apps/mcp-server/internal/api/tools/github/github_tools.go:	handler := NewGitHubToolsHandler(githubAdapter, logger)
+apps/mcp-server/internal/api/tools/github/tool_definitions_final.go:		Handler: func(params map[string]interface{}) (interface{}, error) {
+apps/mcp-server/internal/api/tools/github/tool_definitions_final.go:		Handler: func(params map[string]interface{}) (interface{}, error) {
+apps/mcp-server/internal/api/tools/github/tool_definitions_final.go:		Handler: func(params map[string]interface{}) (interface{}, error) {
+apps/mcp-server/internal/api/tools/github/tool_definitions_final.go:		Handler: func(params map[string]interface{}) (interface{}, error) {
+apps/mcp-server/internal/api/tools/github/tool_definitions_final.go:		Handler: func(params map[string]interface{}) (interface{}, error) {
+apps/mcp-server/internal/api/tools/github/tool_definitions_final.go:		Handler: func(params map[string]interface{}) (interface{}, error) {
+apps/mcp-server/internal/api/tools/github/tool_definitions_final.go:		Handler: func(params map[string]interface{}) (interface{}, error) {
+apps/mcp-server/internal/api/tools/github/tool_definitions_final.go:		Handler: func(params map[string]interface{}) (interface{}, error) {
+apps/mcp-server/internal/api/tools/github/tool_definitions_final.go:		Handler: func(params map[string]interface{}) (interface{}, error) {
+apps/mcp-server/internal/api/tools/github/tool_definitions_final.go:		Handler: func(params map[string]interface{}) (interface{}, error) {
+apps/mcp-server/internal/api/tools/github/tool_definitions_final.go:		Handler: func(params map[string]interface{}) (interface{}, error) {
+apps/mcp-server/internal/api/tools/github/tool_definitions_final.go:		Handler: func(params map[string]interface{}) (interface{}, error) {
+apps/mcp-server/internal/api/tools/github/tool_definitions_more.go:		Handler: func(params map[string]interface{}) (interface{}, error) {
+apps/mcp-server/internal/api/tools/github/tool_definitions_more.go:		Handler: func(params map[string]interface{}) (interface{}, error) {
+apps/mcp-server/internal/api/tools/github/tool_definitions_more.go:		Handler: func(params map[string]interface{}) (interface{}, error) {
+apps/mcp-server/internal/api/tools/github/tool_definitions_more.go:		Handler: func(params map[string]interface{}) (interface{}, error) {
+apps/mcp-server/internal/api/tools/github/tool_definitions_more.go:		Handler: func(params map[string]interface{}) (interface{}, error) {
+apps/mcp-server/internal/api/tools/github/tool_definitions_more.go:		Handler: func(params map[string]interface{}) (interface{}, error) {
+apps/mcp-server/internal/api/tools/github/tool_definitions_more.go:		Handler: func(params map[string]interface{}) (interface{}, error) {
+apps/mcp-server/internal/api/tools/github/tool_definitions_more.go:		Handler: func(params map[string]interface{}) (interface{}, error) {
+apps/mcp-server/internal/api/tools/github/tool_definitions_more.go:		Handler: func(params map[string]interface{}) (interface{}, error) {
+apps/mcp-server/internal/api/tools/github/tool_definitions.go:		Handler: func(params map[string]interface{}) (interface{}, error) {
+apps/mcp-server/internal/api/tools/github/tool_definitions.go:		Handler: func(params map[string]interface{}) (interface{}, error) {
+apps/mcp-server/internal/api/tools/github/tool_definitions.go:		Handler: func(params map[string]interface{}) (interface{}, error) {
+apps/mcp-server/internal/api/tools/github/tool_definitions.go:		Handler: func(params map[string]interface{}) (interface{}, error) {
+apps/mcp-server/internal/api/tools/github/tool_definitions.go:		Handler: func(params map[string]interface{}) (interface{}, error) {
+apps/mcp-server/internal/api/server.go:	router.Use(ErrorHandlerMiddleware()) // Add centralized error handling
+apps/mcp-server/internal/api/server.go:			Handler:           router,
+apps/mcp-server/internal/api/server.go:			Handler:           s.router,
+apps/mcp-server/internal/api/server.go:	s.router.GET("/", func(c *gin.Context) {
+apps/mcp-server/internal/api/server.go:	s.router.GET("/health", s.healthHandler)
+apps/mcp-server/internal/api/server.go:	s.router.GET("/metrics", s.metricsHandler)
+apps/mcp-server/internal/api/server.go:		// Convert gin handler to http.HandlerFunc
+apps/mcp-server/internal/api/server.go:		s.router.GET("/ws", func(c *gin.Context) {
+apps/mcp-server/internal/api/server.go:			s.wsServer.HandleWebSocket(c.Writer, c.Request)
+apps/mcp-server/internal/api/server.go:	s.router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, url))
+apps/mcp-server/internal/api/server.go:// healthHandler returns the health status of all components
+apps/mcp-server/internal/api/server.go:func (s *Server) healthHandler(c *gin.Context) {
+apps/mcp-server/internal/api/server.go:// metricsHandler returns metrics for Prometheus (commented out - unused)
+apps/mcp-server/internal/api/server.go:// func (s *Server) metricsHandler(c *gin.Context) {
+apps/mcp-server/internal/api/server.go:// metricsHandler returns metrics for Prometheus
+apps/mcp-server/internal/api/server.go:func (s *Server) metricsHandler(c *gin.Context) {
+apps/mcp-server/internal/api/server.go:	handler := SetupPrometheusHandler()
+apps/mcp-server/internal/api/middleware_test.go:	router.GET("/test", func(c *gin.Context) {
+apps/mcp-server/internal/api/middleware_test.go:	router.GET("/test", func(c *gin.Context) {
+apps/mcp-server/internal/api/middleware_test.go:	router.GET("/test", func(c *gin.Context) {
+apps/mcp-server/internal/api/middleware_test.go:	router.GET("/test", func(c *gin.Context) {
+apps/mcp-server/internal/api/docs.go:	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, url))
+apps/mcp-server/internal/api/docs.go:	router.GET("/redoc", func(c *gin.Context) {
+apps/mcp-server/internal/api/testMiddleware/middleware_test.go:func AuthMiddleware() gin.HandlerFunc {
+apps/mcp-server/internal/api/search_handlers.go:// SearchHandler manages vector search API endpoints
+apps/mcp-server/internal/api/search_handlers.go:type SearchHandler struct {
+apps/mcp-server/internal/api/search_handlers.go:// NewSearchHandler creates a new search handler
+apps/mcp-server/internal/api/search_handlers.go:func NewSearchHandler(searchService embedding.SearchService) *SearchHandler {
+apps/mcp-server/internal/api/search_handlers.go:	return &SearchHandler{
+apps/mcp-server/internal/api/search_handlers.go:func (h *SearchHandler) RegisterRoutes(router *http.ServeMux) {
+apps/mcp-server/internal/api/search_handlers.go:	router.HandleFunc("/api/v1/search", h.HandleSearch)
+apps/mcp-server/internal/api/search_handlers.go:	router.HandleFunc("/api/v1/search/vector", h.HandleSearchByVector)
+apps/mcp-server/internal/api/search_handlers.go:	router.HandleFunc("/api/v1/search/similar", h.HandleSearchSimilar)
+apps/mcp-server/internal/api/search_handlers.go:// HandleSearch handles text-based vector search requests
+apps/mcp-server/internal/api/search_handlers.go:func (h *SearchHandler) HandleSearch(w http.ResponseWriter, r *http.Request) {
+apps/mcp-server/internal/api/search_handlers.go:	// Handle both GET and POST requests
+apps/mcp-server/internal/api/search_handlers.go:// HandleSearchByVector handles vector-based search requests
+apps/mcp-server/internal/api/search_handlers.go:func (h *SearchHandler) HandleSearchByVector(w http.ResponseWriter, r *http.Request) {
+apps/mcp-server/internal/api/search_handlers.go:// HandleSearchSimilar handles "more like this" search requests
+apps/mcp-server/internal/api/search_handlers.go:func (h *SearchHandler) HandleSearchSimilar(w http.ResponseWriter, r *http.Request) {
+apps/mcp-server/internal/api/search_handlers.go:	// Handle both GET and POST requests
+apps/mcp-server/internal/api/search_handlers_test.go:func TestHandleSearch(t *testing.T) {
+apps/mcp-server/internal/api/search_handlers_test.go:	handler := NewSearchHandler(mockService)
+apps/mcp-server/internal/api/search_handlers_test.go:func TestHandleSearchByVector(t *testing.T) {
+apps/mcp-server/internal/api/search_handlers_test.go:	handler := NewSearchHandler(mockService)
+apps/mcp-server/internal/api/search_handlers_test.go:func TestHandleSearchSimilar(t *testing.T) {
+apps/mcp-server/internal/api/search_handlers_test.go:	handler := NewSearchHandler(mockService)
+apps/mcp-server/internal/api/dynamic_tools_passthrough_test.go:// mockOpenAPIHandler is a mock implementation of tools.OpenAPIHandler
+apps/mcp-server/internal/api/dynamic_tools_passthrough_test.go:type mockOpenAPIHandler struct{}
+apps/mcp-server/internal/api/dynamic_tools_passthrough_test.go:func (m *mockOpenAPIHandler) DiscoverAPIs(ctx context.Context, config tools.ToolConfig) (*tools.DiscoveryResult, error) {
+apps/mcp-server/internal/api/dynamic_tools_passthrough_test.go:func (m *mockOpenAPIHandler) GenerateTools(config tools.ToolConfig, spec *openapi3.T) ([]*tools.Tool, error) {
+apps/mcp-server/internal/api/dynamic_tools_passthrough_test.go:func (m *mockOpenAPIHandler) AuthenticateRequest(req *http.Request, creds *models.TokenCredential, securitySchemes map[string]tools.SecurityScheme) error {
+apps/mcp-server/internal/api/dynamic_tools_passthrough_test.go:func (m *mockOpenAPIHandler) TestConnection(ctx context.Context, config tools.ToolConfig) error {
+apps/mcp-server/internal/api/dynamic_tools_passthrough_test.go:func (m *mockOpenAPIHandler) ExtractSecuritySchemes(spec *openapi3.T) map[string]tools.SecurityScheme {
+apps/mcp-server/internal/api/dynamic_tools_passthrough_test.go:	toolServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+apps/mcp-server/internal/api/dynamic_tools_passthrough_test.go:	mockHandler := &mockOpenAPIHandler{}
+apps/mcp-server/internal/api/dynamic_tools_passthrough_test.go:	healthCheckMgr := tools.NewHealthCheckManager(cacheClient, mockHandler, logger, metricsClient)
+apps/mcp-server/internal/api/dynamic_tools_passthrough_test.go:		// Handle passthrough headers if present
+apps/mcp-server/internal/api/auth_middleware_test.go:	router.POST("/auth/login", authMiddleware.GinMiddleware(), func(c *gin.Context) {
+apps/mcp-server/internal/api/tracing_middleware.go:func TracingMiddleware() gin.HandlerFunc {
+apps/mcp-server/internal/api/tracing_middleware.go:func AIOperationTracingMiddleware() gin.HandlerFunc {
+apps/mcp-server/internal/api/dynamic_tools_api.go:	// Handle credentials
+apps/mcp-server/internal/api/dynamic_tools_api.go:	// Handle authentication if provided
+apps/mcp-server/internal/api/versioning.go:func VersioningMiddleware(config VersioningConfig) gin.HandlerFunc {
+apps/mcp-server/internal/api/versioning.go:func RouteToVersion(c *gin.Context, handlers map[APIVersion]gin.HandlerFunc) {
+apps/mcp-server/internal/api/versioning.go:func getSupportedVersions(handlers map[APIVersion]gin.HandlerFunc) []string {
+apps/mcp-server/internal/api/versioning.go:// VersionedHandlers holds handlers for different API versions
+apps/mcp-server/internal/api/versioning.go:type VersionedHandlers struct {
+apps/mcp-server/internal/api/versioning.go:	handlers map[APIVersion]gin.HandlerFunc
+apps/mcp-server/internal/api/versioning.go:// NewVersionedHandlers creates a new versioned handlers instance
+apps/mcp-server/internal/api/versioning.go:func NewVersionedHandlers() *VersionedHandlers {
+apps/mcp-server/internal/api/versioning.go:	return &VersionedHandlers{
+apps/mcp-server/internal/api/versioning.go:		handlers: make(map[APIVersion]gin.HandlerFunc),
+apps/mcp-server/internal/api/versioning.go:func (vh *VersionedHandlers) Add(version APIVersion, handler gin.HandlerFunc) *VersionedHandlers {
+apps/mcp-server/internal/api/versioning.go:func (vh *VersionedHandlers) AddDefault(handler gin.HandlerFunc) *VersionedHandlers {
+apps/mcp-server/internal/api/versioning.go:// Handle handles a request with the appropriate version handler
+apps/mcp-server/internal/api/versioning.go:func (vh *VersionedHandlers) Handle(c *gin.Context) {
+apps/mcp-server/internal/api/dynamic_tools_service.go:	// Handle credentials
+apps/mcp-server/internal/api/dynamic_tools_service.go:	// Handle credentials
+apps/mcp-server/internal/api/dynamic_tools_integration.go:	retryHandler := services.NewRetryHandler(logger)
+apps/mcp-server/internal/api/dynamic_tools_integration.go:	executionService := services.NewExecutionService(db, toolRegistry, retryHandler, logger)
+apps/mcp-server/internal/api/middleware.go:func RequestLogger() gin.HandlerFunc {
+apps/mcp-server/internal/api/middleware.go:func MetricsMiddleware() gin.HandlerFunc {
+apps/mcp-server/internal/api/middleware.go:func RateLimiter(config RateLimiterConfig) gin.HandlerFunc {
+apps/mcp-server/internal/api/middleware.go:func CompressionMiddleware() gin.HandlerFunc {
+apps/mcp-server/internal/api/middleware.go:func CachingMiddleware() gin.HandlerFunc {
+apps/mcp-server/internal/api/middleware.go:func CORSMiddleware(corsConfig CORSConfig) gin.HandlerFunc {
+apps/mcp-server/internal/api/middleware.go:			// Handle wildcard domains (*.example.com)
+apps/mcp-server/internal/api/middleware.go:func TenantMiddleware() gin.HandlerFunc {
+apps/mcp-server/internal/api/middleware.go:func NoAuthMiddleware() gin.HandlerFunc {
+apps/mcp-server/internal/api/middleware.go:// - InitJWT -> Handled by auth.Service configuration
+apps/mcp-server/internal/api/proxies/search_proxy.go:	// Handle nil or non-struct types
+apps/mcp-server/internal/api/proxies/search_proxy.go:		// Handle the ID field - the embedding package might use a different field name
+apps/mcp-server/internal/api/proxies/search_proxy.go:		// Handle score
+apps/mcp-server/internal/api/proxies/search_proxy.go:		// Handle distance
+apps/mcp-server/internal/api/proxies/search_proxy.go:		// Handle content - might be in an EmbeddingVector field
+apps/mcp-server/internal/api/proxies/search_proxy.go:		// Handle type field
+apps/mcp-server/internal/api/proxies/search_proxy.go:		// Handle metadata
+apps/mcp-server/internal/api/proxies/search_proxy.go:		// Handle content hash
+apps/mcp-server/internal/api/proxies/context_proxy.go:	// Handle the metadata storage pattern for properties that don't exist in models.Context
+apps/mcp-server/internal/api/proxies/context_proxy.go:	// Handle the metadata storage pattern for properties that don't exist in models.Context
+apps/mcp-server/internal/api/proxies/vector_api.go:// Handler implementations for the vector endpoints
+apps/mcp-server/internal/api/events/bus.go:// Handler is a function that processes events
+apps/mcp-server/internal/api/events/bus.go:type Handler func(ctx context.Context, event *Event) error
+apps/mcp-server/internal/api/events/bus.go:	Handler  Handler
+apps/mcp-server/internal/api/events/bus.go:	handlers      map[string][]Handler
+apps/mcp-server/internal/api/events/bus.go:		handlers:      make(map[string][]Handler),
+apps/mcp-server/internal/api/events/bus.go:		go b.executeHandler(ctx, event, handler)
+apps/mcp-server/internal/api/events/bus.go:			go b.executeHandler(ctx, event, sub.Handler)
+apps/mcp-server/internal/api/events/bus.go:func (b *Bus) Subscribe(eventType string, handler Handler) string {
+apps/mcp-server/internal/api/events/bus.go:		Handler: handler,
+apps/mcp-server/internal/api/events/bus.go:func (b *Bus) SubscribeWithFilter(eventType string, handler Handler, filter func(*Event) bool) string {
+apps/mcp-server/internal/api/events/bus.go:		Handler: handler,
+apps/mcp-server/internal/api/events/bus.go:func (b *Bus) On(eventType string, handler Handler) {
+apps/mcp-server/internal/api/events/bus.go:func (b *Bus) Replay(ctx context.Context, filter func(*Event) bool, handler Handler) error {
+apps/mcp-server/internal/api/events/bus.go:// executeHandler runs a handler with error handling
+apps/mcp-server/internal/api/events/bus.go:func (b *Bus) executeHandler(ctx context.Context, event *Event, handler Handler) {
+apps/mcp-server/internal/api/events/bus.go:	b.handlers = make(map[string][]Handler)
+apps/mcp-server/internal/api/context_update_test.go:func TestUpdateContextHandler(t *testing.T) {
+apps/mcp-server/internal/api/context_update_test.go:// Skip TestUpdateContextHandlerErrors test - it will be fixed in a future PR
+apps/mcp-server/internal/api/context_update_test.go:func TestUpdateContextHandlerErrors(t *testing.T) {
+apps/mcp-server/internal/api/handlers/passthrough_simple_integration_test.go:	router.POST("/api/v1/tools/:tool/actions/:action", func(c *gin.Context) {
+apps/mcp-server/internal/api/handlers/passthrough_simple_integration_test.go:	// Handler that simulates concurrent credential access
+apps/mcp-server/internal/api/handlers/passthrough_simple_integration_test.go:	router.POST("/api/v1/tools/github/actions/test", func(c *gin.Context) {
+apps/mcp-server/internal/api/handlers/passthrough_simple_integration_test.go:				router.POST("/api/v1/tools/github/actions/test", func(c *gin.Context) {
+apps/mcp-server/internal/api/handlers/passthrough_simple_integration_test.go:				router.POST("/api/v1/tools/multi/actions/sync", func(c *gin.Context) {
+apps/mcp-server/internal/api/handlers/passthrough_simple_integration_test.go:				router.POST("/api/v1/tools/github/actions/test", func(c *gin.Context) {
+apps/mcp-server/internal/api/handlers/dynamic_tool_api.go:	// Handle credential updates
+apps/mcp-server/internal/api/handlers/dynamic_tool_api.go:		// Handle specific error types
+apps/mcp-server/internal/api/handlers/search_handlers.go:// SearchHandler manages vector search API endpoints
+apps/mcp-server/internal/api/handlers/search_handlers.go:type SearchHandler struct {
+apps/mcp-server/internal/api/handlers/search_handlers.go:// NewSearchHandler creates a new search handler
+apps/mcp-server/internal/api/handlers/search_handlers.go:func NewSearchHandler(searchService embedding.SearchService) *SearchHandler {
+apps/mcp-server/internal/api/handlers/search_handlers.go:	return &SearchHandler{
+apps/mcp-server/internal/api/handlers/search_handlers.go:func (h *SearchHandler) RegisterRoutes(router *gin.RouterGroup) {
+apps/mcp-server/internal/api/handlers/search_handlers.go:	searchGroup.POST("", h.HandleSearch)
+apps/mcp-server/internal/api/handlers/search_handlers.go:	searchGroup.GET("", h.HandleSearch)
+apps/mcp-server/internal/api/handlers/search_handlers.go:	searchGroup.POST("/vector", h.HandleSearchByVector)
+apps/mcp-server/internal/api/handlers/search_handlers.go:	searchGroup.POST("/similar", h.HandleSearchSimilar)
+apps/mcp-server/internal/api/handlers/search_handlers.go:	searchGroup.GET("/similar", h.HandleSearchSimilar)
+apps/mcp-server/internal/api/handlers/search_handlers.go:// HandleSearch handles text-based vector search requests
+apps/mcp-server/internal/api/handlers/search_handlers.go:func (h *SearchHandler) HandleSearch(c *gin.Context) {
+apps/mcp-server/internal/api/handlers/search_handlers.go:	// Handle both GET and POST requests
+apps/mcp-server/internal/api/handlers/search_handlers.go:// HandleSearchByVector handles vector-based search requests
+apps/mcp-server/internal/api/handlers/search_handlers.go:func (h *SearchHandler) HandleSearchByVector(c *gin.Context) {
+apps/mcp-server/internal/api/handlers/search_handlers.go:// HandleSearchSimilar handles "more like this" search requests
+apps/mcp-server/internal/api/handlers/search_handlers.go:func (h *SearchHandler) HandleSearchSimilar(c *gin.Context) {
+apps/mcp-server/internal/api/handlers/search_handlers.go:	// Handle both GET and POST requests
+apps/mcp-server/internal/api/handlers/protocol_compliance_test.go:	handler := setupTestHandler(t)
+apps/mcp-server/internal/api/handlers/protocol_compliance_test.go:	handler := setupTestHandler(t)
+apps/mcp-server/internal/api/handlers/protocol_compliance_test.go:	handler := setupTestHandler(t)
+apps/mcp-server/internal/api/handlers/protocol_compliance_test.go:	handler := setupTestHandler(t)
+apps/mcp-server/internal/api/handlers/protocol_compliance_test.go:	handler := setupTestHandler(t)
+apps/mcp-server/internal/api/handlers/protocol_compliance_test.go:	handler := setupTestHandler(t)
+apps/mcp-server/internal/api/handlers/protocol_compliance_test.go:func setupTestHandler(t *testing.T) *MCPAPI {
+apps/mcp-server/internal/api/handlers/protocol_compliance_test.go:	router.POST("/mcp/v1/rpc", handleJSONRPC(handler))
+apps/mcp-server/internal/api/handlers/protocol_compliance_test.go:	router.GET("/mcp/v1/stream", handleStream(handler))
+apps/mcp-server/internal/api/handlers/protocol_compliance_test.go:func handleJSONRPC(handler *MCPAPI) gin.HandlerFunc {
+apps/mcp-server/internal/api/handlers/protocol_compliance_test.go:	// Handle based on method
+apps/mcp-server/internal/api/handlers/protocol_compliance_test.go:		// Handle content - it might come as []any, not []map[string]any
+apps/mcp-server/internal/api/handlers/protocol_compliance_test.go:func handleStream(handler *MCPAPI) gin.HandlerFunc {
+apps/mcp-server/internal/api/handlers/relationship_handler.go:// RelationshipHandler handles API requests related to entity relationships
+apps/mcp-server/internal/api/handlers/relationship_handler.go:type RelationshipHandler struct {
+apps/mcp-server/internal/api/handlers/relationship_handler.go:// NewRelationshipHandler creates a new handler for relationship endpoints
+apps/mcp-server/internal/api/handlers/relationship_handler.go:func NewRelationshipHandler(service relationship.Service) *RelationshipHandler {
+apps/mcp-server/internal/api/handlers/relationship_handler.go:	return &RelationshipHandler{
+apps/mcp-server/internal/api/handlers/relationship_handler.go:func (h *RelationshipHandler) RegisterRoutes(router *mux.Router) {
+apps/mcp-server/internal/api/handlers/relationship_handler.go:	router.HandleFunc("/api/v1/relationships/{id}", h.GetRelationship).Methods("GET")
+apps/mcp-server/internal/api/handlers/relationship_handler.go:	router.HandleFunc("/api/v1/relationships", h.CreateRelationship).Methods("POST")
+apps/mcp-server/internal/api/handlers/relationship_handler.go:	router.HandleFunc("/api/v1/relationships/bidirectional", h.CreateBidirectionalRelationship).Methods("POST")
+apps/mcp-server/internal/api/handlers/relationship_handler.go:	router.HandleFunc("/api/v1/relationships/{id}", h.DeleteRelationship).Methods("DELETE")
+apps/mcp-server/internal/api/handlers/relationship_handler.go:	router.HandleFunc("/api/v1/entities/{type}/{owner}/{repo}/{id}/relationships", h.GetEntityRelationships).Methods("GET")
+apps/mcp-server/internal/api/handlers/relationship_handler.go:	router.HandleFunc("/api/v1/entities/{type}/{owner}/{repo}/{id}/related", h.GetRelatedEntities).Methods("GET")
+apps/mcp-server/internal/api/handlers/relationship_handler.go:	router.HandleFunc("/api/v1/entities/{type}/{owner}/{repo}/{id}/graph", h.GetRelationshipGraph).Methods("GET")
+apps/mcp-server/internal/api/handlers/relationship_handler.go:func (h *RelationshipHandler) GetRelationship(w http.ResponseWriter, r *http.Request) {
+apps/mcp-server/internal/api/handlers/relationship_handler.go:func (h *RelationshipHandler) CreateRelationship(w http.ResponseWriter, r *http.Request) {
+apps/mcp-server/internal/api/handlers/relationship_handler.go:func (h *RelationshipHandler) CreateBidirectionalRelationship(w http.ResponseWriter, r *http.Request) {
+apps/mcp-server/internal/api/handlers/relationship_handler.go:func (h *RelationshipHandler) DeleteRelationship(w http.ResponseWriter, r *http.Request) {
+apps/mcp-server/internal/api/handlers/relationship_handler.go:func (h *RelationshipHandler) GetEntityRelationships(w http.ResponseWriter, r *http.Request) {
+apps/mcp-server/internal/api/handlers/relationship_handler.go:func (h *RelationshipHandler) GetRelatedEntities(w http.ResponseWriter, r *http.Request) {
+apps/mcp-server/internal/api/handlers/relationship_handler.go:func (h *RelationshipHandler) GetRelationshipGraph(w http.ResponseWriter, r *http.Request) {
+apps/mcp-server/internal/api/handlers/dynamic_tool_api_test.go:func (m *MockAuthMiddleware) Middleware() gin.HandlerFunc {
+apps/mcp-server/internal/api/handlers/dynamic_tool_api_test.go:	retryHandler := services.NewRetryHandler(logger)
+apps/mcp-server/internal/api/handlers/dynamic_tool_api_test.go:	executionService := services.NewExecutionService(db, toolRegistry, retryHandler, logger)
+apps/mcp-server/internal/api/handlers/dynamic_tool_api_test.go:	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+apps/mcp-server/internal/api/handlers/dynamic_tool_api_test.go:		// Handle all common OpenAPI paths
+apps/mcp-server/internal/api/handlers/dynamic_tool_api_test.go:	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+apps/mcp-server/internal/api/handlers/dynamic_tool_api_test.go:	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+apps/mcp-server/internal/api/handlers/model_api_isolated_test.go:	router.PUT("/models/:id", func(c *gin.Context) {
+apps/mcp-server/internal/api/handlers/passthrough_auth_integration_test.go:			router.POST("/*path", func(c *gin.Context) {
+apps/mcp-server/internal/api/handlers/passthrough_auth_integration_test.go:			router.POST("/api/v1/tools/:tool/actions/:action", func(c *gin.Context) {
+apps/mcp-server/internal/api/handlers/passthrough_auth_integration_test.go:	router.POST("/api/v1/tools/:tool/actions/:action", func(c *gin.Context) {
+apps/mcp-server/internal/api/server_test.go:	router.GET("/health", func(c *gin.Context) {
+apps/mcp-server/internal/api/server_test.go:	router.GET("/metrics", func(c *gin.Context) {
+apps/mcp-server/internal/api/server_test.go:func TestHealthHandler(t *testing.T) {
+apps/mcp-server/internal/api/server_test.go:func TestMetricsHandler(t *testing.T) {
+apps/mcp-server/internal/api/metrics_handler.go:// SetupPrometheusHandler sets up the Prometheus metrics handler
+apps/mcp-server/internal/api/metrics_handler.go:func SetupPrometheusHandler() gin.HandlerFunc {
+apps/mcp-server/internal/api/metrics_handler.go:	h := promhttp.Handler()
+apps/mcp-server/internal/api/errors.go:// HandleValidationErrors converts field validation errors to a standardized format
+apps/mcp-server/internal/api/errors.go:func HandleValidationErrors(err error) *APIError {
+apps/mcp-server/internal/api/errors.go:// ErrorHandlerMiddleware catches and formats errors consistently
+apps/mcp-server/internal/api/errors.go:func ErrorHandlerMiddleware() gin.HandlerFunc {
+apps/mcp-server/internal/api/errors.go:			// Handle the error based on type
+apps/mcp-server/internal/services/execution_service.go:	retryHandler *RetryHandler
+apps/mcp-server/internal/services/execution_service.go:	retryHandler *RetryHandler,
+apps/mcp-server/internal/services/execution_service.go:		retryHandler: retryHandler,
+apps/mcp-server/internal/services/execution_service.go:	result, err = s.retryHandler.ExecuteWithRetry(
+apps/mcp-server/internal/services/execution_service.go:		return nil, s.retryHandler.ClassifyHTTPError(nil, err)
+apps/mcp-server/internal/services/execution_service.go:		httpErr := s.retryHandler.ClassifyHTTPError(resp, nil)
+apps/mcp-server/internal/services/retry_handler.go:// RetryHandler manages retry logic for tool executions
+apps/mcp-server/internal/services/retry_handler.go:type RetryHandler struct {
+apps/mcp-server/internal/services/retry_handler.go:// NewRetryHandler creates a new retry handler
+apps/mcp-server/internal/services/retry_handler.go:func NewRetryHandler(logger observability.Logger) *RetryHandler {
+apps/mcp-server/internal/services/retry_handler.go:	return &RetryHandler{
+apps/mcp-server/internal/services/retry_handler.go:func (r *RetryHandler) ExecuteWithRetry(
+apps/mcp-server/internal/services/retry_handler.go:func (r *RetryHandler) isRetryable(err error, policy *tool.ToolRetryPolicy) bool {
+apps/mcp-server/internal/services/retry_handler.go:func (r *RetryHandler) calculateDelay(baseDelay time.Duration, policy *tool.ToolRetryPolicy, err error) time.Duration {
+apps/mcp-server/internal/services/retry_handler.go:func (r *RetryHandler) ClassifyHTTPError(resp *http.Response, err error) error {
+apps/mcp-server/internal/services/retry_handler.go:func (r *RetryHandler) ExponentialBackoff(attempt int, baseDelay time.Duration, maxDelay time.Duration, jitter float64) time.Duration {
+apps/mockserver/cmd/main.go:	// Handle health check mode
+apps/mockserver/cmd/main.go:	handlers.SetupHandlers(mux)
+apps/mockserver/cmd/main.go:	mux.HandleFunc("/health", healthHandler)
+apps/mockserver/cmd/main.go:		Handler:      mux,
+apps/mockserver/cmd/main.go:// healthHandler returns the health status of the mock server
+apps/mockserver/cmd/main.go:func healthHandler(w http.ResponseWriter, r *http.Request) {
+apps/mockserver/cmd/main_test.go:// MockHandlerTestCase defines a test case for mock API handlers
+apps/mockserver/cmd/main_test.go:type MockHandlerTestCase struct {
+apps/mockserver/cmd/main_test.go:// TestGitHubMockHandler tests the GitHub mock API handler with table-driven tests
+apps/mockserver/cmd/main_test.go:func TestGitHubMockHandler(t *testing.T) {
+apps/mockserver/cmd/main_test.go:	testCases := []MockHandlerTestCase{
+apps/mockserver/cmd/main_test.go:			http.HandlerFunc(handler).ServeHTTP(rr, req)
+apps/mockserver/cmd/main_test.go:// TestMockHandlers tests all mock API handlers with a shared test framework
+apps/mockserver/cmd/main_test.go:func TestMockHandlers(t *testing.T) {
+apps/mockserver/cmd/main_test.go:	mockHandlers := map[string]http.HandlerFunc{
+apps/mockserver/cmd/main_test.go:			// Handle pipelines endpoint
+apps/mockserver/cmd/main_test.go:			// Handle quality gate endpoint
+apps/mockserver/cmd/main_test.go:	handlerTestCases := map[string][]MockHandlerTestCase{
+apps/mockserver/cmd/main_test.go:		t.Run(handlerName+" Mock Handler", func(t *testing.T) {
+apps/mockserver/cmd/main_test.go:			handler := mockHandlers[handlerName]
+apps/mockserver/cmd/main_test.go:					http.HandlerFunc(handler).ServeHTTP(rr, req)
+apps/mockserver/cmd/main_test.go:	webhookHandler := func(w http.ResponseWriter, r *http.Request) {
+apps/mockserver/cmd/main_test.go:			http.HandlerFunc(webhookHandler).ServeHTTP(rr, req)
+apps/mockserver/cmd/main_test.go:			http.HandlerFunc(webhookHandler).ServeHTTP(rr, req)
+apps/mockserver/cmd/main_test.go:// TestHealthCheckHandler tests the health check endpoint
+apps/mockserver/cmd/main_test.go:func TestHealthCheckHandler(t *testing.T) {
+apps/mockserver/cmd/main_test.go:			http.HandlerFunc(handler).ServeHTTP(rr, req)
+apps/mockserver/cmd/main_test.go:			http.HandlerFunc(handler).ServeHTTP(rr, req)
+apps/mockserver/cmd/main_test.go:			http.HandlerFunc(handler).ServeHTTP(rr, req)
+apps/mockserver/internal/handlers/server.go:// SetupHandlers configures the HTTP handlers for the mock server
+apps/mockserver/internal/handlers/server.go:func SetupHandlers(mux *http.ServeMux) {
+apps/mockserver/internal/handlers/server.go:	mux.HandleFunc("/mock-github/", GitHubHandler)
+apps/mockserver/internal/handlers/server.go:	mux.HandleFunc("/mock-harness/", HarnessHandler)
+apps/mockserver/internal/handlers/server.go:	mux.HandleFunc("/mock-sonarqube/", SonarQubeHandler)
+apps/mockserver/internal/handlers/server.go:	mux.HandleFunc("/mock-artifactory/", ArtifactoryHandler)
+apps/mockserver/internal/handlers/server.go:	mux.HandleFunc("/mock-xray/", XrayHandler)
+apps/mockserver/internal/handlers/server.go:	mux.HandleFunc("/api/v1/webhook/github", func(w http.ResponseWriter, r *http.Request) {
+apps/mockserver/internal/handlers/server.go:// HarnessHandler handles mock Harness API requests
+apps/mockserver/internal/handlers/server.go:func HarnessHandler(w http.ResponseWriter, r *http.Request) {
+apps/mockserver/internal/handlers/server.go:	// Handle pipelines endpoint
+apps/mockserver/internal/handlers/server.go:// SonarQubeHandler handles mock SonarQube API requests
+apps/mockserver/internal/handlers/server.go:func SonarQubeHandler(w http.ResponseWriter, r *http.Request) {
+apps/mockserver/internal/handlers/server.go:	// Handle quality gate endpoint
+apps/mockserver/internal/handlers/server.go:	// Handle issues search endpoint
+apps/mockserver/internal/handlers/server.go:// ArtifactoryHandler handles mock Artifactory API requests
+apps/mockserver/internal/handlers/server.go:func ArtifactoryHandler(w http.ResponseWriter, r *http.Request) {
+apps/mockserver/internal/handlers/server.go:	// Handle storage endpoint
+apps/mockserver/internal/handlers/server.go:	// Handle search endpoint
+apps/mockserver/internal/handlers/server.go:// XrayHandler handles mock Xray API requests
+apps/mockserver/internal/handlers/server.go:func XrayHandler(w http.ResponseWriter, r *http.Request) {
+apps/mockserver/internal/handlers/server.go:	// Handle vulnerabilities endpoint
+apps/mockserver/internal/handlers/server.go:	// Handle licenses endpoint
+apps/mockserver/internal/handlers/github.go:// GitHubHandler handles mock GitHub API requests
+apps/mockserver/internal/handlers/github.go:func GitHubHandler(w http.ResponseWriter, r *http.Request) {
+apps/mockserver/internal/handlers/github.go:	// Handle OpenAPI spec request
+apps/worker/cmd/worker/main.go:	dlqHandler := worker.NewDLQHandler(db.GetDB(), logger, nil, queueClient)
+apps/worker/cmd/worker/main.go:	dlqWorker := worker.NewDLQWorker(dlqHandler, logger, 5*time.Minute)
+apps/worker/internal/worker/worker.go:	DeleteMessage(ctx context.Context, receiptHandle string) error
+apps/worker/internal/worker/dlq_handler.go:// DLQHandler handles dead letter queue operations
+apps/worker/internal/worker/dlq_handler.go:type DLQHandler interface {
+apps/worker/internal/worker/dlq_handler.go:// DLQHandlerImpl implements DLQHandler
+apps/worker/internal/worker/dlq_handler.go:type DLQHandlerImpl struct {
+apps/worker/internal/worker/dlq_handler.go:// NewDLQHandler creates a new DLQ handler
+apps/worker/internal/worker/dlq_handler.go:func NewDLQHandler(
+apps/worker/internal/worker/dlq_handler.go:) DLQHandler {
+apps/worker/internal/worker/dlq_handler.go:	return &DLQHandlerImpl{
+apps/worker/internal/worker/dlq_handler.go:func (d *DLQHandlerImpl) SendToDLQ(ctx context.Context, event queue.Event, err error) error {
+apps/worker/internal/worker/dlq_handler.go:func (d *DLQHandlerImpl) ProcessDLQ(ctx context.Context) error {
+apps/worker/internal/worker/dlq_handler.go:func (d *DLQHandlerImpl) RetryFromDLQ(ctx context.Context, eventID string) error {
+apps/worker/internal/worker/dlq_handler.go:func (d *DLQHandlerImpl) retryDLQEntry(ctx context.Context, entry *DLQEntry) error {
+apps/worker/internal/worker/dlq_handler.go:func (d *DLQHandlerImpl) updateDLQStatus(ctx context.Context, id string, status string) {
+apps/worker/internal/worker/dlq_handler_test.go:func (m *mockQueueClientDLQ) DeleteMessage(ctx context.Context, receiptHandle string) error {
+apps/worker/internal/worker/dlq_handler_test.go:	args := m.Called(ctx, receiptHandle)
+apps/worker/internal/worker/dlq_handler_test.go:func TestDLQHandler_SendToDLQ(t *testing.T) {
+apps/worker/internal/worker/dlq_handler_test.go:	handler := &DLQHandlerImpl{
+apps/worker/internal/worker/dlq_handler_test.go:func TestDLQHandler_ProcessDLQ(t *testing.T) {
+apps/worker/internal/worker/dlq_handler_test.go:	handler := &DLQHandlerImpl{
+apps/worker/internal/worker/dlq_handler_test.go:func TestDLQHandler_RetryFromDLQ(t *testing.T) {
+apps/worker/internal/worker/dlq_handler_test.go:	handler := &DLQHandlerImpl{
+apps/worker/internal/worker/generic_processor_test.go:		retryHandler: &RetryHandler{
+apps/worker/internal/worker/generic_processor_test.go:		retryHandler: &RetryHandler{
+apps/worker/internal/worker/health.go:// ServeHTTP implements http.Handler for health check endpoint
+apps/worker/internal/worker/health.go:	mux.Handle("/health", h)
+apps/worker/internal/worker/health.go:	mux.HandleFunc("/health/live", func(w http.ResponseWriter, r *http.Request) {
+apps/worker/internal/worker/generic_processor.go:	retryHandler     *RetryHandler
+apps/worker/internal/worker/generic_processor.go:	dlqHandler := NewDLQHandler(db, logger, metrics, queueClient)
+apps/worker/internal/worker/generic_processor.go:	retryHandler := NewRetryHandler(nil, logger, dlqHandler, metricsCollector)
+apps/worker/internal/worker/generic_processor.go:		retryHandler:     retryHandler,
+apps/worker/internal/worker/generic_processor.go:	return p.retryHandler.ExecuteWithRetry(ctx, event, func() error {
+apps/worker/internal/worker/retry_handler_test.go:type mockDLQHandler struct {
+apps/worker/internal/worker/retry_handler_test.go:func (m *mockDLQHandler) SendToDLQ(ctx context.Context, event queue.Event, err error) error {
+apps/worker/internal/worker/retry_handler_test.go:func (m *mockDLQHandler) ProcessDLQ(ctx context.Context) error {
+apps/worker/internal/worker/retry_handler_test.go:func (m *mockDLQHandler) RetryFromDLQ(ctx context.Context, eventID string) error {
+apps/worker/internal/worker/retry_handler_test.go:func TestRetryHandler_ExecuteWithRetry_Success(t *testing.T) {
+apps/worker/internal/worker/retry_handler_test.go:	mockDLQ := &mockDLQHandler{}
+apps/worker/internal/worker/retry_handler_test.go:	handler := NewRetryHandler(config, logger, mockDLQ, nil)
+apps/worker/internal/worker/retry_handler_test.go:func TestRetryHandler_ExecuteWithRetry_RetryableError(t *testing.T) {
+apps/worker/internal/worker/retry_handler_test.go:	mockDLQ := &mockDLQHandler{}
+apps/worker/internal/worker/retry_handler_test.go:	handler := NewRetryHandler(config, logger, mockDLQ, nil)
+apps/worker/internal/worker/retry_handler_test.go:func TestRetryHandler_ExecuteWithRetry_MaxRetriesExceeded(t *testing.T) {
+apps/worker/internal/worker/retry_handler_test.go:	mockDLQ := &mockDLQHandler{}
+apps/worker/internal/worker/retry_handler_test.go:	handler := NewRetryHandler(config, logger, mockDLQ, nil)
+apps/worker/internal/worker/retry_handler_test.go:func TestRetryHandler_ExecuteWithRetry_NonRetryableError(t *testing.T) {
+apps/worker/internal/worker/retry_handler_test.go:	mockDLQ := &mockDLQHandler{}
+apps/worker/internal/worker/retry_handler_test.go:	handler := NewRetryHandler(nil, logger, mockDLQ, nil)
+apps/worker/internal/worker/retry_handler_test.go:func TestRetryHandler_isRetryableError(t *testing.T) {
+apps/worker/internal/worker/retry_handler_test.go:	handler := &RetryHandler{}
+apps/worker/internal/worker/retry_handler_test.go:func TestRetryHandler_GetBackoffDuration(t *testing.T) {
+apps/worker/internal/worker/retry_handler_test.go:	handler := &RetryHandler{config: config}
+apps/worker/internal/worker/retry_handler.go:// RetryHandler handles retries with exponential backoff
+apps/worker/internal/worker/retry_handler.go:type RetryHandler struct {
+apps/worker/internal/worker/retry_handler.go:	dlq     DLQHandler
+apps/worker/internal/worker/retry_handler.go:// NewRetryHandler creates a new retry handler
+apps/worker/internal/worker/retry_handler.go:func NewRetryHandler(config *RetryConfig, logger observability.Logger, dlq DLQHandler, metrics *MetricsCollector) *RetryHandler {
+apps/worker/internal/worker/retry_handler.go:	return &RetryHandler{
+apps/worker/internal/worker/retry_handler.go:func (r *RetryHandler) ExecuteWithRetry(ctx context.Context, event queue.Event, fn func() error) error {
+apps/worker/internal/worker/retry_handler.go:func (r *RetryHandler) isRetryableError(err error) bool {
+apps/worker/internal/worker/retry_handler.go:func (r *RetryHandler) GetBackoffDuration(attempt int) time.Duration {
+apps/worker/internal/worker/worker_test.go:func (m *mockQueueClient) DeleteMessage(ctx context.Context, receiptHandle string) error {
+apps/worker/internal/worker/worker_test.go:	return m.deleteFunc(ctx, receiptHandle)
+apps/worker/internal/worker/dlq_worker.go:	dlqHandler DLQHandler
+apps/worker/internal/worker/dlq_worker.go:func NewDLQWorker(dlqHandler DLQHandler, logger observability.Logger, interval time.Duration) *DLQWorker {
+apps/worker/internal/worker/dlq_worker.go:		dlqHandler: dlqHandler,
+apps/worker/internal/worker/dlq_worker.go:	err := w.dlqHandler.ProcessDLQ(ctx)
+apps/rest-api/cmd/api/main.go:	// Handle health check flag
+apps/rest-api/cmd/api/main.go:	// Handle backward compatibility - rate_limit as integer
+apps/rest-api/cmd/api/main.go:		// Handle structured rate_limit configuration
+apps/rest-api/internal/api/deprecated_middleware.go:func AuthMiddleware() gin.HandlerFunc {
+apps/rest-api/internal/api/server.go:	router.Use(ErrorHandlerMiddleware()) // Add centralized error handling
+apps/rest-api/internal/api/server.go:			Handler:      router,
+apps/rest-api/internal/api/server.go:	s.router.GET("/health", s.healthChecker.HealthHandler)
+apps/rest-api/internal/api/server.go:	s.router.GET("/healthz", s.healthChecker.LivenessHandler) // Kubernetes liveness probe
+apps/rest-api/internal/api/server.go:	s.router.GET("/readyz", s.healthChecker.ReadinessHandler) // Kubernetes readiness probe
+apps/rest-api/internal/api/server.go:	s.router.GET("/admin/migration-status", func(c *gin.Context) {
+apps/rest-api/internal/api/server.go:		s.router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+apps/rest-api/internal/api/server.go:	s.router.GET("/metrics", s.metricsHandler)
+apps/rest-api/internal/api/server.go:	dynamicWebhookHandler := webhooksAPI.NewDynamicWebhookHandler(
+apps/rest-api/internal/api/server.go:	webhooks.POST("/tools/:toolId", dynamicWebhookHandler.HandleDynamicWebhook)
+apps/rest-api/internal/api/server.go:// healthHandler function removed - using health.HandleHealthCheck instead
+apps/rest-api/internal/api/server.go:// metricsHandler returns metrics for Prometheus
+apps/rest-api/internal/api/server.go:func (s *Server) metricsHandler(c *gin.Context) {
+apps/rest-api/internal/api/server.go:	handler := SetupPrometheusHandler()
+apps/rest-api/internal/api/auth_new_test.go:		router.POST("/auth/login", middleware.GinMiddleware(), func(c *gin.Context) {
+apps/rest-api/internal/api/auth_new_test.go:		router.POST("/auth/login", middleware.GinMiddleware(), func(c *gin.Context) {
+apps/rest-api/internal/api/middleware_test.go:	router.GET("/test", func(c *gin.Context) {
+apps/rest-api/internal/api/middleware_test.go:	router.GET("/test", func(c *gin.Context) {
+apps/rest-api/internal/api/middleware_test.go:	router.GET("/test", func(c *gin.Context) {
+apps/rest-api/internal/api/middleware_test.go:	router.GET("/test", func(c *gin.Context) {
+apps/rest-api/internal/api/docs.go:	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+apps/rest-api/internal/api/security_headers.go:func SecurityHeaders(config SecurityHeadersConfig) gin.HandlerFunc {
+apps/rest-api/internal/api/security_headers.go:func APISecurityHeaders() gin.HandlerFunc {
+apps/rest-api/internal/api/testMiddleware/middleware_test.go:func AuthMiddleware() gin.HandlerFunc {
+apps/rest-api/internal/api/search_handlers.go:// SearchHandler manages vector search API endpoints
+apps/rest-api/internal/api/search_handlers.go:type SearchHandler struct {
+apps/rest-api/internal/api/search_handlers.go:// NewSearchHandler creates a new search handler
+apps/rest-api/internal/api/search_handlers.go:func NewSearchHandler(searchService embedding.SearchService) *SearchHandler {
+apps/rest-api/internal/api/search_handlers.go:	return &SearchHandler{
+apps/rest-api/internal/api/search_handlers.go:func (h *SearchHandler) RegisterRoutes(router *http.ServeMux) {
+apps/rest-api/internal/api/search_handlers.go:	router.HandleFunc("/api/v1/search", h.HandleSearch)
+apps/rest-api/internal/api/search_handlers.go:	router.HandleFunc("/api/v1/search/vector", h.HandleSearchByVector)
+apps/rest-api/internal/api/search_handlers.go:	router.HandleFunc("/api/v1/search/similar", h.HandleSearchSimilar)
+apps/rest-api/internal/api/search_handlers.go:	router.HandleFunc("/api/v1/search/hybrid", h.HandleHybridSearch)
+apps/rest-api/internal/api/search_handlers.go:// HandleSearch handles text-based vector search requests
+apps/rest-api/internal/api/search_handlers.go:func (h *SearchHandler) HandleSearch(w http.ResponseWriter, r *http.Request) {
+apps/rest-api/internal/api/search_handlers.go:	// Handle both GET and POST requests
+apps/rest-api/internal/api/search_handlers.go:// HandleSearchByVector handles vector-based search requests
+apps/rest-api/internal/api/search_handlers.go:func (h *SearchHandler) HandleSearchByVector(w http.ResponseWriter, r *http.Request) {
+apps/rest-api/internal/api/search_handlers.go:// HandleSearchSimilar godoc
+apps/rest-api/internal/api/search_handlers.go:func (h *SearchHandler) HandleSearchSimilar(w http.ResponseWriter, r *http.Request) {
+apps/rest-api/internal/api/search_handlers.go:	// Handle both GET and POST requests
+apps/rest-api/internal/api/search_handlers.go:// HandleHybridSearch godoc
+apps/rest-api/internal/api/search_handlers.go:func (h *SearchHandler) HandleHybridSearch(w http.ResponseWriter, r *http.Request) {
+apps/rest-api/internal/api/search_handlers_test.go:func TestHandleSearch(t *testing.T) {
+apps/rest-api/internal/api/search_handlers_test.go:	handler := NewSearchHandler(mockService)
+apps/rest-api/internal/api/search_handlers_test.go:func TestHandleSearchByVector(t *testing.T) {
+apps/rest-api/internal/api/search_handlers_test.go:	handler := NewSearchHandler(mockService)
+apps/rest-api/internal/api/search_handlers_test.go:func TestHandleSearchSimilar(t *testing.T) {
+apps/rest-api/internal/api/search_handlers_test.go:	handler := NewSearchHandler(mockService)
+apps/rest-api/internal/api/auth_enhanced_test.go:	router.POST("/auth/login", authMiddleware.GinMiddleware(), func(c *gin.Context) {
+apps/rest-api/internal/api/health.go:// LivenessHandler godoc
+apps/rest-api/internal/api/health.go:func (h *HealthChecker) LivenessHandler(c *gin.Context) {
+apps/rest-api/internal/api/health.go:// ReadinessHandler godoc
+apps/rest-api/internal/api/health.go:func (h *HealthChecker) ReadinessHandler(c *gin.Context) {
+apps/rest-api/internal/api/health.go:// HealthHandler godoc
+apps/rest-api/internal/api/health.go:func (h *HealthChecker) HealthHandler(c *gin.Context) {
+apps/rest-api/internal/api/tracing_middleware.go:func TracingMiddleware() gin.HandlerFunc {
+apps/rest-api/internal/api/tracing_middleware.go:func AIOperationTracingMiddleware() gin.HandlerFunc {
+apps/rest-api/internal/api/versioning.go:func VersioningMiddleware(config VersioningConfig) gin.HandlerFunc {
+apps/rest-api/internal/api/versioning.go:func RouteToVersion(c *gin.Context, handlers map[APIVersion]gin.HandlerFunc) {
+apps/rest-api/internal/api/versioning.go:func getSupportedVersions(handlers map[APIVersion]gin.HandlerFunc) []string {
+apps/rest-api/internal/api/versioning.go:// VersionedHandlers holds handlers for different API versions
+apps/rest-api/internal/api/versioning.go:type VersionedHandlers struct {
+apps/rest-api/internal/api/versioning.go:	handlers map[APIVersion]gin.HandlerFunc
+apps/rest-api/internal/api/versioning.go:// NewVersionedHandlers creates a new versioned handlers instance
+apps/rest-api/internal/api/versioning.go:func NewVersionedHandlers() *VersionedHandlers {
+apps/rest-api/internal/api/versioning.go:	return &VersionedHandlers{
+apps/rest-api/internal/api/versioning.go:		handlers: make(map[APIVersion]gin.HandlerFunc),
+apps/rest-api/internal/api/versioning.go:func (vh *VersionedHandlers) Add(version APIVersion, handler gin.HandlerFunc) *VersionedHandlers {
+apps/rest-api/internal/api/versioning.go:func (vh *VersionedHandlers) AddDefault(handler gin.HandlerFunc) *VersionedHandlers {
+apps/rest-api/internal/api/versioning.go:// Handle handles a request with the appropriate version handler
+apps/rest-api/internal/api/versioning.go:func (vh *VersionedHandlers) Handle(c *gin.Context) {
+apps/rest-api/internal/api/panic_recovery.go:func CustomRecoveryMiddleware(logger observability.Logger) gin.HandlerFunc {
+apps/rest-api/internal/api/middleware.go:func RequestLogger() gin.HandlerFunc {
+apps/rest-api/internal/api/middleware.go:func MetricsMiddleware() gin.HandlerFunc {
+apps/rest-api/internal/api/middleware.go:func RateLimiter(config RateLimiterConfig) gin.HandlerFunc {
+apps/rest-api/internal/api/middleware.go:func CompressionMiddleware() gin.HandlerFunc {
+apps/rest-api/internal/api/middleware.go:func CachingMiddleware() gin.HandlerFunc {
+apps/rest-api/internal/api/middleware.go:func CORSMiddleware(corsConfig CORSConfig) gin.HandlerFunc {
+apps/rest-api/internal/api/middleware.go:			// Handle wildcard domains (*.example.com)
+apps/rest-api/internal/api/middleware.go:func TenantMiddleware() gin.HandlerFunc {
+apps/rest-api/internal/api/middleware.go:func NoAuthMiddleware() gin.HandlerFunc {
+apps/rest-api/internal/api/middleware.go:func ExtractTenantContext() gin.HandlerFunc {
+apps/rest-api/internal/api/middleware.go:			// Handle both string and UUID types
+apps/rest-api/internal/api/webhooks/dynamic_webhooks.go:// DynamicWebhookHandler handles webhooks for dynamically registered tools
+apps/rest-api/internal/api/webhooks/dynamic_webhooks.go:type DynamicWebhookHandler struct {
+apps/rest-api/internal/api/webhooks/dynamic_webhooks.go:// NewDynamicWebhookHandler creates a new dynamic webhook handler
+apps/rest-api/internal/api/webhooks/dynamic_webhooks.go:func NewDynamicWebhookHandler(
+apps/rest-api/internal/api/webhooks/dynamic_webhooks.go:) *DynamicWebhookHandler {
+apps/rest-api/internal/api/webhooks/dynamic_webhooks.go:	return &DynamicWebhookHandler{
+apps/rest-api/internal/api/webhooks/dynamic_webhooks.go:// HandleDynamicWebhook handles incoming webhooks for dynamic tools
+apps/rest-api/internal/api/webhooks/dynamic_webhooks.go:func (h *DynamicWebhookHandler) HandleDynamicWebhook(c *gin.Context) {
+apps/rest-api/internal/api/webhooks/dynamic_webhooks.go:func (h *DynamicWebhookHandler) validateWebhook(r *http.Request, body []byte, config *models.ToolWebhookConfig) bool {
+apps/rest-api/internal/api/webhooks/dynamic_webhooks.go:func (h *DynamicWebhookHandler) validateHMACSignature(r *http.Request, body []byte, config *models.ToolWebhookConfig) bool {
+apps/rest-api/internal/api/webhooks/dynamic_webhooks.go:func (h *DynamicWebhookHandler) validateBearerToken(r *http.Request, config *models.ToolWebhookConfig) bool {
+apps/rest-api/internal/api/webhooks/dynamic_webhooks.go:func (h *DynamicWebhookHandler) validateBasicAuth(r *http.Request, config *models.ToolWebhookConfig) bool {
+apps/rest-api/internal/api/webhooks/dynamic_webhooks.go:func (h *DynamicWebhookHandler) validateCustomSignature(r *http.Request, body []byte, config *models.ToolWebhookConfig) bool {
+apps/rest-api/internal/api/webhooks/dynamic_webhooks.go:func (h *DynamicWebhookHandler) extractEventType(body []byte, config *models.ToolWebhookConfig) (string, error) {
+apps/rest-api/internal/api/webhooks/dynamic_webhooks.go:func (h *DynamicWebhookHandler) GetWebhookURL(baseURL, toolID string) string {
+apps/rest-api/internal/api/model_catalog_api.go:	router.POST("/embedding-models/select",
+apps/rest-api/internal/api/context_update_test.go:func TestUpdateContextHandler(t *testing.T) {
+apps/rest-api/internal/api/context_update_test.go:// Skip TestUpdateContextHandlerErrors test - it will be fixed in a future PR
+apps/rest-api/internal/api/context_update_test.go:func TestUpdateContextHandlerErrors(t *testing.T) {
+apps/rest-api/internal/api/handlers/relationship_handler.go:// RelationshipHandler handles API requests related to entity relationships
+apps/rest-api/internal/api/handlers/relationship_handler.go:type RelationshipHandler struct {
+apps/rest-api/internal/api/handlers/relationship_handler.go:// NewRelationshipHandler creates a new handler for relationship endpoints
+apps/rest-api/internal/api/handlers/relationship_handler.go:func NewRelationshipHandler(service relationship.Service) *RelationshipHandler {
+apps/rest-api/internal/api/handlers/relationship_handler.go:	return &RelationshipHandler{
+apps/rest-api/internal/api/handlers/relationship_handler.go:func (h *RelationshipHandler) RegisterRoutes(router *mux.Router) {
+apps/rest-api/internal/api/handlers/relationship_handler.go:	router.HandleFunc("/api/v1/relationships/{id}", h.GetRelationship).Methods("GET")
+apps/rest-api/internal/api/handlers/relationship_handler.go:	router.HandleFunc("/api/v1/relationships", h.CreateRelationship).Methods("POST")
+apps/rest-api/internal/api/handlers/relationship_handler.go:	router.HandleFunc("/api/v1/relationships/bidirectional", h.CreateBidirectionalRelationship).Methods("POST")
+apps/rest-api/internal/api/handlers/relationship_handler.go:	router.HandleFunc("/api/v1/relationships/{id}", h.DeleteRelationship).Methods("DELETE")
+apps/rest-api/internal/api/handlers/relationship_handler.go:	router.HandleFunc("/api/v1/entities/{type}/{owner}/{repo}/{id}/relationships", h.GetEntityRelationships).Methods("GET")
+apps/rest-api/internal/api/handlers/relationship_handler.go:	router.HandleFunc("/api/v1/entities/{type}/{owner}/{repo}/{id}/related", h.GetRelatedEntities).Methods("GET")
+apps/rest-api/internal/api/handlers/relationship_handler.go:	router.HandleFunc("/api/v1/entities/{type}/{owner}/{repo}/{id}/graph", h.GetRelationshipGraph).Methods("GET")
+apps/rest-api/internal/api/handlers/relationship_handler.go:func (h *RelationshipHandler) GetRelationship(w http.ResponseWriter, r *http.Request) {
+apps/rest-api/internal/api/handlers/relationship_handler.go:func (h *RelationshipHandler) CreateRelationship(w http.ResponseWriter, r *http.Request) {
+apps/rest-api/internal/api/handlers/relationship_handler.go:func (h *RelationshipHandler) CreateBidirectionalRelationship(w http.ResponseWriter, r *http.Request) {
+apps/rest-api/internal/api/handlers/relationship_handler.go:func (h *RelationshipHandler) DeleteRelationship(w http.ResponseWriter, r *http.Request) {
+apps/rest-api/internal/api/handlers/relationship_handler.go:func (h *RelationshipHandler) GetEntityRelationships(w http.ResponseWriter, r *http.Request) {
+apps/rest-api/internal/api/handlers/relationship_handler.go:func (h *RelationshipHandler) GetRelatedEntities(w http.ResponseWriter, r *http.Request) {
+apps/rest-api/internal/api/handlers/relationship_handler.go:func (h *RelationshipHandler) GetRelationshipGraph(w http.ResponseWriter, r *http.Request) {
+apps/rest-api/internal/api/server_test.go:	router.GET("/health", func(c *gin.Context) {
+apps/rest-api/internal/api/server_test.go:	router.GET("/metrics", func(c *gin.Context) {
+apps/rest-api/internal/api/server_test.go:		router.POST(endpoint, func(c *gin.Context) {
+apps/rest-api/internal/api/server_test.go:func TestHealthHandler(t *testing.T) {
+apps/rest-api/internal/api/server_test.go:func TestMetricsHandler(t *testing.T) {
+apps/rest-api/internal/api/webhook_server.go:	Handler    func() http.HandlerFunc
+apps/rest-api/internal/api/metrics_handler.go:// SetupPrometheusHandler sets up the Prometheus metrics handler
+apps/rest-api/internal/api/metrics_handler.go:func SetupPrometheusHandler() gin.HandlerFunc {
+apps/rest-api/internal/api/metrics_handler.go:	h := promhttp.Handler()
+apps/rest-api/internal/api/errors.go:// HandleValidationErrors converts field validation errors to a standardized format
+apps/rest-api/internal/api/errors.go:func HandleValidationErrors(err error) *APIError {
+apps/rest-api/internal/api/errors.go:// ErrorHandlerMiddleware catches and formats errors consistently
+apps/rest-api/internal/api/errors.go:func ErrorHandlerMiddleware() gin.HandlerFunc {
+apps/rest-api/internal/api/errors.go:			// Handle the error based on type
+apps/rest-api/internal/services/dynamic_tools_service.go:	openAPIHandler := adapters.NewOpenAPIAdapter(logger)
+apps/rest-api/internal/services/dynamic_tools_service.go:	healthCheckMgr := tools.NewHealthCheckManager(cacheClient, openAPIHandler, logger, metricsClient)
+apps/rest-api/internal/services/dynamic_tools_service.go:	// Handle nullable string fields
+apps/rest-api/internal/services/dynamic_tools_service.go:	// Handle health_status - pass nil interface{} for NULL in JSONB column

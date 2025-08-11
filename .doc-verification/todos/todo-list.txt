@@ -1,0 +1,69 @@
+./test/integration/setup_test.go:	// TODO: Implement service readiness checks
+./test/e2e/suite_test.go:		// TODO: Implementation would load from file
+./test/functional/shared/mock_tools.go:					if strings.Contains(line, "TODO") {
+./test/functional/shared/mock_tools.go:							"message":  "TODO comment found",
+./test/functional/shared/mock_tools.go:					if strings.Contains(line, "FIXME") {
+./test/functional/shared/mock_tools.go:							"message":  "FIXME comment found",
+./test/functional/shared/websocket_test_helpers.go:	// TODO: Implement actual binary encoding
+./test/functional/api/websocket_workflow_test.go:			// TODO: In a real implementation, we would check workflow status
+./.claude/templates/new-service-test.go:				// TODO: Fill test input
+./.claude/templates/new-service-test.go:				// TODO: Fill expected output
+./.claude/templates/new-service-test.go:				// TODO: Fill test input
+./.claude/templates/new-api-endpoint.go:	// TODO: Add input validation
+./.claude/templates/new-api-endpoint.go:	// TODO: Call service layer
+./apps/mcp-server/internal/api/websocket/collaboration_handlers.go:			"version":      1, // TODO: Implement proper versioning
+./apps/mcp-server/internal/api/websocket/agent_rate_limiter.go:	// TODO: Implement actual rate limiting based on RPS
+./apps/mcp-server/internal/api/websocket/handlers.go:// TODO: Uncomment when HTTP error mapping is needed
+./apps/mcp-server/internal/api/websocket/agent_registry_db.go:				"health":       "healthy", // TODO: Implement health check
+./apps/mcp-server/internal/api/websocket/agent_registry_db.go:		Health:       "healthy", // TODO: Implement proper health status
+./apps/mcp-server/internal/api/websocket/agent_message_broker.go:	// capabilityRoutes sync.Map // capability -> []agent_id // TODO: Implement capability-based routing
+./apps/mcp-server/internal/api/tools/registry.go:	// restClient interface{} // TODO: Add REST API client when proxy is implemented
+./apps/mcp-server/internal/api/tools/registry.go:	// logger     observability.Logger // TODO: Add logging when methods are implemented
+./apps/mcp-server/internal/api/dynamic_tools_service.go:	// TODO: Get actions from generated tools
+./apps/worker/internal/worker/generic_processor.go:	// TODO: Implement forwarding logic based on tool configuration
+./apps/worker/internal/worker/retry_handler.go:	// TODO: Add more sophisticated error classification
+./apps/rest-api/internal/api/server.go:	// router.Use(TracingMiddleware())      // Add request tracing - TODO: Fix OpenTelemetry dependency
+./apps/rest-api/internal/api/webhooks/dynamic_webhooks.go:			// TODO: Implement JSON path extraction
+./apps/rest-api/internal/services/model_discovery_service.go:// TODO: Uncomment these helper methods when model metadata enrichment is implemented
+./pkg/webhook/deduplication_test.go:		// TODO: Implement MaxSize feature to limit occurrences
+./pkg/clients/security_manager.go:	// mu     sync.RWMutex // TODO: Implement locking when methods are added
+./pkg/clients/performance_monitor.go:	// mu     sync.RWMutex // TODO: Implement locking when methods are added
+./pkg/clients/performance_monitor.go:	// overallHitRate float64 // TODO: Implement overall hit rate calculation
+./pkg/clients/performance_monitor.go:	// memoryUsage      int64   // TODO: Implement memory usage tracking
+./pkg/clients/performance_monitor.go:	// evictionRate     float64 // TODO: Implement eviction rate calculation
+./pkg/clients/performance_monitor.go:	// warmupEfficiency float64 // TODO: Implement warmup efficiency metrics
+./pkg/clients/performance_monitor.go:	// cpuUsage        float64 // TODO: Implement CPU usage tracking
+./pkg/clients/performance_monitor.go:	// memoryUsage     int64   // TODO: Implement memory usage tracking
+./pkg/clients/performance_monitor.go:	// goroutineCount  int     // TODO: Implement goroutine count tracking
+./pkg/clients/performance_monitor.go:	// connectionCount int     // TODO: Implement connection count tracking
+./pkg/clients/performance_monitor.go:	// networkBandwidth int64   // TODO: Implement bandwidth monitoring
+./pkg/clients/performance_monitor.go:	// packetLoss       float64 // TODO: Implement packet loss tracking
+./pkg/clients/performance_optimizer.go:	// mu     sync.RWMutex // TODO: Implement locking when methods are added
+./pkg/clients/performance_optimizer.go:	// mu sync.RWMutex // TODO: Implement locking when methods are added
+./pkg/clients/performance_optimizer.go:	// totalRequests int64          // TODO: Implement request counting
+./pkg/clients/performance_optimizer.go:	// avgWaitTime   time.Duration // TODO: Implement wait time tracking
+./pkg/clients/performance_optimizer.go:	// lastAdjustment time.Time // TODO: Implement dynamic adjustment
+./pkg/tools/adapters/dynamic_tool_adapter.go:	// TODO: Apply retry policy if configured
+./pkg/auth/factory_test.go:				decision := authorizer.Authorize(context.TODO(), auth.Permission{
+./pkg/tokenizer/tokenizer.go:	// TODO: Integrate with actual tiktoken library
+./pkg/tokenizer/tokenizer.go:	// TODO: Integrate with actual tiktoken library
+./pkg/health/health_checker.go:	// TODO: Add actual Bedrock API health check when client is available
+./pkg/embedding/cache/lru/tracker.go:		"total_tracked":  0, // TODO: Add counter
+./pkg/embedding/cache/lru/manager.go:		EvictionCount:    0,                // TODO: Track this
+./pkg/embedding/cache/lru/manager.go:		LastEviction:     time.Time{},      // TODO: Track this
+./pkg/embedding/cache/tenant_cache.go:	// TODO: Calculate actual bytes used by reading entries
+./pkg/embedding/cache/tenant_cache.go:	// TODO: Track per-tenant hits/misses in metrics
+./pkg/chunking/parsers/hcl.go:	// TODO: Implement line comment extraction to capture inline documentation
+./pkg/chunking/parsers/java.go:	// TODO: Implement field extraction to enhance code analysis capabilities
+./pkg/chunking/parsers/rust_macros.go:	// TODO: Handle procedural macros if needed
+./pkg/chunking/parsers/kotlin_classes.go:			_ = openBracePos // TODO: Implement nested member extraction
+./pkg/chunking/parsers/python.go:	// TODO: Implement decorator extraction to enhance Python code analysis
+./pkg/chunking/parsers/javascript.go:	// TODO: Implement object literal method extraction for better object analysis
+./pkg/chunking/chunking.go:	// TODO: Add more sophisticated language detection based on content
+./pkg/adapters/github/register.go:// TODO: Remove this once GitHubAdapter fully implements SourceControlAdapter
+./pkg/adapters/github/register.go:	// TODO: Implement proper webhook handling once the webhook system is fully migrated
+./pkg/adapters/github/adapter.go:	// TODO: Implement actual webhook processing once the webhook manager interface is defined
+./pkg/common/aws/rds.go:	_ = tokenExpiryTime // TODO: Use when implementing real token generation
+./pkg/common/events/system/event_bus.go:			// TODO: Add error logging when logger is available
+./pkg/events/event_bus_impl.go:				// TODO: Add error logging when logger is available
+./pkg/services/task_service_enhanced.go:	// TODO: Implement GetByIdempotencyKey in repository

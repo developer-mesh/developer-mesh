@@ -1,0 +1,8 @@
+Service: database
+Service: localstack
+Service: localstack-init
+Service: redis
+Service: rest-api
+Service: mcp-server
+Service: mockserver
+Service: worker

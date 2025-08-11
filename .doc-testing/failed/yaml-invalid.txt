@@ -1,0 +1,11 @@
+configs/auth.development.yaml: invalid YAML
+configs/auth.production.yaml: invalid YAML
+configs/config.base.yaml: invalid YAML
+configs/config.development.yaml: invalid YAML
+configs/config.docker.yaml: invalid YAML
+configs/config.production.yaml: invalid YAML
+configs/config.rest-api.yaml: invalid YAML
+configs/config.staging.yaml: invalid YAML
+configs/config.test.yaml: invalid YAML
+configs/config.yaml: invalid YAML
+configs/prometheus.yml: invalid YAML

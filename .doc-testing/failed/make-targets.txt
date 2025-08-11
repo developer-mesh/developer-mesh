@@ -1,0 +1,8 @@
+build
+test
+lint
+fmt
+deps
+pre-commit
+dev
+clean

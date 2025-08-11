@@ -1,0 +1,4 @@
+apps/mcp-server/
+apps/rest-api/
+apps/worker/
+apps/mockserver/

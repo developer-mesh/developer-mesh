@@ -1,0 +1,404 @@
+pkg/webhook/embedding.go:		return nil, fmt.Errorf("failed to create embedding provider: %w", err)
+pkg/webhook/embedding.go:	embedding, err := s.provider.GenerateEmbedding(ctx, text)
+pkg/webhook/embedding.go:	return fmt.Sprintf("embedding:%s:%s", s.provider.GetModelName(), generateChecksum(text))
+pkg/webhook/embedding.go:// createEmbeddingProvider creates the appropriate embedding provider
+pkg/webhook/embedding.go:		return NewOpenAIProvider(config, logger)
+pkg/webhook/embedding.go:		return nil, fmt.Errorf("unsupported embedding provider: %s", config.Provider)
+pkg/webhook/embedding.go:// OpenAIProvider implements embeddings using OpenAI API
+pkg/webhook/embedding.go:type OpenAIProvider struct {
+pkg/webhook/embedding.go:// NewOpenAIProvider creates a new OpenAI provider
+pkg/webhook/embedding.go:func NewOpenAIProvider(config *EmbeddingConfig, logger observability.Logger) (*OpenAIProvider, error) {
+pkg/webhook/embedding.go:		return nil, fmt.Errorf("api_key not configured for OpenAI provider")
+pkg/webhook/embedding.go:	return &OpenAIProvider{
+pkg/webhook/embedding.go:func (p *OpenAIProvider) GenerateEmbedding(ctx context.Context, text string) ([]float32, error) {
+pkg/webhook/embedding.go:	// This would make an API call to OpenAI
+pkg/webhook/embedding.go:func (p *OpenAIProvider) GenerateBatchEmbeddings(ctx context.Context, texts []string) ([][]float32, error) {
+pkg/webhook/embedding.go:func (p *OpenAIProvider) GetDimensions() int {
+pkg/webhook/embedding.go:func (p *OpenAIProvider) GetModelName() string {
+pkg/webhook/embedding_test.go:	// Mock embedding provider is not needed since we're using a mock cache
+pkg/webhook/embedding_test.go:// Mock embedding provider for testing - unused, kept for future use
+pkg/webhook/summarization.go:		return NewOpenAISummarizationProvider(config, logger)
+pkg/webhook/summarization.go:// OpenAISummarizationProvider uses OpenAI for summarization
+pkg/webhook/summarization.go:type OpenAISummarizationProvider struct {
+pkg/webhook/summarization.go:// NewOpenAISummarizationProvider creates a new OpenAI provider
+pkg/webhook/summarization.go:func NewOpenAISummarizationProvider(config *SummarizationConfig, logger observability.Logger) (*OpenAISummarizationProvider, error) {
+pkg/webhook/summarization.go:		return nil, fmt.Errorf("api_key not configured for OpenAI provider")
+pkg/webhook/summarization.go:	return &OpenAISummarizationProvider{
+pkg/webhook/summarization.go:// Summarize generates a summary using OpenAI
+pkg/webhook/summarization.go:func (p *OpenAISummarizationProvider) Summarize(ctx context.Context, text string, options SummarizationOptions) (string, error) {
+pkg/webhook/summarization.go:	// This would make an API call to OpenAI
+pkg/webhook/summarization.go:func (p *OpenAISummarizationProvider) SummarizeConversation(ctx context.Context, messages []Message, options SummarizationOptions) (string, error) {
+pkg/webhook/summarization.go:func (p *OpenAISummarizationProvider) ExtractKeyPoints(ctx context.Context, text string) ([]string, error) {
+pkg/webhook/summarization.go:func (p *OpenAISummarizationProvider) GetModelName() string {
+pkg/repository/model_catalog/repository_test.go:	s.mock.ExpectQuery("SELECT .+ FROM mcp.embedding_model_catalog WHERE is_available = true AND is_deprecated = false AND provider = \\$1").
+pkg/repository/agent/repository_test.go:						"provider": "AWS-Bedrock", // Should be normalized
+pkg/repository/agent/repository_test.go:			name:         "normalize AWS Bedrock to bedrock",
+pkg/repository/agent/repository_test.go:			provider:     "AWS-Bedrock",
+pkg/repository/search/repository.go:		defaultModel: "amazon.titan-embed-text-v1",  // Default Bedrock model
+pkg/core/embedding_manager.go:	// ModelTypeOpenAI represents OpenAI embedding models
+pkg/core/embedding_manager.go:	ModelTypeOpenAI EmbeddingModelType = "openai"
+pkg/health/health_checker.go:// BedrockHealthCheck checks AWS Bedrock service availability
+pkg/health/health_checker.go:type BedrockHealthCheck struct {
+pkg/health/health_checker.go:	// In a real implementation, this would use the Bedrock client
+pkg/health/health_checker.go:// NewBedrockHealthCheck creates a new Bedrock health check
+pkg/health/health_checker.go:func NewBedrockHealthCheck(name string, endpoint string) *BedrockHealthCheck {
+pkg/health/health_checker.go:	return &BedrockHealthCheck{
+pkg/health/health_checker.go:func (b *BedrockHealthCheck) Name() string {
+pkg/health/health_checker.go:func (b *BedrockHealthCheck) Check(ctx context.Context) error {
+pkg/health/health_checker.go:	// In production, this would make a minimal API call to Bedrock
+pkg/health/health_checker.go:	// TODO: Add actual Bedrock API health check when client is available
+pkg/embedding/provider_openai.go:// OpenAIProvider implements the Provider interface for OpenAI embeddings
+pkg/embedding/provider_openai.go:type OpenAIProvider struct {
+pkg/embedding/provider_openai.go:// NewOpenAIProvider creates a new OpenAI embedding provider
+pkg/embedding/provider_openai.go:func NewOpenAIProvider(apiKey string) *OpenAIProvider {
+pkg/embedding/provider_openai.go:	return &OpenAIProvider{
+pkg/embedding/provider_openai.go:// openAIRequest represents the request structure for OpenAI API
+pkg/embedding/provider_openai.go:// openAIResponse represents the response from OpenAI API
+pkg/embedding/provider_openai.go:// GenerateEmbedding generates an embedding using OpenAI API
+pkg/embedding/provider_openai.go:func (p *OpenAIProvider) GenerateEmbedding(ctx context.Context, content string, model string) ([]float32, error) {
+pkg/embedding/provider_openai.go:			// OpenAI provider - best effort logging
+pkg/embedding/provider_openai.go:		return nil, fmt.Errorf("OpenAI API error (status %d): %s", resp.StatusCode, string(body))
+pkg/embedding/provider_openai.go:// GetSupportedModels returns the list of supported OpenAI models
+pkg/embedding/provider_openai.go:func (p *OpenAIProvider) GetSupportedModels() []string {
+pkg/embedding/provider_openai.go:// ValidateAPIKey validates the OpenAI API key
+pkg/embedding/provider_openai.go:func (p *OpenAIProvider) ValidateAPIKey() error {
+pkg/embedding/models.go:// List of supported OpenAI embedding models
+pkg/embedding/models.go:var supportedOpenAIModels = map[string]int{
+pkg/embedding/models.go:// List of supported AWS Bedrock embedding models
+pkg/embedding/models.go:var supportedBedrockModels = map[string]int{
+pkg/embedding/models.go:	case ModelTypeOpenAI:
+pkg/embedding/models.go:		_, found := supportedOpenAIModels[modelName]
+pkg/embedding/models.go:			return fmt.Errorf("unsupported OpenAI model: %s", modelName)
+pkg/embedding/models.go:	case ModelTypeBedrock:
+pkg/embedding/models.go:		_, found := supportedBedrockModels[modelName]
+pkg/embedding/models.go:			return fmt.Errorf("unsupported AWS Bedrock model: %s", modelName)
+pkg/embedding/models.go:	case ModelTypeOpenAI:
+pkg/embedding/models.go:		return supportedOpenAIModels[modelName], nil
+pkg/embedding/models.go:	case ModelTypeBedrock:
+pkg/embedding/models.go:		return supportedBedrockModels[modelName], nil
+pkg/embedding/provider_voyage.go:// NewVoyageProvider creates a new Voyage AI embedding provider
+pkg/embedding/model_test.go:	assert.Equal(t, embedding.ModelType("openai"), embedding.ModelTypeOpenAI)
+pkg/embedding/model_test.go:// TestOpenAIEmbeddingService verifies that the OpenAI service can be created
+pkg/embedding/model_test.go:func TestOpenAIEmbeddingService(t *testing.T) {
+pkg/embedding/model_test.go:	service, err := embedding.NewOpenAIEmbeddingService(
+pkg/embedding/model_test.go:	assert.Equal(t, embedding.ModelTypeOpenAI, config.Type)
+pkg/embedding/provider_bedrock.go:// BedrockProvider implements the Provider interface for Amazon Bedrock embeddings
+pkg/embedding/provider_bedrock.go:type BedrockProvider struct {
+pkg/embedding/provider_bedrock.go:// NewBedrockProvider creates a new Bedrock embedding provider
+pkg/embedding/provider_bedrock.go:func NewBedrockProvider(region string) (*BedrockProvider, error) {
+pkg/embedding/provider_bedrock.go:	return &BedrockProvider{
+pkg/embedding/provider_bedrock.go:// GenerateEmbedding generates an embedding using Amazon Bedrock
+pkg/embedding/provider_bedrock.go:func (p *BedrockProvider) GenerateEmbedding(ctx context.Context, content string, model string) ([]float32, error) {
+pkg/embedding/provider_bedrock.go:	// Note: As of 2024, Anthropic's Claude models on Bedrock don't support embeddings
+pkg/embedding/provider_bedrock.go:// GetSupportedModels returns the list of supported Bedrock models
+pkg/embedding/provider_bedrock.go:func (p *BedrockProvider) GetSupportedModels() []string {
+pkg/embedding/provider_bedrock.go:func (p *BedrockProvider) ValidateAPIKey() error {
+pkg/embedding/cache/constants.go:	MaxEmbeddingDimension = 1536 // OpenAI ada-002 dimension
+pkg/embedding/factory.go:	if config.ModelType != ModelTypeOpenAI && config.ModelType != ModelTypeBedrock &&
+pkg/embedding/factory.go:	if config.ModelType == ModelTypeOpenAI && config.ModelAPIKey == "" {
+pkg/embedding/factory.go:		return nil, errors.New("model API key is required for OpenAI models")
+pkg/embedding/factory.go:	case ModelTypeOpenAI:
+pkg/embedding/factory.go:		return NewOpenAIEmbeddingService(
+pkg/embedding/factory.go:	case ModelTypeBedrock:
+pkg/embedding/factory.go:		// Create Bedrock configuration
+pkg/embedding/factory.go:		config := &BedrockConfig{
+pkg/embedding/factory.go:			return NewMockBedrockEmbeddingService(f.config.ModelName)
+pkg/embedding/factory.go:		return NewBedrockEmbeddingService(config)
+pkg/embedding/types.go:	ProviderOpenAI = "openai"
+pkg/embedding/types.go:	ProviderCohere = "cohere" // Available on Bedrock
+pkg/embedding/types.go:	ModelID                         *string         `json:"model_id,omitempty" db:"model_id"` // For Bedrock models
+pkg/embedding/providers/bedrock_provider.go:// BedrockProvider implements Provider interface for AWS Bedrock
+pkg/embedding/providers/bedrock_provider.go:type BedrockProvider struct {
+pkg/embedding/providers/bedrock_provider.go:// BedrockRequest/Response types for different models
+pkg/embedding/providers/bedrock_provider.go:// NewBedrockProvider creates a new AWS Bedrock provider
+pkg/embedding/providers/bedrock_provider.go:func NewBedrockProvider(providerConfig ProviderConfig) (*BedrockProvider, error) {
+pkg/embedding/providers/bedrock_provider.go:	// Create Bedrock Runtime client
+pkg/embedding/providers/bedrock_provider.go:	p := &BedrockProvider{
+pkg/embedding/providers/bedrock_provider.go:	// Anthropic via Bedrock support (Claude 3 models)
+pkg/embedding/providers/bedrock_provider.go:func (p *BedrockProvider) Name() string {
+pkg/embedding/providers/bedrock_provider.go:func (p *BedrockProvider) GenerateEmbedding(ctx context.Context, req GenerateEmbeddingRequest) (*EmbeddingResponse, error) {
+pkg/embedding/providers/bedrock_provider.go:func (p *BedrockProvider) BatchGenerateEmbeddings(ctx context.Context, req BatchGenerateEmbeddingRequest) (*BatchEmbeddingResponse, error) {
+pkg/embedding/providers/bedrock_provider.go:func (p *BedrockProvider) GetSupportedModels() []ModelInfo {
+pkg/embedding/providers/bedrock_provider.go:func (p *BedrockProvider) GetModel(modelName string) (ModelInfo, error) {
+pkg/embedding/providers/bedrock_provider.go:func (p *BedrockProvider) HealthCheck(ctx context.Context) error {
+pkg/embedding/providers/bedrock_provider.go:func (p *BedrockProvider) Close() error {
+pkg/embedding/providers/bedrock_provider.go:func (p *BedrockProvider) generateTitanEmbedding(ctx context.Context, req GenerateEmbeddingRequest, model ModelInfo) (*EmbeddingResponse, error) {
+pkg/embedding/providers/bedrock_provider.go:			IsRetryable: isRetryableBedrockError(err),
+pkg/embedding/providers/bedrock_provider.go:func (p *BedrockProvider) generateCohereEmbedding(ctx context.Context, req GenerateEmbeddingRequest, model ModelInfo) (*EmbeddingResponse, error) {
+pkg/embedding/providers/bedrock_provider.go:			IsRetryable: isRetryableBedrockError(err),
+pkg/embedding/providers/bedrock_provider.go:func (p *BedrockProvider) generateClaudeEmbedding(ctx context.Context, req GenerateEmbeddingRequest, model ModelInfo) (*EmbeddingResponse, error) {
+pkg/embedding/providers/bedrock_provider.go:func (p *BedrockProvider) batchGenerateCohereEmbeddings(ctx context.Context, req BatchGenerateEmbeddingRequest, model ModelInfo) (*BatchEmbeddingResponse, error) {
+pkg/embedding/providers/bedrock_provider.go:			IsRetryable: isRetryableBedrockError(err),
+pkg/embedding/providers/bedrock_provider.go:func isRetryableBedrockError(err error) bool {
+pkg/embedding/providers/openai_provider_test.go:func TestNewOpenAIProvider(t *testing.T) {
+pkg/embedding/providers/openai_provider_test.go:		provider, err := NewOpenAIProvider(config)
+pkg/embedding/providers/openai_provider_test.go:		_, err := NewOpenAIProvider(config)
+pkg/embedding/providers/openai_provider_test.go:		provider, err := NewOpenAIProvider(config)
+pkg/embedding/providers/openai_provider_test.go:func TestOpenAIProvider_GenerateEmbedding(t *testing.T) {
+pkg/embedding/providers/openai_provider_test.go:		provider, err := NewOpenAIProvider(config)
+pkg/embedding/providers/openai_provider_test.go:		provider, err := NewOpenAIProvider(config)
+pkg/embedding/providers/openai_provider_test.go:		provider, err := NewOpenAIProvider(config)
+pkg/embedding/providers/openai_provider_test.go:		provider, err := NewOpenAIProvider(config)
+pkg/embedding/providers/openai_provider_test.go:		provider, err := NewOpenAIProvider(config)
+pkg/embedding/providers/openai_provider_test.go:func TestOpenAIProvider_BatchGenerateEmbeddings(t *testing.T) {
+pkg/embedding/providers/openai_provider_test.go:		provider, err := NewOpenAIProvider(config)
+pkg/embedding/providers/openai_provider_test.go:func TestOpenAIProvider_GetModels(t *testing.T) {
+pkg/embedding/providers/openai_provider_test.go:	provider, err := NewOpenAIProvider(config)
+pkg/embedding/providers/openai_provider_test.go:func TestOpenAIProvider_HealthCheck(t *testing.T) {
+pkg/embedding/providers/openai_provider_test.go:		provider, err := NewOpenAIProvider(config)
+pkg/embedding/providers/openai_provider_test.go:		provider, err := NewOpenAIProvider(config)
+pkg/embedding/providers/openai_provider.go:// OpenAIProvider implements Provider interface for OpenAI embeddings
+pkg/embedding/providers/openai_provider.go:type OpenAIProvider struct {
+pkg/embedding/providers/openai_provider.go:// openAIRequest represents the request structure for OpenAI API
+pkg/embedding/providers/openai_provider.go:// openAIResponse represents the response from OpenAI API
+pkg/embedding/providers/openai_provider.go:// openAIErrorResponse represents an error response from OpenAI
+pkg/embedding/providers/openai_provider.go:// NewOpenAIProvider creates a new OpenAI provider
+pkg/embedding/providers/openai_provider.go:func NewOpenAIProvider(config ProviderConfig) (*OpenAIProvider, error) {
+pkg/embedding/providers/openai_provider.go:		return nil, fmt.Errorf("OpenAI API key is required")
+pkg/embedding/providers/openai_provider.go:	p := &OpenAIProvider{
+pkg/embedding/providers/openai_provider.go:			DisplayName:                "OpenAI Text Embedding 3 Small",
+pkg/embedding/providers/openai_provider.go:			DisplayName:                "OpenAI Text Embedding 3 Large",
+pkg/embedding/providers/openai_provider.go:			DisplayName:        "OpenAI Ada v2",
+pkg/embedding/providers/openai_provider.go:func (p *OpenAIProvider) Name() string {
+pkg/embedding/providers/openai_provider.go:func (p *OpenAIProvider) GenerateEmbedding(ctx context.Context, req GenerateEmbeddingRequest) (*EmbeddingResponse, error) {
+pkg/embedding/providers/openai_provider.go:	// Prepare OpenAI request
+pkg/embedding/providers/openai_provider.go:func (p *OpenAIProvider) BatchGenerateEmbeddings(ctx context.Context, req BatchGenerateEmbeddingRequest) (*BatchEmbeddingResponse, error) {
+pkg/embedding/providers/openai_provider.go:	// OpenAI supports batch input
+pkg/embedding/providers/openai_provider.go:func (p *OpenAIProvider) GetSupportedModels() []ModelInfo {
+pkg/embedding/providers/openai_provider.go:func (p *OpenAIProvider) GetModel(modelName string) (ModelInfo, error) {
+pkg/embedding/providers/openai_provider.go:func (p *OpenAIProvider) HealthCheck(ctx context.Context) error {
+pkg/embedding/providers/openai_provider.go:func (p *OpenAIProvider) Close() error {
+pkg/embedding/providers/openai_provider.go:func (p *OpenAIProvider) doRequest(ctx context.Context, reqBody openAIRequest) (*openAIResponse, error) {
+pkg/embedding/providers/openai_provider.go:func (p *OpenAIProvider) calculateRetryDelay(attempt int) time.Duration {
+pkg/embedding/providers/openai_provider.go:func (p *OpenAIProvider) isRetryableError(err error) bool {
+pkg/embedding/providers/openai_provider.go:func (p *OpenAIProvider) isRetryableStatusCode(code int) bool {
+pkg/embedding/providers/openai_provider.go:func (p *OpenAIProvider) parseRetryAfter(header string) *time.Duration {
+pkg/embedding/providers/openai_provider.go:func (p *OpenAIProvider) extractRateLimitInfo(headers http.Header) RateLimitInfo {
+pkg/embedding/providers/openai_provider.go:	// OpenAI rate limit headers (would need actual response headers)
+pkg/embedding/providers/provider_interface.go:// Provider represents an embedding provider (OpenAI, Bedrock, etc.)
+pkg/embedding/providers/google_provider.go:			DisplayName:        "Google Text Embedding Gecko 003",
+pkg/embedding/providers/google_provider.go:			DisplayName:        "Google Text Embedding Gecko Multilingual",
+pkg/embedding/providers/google_provider.go:			DisplayName:                "Google Text Embedding Preview",
+pkg/embedding/providers/google_provider.go:			DisplayName:        "Google Text Multilingual Embedding v2",
+pkg/embedding/providers/google_provider.go:func (p *GoogleProvider) GenerateEmbedding(ctx context.Context, req GenerateEmbeddingRequest) (*EmbeddingResponse, error) {
+pkg/embedding/providers/google_provider.go:func (p *GoogleProvider) BatchGenerateEmbeddings(ctx context.Context, req BatchGenerateEmbeddingRequest) (*BatchEmbeddingResponse, error) {
+pkg/embedding/providers/google_provider.go:func (p *GoogleProvider) doRequest(ctx context.Context, model string, reqBody googleEmbeddingRequest) (*googleEmbeddingResponse, error) {
+pkg/embedding/router_test.go:	"github.com/developer-mesh/developer-mesh/pkg/embedding/providers"
+pkg/embedding/router_test.go:	// OpenAI should now be filtered out
+pkg/embedding/router_test.go:	// OpenAI should be available again (half-open)
+pkg/embedding/router_test.go:	hasOpenAI := false
+pkg/embedding/router_test.go:			hasOpenAI = true
+pkg/embedding/router_test.go:	assert.True(t, hasOpenAI, "OpenAI should be available after timeout")
+pkg/embedding/legacy_minimal_types.go:	ModelTypeOpenAI      ModelType = "openai"
+pkg/embedding/legacy_minimal_types.go:	ModelTypeBedrock     ModelType = "bedrock"
+pkg/embedding/legacy_minimal_types.go:// Provider interface for embedding providers - TEMPORARY for legacy code cleanup
+pkg/embedding/bedrock_test.go:func TestNewBedrockEmbeddingService(t *testing.T) {
+pkg/embedding/bedrock_test.go:	config := &BedrockConfig{
+pkg/embedding/bedrock_test.go:	service, err := NewBedrockEmbeddingService(config)
+pkg/embedding/bedrock_test.go:	assert.Equal(t, ModelTypeBedrock, modelConfig.Type)
+pkg/embedding/bedrock_test.go:	config = &BedrockConfig{
+pkg/embedding/bedrock_test.go:	service, err = NewBedrockEmbeddingService(config)
+pkg/embedding/bedrock_test.go:	config = &BedrockConfig{
+pkg/embedding/bedrock_test.go:	service, err = NewBedrockEmbeddingService(config)
+pkg/embedding/bedrock_test.go:	assert.Contains(t, err.Error(), "unsupported AWS Bedrock model")
+pkg/embedding/bedrock_test.go:	config = &BedrockConfig{
+pkg/embedding/bedrock_test.go:	service, err = NewBedrockEmbeddingService(config)
+pkg/embedding/bedrock_test.go:	service, err = NewBedrockEmbeddingService(nil)
+pkg/embedding/bedrock_test.go:func TestBedrockEmbeddingService_GenerateEmbedding(t *testing.T) {
+pkg/embedding/bedrock_test.go:	config := &BedrockConfig{
+pkg/embedding/bedrock_test.go:	service, err := NewBedrockEmbeddingService(config)
+pkg/embedding/bedrock_test.go:func TestBedrockEmbeddingService_BatchGenerateEmbeddings(t *testing.T) {
+pkg/embedding/bedrock_test.go:	config := &BedrockConfig{
+pkg/embedding/bedrock_test.go:	service, err := NewBedrockEmbeddingService(config)
+pkg/embedding/bedrock_test.go:func TestBedrockEmbeddingService_BatchProcessing(t *testing.T) {
+pkg/embedding/bedrock_test.go:	config := &BedrockConfig{
+pkg/embedding/bedrock_test.go:	service, err := NewBedrockEmbeddingService(config)
+pkg/embedding/bedrock_test.go:	batchSize := maxBedrockBatchSize + 5
+pkg/embedding/bedrock_test.go:	service, err := NewMockBedrockEmbeddingService("anthropic.claude-3-5-haiku-20250531-v1:0")
+pkg/embedding/bedrock_test.go:	assert.Equal(t, ModelTypeBedrock, config.Type)
+pkg/embedding/bedrock_test.go:	service, err = NewMockBedrockEmbeddingService("anthropic.claude-3-7-sonnet-20250531-v1:0")
+pkg/embedding/bedrock_test.go:	assert.Equal(t, ModelTypeBedrock, config.Type)
+pkg/embedding/bedrock_test.go:func TestNewMockBedrockEmbeddingService(t *testing.T) {
+pkg/embedding/bedrock_test.go:	service, err := NewMockBedrockEmbeddingService("amazon.titan-embed-text-v1")
+pkg/embedding/bedrock_test.go:	assert.Equal(t, ModelTypeBedrock, config.Type)
+pkg/embedding/bedrock_test.go:	service, err = NewMockBedrockEmbeddingService("invalid-model")
+pkg/embedding/bedrock_test.go:	assert.Contains(t, err.Error(), "unsupported AWS Bedrock model")
+pkg/embedding/bedrock_test.go:	service, err = NewMockBedrockEmbeddingService("")
+pkg/embedding/bedrock_test.go:	assert.Equal(t, defaultBedrockModel, service.config.Name)
+pkg/embedding/dimension_adapter.go:func (da *DimensionAdapter) NormalizeWithProvider(embedding []float32, fromDim, toDim int, provider, model string) []float32 {
+pkg/embedding/core_types_test.go:	assert.Equal(t, ModelType("openai"), ModelTypeOpenAI, "ModelTypeOpenAI should be 'openai'")
+pkg/embedding/core_types_test.go:		Type:       ModelTypeOpenAI,
+pkg/embedding/core_types_test.go:	assert.Equal(t, ModelTypeOpenAI, config.Type, "config.Type should match")
+pkg/embedding/core_types_test.go:	var embeddingService EmbeddingService = (*OpenAIEmbeddingService)(nil)
+pkg/embedding/core_types_test.go:	assert.Nil(t, embeddingService, "This should compile if OpenAIEmbeddingService implements EmbeddingService")
+pkg/embedding/core_types_test.go:	assert.Equal(t, ModelTypeOpenAI, config.Type, "Model type should match")
+pkg/embedding/core_types_test.go:		Type:       ModelTypeOpenAI,
+pkg/embedding/expansion/bedrock_llm_client.go:// BedrockLLMClient implements LLMClient using AWS Bedrock
+pkg/embedding/expansion/bedrock_llm_client.go:type BedrockLLMClient struct {
+pkg/embedding/expansion/bedrock_llm_client.go:// NewBedrockLLMClient creates a new Bedrock LLM client
+pkg/embedding/expansion/bedrock_llm_client.go:func NewBedrockLLMClient(region, modelID string) (*BedrockLLMClient, error) {
+pkg/embedding/expansion/bedrock_llm_client.go:	return &BedrockLLMClient{
+pkg/embedding/expansion/bedrock_llm_client.go:func (b *BedrockLLMClient) Complete(ctx context.Context, req CompletionRequest) (*CompletionResponse, error) {
+pkg/embedding/expansion/bedrock_llm_client.go:func (b *BedrockLLMClient) formatClaudeRequest(req CompletionRequest) ([]byte, error) {
+pkg/embedding/expansion/bedrock_llm_client.go:func (b *BedrockLLMClient) formatTitanRequest(req CompletionRequest) ([]byte, error) {
+pkg/embedding/expansion/bedrock_llm_client.go:func (b *BedrockLLMClient) parseClaudeResponse(body []byte) (*CompletionResponse, error) {
+pkg/embedding/expansion/bedrock_llm_client.go:func (b *BedrockLLMClient) parseTitanResponse(body []byte) (*CompletionResponse, error) {
+pkg/embedding/openai_test.go:func TestNewOpenAIEmbeddingService(t *testing.T) {
+pkg/embedding/openai_test.go:	service, err := NewOpenAIEmbeddingService("test-api-key", "text-embedding-3-small", 1536)
+pkg/embedding/openai_test.go:	service, err = NewOpenAIEmbeddingService("test-api-key", "invalid-model", 1536)
+pkg/embedding/openai_test.go:	assert.Contains(t, err.Error(), "unsupported OpenAI model")
+pkg/embedding/openai_test.go:	service, err = NewOpenAIEmbeddingService("", "text-embedding-3-small", 1536)
+pkg/embedding/openai_test.go:func TestOpenAIEmbeddingService_GenerateEmbedding(t *testing.T) {
+pkg/embedding/openai_test.go:	// Create OpenAI service with custom base URL pointing to our test server
+pkg/embedding/openai_test.go:	service, err := NewOpenAIEmbeddingService("test-api-key", "text-embedding-3-small", 1536)
+pkg/embedding/openai_test.go:func TestOpenAIEmbeddingService_ErrorHandling(t *testing.T) {
+pkg/embedding/openai_test.go:	// Create OpenAI service with custom base URL pointing to our test server
+pkg/embedding/openai_test.go:	service, err := NewOpenAIEmbeddingService("test-api-key", "text-embedding-3-small", 1536)
+pkg/embedding/openai_test.go:	assert.Contains(t, err.Error(), "OpenAI API error")
+pkg/embedding/openai_test.go:func TestOpenAIEmbeddingService_EmptyContent(t *testing.T) {
+pkg/embedding/openai_test.go:	service, err := NewOpenAIEmbeddingService("test-api-key", "text-embedding-3-small", 1536)
+pkg/embedding/openai.go:	// Default OpenAI API endpoint
+pkg/embedding/openai.go:	defaultOpenAIEndpoint = "https://api.openai.com/v1/embeddings"
+pkg/embedding/openai.go:	// Default OpenAI model
+pkg/embedding/openai.go:	defaultOpenAIModel = "text-embedding-3-small"
+pkg/embedding/openai.go:	defaultOpenAIDimensions = 1536
+pkg/embedding/openai.go:	// Maximum batch size for OpenAI API
+pkg/embedding/openai.go:	maxOpenAIBatchSize = 16
+pkg/embedding/openai.go:// OpenAIEmbeddingRequest represents a request to the OpenAI embeddings API
+pkg/embedding/openai.go:type OpenAIEmbeddingRequest struct {
+pkg/embedding/openai.go:// OpenAIEmbeddingResponse represents a response from the OpenAI embeddings API
+pkg/embedding/openai.go:type OpenAIEmbeddingResponse struct {
+pkg/embedding/openai.go:	Data  []OpenAIEmbeddingData `json:"data"`
+pkg/embedding/openai.go:	Usage OpenAIUsage           `json:"usage"`
+pkg/embedding/openai.go:// OpenAIEmbeddingData represents embedding data in an OpenAI API response
+pkg/embedding/openai.go:type OpenAIEmbeddingData struct {
+pkg/embedding/openai.go:// OpenAIUsage represents usage information in an OpenAI API response
+pkg/embedding/openai.go:type OpenAIUsage struct {
+pkg/embedding/openai.go:// OpenAIEmbeddingService implements EmbeddingService using OpenAI's API
+pkg/embedding/openai.go:type OpenAIEmbeddingService struct {
+pkg/embedding/openai.go:// NewOpenAIEmbeddingService creates a new OpenAI embedding service
+pkg/embedding/openai.go:func NewOpenAIEmbeddingService(apiKey string, modelName string, dimensions int) (*OpenAIEmbeddingService, error) {
+pkg/embedding/openai.go:		return nil, errors.New("API key is required for OpenAI embeddings")
+pkg/embedding/openai.go:		modelName = defaultOpenAIModel
+pkg/embedding/openai.go:	err := ValidateEmbeddingModel(ModelTypeOpenAI, modelName)
+pkg/embedding/openai.go:		dimensions = supportedOpenAIModels[modelName]
+pkg/embedding/openai.go:			dimensions = defaultOpenAIDimensions
+pkg/embedding/openai.go:		Type:       ModelTypeOpenAI,
+pkg/embedding/openai.go:		Endpoint:   defaultOpenAIEndpoint,
+pkg/embedding/openai.go:	return &OpenAIEmbeddingService{
+pkg/embedding/openai.go:func (s *OpenAIEmbeddingService) GenerateEmbedding(ctx context.Context, text string, contentType string, contentID string) (*EmbeddingVector, error) {
+pkg/embedding/openai.go:			return nil, fmt.Errorf("failed to generate embedding: OpenAI API error: %w", err)
+pkg/embedding/openai.go:func (s *OpenAIEmbeddingService) BatchGenerateEmbeddings(ctx context.Context, texts []string, contentType string, contentIDs []string) ([]*EmbeddingVector, error) {
+pkg/embedding/openai.go:	if len(texts) > maxOpenAIBatchSize {
+pkg/embedding/openai.go:	reqBody := OpenAIEmbeddingRequest{
+pkg/embedding/openai.go:			// OpenAI client - best effort logging
+pkg/embedding/openai.go:	var response OpenAIEmbeddingResponse
+pkg/embedding/openai.go:func (s *OpenAIEmbeddingService) processBatches(ctx context.Context, texts []string, contentType string, contentIDs []string) ([]*EmbeddingVector, error) {
+pkg/embedding/openai.go:	for i := 0; i < len(texts); i += maxOpenAIBatchSize {
+pkg/embedding/openai.go:		end := i + maxOpenAIBatchSize
+pkg/embedding/openai.go:func (s *OpenAIEmbeddingService) GetModelConfig() ModelConfig {
+pkg/embedding/openai.go:func (s *OpenAIEmbeddingService) GetModelDimensions() int {
+pkg/embedding/provider_factory.go:	// OpenAI configuration
+pkg/embedding/provider_factory.go:	OpenAIAPIKey string
+pkg/embedding/provider_factory.go:	// AWS/Bedrock configuration
+pkg/embedding/provider_factory.go:		OpenAIAPIKey:    os.Getenv("OPENAI_API_KEY"),
+pkg/embedding/provider_factory.go:	// Create OpenAI provider if configured
+pkg/embedding/provider_factory.go:	if config.OpenAIAPIKey != "" {
+pkg/embedding/provider_factory.go:		providers[ProviderOpenAI] = NewOpenAIProvider(config.OpenAIAPIKey)
+pkg/embedding/provider_factory.go:	// Create Bedrock provider if AWS is configured
+pkg/embedding/provider_factory.go:		bedrock, err := NewBedrockProvider(config.AWSRegion)
+pkg/embedding/provider_factory.go:			return nil, fmt.Errorf("failed to create Bedrock provider: %w", err)
+pkg/embedding/provider_factory.go:		providers[ProviderCohere] = bedrock // Cohere models are also on Bedrock
+pkg/embedding/service_v2_test.go:	"github.com/developer-mesh/developer-mesh/pkg/embedding/providers"
+pkg/embedding/service_v2_test.go:			name:     "OpenAI small model",
+pkg/embedding/service_v2_test.go:			name:     "OpenAI large model",
+pkg/embedding/vector_test.go:		ModelType:       embedding.ModelTypeOpenAI,
+pkg/embedding/vector_test.go:	assert.Equal(t, embedding.ModelTypeOpenAI, config.ModelType)
+pkg/embedding/rerank/cross_encoder_test.go:	"github.com/developer-mesh/developer-mesh/pkg/embedding/providers"
+pkg/embedding/rerank/cross_encoder.go:	"github.com/developer-mesh/developer-mesh/pkg/embedding/providers"
+pkg/embedding/rerank/integration_test.go:	"github.com/developer-mesh/developer-mesh/pkg/embedding/providers"
+pkg/embedding/provider_selector.go:// EmbeddingProviderSelector intelligently selects and validates embedding providers
+pkg/embedding/provider_selector.go:	// OpenAI
+pkg/embedding/provider_selector.go:	// AWS Bedrock (check multiple credential sources)
+pkg/embedding/provider_selector.go:			return "", "", 0, fmt.Errorf("provider %s does not support embeddings", provider)
+pkg/embedding/provider_selector.go:	return "", "", 0, fmt.Errorf("no embedding provider available. Please set OPENAI_API_KEY, configure AWS credentials, or set EMBEDDING_PROVIDER explicitly")
+pkg/embedding/bedrock.go:// Package embedding provides embedding vector functionality for different model providers.
+pkg/embedding/bedrock.go:	defaultBedrockTimeout = 30 * time.Second
+pkg/embedding/bedrock.go:	// Default AWS Bedrock model
+pkg/embedding/bedrock.go:	defaultBedrockModel = "amazon.titan-embed-text-v1"
+pkg/embedding/bedrock.go:	// Maximum batch size for Bedrock API (may vary by model)
+pkg/embedding/bedrock.go:	maxBedrockBatchSize = 8
+pkg/embedding/bedrock.go:// BedrockRuntimeClient defines an interface to allow for mocking in tests
+pkg/embedding/bedrock.go:type BedrockRuntimeClient interface {
+pkg/embedding/bedrock.go:// MockBedrockClient provides a mock implementation of the BedrockRuntimeClient interface for testing
+pkg/embedding/bedrock.go:type MockBedrockClient struct{}
+pkg/embedding/bedrock.go:func (m *MockBedrockClient) InvokeModel(ctx context.Context, params *bedrockruntime.InvokeModelInput, optFns ...func(*bedrockruntime.Options)) (*bedrockruntime.InvokeModelOutput, error) {
+pkg/embedding/bedrock.go:// NewMockBedrockEmbeddingService creates a mock Bedrock embedding service for testing
+pkg/embedding/bedrock.go:func NewMockBedrockEmbeddingService(modelID string) (*BedrockEmbeddingService, error) {
+pkg/embedding/bedrock.go:		modelID = defaultBedrockModel
+pkg/embedding/bedrock.go:	err := ValidateEmbeddingModel(ModelTypeBedrock, modelID)
+pkg/embedding/bedrock.go:	dimensions, err := GetEmbeddingModelDimensions(ModelTypeBedrock, modelID)
+pkg/embedding/bedrock.go:	client := &MockBedrockClient{}
+pkg/embedding/bedrock.go:		Type:       ModelTypeBedrock,
+pkg/embedding/bedrock.go:	return &BedrockEmbeddingService{
+pkg/embedding/bedrock.go:// BedrockEmbeddingService implements EmbeddingService using AWS Bedrock
+pkg/embedding/bedrock.go:type BedrockEmbeddingService struct {
+pkg/embedding/bedrock.go:	client BedrockRuntimeClient
+pkg/embedding/bedrock.go:// BedrockConfig contains configuration for AWS Bedrock
+pkg/embedding/bedrock.go:type BedrockConfig struct {
+pkg/embedding/bedrock.go:// NewBedrockEmbeddingService creates a new AWS Bedrock embedding service
+pkg/embedding/bedrock.go:func NewBedrockEmbeddingService(config *BedrockConfig) (*BedrockEmbeddingService, error) {
+pkg/embedding/bedrock.go:		return nil, errors.New("config is required for Bedrock embeddings")
+pkg/embedding/bedrock.go:		config.ModelID = defaultBedrockModel
+pkg/embedding/bedrock.go:	err := ValidateEmbeddingModel(ModelTypeBedrock, config.ModelID)
+pkg/embedding/bedrock.go:	dimensions, err := GetEmbeddingModelDimensions(ModelTypeBedrock, config.ModelID)
+pkg/embedding/bedrock.go:	// Create Bedrock client
+pkg/embedding/bedrock.go:		Type:       ModelTypeBedrock,
+pkg/embedding/bedrock.go:		fmt.Printf("WARNING: No AWS credentials provided, using mock embeddings for Bedrock service\n")
+pkg/embedding/bedrock.go:	return &BedrockEmbeddingService{
+pkg/embedding/bedrock.go:func (s *BedrockEmbeddingService) GenerateEmbedding(ctx context.Context, text string, contentType string, contentID string) (*EmbeddingVector, error) {
+pkg/embedding/bedrock.go:func (s *BedrockEmbeddingService) BatchGenerateEmbeddings(ctx context.Context, texts []string, contentType string, contentIDs []string) ([]*EmbeddingVector, error) {
+pkg/embedding/bedrock.go:	if len(texts) > maxBedrockBatchSize {
+pkg/embedding/bedrock.go:	// Process each text individually (most Bedrock models don't support batching yet)
+pkg/embedding/bedrock.go:			// Use the real AWS Bedrock service
+pkg/embedding/bedrock.go:			timeoutCtx, cancel := context.WithTimeout(ctx, defaultBedrockTimeout)
+pkg/embedding/bedrock.go:			// Invoke Bedrock model
+pkg/embedding/bedrock.go:				return nil, fmt.Errorf("failed to invoke Bedrock model: %w", err)
+pkg/embedding/bedrock.go:func (s *BedrockEmbeddingService) processBatches(ctx context.Context, texts []string, contentType string, contentIDs []string) ([]*EmbeddingVector, error) {
+pkg/embedding/bedrock.go:	batchSize := maxBedrockBatchSize
+pkg/embedding/bedrock.go:func (s *BedrockEmbeddingService) GetModelConfig() ModelConfig {
+pkg/embedding/bedrock.go:func (s *BedrockEmbeddingService) GetModelDimensions() int {
+pkg/embedding/service_v2.go:	"github.com/developer-mesh/developer-mesh/pkg/embedding/providers"
+pkg/embedding/service_v2.go:	// Generate embedding with selected provider using exponential backoff
+pkg/embedding/service_v2.go:	var embeddingResp *providers.EmbeddingResponse
+pkg/embedding/service_v2.go:const StandardDimension = 1536 // OpenAI standard for cross-model compatibility
+pkg/embedding/router.go:	"github.com/developer-mesh/developer-mesh/pkg/embedding/providers"
+pkg/embedding/factory_test.go:		ModelType:          ModelTypeOpenAI,
+pkg/embedding/factory_test.go:		ModelType:          ModelTypeOpenAI,
+pkg/embedding/factory_test.go:		ModelType:          ModelTypeOpenAI,
+pkg/embedding/factory_test.go:		ModelType:       ModelTypeOpenAI,
+pkg/embedding/factory_test.go:		ModelType:          ModelTypeOpenAI,
+pkg/embedding/factory_test.go:	// Create factory with OpenAI config
+pkg/embedding/factory_test.go:		ModelType:          ModelTypeOpenAI,
+pkg/embedding/factory_test.go:	// Test creating an OpenAI embedding service
+pkg/embedding/factory_test.go:	// Test creating AWS Bedrock embedding service
+pkg/embedding/factory_test.go:	// Create a new factory with Bedrock config
+pkg/embedding/factory_test.go:		ModelType:          ModelTypeBedrock,
+pkg/embedding/factory_test.go:	// Create and verify the Bedrock service
+pkg/embedding/factory_test.go:	assert.Equal(t, ModelTypeBedrock, bedrockModelConfig.Type)
+pkg/embedding/factory_test.go:		ModelType:          ModelTypeOpenAI,
+pkg/embedding/factory_test.go:			ModelType:       ModelTypeOpenAI,
+pkg/embedding/factory_test.go:	// These tests would connect to a real database and OpenAI API
+pkg/embedding/provider_google.go:// NewGoogleProvider creates a new Google Vertex AI embedding provider
+pkg/embedding/provider_google.go:func (p *GoogleProvider) GenerateEmbedding(ctx context.Context, content string, model string) ([]float32, error) {
+pkg/observability/prometheus_metrics.go:	c.getOrCreateCounter("embedding_requests_total", "Total embedding requests", []string{"tenant_id", "model", "provider", "status"})
+pkg/observability/prometheus_metrics.go:	c.getOrCreateHistogram("embedding_request_duration_seconds", "Embedding request duration", []string{"tenant_id", "model", "provider"}, prometheus.DefBuckets)
+pkg/observability/prometheus_metrics.go:	c.getOrCreateCounter("embedding_tokens_total", "Total tokens processed", []string{"tenant_id", "model", "provider"})
+pkg/observability/prometheus_metrics.go:	c.getOrCreateCounter("embedding_cost_usd_total", "Total cost in USD", []string{"tenant_id", "model", "provider"})
+pkg/common/config/config.go:// ProvidersConfig contains configuration for embedding providers
+pkg/common/config/config.go:	OpenAI  OpenAIConfig  `mapstructure:"openai"`
+pkg/common/config/config.go:	Bedrock BedrockConfig `mapstructure:"bedrock"`
+pkg/common/config/config.go:// OpenAIConfig contains OpenAI provider configuration
+pkg/common/config/config.go:type OpenAIConfig struct {
+pkg/common/config/config.go:// BedrockConfig contains AWS Bedrock provider configuration
+pkg/common/config/config.go:type BedrockConfig struct {

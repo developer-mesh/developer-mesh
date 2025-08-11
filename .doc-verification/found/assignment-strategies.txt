@@ -1,0 +1,41 @@
+./test/functional/api/websocket_collaboration_test.go:func TestWebSocketCapabilityMatching(t *testing.T) {
+./apps/mcp-server/internal/api/websocket/metrics.go:// RecordAgentCapabilityMatch records agent capability matching metrics
+./apps/mcp-server/internal/api/websocket/metrics.go:func (mc *MetricsCollector) RecordAgentCapabilityMatch(tenantID string, capability string, matched bool) {
+./apps/mcp-server/internal/api/websocket/agent_message_broker.go:		return b.selectLeastLoadedAgent(agents)
+./apps/mcp-server/internal/api/websocket/agent_message_broker.go:func (b *AgentMessageBroker) selectLeastLoadedAgent(agents []string) string {
+./apps/mcp-server/internal/api/proxies/agent_proxy.go:// GetLeastLoadedAgent retrieves the least loaded agent with a capability
+./apps/mcp-server/internal/api/proxies/agent_proxy.go:func (p *AgentAPIProxy) GetLeastLoadedAgent(ctx context.Context, capability models.AgentCapability) (*models.Agent, error) {
+./apps/mcp-server/internal/api/proxies/agent_proxy.go:	// Since the REST API doesn't have a direct GetLeastLoadedAgent method,
+./pkg/repository/agent_bridge.go:// GetLeastLoadedAgent implements the Repository interface
+./pkg/repository/agent_bridge.go:func (m *mockAgentRepository) GetLeastLoadedAgent(ctx context.Context, capability models.AgentCapability) (*models.Agent, error) {
+./pkg/repository/agent/interfaces.go:	GetLeastLoadedAgent(ctx context.Context, capability models.AgentCapability) (*models.Agent, error)
+./pkg/repository/agent/mock.go:// GetLeastLoadedAgent implements the Repository interface
+./pkg/repository/agent/mock.go:func (m *MockRepository) GetLeastLoadedAgent(ctx context.Context, capability models.AgentCapability) (*models.Agent, error) {
+./pkg/repository/agent/repository.go:// GetLeastLoadedAgent implements the Repository interface
+./pkg/repository/agent/repository.go:func (r *RepositoryImpl) GetLeastLoadedAgent(ctx context.Context, capability models.AgentCapability) (*models.Agent, error) {
+./pkg/repository/adapters.go:// GetLeastLoadedAgent implements the Repository interface
+./pkg/repository/adapters.go:func (a *LegacyAgentAdapter) GetLeastLoadedAgent(ctx context.Context, capability models.AgentCapability) (*models.Agent, error) {
+./pkg/repository/adapters.go:	return a.repo.GetLeastLoadedAgent(ctx, capability)
+./pkg/repository/agent_repository.go:// GetLeastLoadedAgent implements intelligent load balancing
+./pkg/repository/agent_repository.go:func (r *AgentRepositoryImpl) GetLeastLoadedAgent(ctx context.Context, capability models.AgentCapability) (*models.Agent, error) {
+./pkg/tests/integration/repository/repository_db_integration_test.go:// GetLeastLoadedAgent retrieves the least loaded agent with a capability
+./pkg/tests/integration/repository/repository_db_integration_test.go:func (r *MockAgentRepository) GetLeastLoadedAgent(ctx context.Context, capability models.AgentCapability) (*models.Agent, error) {
+./pkg/services/assignment_engine.go:	e.RegisterStrategy("round_robin", &RoundRobinStrategy{})
+./pkg/services/assignment_engine.go:	e.RegisterStrategy("least_loaded", &LeastLoadedStrategy{
+./pkg/services/assignment_engine.go:	e.RegisterStrategy("capability_match", &CapabilityMatchStrategy{
+./pkg/services/assignment_engine.go:// RoundRobinStrategy assigns tasks in round-robin fashion
+./pkg/services/assignment_engine.go:type RoundRobinStrategy struct {
+./pkg/services/assignment_engine.go:func (s *RoundRobinStrategy) Assign(ctx context.Context, task *models.Task, agents []*models.Agent) (*models.Agent, error) {
+./pkg/services/assignment_engine.go:func (s *RoundRobinStrategy) GetName() string {
+./pkg/services/assignment_engine.go:// LeastLoadedStrategy assigns tasks to the least loaded agent
+./pkg/services/assignment_engine.go:type LeastLoadedStrategy struct {
+./pkg/services/assignment_engine.go:func (s *LeastLoadedStrategy) Assign(ctx context.Context, task *models.Task, agents []*models.Agent) (*models.Agent, error) {
+./pkg/services/assignment_engine.go:func (s *LeastLoadedStrategy) GetName() string {
+./pkg/services/assignment_engine.go:// CapabilityMatchStrategy assigns tasks based on agent capabilities
+./pkg/services/assignment_engine.go:type CapabilityMatchStrategy struct {
+./pkg/services/assignment_engine.go:func (s *CapabilityMatchStrategy) Assign(ctx context.Context, task *models.Task, agents []*models.Agent) (*models.Agent, error) {
+./pkg/services/assignment_engine.go:func (s *CapabilityMatchStrategy) extractCapabilities(task *models.Task) []string {
+./pkg/services/assignment_engine.go:func (s *CapabilityMatchStrategy) getCapabilityDetails(agentCaps, requiredCaps []string) (matched, missing []string) {
+./pkg/services/assignment_engine.go:func (s *CapabilityMatchStrategy) isRelevantCapability(capability, taskType string) bool {
+./pkg/services/assignment_engine.go:func (s *CapabilityMatchStrategy) GetName() string {
+./pkg/services/task_service_impl.go:var AssignmentStrategyLeastLoad = &LeastLoadedStrategy{}
