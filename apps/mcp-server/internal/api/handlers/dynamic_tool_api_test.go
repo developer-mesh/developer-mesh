@@ -66,20 +66,28 @@ func setupTestDB(t *testing.T) *sqlx.DB {
 		t.Skipf("Skipping test, cannot ping test database: %v. Run 'docker-compose -f docker-compose.test.yml up -d' to start test database.", err)
 	}
 
-	// Clean up any existing tables
+	// Clean up any existing tables (check both public and mcp schemas)
+	_, _ = db.Exec("DROP TABLE IF EXISTS mcp.tool_executions CASCADE")
+	_, _ = db.Exec("DROP TABLE IF EXISTS mcp.tool_discovery_sessions CASCADE")
+	_, _ = db.Exec("DROP TABLE IF EXISTS mcp.tool_configurations CASCADE")
 	_, _ = db.Exec("DROP TABLE IF EXISTS tool_executions CASCADE")
 	_, _ = db.Exec("DROP TABLE IF EXISTS tool_discovery_sessions CASCADE")
 	_, _ = db.Exec("DROP TABLE IF EXISTS tool_configurations CASCADE")
+	
+	// Create mcp schema if it doesn't exist
+	_, _ = db.Exec("CREATE SCHEMA IF NOT EXISTS mcp")
 
-	// Create test schema
+	// Create test schema matching the actual migration
 	schema := `
-	CREATE TABLE tool_configurations (
+	CREATE TABLE mcp.tool_configurations (
 		id TEXT PRIMARY KEY,
 		tenant_id TEXT NOT NULL,
-		tool_type TEXT NOT NULL,
 		tool_name TEXT NOT NULL,
+		tool_type TEXT NOT NULL,
 		display_name TEXT,
+		base_url TEXT,
 		config JSONB,
+		auth_config JSONB DEFAULT '{}',
 		credentials_encrypted BYTEA,
 		auth_type TEXT NOT NULL DEFAULT 'token',
 		retry_policy JSONB,
@@ -92,7 +100,7 @@ func setupTestDB(t *testing.T) *sqlx.DB {
 		UNIQUE(tenant_id, tool_name)
 	);
 
-	CREATE TABLE tool_discovery_sessions (
+	CREATE TABLE mcp.tool_discovery_sessions (
 		id TEXT PRIMARY KEY,
 		tenant_id TEXT NOT NULL,
 		session_id TEXT UNIQUE,
@@ -105,9 +113,9 @@ func setupTestDB(t *testing.T) *sqlx.DB {
 		expires_at TIMESTAMP
 	);
 
-	CREATE TABLE tool_executions (
+	CREATE TABLE mcp.tool_executions (
 		id TEXT PRIMARY KEY,
-		tool_config_id TEXT REFERENCES tool_configurations(id),
+		tool_config_id TEXT REFERENCES mcp.tool_configurations(id),
 		tenant_id TEXT NOT NULL,
 		action TEXT,
 		parameters JSONB,
