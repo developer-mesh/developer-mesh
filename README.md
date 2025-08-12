@@ -30,7 +30,8 @@ DevOps teams struggle to integrate AI effectively - managing multiple models, co
 ## 🌟 Key Features
 
 ### AI Agent Orchestration
-- **MCP Protocol Support**: Industry-standard Model Context Protocol (JSON-RPC 2.0)
+- **MCP Protocol Support**: Full Model Context Protocol 2024-11-05 implementation (JSON-RPC 2.0)
+- **Connection Modes**: Optimized for Claude Code, IDEs, and custom agents
 - **Capability-Based Discovery**: Agents advertise their strengths (code analysis, security, documentation)
 - **Dynamic Load Balancing**: Routes tasks to least-loaded agents in real-time
 - **Collaboration Strategies**: MapReduce, parallel execution, consensus building
@@ -68,9 +69,12 @@ DevOps teams struggle to integrate AI effectively - managing multiple models, co
   - Detailed billing integration support
 
 ### Real-time Communication
-- **Binary WebSocket Protocol**: Compressed messages for efficiency <!-- Source: pkg/models/websocket/binary.go -->
-- **Mixed Message Support**: Text and binary in same connection
-- **Connection Pooling**: Efficient resource utilization
+- **MCP over WebSocket**: Industry-standard Model Context Protocol (MCP) 2024-11-05
+- **JSON-RPC 2.0**: Standard message format for all operations
+- **Connection Modes**: Auto-detection for Claude Code, IDEs, and agents
+- **DevMesh Tools**: All functionality exposed as standard MCP tools
+- **Resource Subscriptions**: Real-time updates for workflows and tasks
+- **Binary Protocol Support**: Optional compressed messages for efficiency <!-- Source: pkg/models/websocket/binary.go -->
 - **Heartbeat Monitoring**: Automatic reconnection handling
 
 ### Dynamic Tool Integration with Enhanced Discovery
@@ -278,31 +282,82 @@ make run-worker      # Background worker
 
 ## 🎮 Usage Examples
 
-### Register an AI Agent
+### Connect via MCP Protocol
 
-```go
-// WebSocket connection to MCP <!-- Source: pkg/models/websocket/binary.go -->
-ws, _ := websocket.Dial("ws://localhost:8080/ws", "", "http://localhost") <!-- Source: pkg/models/websocket/binary.go -->
+#### Using websocat (Command Line)
+```bash
+# Standard MCP connection
+wscat -c ws://localhost:8080/ws
 
-// Register agent
-msg := AgentRegistration{
-    Type: "agent.register",
-    Payload: AgentInfo{
-        ID: "security-agent",
-        Name: "Security Scanner",
-        Capabilities: []string{"security", "vulnerability-scan"},
-        ModelID: "amazon.titan-embed-text-v2",
-    },
-}
-websocket.JSON.Send(ws, msg) <!-- Source: pkg/models/websocket/binary.go -->
+# Initialize connection
+> {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","clientInfo":{"name":"my-agent","version":"1.0.0"}}}
+
+# List available tools
+> {"jsonrpc":"2.0","id":2,"method":"tools/list"}
+
+# Execute a DevMesh tool
+> {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"devmesh.workflow.list","arguments":{}}}
 ```
 
-### Submit a Task
+#### Claude Code Connection
+```bash
+# Connect as Claude Code client (optimized responses)
+wscat -c ws://localhost:8080/ws -H "User-Agent: Claude-Code/1.0.0"
+```
+
+#### IDE Connection
+```bash
+# Connect from IDE (rich debugging info)
+wscat -c ws://localhost:8080/ws -H "X-IDE-Name: VSCode"
+```
+
+#### Agent Connection (Go)
+```go
+// MCP connection from Go application
+headers := http.Header{
+    "X-Agent-ID": []string{"security-agent"},
+}
+ws, _ := websocket.Dial("ws://localhost:8080/ws", "", "http://localhost")
+
+// Initialize MCP session
+msg := map[string]interface{}{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize",
+    "params": map[string]interface{}{
+        "protocolVersion": "2024-11-05",
+        "clientInfo": map[string]interface{}{
+            "name": "security-agent",
+            "version": "1.0.0",
+            "capabilities": []string{"security", "vulnerability-scan"},
+        },
+    },
+}
+websocket.JSON.Send(ws, msg)
+```
+
+### Submit a Task via MCP
 
 ```bash
-# Tasks are submitted through WebSocket messages to agents <!-- Source: pkg/models/websocket/binary.go -->
+# Create a task using MCP tools/call
+curl -X POST http://localhost:8080/ws \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 4,
+    "method": "tools/call",
+    "params": {
+      "name": "devmesh.task.create",
+      "arguments": {
+        "title": "Security scan repository",
+        "type": "security",
+        "priority": "high"
+      }
+    }
+  }'
+
 # The MCP server coordinates task distribution based on agent capabilities
-# See the WebSocket protocol documentation for message formats <!-- Source: pkg/models/websocket/binary.go -->
+# Tasks are automatically assigned to the best available agent
 ```
 
 ### Add a DevOps Tool
@@ -353,8 +408,12 @@ curl -X POST http://localhost:8081/api/v1/tools \
 ### Monitor System Health
 
 ```bash
-# Check MCP server health
+# Check MCP server health via HTTP
 curl http://localhost:8080/health
+
+# Check health via MCP resource
+echo '{"jsonrpc":"2.0","id":1,"method":"resources/read","params":{"uri":"devmesh://system/health"}}' | \
+  wscat -c ws://localhost:8080/ws
 
 # Check REST API health
 curl http://localhost:8081/health
@@ -363,6 +422,27 @@ curl http://localhost:8081/health
 curl http://localhost:8080/metrics  # MCP Server metrics
 curl http://localhost:8081/metrics  # REST API metrics
 ```
+
+### Available MCP Tools
+
+All DevMesh functionality is exposed as MCP tools:
+- `devmesh.workflow.create` - Create workflows
+- `devmesh.workflow.execute` - Execute workflows
+- `devmesh.workflow.list` - List workflows
+- `devmesh.task.create` - Create tasks
+- `devmesh.task.assign` - Assign tasks to agents
+- `devmesh.task.complete` - Mark tasks complete
+- `devmesh.context.update` - Update session context
+- `devmesh.context.get` - Get current context
+
+### Available MCP Resources
+
+Monitor system state via MCP resources:
+- `devmesh://system/health` - System health status
+- `devmesh://workflow/*` - Workflow information
+- `devmesh://task/*` - Task details
+- `devmesh://agent/*` - Agent status
+- `devmesh://context/*` - Session context
 
 ## 📈 Performance Features
 
@@ -392,6 +472,7 @@ curl http://localhost:8081/metrics  # REST API metrics
 - [Local Development](docs/LOCAL_DEVELOPMENT.md)
 
 ### API Reference
+- [MCP Protocol Guide](docs/MCP_PROTOCOL.md) - Complete MCP implementation details
 - [REST API Reference](docs/api-reference/rest-api-reference.md)
 - [MCP Server Reference](docs/api-reference/mcp-server-reference.md)
 - [Webhook API Reference](docs/api-reference/webhook-api-reference.md)

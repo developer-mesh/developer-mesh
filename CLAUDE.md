@@ -54,19 +54,30 @@ Developer Mesh is a production-ready platform for orchestrating multiple AI agen
 - Security hardening
 - Test coverage expansion
 
-## MCP Protocol Migration (Completed)
+## MCP Protocol Implementation (Complete)
 
 ### Overview
-The platform has been migrated from a dual-protocol system (custom + MCP) to MCP-only for all agent communication. This provides a standardized, JSON-RPC 2.0-based protocol for AI agent interaction.
+DevMesh fully implements the Model Context Protocol (MCP) 2024-11-05 specification for standardized AI agent communication. The platform exposes all DevMesh capabilities through standard MCP tools and resources.
 
 ### MCP Protocol Details
-- **Version**: 2024-11-05
+- **Version**: 2024-11-05 (Industry Standard)
 - **Format**: JSON-RPC 2.0 over WebSocket
-- **Connection**: WebSocket at `/ws` endpoint
+- **Endpoint**: `ws://localhost:8080/ws` (WebSocket)
+- **Authentication**: Bearer token via Authorization header
+- **Connection Modes**: Claude Code, IDE, Agent, Standard MCP
 
-### Agent Connection via MCP
+### Quick Start - Connect with MCP Client
+```bash
+# Using websocat (for testing)
+echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","clientInfo":{"name":"my-client","version":"1.0.0"}},"id":"1"}' | \
+  websocat --header="Authorization: Bearer YOUR_API_KEY" ws://localhost:8080/ws
+
+# The server will respond with capabilities
+```
+
+### Connection Initialization
 ```json
-// Initialize connection
+// 1. Initialize connection
 {
   "jsonrpc": "2.0",
   "id": 1,
@@ -74,106 +85,227 @@ The platform has been migrated from a dual-protocol system (custom + MCP) to MCP
   "params": {
     "protocolVersion": "2024-11-05",
     "clientInfo": {
-      "name": "agent-name",
-      "version": "1.0.0",
-      "type": "ide"  // or "ci", "documentation", etc.
+      "name": "your-client",
+      "version": "1.0.0"
     }
   }
 }
+
+// 2. Server responds with capabilities
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "protocolVersion": "2024-11-05",
+    "serverInfo": {
+      "name": "developer-mesh-mcp",
+      "version": "1.0.0"
+    },
+    "capabilities": {
+      "tools": {"listChanged": true},
+      "resources": {"subscribe": true, "listChanged": true},
+      "prompts": {"listChanged": true}
+    }
+  }
+}
+
+// 3. Confirm initialization (required)
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "method": "initialized",
+  "params": {}
+}
 ```
 
-### Custom Protocol Features as MCP Tools
-Previous custom protocol features are now exposed as MCP tools:
+### DevMesh Tools Available via MCP
 
-| Custom Protocol | MCP Tool | Description |
-|----------------|----------|-------------|
-| `agent.register` | `initialize` | Agent registration via MCP initialize |
-| `agent.heartbeat` | `agent.heartbeat` | Heartbeat tool |
-| `workflow.create` | `workflow.create` | Create workflow tool |
-| `workflow.execute` | `workflow.execute` | Execute workflow tool |
-| `task.create` | `task.create` | Create task tool |
-| `task.assign` | `task.assign` | Assign task tool |
-| `task.complete` | `task.complete` | Complete task tool |
-| `context.update` | `context.update` | Update context tool |
+All DevMesh features are exposed as standard MCP tools. Use `tools/list` to discover them dynamically.
+
+#### Core DevMesh Tools
+| Tool Name | Description | Key Parameters |
+|-----------|-------------|----------------|
+| `devmesh.agent.assign` | Assign task to specialized AI agent | `agent_type`, `task`, `priority` |
+| `devmesh.context.update` | Update session context | `context`, `merge` |
+| `devmesh.context.get` | Retrieve current context | `keys` (optional) |
+| `devmesh.search.semantic` | Semantic search across codebase | `query`, `limit`, `filters` |
+| `devmesh.workflow.execute` | Execute predefined workflow | `workflow_id`, `parameters` |
+| `devmesh.workflow.list` | List available workflows | `category`, `tags` |
+| `devmesh.task.create` | Create new task | `title`, `type`, `priority` |
+| `devmesh.task.status` | Get/update task status | `task_id`, `status` |
+
+#### Legacy Protocol Tools (Still Available)
+| Tool Name | Description |
+|-----------|-------------|
+| `agent.heartbeat` | Send agent heartbeat |
+| `agent.status` | Get agent status |
+| `workflow.create` | Create new workflow |
+| `workflow.cancel` | Cancel workflow execution |
+| `task.assign` | Assign task to agent |
+| `task.complete` | Mark task as complete |
+| `context.update` | Update context |
+| `context.append` | Append to context |
 
 ### MCP Resources
-Read-only access to system state via resources:
 
+DevMesh exposes system state through MCP resources. Use `resources/list` to discover available resources.
+
+#### DevMesh Resources (devmesh:// URI scheme)
+| Resource URI | Description | Content Type |
+|-------------|-------------|--------------|
+| `devmesh://agents/{tenant_id}` | List of registered AI agents | `application/json` |
+| `devmesh://workflows/{tenant_id}` | Available workflows | `application/json` |
+| `devmesh://context/{session_id}` | Current session context | `application/json` |
+| `devmesh://tasks/{tenant_id}` | Active tasks in system | `application/json` |
+| `devmesh://tools/{tenant_id}` | Available tools and configs | `application/json` |
+| `devmesh://system/health` | System health and metrics | `application/json` |
+| `devmesh://session/{id}/info` | Session information | `application/json` |
+
+#### Standard Resources
 | Resource URI | Description |
 |-------------|-------------|
-| `workflow/*` | Workflow information |
+| `agent/*` | Agent information |
+| `agent/*/capabilities` | Agent capabilities |
+| `workflow/*` | Workflow details |
 | `workflow/*/status` | Workflow execution status |
 | `task/*` | Task information |
 | `task/*/status` | Task status |
 | `context/*` | Session context |
-| `agent/*` | Agent information |
-| `system/health` | System health status |
+| `system/metrics` | System metrics |
 
 ### Example MCP Operations
 
-#### List Available Tools
+#### 1. List Available Tools
 ```json
+// Request
 {
   "jsonrpc": "2.0",
-  "id": 2,
+  "id": "tools-1",
   "method": "tools/list"
+}
+
+// Response includes all DevMesh tools
+{
+  "jsonrpc": "2.0",
+  "id": "tools-1",
+  "result": {
+    "tools": [
+      {
+        "name": "devmesh.agent.assign",
+        "description": "Assign task to specialized AI agent",
+        "inputSchema": {...}
+      },
+      // ... more tools
+    ]
+  }
 }
 ```
 
-#### Execute a Tool
+#### 2. Execute a DevMesh Tool
 ```json
+// Create a task
 {
   "jsonrpc": "2.0",
-  "id": 3,
+  "id": "task-1",
   "method": "tools/call",
   "params": {
-    "name": "workflow.create",
+    "name": "devmesh.task.create",
     "arguments": {
-      "name": "deployment-workflow",
-      "steps": [...]
+      "title": "Review PR #123",
+      "type": "code_review",
+      "priority": "high"
     }
   }
 }
-```
 
-#### Read a Resource
-```json
+// Response
 {
   "jsonrpc": "2.0",
-  "id": 4,
-  "method": "resources/read",
-  "params": {
-    "uri": "task/task-123/status"
+  "id": "task-1",
+  "result": {
+    "content": [{
+      "type": "text",
+      "text": "{\"id\":\"task-123\",\"status\":\"created\",...}"
+    }]
   }
 }
 ```
 
-### Implementation Details
-- **Protocol Adapter**: `/pkg/adapters/mcp/protocol_adapter.go` - Converts custom protocol features to MCP
-- **Resource Provider**: `/pkg/adapters/mcp/resources/resource_provider.go` - Provides MCP resources
-- **MCP Handler**: `/apps/mcp-server/internal/api/mcp_protocol.go` - Main MCP protocol handler
-- **Migration Tests**: `/apps/mcp-server/internal/api/websocket/mcp_migration_test.go`
+#### 3. Read System Health Resource
+```json
+// Request
+{
+  "jsonrpc": "2.0",
+  "id": "health-1",
+  "method": "resources/read",
+  "params": {
+    "uri": "devmesh://system/health"
+  }
+}
 
-### Testing MCP Connection
-```bash
-# Test MCP connection
-wscat -c ws://localhost:8080/ws
-
-# Send initialize message
-{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","clientInfo":{"name":"test-agent","version":"1.0.0"}}}
-
-# List available tools
-{"jsonrpc":"2.0","id":2,"method":"tools/list"}
-
-# Execute a tool
-{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"agent.heartbeat","arguments":{"agent_id":"test-agent"}}}
+// Response with health metrics
+{
+  "jsonrpc": "2.0",
+  "id": "health-1",
+  "result": {
+    "contents": [{
+      "uri": "devmesh://system/health",
+      "mimeType": "application/json",
+      "text": "{\"status\":\"healthy\",\"connections\":5,...}"
+    }]
+  }
+}
 ```
 
-### Backward Compatibility
-The system maintains dual-protocol support during transition:
-- MCP messages (containing `"jsonrpc":"2.0"`) are routed to MCP handler
-- Custom protocol messages are still processed but deprecated
-- Full migration to MCP-only is recommended
+### Connection Mode Detection
+
+DevMesh automatically detects the type of client connecting:
+
+| Client Type | Detection Method | Special Features |
+|------------|------------------|------------------|
+| **Claude Code** | User-Agent: `Claude-Code/*` or Header: `X-Claude-Code-Version` | Optimized for multi-file operations |
+| **IDE** | User-Agent contains `VSCode`, `Cursor` or Header: `X-IDE-Name` | IDE-specific features |
+| **Agent** | Header: `X-Agent-ID` or `X-Agent-Type` | Persistent connections |
+| **Standard MCP** | Default for any MCP client | Full MCP compliance |
+
+### Implementation Files
+
+| Component | Location | Description |
+|-----------|----------|-------------|
+| **MCP Handler** | `/apps/mcp-server/internal/api/mcp_protocol.go` | Core MCP protocol implementation |
+| **WebSocket Server** | `/apps/mcp-server/internal/api/websocket/server.go` | WebSocket handling and routing |
+| **Connection Manager** | `/apps/mcp-server/internal/api/websocket/connection.go` | Connection state management |
+| **Protocol Adapter** | `/pkg/adapters/mcp/protocol_adapter.go` | Legacy protocol conversion |
+| **Resource Provider** | `/pkg/adapters/mcp/resources/resource_provider.go` | Resource management |
+
+### Testing MCP Connection
+
+```bash
+# Quick test with websocat
+./scripts/test-mcp-standard.sh      # Full test suite
+./scripts/test-mcp-session.sh       # Session-based tests
+./scripts/test-mcp-validation.sh    # Response validation
+
+# Manual testing with websocat
+websocat --header="Authorization: Bearer dev-admin-key-1234567890" \
+  ws://localhost:8080/ws
+
+# Then send:
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","clientInfo":{"name":"test","version":"1.0.0"}}}
+{"jsonrpc":"2.0","id":2,"method":"initialized","params":{}}
+{"jsonrpc":"2.0","id":3,"method":"tools/list"}
+```
+
+### MCP Compliance
+
+DevMesh fully implements the MCP 2024-11-05 specification:
+- ✅ All required methods implemented
+- ✅ Standard error codes (JSON-RPC 2.0)
+- ✅ Tool discovery and execution
+- ✅ Resource listing and reading
+- ✅ Subscription support
+- ✅ Session management
+- ✅ Graceful shutdown
 
 ## Testing Guidelines
 - Unit tests: In same package as code
