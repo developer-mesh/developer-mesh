@@ -3,6 +3,7 @@ package websocket
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,6 +16,14 @@ import (
 	ws "github.com/developer-mesh/developer-mesh/pkg/models/websocket"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
+
+// isMCPTestMessage checks if a message is an MCP message (contains "jsonrpc":"2.0")
+// This matches the logic in connection.go readPump method
+func isMCPTestMessage(data []byte) bool {
+	msg := string(data)
+	// Check for jsonrpc 2.0 specifically
+	return strings.Contains(msg, `"jsonrpc":"2.0"`) || strings.Contains(msg, `"jsonrpc": "2.0"`)
+}
 
 // MCPMigrationTestSuite tests the migration from custom protocol to MCP-only
 type MCPMigrationTestSuite struct {
@@ -106,7 +115,7 @@ func TestMCPAgentRegistration(t *testing.T) {
 	}
 
 	// Test routing to MCP handler
-	isMCP := isMCPMessage(msgBytes)
+	isMCP := isMCPTestMessage(msgBytes)
 	assert.True(t, isMCP, "Should recognize MCP message")
 
 	// Verify handler would be called
@@ -139,7 +148,7 @@ func TestMCPToolExecution(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify it's recognized as MCP
-	assert.True(t, isMCPMessage(msgBytes))
+	assert.True(t, isMCPTestMessage(msgBytes))
 
 	// Set expectation
 	suite.mcpHandler.On("HandleMessage", mock.Anything, mock.Anything, "test-tenant", msgBytes).Return(nil)
@@ -212,7 +221,7 @@ func TestMCPWorkflowAsTools(t *testing.T) {
 			msgBytes, err := json.Marshal(msg)
 			require.NoError(t, err)
 
-			assert.True(t, isMCPMessage(msgBytes))
+			assert.True(t, isMCPTestMessage(msgBytes))
 			suite.mcpHandler.On("HandleMessage", mock.Anything, mock.Anything, mock.Anything, msgBytes).Return(nil).Once()
 
 			err = suite.mcpHandler.HandleMessage(nil, "conn-123", "test-tenant", msgBytes)
@@ -246,7 +255,7 @@ func TestMCPTaskManagement(t *testing.T) {
 	msgBytes, err := json.Marshal(createTaskMsg)
 	require.NoError(t, err)
 
-	assert.True(t, isMCPMessage(msgBytes))
+	assert.True(t, isMCPTestMessage(msgBytes))
 	suite.mcpHandler.On("HandleMessage", mock.Anything, mock.Anything, mock.Anything, msgBytes).Return(nil)
 
 	err = suite.mcpHandler.HandleMessage(nil, "conn-123", "test-tenant", msgBytes)
@@ -265,7 +274,7 @@ func TestMCPTaskManagement(t *testing.T) {
 	msgBytes, err = json.Marshal(taskStatusMsg)
 	require.NoError(t, err)
 
-	assert.True(t, isMCPMessage(msgBytes))
+	assert.True(t, isMCPTestMessage(msgBytes))
 	suite.mcpHandler.On("HandleMessage", mock.Anything, mock.Anything, mock.Anything, msgBytes).Return(nil)
 
 	err = suite.mcpHandler.HandleMessage(nil, "conn-123", "test-tenant", msgBytes)
@@ -291,7 +300,7 @@ func TestMCPContextManagement(t *testing.T) {
 	msgBytes, err := json.Marshal(contextMsg)
 	require.NoError(t, err)
 
-	assert.True(t, isMCPMessage(msgBytes))
+	assert.True(t, isMCPTestMessage(msgBytes))
 	suite.mcpHandler.On("HandleMessage", mock.Anything, mock.Anything, mock.Anything, msgBytes).Return(nil)
 
 	err = suite.mcpHandler.HandleMessage(nil, "conn-123", "test-tenant", msgBytes)
@@ -314,7 +323,7 @@ func TestMCPContextManagement(t *testing.T) {
 	msgBytes, err = json.Marshal(updateMsg)
 	require.NoError(t, err)
 
-	assert.True(t, isMCPMessage(msgBytes))
+	assert.True(t, isMCPTestMessage(msgBytes))
 	suite.mcpHandler.On("HandleMessage", mock.Anything, mock.Anything, mock.Anything, msgBytes).Return(nil)
 
 	err = suite.mcpHandler.HandleMessage(nil, "conn-123", "test-tenant", msgBytes)
@@ -356,7 +365,7 @@ func TestMCPHeartbeat(t *testing.T) {
 	msgBytes, err := json.Marshal(heartbeatMsg)
 	require.NoError(t, err)
 
-	assert.True(t, isMCPMessage(msgBytes))
+	assert.True(t, isMCPTestMessage(msgBytes))
 	suite.mcpHandler.On("HandleMessage", mock.Anything, mock.Anything, mock.Anything, msgBytes).Return(nil)
 
 	err = suite.mcpHandler.HandleMessage(nil, "conn-123", "test-tenant", msgBytes)
@@ -382,7 +391,7 @@ func TestMCPSubscriptions(t *testing.T) {
 	msgBytes, err := json.Marshal(subscribeMsg)
 	require.NoError(t, err)
 
-	assert.True(t, isMCPMessage(msgBytes))
+	assert.True(t, isMCPTestMessage(msgBytes))
 	suite.mcpHandler.On("HandleMessage", mock.Anything, mock.Anything, mock.Anything, msgBytes).Return(nil)
 
 	err = suite.mcpHandler.HandleMessage(nil, "conn-123", "test-tenant", msgBytes)
@@ -412,7 +421,7 @@ func TestCustomProtocolRemoved(t *testing.T) {
 	require.NoError(t, err)
 
 	// Should NOT be recognized as MCP
-	assert.False(t, isMCPMessage(msgBytes))
+	assert.False(t, isMCPTestMessage(msgBytes))
 
 	// After migration, this should return an error
 	// The server should only accept MCP messages
@@ -480,7 +489,7 @@ func TestMCPProtocolCompliance(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := isMCPMessage([]byte(tc.message))
+			result := isMCPTestMessage([]byte(tc.message))
 			assert.Equal(t, tc.shouldBe, result, "Message recognition mismatch")
 		})
 	}

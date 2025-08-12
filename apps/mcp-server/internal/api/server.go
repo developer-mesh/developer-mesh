@@ -280,7 +280,7 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 				// Create adapters for APIL integration
 				mcpAdapter := NewMCPHandlerAdapter(s.mcpProtocolHandler)
 				wsAdapter := NewWebSocketServerAdapter(s.wsServer)
-				
+
 				s.apisIntegration = adaptive.NewAPISIntegration(
 					observability.DefaultLogger,
 					metrics,

@@ -74,7 +74,7 @@ const (
 
 // AutoRecoveryEngine handles automatic recovery strategies
 type AutoRecoveryEngine struct {
-	mu         sync.RWMutex
+	// mu         sync.RWMutex // TODO: implement when needed
 	strategies []RecoveryStrategy
 
 	// Pattern recognition
@@ -82,7 +82,7 @@ type AutoRecoveryEngine struct {
 
 	// Recovery tracking
 	recoveryHistory []RecoveryAttempt
-	successRate     float64
+	// successRate     float64 // TODO: implement when needed
 }
 
 // RecoveryStrategy defines a recovery approach
@@ -95,26 +95,26 @@ type RecoveryStrategy interface {
 
 // HealthMonitor continuously monitors system health
 type HealthMonitor struct {
-	mu sync.RWMutex
+	// mu sync.RWMutex // TODO: implement when needed
 
 	// Health indicators
 	indicators map[string]*HealthIndicator
 
 	// Composite health score
-	overallHealth float64
+	// overallHealth float64 // TODO: implement when needed
 
 	// Trend analysis
-	healthTrends *TrendAnalyzer
+	// healthTrends *TrendAnalyzer // TODO: implement when needed
 }
 
 // FailurePredictor predicts potential failures
 type FailurePredictor struct {
-	mu sync.RWMutex
+	// mu sync.RWMutex // TODO: implement when needed
 
 	// Prediction models
-	timeSeriesModel *TimeSeriesPredictor
-	patternModel    *PatternBasedPredictor
-	anomalyModel    *AnomalyPredictor
+	// timeSeriesModel *TimeSeriesPredictor // TODO: implement when needed
+	// patternModel    *PatternBasedPredictor // TODO: implement when needed
+	// anomalyModel    *AnomalyPredictor // TODO: implement when needed
 
 	// Predictions
 	predictions []FailurePrediction
@@ -577,7 +577,7 @@ func (are *AutoRecoveryEngine) SelectStrategy(incident *Incident) RecoveryStrate
 
 func NewHealthMonitor(logger observability.Logger) *HealthMonitor {
 	return &HealthMonitor{
-		indicators:   make(map[string]*HealthIndicator),
+		indicators: make(map[string]*HealthIndicator),
 		// healthTrends: NewTrendAnalyzer(), // Not implemented yet
 	}
 }

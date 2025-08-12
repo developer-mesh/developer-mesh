@@ -310,7 +310,7 @@ func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	// Detect connection mode based on headers and user agent
 	connectionMode := s.detectConnectionMode(r)
 	connection.state.ConnectionMode = connectionMode
-	
+
 	// Log connection mode
 	s.logger.Info("Connection mode detected", map[string]interface{}{
 		"connection_id": connection.ID,
@@ -353,34 +353,34 @@ func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 // detectConnectionMode detects the type of connection based on headers
 func (s *Server) detectConnectionMode(r *http.Request) ConnectionMode {
 	userAgent := r.Header.Get("User-Agent")
-	
+
 	// Check for Claude Code
-	if strings.Contains(userAgent, "Claude-Code") || 
-	   r.Header.Get("X-Claude-Code-Version") != "" ||
-	   r.Header.Get("X-Client-Name") == "claude-code" {
+	if strings.Contains(userAgent, "Claude-Code") ||
+		r.Header.Get("X-Claude-Code-Version") != "" ||
+		r.Header.Get("X-Client-Name") == "claude-code" {
 		s.logger.Info("Claude Code connection detected", map[string]interface{}{
 			"user_agent": userAgent,
 			"version":    r.Header.Get("X-Claude-Code-Version"),
 		})
 		return ModeClaudeCode
 	}
-	
+
 	// Check for IDE connection (Cursor, VS Code, etc.)
 	if strings.Contains(userAgent, "Cursor") ||
-	   strings.Contains(userAgent, "VSCode") ||
-	   strings.Contains(userAgent, "Visual-Studio-Code") ||
-	   r.Header.Get("X-IDE-Name") != "" {
+		strings.Contains(userAgent, "VSCode") ||
+		strings.Contains(userAgent, "Visual-Studio-Code") ||
+		r.Header.Get("X-IDE-Name") != "" {
 		s.logger.Info("IDE connection detected", map[string]interface{}{
 			"user_agent": userAgent,
 			"ide_name":   r.Header.Get("X-IDE-Name"),
 		})
 		return ModeIDE
 	}
-	
+
 	// Check for agent connection
 	if r.Header.Get("X-Agent-ID") != "" ||
-	   r.Header.Get("X-Agent-Type") != "" ||
-	   strings.Contains(userAgent, "DevMesh-Agent") {
+		r.Header.Get("X-Agent-Type") != "" ||
+		strings.Contains(userAgent, "DevMesh-Agent") {
 		s.logger.Info("Agent connection detected", map[string]interface{}{
 			"user_agent": userAgent,
 			"agent_id":   r.Header.Get("X-Agent-ID"),
@@ -388,17 +388,17 @@ func (s *Server) detectConnectionMode(r *http.Request) ConnectionMode {
 		})
 		return ModeAgent
 	}
-	
+
 	// Check for MCP client in user agent
 	if strings.Contains(strings.ToLower(userAgent), "mcp") ||
-	   r.Header.Get("X-MCP-Version") != "" {
+		r.Header.Get("X-MCP-Version") != "" {
 		s.logger.Info("Standard MCP connection detected", map[string]interface{}{
-			"user_agent": userAgent,
+			"user_agent":  userAgent,
 			"mcp_version": r.Header.Get("X-MCP-Version"),
 		})
 		return ModeStandardMCP
 	}
-	
+
 	// Default to standard MCP
 	s.logger.Debug("Defaulting to standard MCP connection", map[string]interface{}{
 		"user_agent": userAgent,

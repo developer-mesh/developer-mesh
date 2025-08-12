@@ -692,7 +692,7 @@ type LoadBalancingStrategy interface {
 }
 
 type RoundRobinStrategy struct {
-	current uint64
+	// current uint64 // TODO: implement when needed
 }
 
 func (rr *RoundRobinStrategy) Select(backends map[string]*Backend, msg Message) *Backend {
@@ -820,6 +820,7 @@ func (st *SequenceTracker) GetCurrentSequence() []string {
 type CostRecord struct{}
 type AdaptiveBatcher struct{}
 type PredictiveCache struct{}
+
 // SmartCompressor is defined in integration.go
 type DynamicRuleEngine struct{}
 type RoutingStatistics struct{}

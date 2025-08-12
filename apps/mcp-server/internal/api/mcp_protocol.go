@@ -125,13 +125,13 @@ func (h *MCPProtocolHandler) HandleMessage(conn *websocket.Conn, connID string, 
 		return h.handleShutdown(conn, connID, tenantID, msg)
 	case "cancel", "$/cancelRequest":
 		return h.handleCancelRequest(conn, connID, tenantID, msg)
-		
+
 	// Tools methods
 	case "tools/list":
 		return h.handleToolsList(conn, connID, tenantID, msg)
 	case "tools/call":
 		return h.handleToolCall(conn, connID, tenantID, msg)
-		
+
 	// Resources methods
 	case "resources/list":
 		return h.handleResourcesList(conn, connID, tenantID, msg)
@@ -141,7 +141,7 @@ func (h *MCPProtocolHandler) HandleMessage(conn *websocket.Conn, connID string, 
 		return h.handleResourceSubscribe(conn, connID, tenantID, msg)
 	case "resources/unsubscribe":
 		return h.handleResourceUnsubscribe(conn, connID, tenantID, msg)
-		
+
 	// Prompts methods
 	case "prompts/list":
 		return h.handlePromptsList(conn, connID, tenantID, msg)
@@ -149,17 +149,17 @@ func (h *MCPProtocolHandler) HandleMessage(conn *websocket.Conn, connID string, 
 		return h.handlePromptGet(conn, connID, tenantID, msg)
 	case "prompts/run":
 		return h.handlePromptRun(conn, connID, tenantID, msg)
-		
+
 	// Completion methods
 	case "completion/complete":
 		return h.handleCompletionComplete(conn, connID, tenantID, msg)
 	case "sampling/createMessage":
 		return h.handleSamplingCreateMessage(conn, connID, tenantID, msg)
-		
+
 	// Logging methods
 	case "logging/setLevel":
 		return h.handleLoggingSetLevel(conn, connID, tenantID, msg)
-		
+
 	// Custom DevMesh extensions (x- prefix for extensions)
 	case "x-devmesh/agent/register":
 		return h.handleAgentRegister(conn, connID, tenantID, msg)
@@ -171,7 +171,7 @@ func (h *MCPProtocolHandler) HandleMessage(conn *websocket.Conn, connID string, 
 		return h.handleSemanticSearch(conn, connID, tenantID, msg)
 	case "x-devmesh/tools/batch":
 		return h.handleToolsBatch(conn, connID, tenantID, msg)
-		
+
 	default:
 		return h.sendError(conn, msg.ID, MCPErrorMethodNotFound, fmt.Sprintf("Method not found: %s", msg.Method))
 	}
@@ -294,28 +294,28 @@ func (h *MCPProtocolHandler) handleToolsList(conn *websocket.Conn, connID, tenan
 	// Add DevMesh-specific tools as standard MCP tools
 	devMeshTools := []map[string]interface{}{
 		{
-			"name": "devmesh.agent.assign",
+			"name":        "devmesh.agent.assign",
 			"description": "Assign a task to a specialized AI agent",
 			"inputSchema": map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
 					"agent_type": map[string]interface{}{
-						"type": "string",
-						"enum": []string{"code_review", "security", "performance", "documentation", "testing"},
+						"type":        "string",
+						"enum":        []string{"code_review", "security", "performance", "documentation", "testing"},
 						"description": "Type of specialized agent",
 					},
 					"task": map[string]interface{}{
-						"type": "string",
+						"type":        "string",
 						"description": "Task description or URL",
 					},
 					"priority": map[string]interface{}{
-						"type": "string",
-						"enum": []string{"low", "medium", "high"},
+						"type":    "string",
+						"enum":    []string{"low", "medium", "high"},
 						"default": "medium",
 					},
 					"context": map[string]interface{}{
-						"type": "object",
-						"description": "Additional context for the task",
+						"type":                 "object",
+						"description":          "Additional context for the task",
 						"additionalProperties": true,
 					},
 				},
@@ -323,51 +323,51 @@ func (h *MCPProtocolHandler) handleToolsList(conn *websocket.Conn, connID, tenan
 			},
 		},
 		{
-			"name": "devmesh.context.update",
+			"name":        "devmesh.context.update",
 			"description": "Update session context with new information",
 			"inputSchema": map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
 					"context": map[string]interface{}{
-						"type": "object",
-						"description": "Context data to store",
+						"type":                 "object",
+						"description":          "Context data to store",
 						"additionalProperties": true,
 					},
 					"merge": map[string]interface{}{
-						"type": "boolean",
+						"type":        "boolean",
 						"description": "Whether to merge with existing context or replace",
-						"default": true,
+						"default":     true,
 					},
 				},
 				"required": []string{"context"},
 			},
 		},
 		{
-			"name": "devmesh.context.get",
+			"name":        "devmesh.context.get",
 			"description": "Retrieve current session context",
 			"inputSchema": map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
 					"keys": map[string]interface{}{
-						"type": "array",
-						"items": map[string]interface{}{"type": "string"},
+						"type":        "array",
+						"items":       map[string]interface{}{"type": "string"},
 						"description": "Specific keys to retrieve (optional, returns all if not specified)",
 					},
 				},
 			},
 		},
 		{
-			"name": "devmesh.search.semantic",
+			"name":        "devmesh.search.semantic",
 			"description": "Semantic search across codebase and documentation",
 			"inputSchema": map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
 					"query": map[string]interface{}{
-						"type": "string",
+						"type":        "string",
 						"description": "Search query",
 					},
 					"limit": map[string]interface{}{
-						"type": "integer",
+						"type":    "integer",
 						"minimum": 1,
 						"maximum": 100,
 						"default": 10,
@@ -376,19 +376,19 @@ func (h *MCPProtocolHandler) handleToolsList(conn *websocket.Conn, connID, tenan
 						"type": "object",
 						"properties": map[string]interface{}{
 							"file_types": map[string]interface{}{
-								"type": "array",
-								"items": map[string]interface{}{"type": "string"},
+								"type":        "array",
+								"items":       map[string]interface{}{"type": "string"},
 								"description": "Filter by file extensions (e.g., ['.go', '.js'])",
 							},
 							"paths": map[string]interface{}{
-								"type": "array",
-								"items": map[string]interface{}{"type": "string"},
+								"type":        "array",
+								"items":       map[string]interface{}{"type": "string"},
 								"description": "Filter by path patterns",
 							},
 							"min_score": map[string]interface{}{
-								"type": "number",
-								"minimum": 0,
-								"maximum": 1,
+								"type":        "number",
+								"minimum":     0,
+								"maximum":     1,
 								"description": "Minimum similarity score",
 							},
 						},
@@ -398,73 +398,73 @@ func (h *MCPProtocolHandler) handleToolsList(conn *websocket.Conn, connID, tenan
 			},
 		},
 		{
-			"name": "devmesh.workflow.execute",
+			"name":        "devmesh.workflow.execute",
 			"description": "Execute a predefined workflow",
 			"inputSchema": map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
 					"workflow_id": map[string]interface{}{
-						"type": "string",
+						"type":        "string",
 						"description": "ID of the workflow to execute",
 					},
 					"parameters": map[string]interface{}{
-						"type": "object",
-						"description": "Workflow parameters",
+						"type":                 "object",
+						"description":          "Workflow parameters",
 						"additionalProperties": true,
 					},
 					"async": map[string]interface{}{
-						"type": "boolean",
+						"type":        "boolean",
 						"description": "Execute asynchronously",
-						"default": false,
+						"default":     false,
 					},
 				},
 				"required": []string{"workflow_id"},
 			},
 		},
 		{
-			"name": "devmesh.workflow.list",
+			"name":        "devmesh.workflow.list",
 			"description": "List available workflows",
 			"inputSchema": map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
 					"category": map[string]interface{}{
-						"type": "string",
+						"type":        "string",
 						"description": "Filter by workflow category",
 					},
 					"tags": map[string]interface{}{
-						"type": "array",
-						"items": map[string]interface{}{"type": "string"},
+						"type":        "array",
+						"items":       map[string]interface{}{"type": "string"},
 						"description": "Filter by tags",
 					},
 				},
 			},
 		},
 		{
-			"name": "devmesh.task.create",
+			"name":        "devmesh.task.create",
 			"description": "Create a new task",
 			"inputSchema": map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
 					"title": map[string]interface{}{
-						"type": "string",
+						"type":        "string",
 						"description": "Task title",
 					},
 					"description": map[string]interface{}{
-						"type": "string",
+						"type":        "string",
 						"description": "Task description",
 					},
 					"type": map[string]interface{}{
-						"type": "string",
-						"enum": []string{"bug", "feature", "refactor", "test", "documentation"},
+						"type":        "string",
+						"enum":        []string{"bug", "feature", "refactor", "test", "documentation"},
 						"description": "Task type",
 					},
 					"priority": map[string]interface{}{
-						"type": "string",
-						"enum": []string{"low", "medium", "high", "critical"},
+						"type":    "string",
+						"enum":    []string{"low", "medium", "high", "critical"},
 						"default": "medium",
 					},
 					"assignee": map[string]interface{}{
-						"type": "string",
+						"type":        "string",
 						"description": "Agent ID to assign the task to",
 					},
 				},
@@ -472,22 +472,22 @@ func (h *MCPProtocolHandler) handleToolsList(conn *websocket.Conn, connID, tenan
 			},
 		},
 		{
-			"name": "devmesh.task.status",
+			"name":        "devmesh.task.status",
 			"description": "Get or update task status",
 			"inputSchema": map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
 					"task_id": map[string]interface{}{
-						"type": "string",
+						"type":        "string",
 						"description": "Task ID",
 					},
 					"status": map[string]interface{}{
-						"type": "string",
-						"enum": []string{"pending", "in_progress", "blocked", "completed", "cancelled"},
+						"type":        "string",
+						"enum":        []string{"pending", "in_progress", "blocked", "completed", "cancelled"},
 						"description": "New status (optional, just queries if not provided)",
 					},
 					"notes": map[string]interface{}{
-						"type": "string",
+						"type":        "string",
 						"description": "Status update notes",
 					},
 				},
@@ -714,11 +714,11 @@ func (h *MCPProtocolHandler) executeAgentAssign(conn *websocket.Conn, connID, te
 	task, _ := args["task"].(string)
 	priority, _ := args["priority"].(string)
 	// context, _ := args["context"].(map[string]interface{}) // TODO: Use context when implementing actual logic
-	
+
 	if priority == "" {
 		priority = "medium"
 	}
-	
+
 	// TODO: Implement actual agent assignment logic
 	h.logger.Info("Agent assignment requested", map[string]interface{}{
 		"agent_type": agentType,
@@ -726,16 +726,16 @@ func (h *MCPProtocolHandler) executeAgentAssign(conn *websocket.Conn, connID, te
 		"priority":   priority,
 		"tenant_id":  tenantID,
 	})
-	
+
 	// Mock response
 	result := map[string]interface{}{
-		"assigned":   true,
-		"agent_id":   fmt.Sprintf("agent-%s-%d", agentType, time.Now().Unix()),
-		"task_id":    fmt.Sprintf("task-%d", time.Now().Unix()),
-		"status":     "assigned",
-		"message":    fmt.Sprintf("Task assigned to %s agent", agentType),
+		"assigned": true,
+		"agent_id": fmt.Sprintf("agent-%s-%d", agentType, time.Now().Unix()),
+		"task_id":  fmt.Sprintf("task-%d", time.Now().Unix()),
+		"status":   "assigned",
+		"message":  fmt.Sprintf("Task assigned to %s agent", agentType),
 	}
-	
+
 	return h.sendResult(conn, msg.ID, map[string]interface{}{
 		"content": []interface{}{
 			map[string]interface{}{
@@ -750,17 +750,17 @@ func (h *MCPProtocolHandler) executeContextUpdate(conn *websocket.Conn, connID, 
 	ctx := context.Background()
 	contextData, _ := args["context"].(map[string]interface{})
 	// merge, _ := args["merge"].(bool) // TODO: Implement merge logic
-	
+
 	// Use the protocol adapter's handleContextUpdate method via ExecuteTool
 	result, err := h.protocolAdapter.ExecuteTool(ctx, "context.update", map[string]interface{}{
 		"session_id": connID,
 		"context":    contextData,
 	})
-	
+
 	if err != nil {
 		return h.sendError(conn, msg.ID, MCPErrorInternalError, fmt.Sprintf("Context update failed: %v", err))
 	}
-	
+
 	// Convert result to string if needed
 	var resultText string
 	if resultStr, ok := result.(string); ok {
@@ -768,7 +768,7 @@ func (h *MCPProtocolHandler) executeContextUpdate(conn *websocket.Conn, connID, 
 	} else {
 		resultText = "Context updated successfully"
 	}
-	
+
 	return h.sendResult(conn, msg.ID, map[string]interface{}{
 		"content": []interface{}{
 			map[string]interface{}{
@@ -781,10 +781,10 @@ func (h *MCPProtocolHandler) executeContextUpdate(conn *websocket.Conn, connID, 
 
 func (h *MCPProtocolHandler) executeContextGet(conn *websocket.Conn, connID, tenantID string, msg MCPMessage, args map[string]interface{}) error {
 	// keys, _ := args["keys"].([]interface{}) // TODO: Implement key filtering
-	
+
 	// Get session info which contains context
 	session := h.protocolAdapter.GetSession(connID)
-	
+
 	var contextData map[string]interface{}
 	if session != nil {
 		contextData = map[string]interface{}{
@@ -801,7 +801,7 @@ func (h *MCPProtocolHandler) executeContextGet(conn *websocket.Conn, connID, ten
 			"message":    "No context available",
 		}
 	}
-	
+
 	return h.sendResult(conn, msg.ID, map[string]interface{}{
 		"content": []interface{}{
 			map[string]interface{}{
@@ -816,18 +816,18 @@ func (h *MCPProtocolHandler) executeSemanticSearch(conn *websocket.Conn, connID,
 	query, _ := args["query"].(string)
 	limit, _ := args["limit"].(float64)
 	// filters, _ := args["filters"].(map[string]interface{}) // TODO: Implement filters
-	
+
 	if limit == 0 {
 		limit = 10
 	}
-	
+
 	// TODO: Implement actual semantic search via embeddings
 	h.logger.Info("Semantic search requested", map[string]interface{}{
 		"query":     query,
 		"limit":     limit,
 		"tenant_id": tenantID,
 	})
-	
+
 	// Mock response
 	results := []map[string]interface{}{
 		{
@@ -838,7 +838,7 @@ func (h *MCPProtocolHandler) executeSemanticSearch(conn *websocket.Conn, connID,
 			"highlights": []string{query},
 		},
 	}
-	
+
 	return h.sendResult(conn, msg.ID, map[string]interface{}{
 		"content": []interface{}{
 			map[string]interface{}{
@@ -856,14 +856,14 @@ func (h *MCPProtocolHandler) executeWorkflowExecute(conn *websocket.Conn, connID
 	workflowID, _ := args["workflow_id"].(string)
 	// parameters, _ := args["parameters"].(map[string]interface{}) // TODO: Use parameters
 	async, _ := args["async"].(bool)
-	
+
 	// TODO: Implement actual workflow execution
 	h.logger.Info("Workflow execution requested", map[string]interface{}{
 		"workflow_id": workflowID,
 		"async":       async,
 		"tenant_id":   tenantID,
 	})
-	
+
 	// Mock response
 	result := map[string]interface{}{
 		"execution_id": fmt.Sprintf("exec-%d", time.Now().Unix()),
@@ -871,7 +871,7 @@ func (h *MCPProtocolHandler) executeWorkflowExecute(conn *websocket.Conn, connID
 		"status":       "started",
 		"async":        async,
 	}
-	
+
 	return h.sendResult(conn, msg.ID, map[string]interface{}{
 		"content": []interface{}{
 			map[string]interface{}{
@@ -885,13 +885,13 @@ func (h *MCPProtocolHandler) executeWorkflowExecute(conn *websocket.Conn, connID
 func (h *MCPProtocolHandler) executeWorkflowList(conn *websocket.Conn, connID, tenantID string, msg MCPMessage, args map[string]interface{}) error {
 	category, _ := args["category"].(string)
 	// tags, _ := args["tags"].([]interface{}) // TODO: Implement tag filtering
-	
+
 	// TODO: Implement actual workflow listing
 	h.logger.Info("Workflow list requested", map[string]interface{}{
 		"category":  category,
 		"tenant_id": tenantID,
 	})
-	
+
 	// Mock response
 	workflows := []map[string]interface{}{
 		{
@@ -909,7 +909,7 @@ func (h *MCPProtocolHandler) executeWorkflowList(conn *websocket.Conn, connID, t
 			"tags":        []string{"test", "ci"},
 		},
 	}
-	
+
 	return h.sendResult(conn, msg.ID, map[string]interface{}{
 		"content": []interface{}{
 			map[string]interface{}{
@@ -929,11 +929,11 @@ func (h *MCPProtocolHandler) executeTaskCreate(conn *websocket.Conn, connID, ten
 	taskType, _ := args["type"].(string)
 	priority, _ := args["priority"].(string)
 	assignee, _ := args["assignee"].(string)
-	
+
 	if priority == "" {
 		priority = "medium"
 	}
-	
+
 	// TODO: Implement actual task creation
 	h.logger.Info("Task creation requested", map[string]interface{}{
 		"title":     title,
@@ -941,7 +941,7 @@ func (h *MCPProtocolHandler) executeTaskCreate(conn *websocket.Conn, connID, ten
 		"priority":  priority,
 		"tenant_id": tenantID,
 	})
-	
+
 	// Mock response
 	task := map[string]interface{}{
 		"id":          fmt.Sprintf("task-%d", time.Now().Unix()),
@@ -953,7 +953,7 @@ func (h *MCPProtocolHandler) executeTaskCreate(conn *websocket.Conn, connID, ten
 		"status":      "created",
 		"created_at":  time.Now().Format(time.RFC3339),
 	}
-	
+
 	return h.sendResult(conn, msg.ID, map[string]interface{}{
 		"content": []interface{}{
 			map[string]interface{}{
@@ -968,22 +968,22 @@ func (h *MCPProtocolHandler) executeTaskStatus(conn *websocket.Conn, connID, ten
 	taskID, _ := args["task_id"].(string)
 	status, _ := args["status"].(string)
 	notes, _ := args["notes"].(string)
-	
+
 	// TODO: Implement actual task status management
 	h.logger.Info("Task status requested", map[string]interface{}{
 		"task_id":   taskID,
 		"status":    status,
 		"tenant_id": tenantID,
 	})
-	
+
 	// Mock response
 	result := map[string]interface{}{
-		"task_id":     taskID,
-		"status":      status,
-		"notes":       notes,
-		"updated_at":  time.Now().Format(time.RFC3339),
+		"task_id":    taskID,
+		"status":     status,
+		"notes":      notes,
+		"updated_at": time.Now().Format(time.RFC3339),
 	}
-	
+
 	if status == "" {
 		// Just querying status
 		result["status"] = "in_progress"
@@ -992,7 +992,7 @@ func (h *MCPProtocolHandler) executeTaskStatus(conn *websocket.Conn, connID, ten
 		// Updating status
 		result["message"] = "Task status updated successfully"
 	}
-	
+
 	return h.sendResult(conn, msg.ID, map[string]interface{}{
 		"content": []interface{}{
 			map[string]interface{}{
@@ -1013,7 +1013,7 @@ func jsonString(v interface{}) string {
 func (h *MCPProtocolHandler) handleResourcesList(conn *websocket.Conn, connID, tenantID string, msg MCPMessage) error {
 	// Get standard resources from the resource provider
 	standardResources := h.resourceProvider.ConvertToMCPResourceList()
-	
+
 	// Add DevMesh-specific resources
 	devMeshResources := []map[string]interface{}{
 		{
@@ -1059,18 +1059,18 @@ func (h *MCPProtocolHandler) handleResourcesList(conn *websocket.Conn, connID, t
 			"mimeType":    "application/json",
 		},
 	}
-	
+
 	// Combine resources
 	var allResources []map[string]interface{}
-	
+
 	// Add standard resources if they exist
 	if resources, ok := standardResources["resources"].([]map[string]interface{}); ok {
 		allResources = append(allResources, resources...)
 	}
-	
+
 	// Add DevMesh resources
 	allResources = append(allResources, devMeshResources...)
-	
+
 	return h.sendResult(conn, msg.ID, map[string]interface{}{
 		"resources": allResources,
 	})
@@ -1112,22 +1112,22 @@ func (h *MCPProtocolHandler) handleDevMeshResourceRead(conn *websocket.Conn, con
 	// Parse DevMesh URI
 	resourcePath := strings.TrimPrefix(uri, "devmesh://")
 	parts := strings.Split(resourcePath, "/")
-	
+
 	if len(parts) == 0 {
 		return h.sendError(conn, msg.ID, MCPErrorInvalidParams, "Invalid DevMesh resource URI")
 	}
-	
+
 	var content interface{}
-	
+
 	switch parts[0] {
 	case "agents":
 		// Return list of registered agents
 		content = h.getRegisteredAgents(tenantID)
-		
+
 	case "workflows":
 		// Return available workflows
 		content = h.getAvailableWorkflows(tenantID)
-		
+
 	case "context":
 		// Return session context
 		if len(parts) > 1 {
@@ -1135,15 +1135,15 @@ func (h *MCPProtocolHandler) handleDevMeshResourceRead(conn *websocket.Conn, con
 		} else {
 			content = h.getSessionContext(connID)
 		}
-		
+
 	case "tasks":
 		// Return active tasks
 		content = h.getActiveTasks(tenantID)
-		
+
 	case "tools":
 		// Return available tools
 		content = h.getAvailableTools(tenantID)
-		
+
 	case "system":
 		if len(parts) > 1 && parts[1] == "health" {
 			// Return system health
@@ -1151,7 +1151,7 @@ func (h *MCPProtocolHandler) handleDevMeshResourceRead(conn *websocket.Conn, con
 		} else {
 			return h.sendError(conn, msg.ID, MCPErrorInvalidParams, fmt.Sprintf("Unknown system resource: %s", resourcePath))
 		}
-		
+
 	case "session":
 		if len(parts) > 2 && parts[2] == "info" {
 			// Return session information
@@ -1159,11 +1159,11 @@ func (h *MCPProtocolHandler) handleDevMeshResourceRead(conn *websocket.Conn, con
 		} else {
 			return h.sendError(conn, msg.ID, MCPErrorInvalidParams, fmt.Sprintf("Unknown session resource: %s", resourcePath))
 		}
-		
+
 	default:
 		return h.sendError(conn, msg.ID, MCPErrorMethodNotFound, fmt.Sprintf("Unknown DevMesh resource: %s", parts[0]))
 	}
-	
+
 	// Convert content to JSON string
 	var text string
 	if contentStr, ok := content.(string); ok {
@@ -1172,7 +1172,7 @@ func (h *MCPProtocolHandler) handleDevMeshResourceRead(conn *websocket.Conn, con
 		contentBytes, _ := json.MarshalIndent(content, "", "  ")
 		text = string(contentBytes)
 	}
-	
+
 	// Return in MCP format
 	return h.sendResult(conn, msg.ID, map[string]interface{}{
 		"contents": []map[string]interface{}{
@@ -1230,7 +1230,7 @@ func (h *MCPProtocolHandler) getAvailableWorkflows(tenantID string) interface{} 
 func (h *MCPProtocolHandler) getSessionContext(sessionID string) interface{} {
 	// Try to get session from protocol adapter
 	session := h.protocolAdapter.GetSession(sessionID)
-	
+
 	if session != nil {
 		return map[string]interface{}{
 			"session_id":  session.ID,
@@ -1241,7 +1241,7 @@ func (h *MCPProtocolHandler) getSessionContext(sessionID string) interface{} {
 			"created_at":  time.Now().Format(time.RFC3339),
 		}
 	}
-	
+
 	// Return default context
 	return map[string]interface{}{
 		"session_id":  sessionID,
@@ -1279,7 +1279,7 @@ func (h *MCPProtocolHandler) getAvailableTools(tenantID string) interface{} {
 	if tools, err := h.restAPIClient.ListTools(ctx, tenantID); err == nil {
 		return tools
 	}
-	
+
 	// Return default tools
 	return []map[string]interface{}{
 		{
@@ -1300,7 +1300,7 @@ func (h *MCPProtocolHandler) getAvailableTools(tenantID string) interface{} {
 func (h *MCPProtocolHandler) getSystemHealth() interface{} {
 	// Get metrics from telemetry
 	metrics := h.GetMetrics()
-	
+
 	return map[string]interface{}{
 		"status":         "healthy",
 		"timestamp":      time.Now().Format(time.RFC3339),
@@ -1318,7 +1318,7 @@ func (h *MCPProtocolHandler) getSessionInfo(sessionID string) interface{} {
 			"error": "Session not found",
 		}
 	}
-	
+
 	return map[string]interface{}{
 		"id":         session.ID,
 		"tenant_id":  session.TenantID,
@@ -1585,16 +1585,16 @@ func (h *MCPProtocolHandler) handleShutdown(conn *websocket.Conn, connID, tenant
 	if err := h.sendResult(conn, msg.ID, map[string]interface{}{"status": "shutting_down"}); err != nil {
 		return err
 	}
-	
+
 	// Log the shutdown request
 	h.logger.Info("MCP shutdown requested", map[string]interface{}{
 		"connection_id": connID,
 		"tenant_id":     tenantID,
 	})
-	
+
 	// Remove session
 	h.RemoveSession(connID)
-	
+
 	// Close connection gracefully
 	return conn.Close(websocket.StatusNormalClosure, "Server shutting down")
 }
@@ -1605,20 +1605,20 @@ func (h *MCPProtocolHandler) handleCancelRequest(conn *websocket.Conn, connID, t
 	var params struct {
 		RequestID interface{} `json:"id"`
 	}
-	
+
 	if msg.Params != nil {
 		if err := json.Unmarshal(msg.Params, &params); err != nil {
 			return h.sendError(conn, msg.ID, MCPErrorInvalidParams, "Invalid cancel request params")
 		}
 	}
-	
+
 	// TODO: Implement actual cancellation logic for in-flight requests
 	// For now, acknowledge the request
 	h.logger.Info("Cancel request received", map[string]interface{}{
 		"connection_id": connID,
 		"request_id":    params.RequestID,
 	})
-	
+
 	return h.sendResult(conn, msg.ID, map[string]interface{}{
 		"cancelled": false,
 		"reason":    "Cancellation not yet implemented",
@@ -1630,17 +1630,17 @@ func (h *MCPProtocolHandler) handleResourceSubscribe(conn *websocket.Conn, connI
 	var params struct {
 		URI string `json:"uri"`
 	}
-	
+
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
 		return h.sendError(conn, msg.ID, MCPErrorInvalidParams, "Invalid subscription params")
 	}
-	
+
 	// TODO: Implement actual subscription logic
 	h.logger.Info("Resource subscription requested", map[string]interface{}{
 		"connection_id": connID,
 		"uri":           params.URI,
 	})
-	
+
 	return h.sendResult(conn, msg.ID, map[string]interface{}{
 		"subscribed": true,
 		"uri":        params.URI,
@@ -1652,17 +1652,17 @@ func (h *MCPProtocolHandler) handleResourceUnsubscribe(conn *websocket.Conn, con
 	var params struct {
 		URI string `json:"uri"`
 	}
-	
+
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
 		return h.sendError(conn, msg.ID, MCPErrorInvalidParams, "Invalid unsubscription params")
 	}
-	
+
 	// TODO: Implement actual unsubscription logic
 	h.logger.Info("Resource unsubscription requested", map[string]interface{}{
 		"connection_id": connID,
 		"uri":           params.URI,
 	})
-	
+
 	return h.sendResult(conn, msg.ID, map[string]interface{}{
 		"unsubscribed": true,
 		"uri":          params.URI,
@@ -1675,17 +1675,17 @@ func (h *MCPProtocolHandler) handlePromptRun(conn *websocket.Conn, connID, tenan
 		Name      string                 `json:"name"`
 		Arguments map[string]interface{} `json:"arguments"`
 	}
-	
+
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
 		return h.sendError(conn, msg.ID, MCPErrorInvalidParams, "Invalid prompt run params")
 	}
-	
+
 	// TODO: Implement actual prompt execution via LLM integration
 	h.logger.Info("Prompt run requested", map[string]interface{}{
 		"connection_id": connID,
 		"prompt_name":   params.Name,
 	})
-	
+
 	// For now, return a placeholder response
 	return h.sendResult(conn, msg.ID, map[string]interface{}{
 		"messages": []map[string]interface{}{
@@ -1700,26 +1700,26 @@ func (h *MCPProtocolHandler) handlePromptRun(conn *websocket.Conn, connID, tenan
 // handleCompletionComplete handles text completion requests
 func (h *MCPProtocolHandler) handleCompletionComplete(conn *websocket.Conn, connID, tenantID string, msg MCPMessage) error {
 	var params struct {
-		Ref       map[string]interface{} `json:"ref"`
-		Argument  map[string]interface{} `json:"argument"`
+		Ref      map[string]interface{} `json:"ref"`
+		Argument map[string]interface{} `json:"argument"`
 	}
-	
+
 	if msg.Params != nil {
 		if err := json.Unmarshal(msg.Params, &params); err != nil {
 			return h.sendError(conn, msg.ID, MCPErrorInvalidParams, "Invalid completion params")
 		}
 	}
-	
+
 	// TODO: Implement actual LLM completion
 	h.logger.Info("Completion requested", map[string]interface{}{
 		"connection_id": connID,
 	})
-	
+
 	// For now, return empty completion
 	return h.sendResult(conn, msg.ID, map[string]interface{}{
 		"completion": map[string]interface{}{
-			"values": []string{},
-			"total":  0,
+			"values":  []string{},
+			"total":   0,
 			"hasMore": false,
 		},
 	})
@@ -1728,32 +1728,32 @@ func (h *MCPProtocolHandler) handleCompletionComplete(conn *websocket.Conn, conn
 // handleSamplingCreateMessage handles message sampling/generation requests
 func (h *MCPProtocolHandler) handleSamplingCreateMessage(conn *websocket.Conn, connID, tenantID string, msg MCPMessage) error {
 	var params struct {
-		Messages      []map[string]interface{} `json:"messages"`
-		ModelHint     string                   `json:"modelHint"`
-		SystemPrompt  string                   `json:"systemPrompt"`
-		MaxTokens     int                      `json:"maxTokens"`
+		Messages     []map[string]interface{} `json:"messages"`
+		ModelHint    string                   `json:"modelHint"`
+		SystemPrompt string                   `json:"systemPrompt"`
+		MaxTokens    int                      `json:"maxTokens"`
 	}
-	
+
 	if msg.Params != nil {
 		if err := json.Unmarshal(msg.Params, &params); err != nil {
 			return h.sendError(conn, msg.ID, MCPErrorInvalidParams, "Invalid sampling params")
 		}
 	}
-	
+
 	// TODO: Implement actual message generation via LLM
 	h.logger.Info("Message sampling requested", map[string]interface{}{
 		"connection_id": connID,
 		"model_hint":    params.ModelHint,
 	})
-	
+
 	// For now, return a placeholder response
 	return h.sendResult(conn, msg.ID, map[string]interface{}{
-		"role":    "assistant",
+		"role": "assistant",
 		"content": map[string]interface{}{
 			"type": "text",
 			"text": "Message sampling not yet implemented",
 		},
-		"model": "placeholder",
+		"model":      "placeholder",
 		"stopReason": "end_turn",
 	})
 }
@@ -1763,11 +1763,11 @@ func (h *MCPProtocolHandler) handleLoggingSetLevel(conn *websocket.Conn, connID,
 	var params struct {
 		Level string `json:"level"`
 	}
-	
+
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
 		return h.sendError(conn, msg.ID, MCPErrorInvalidParams, "Invalid logging params")
 	}
-	
+
 	// Validate log level
 	validLevels := map[string]bool{
 		"debug": true,
@@ -1775,17 +1775,17 @@ func (h *MCPProtocolHandler) handleLoggingSetLevel(conn *websocket.Conn, connID,
 		"warn":  true,
 		"error": true,
 	}
-	
+
 	if !validLevels[params.Level] {
 		return h.sendError(conn, msg.ID, MCPErrorInvalidParams, fmt.Sprintf("Invalid log level: %s", params.Level))
 	}
-	
+
 	// TODO: Actually change the logging level for this session
 	h.logger.Info("Logging level change requested", map[string]interface{}{
 		"connection_id": connID,
 		"new_level":     params.Level,
 	})
-	
+
 	return h.sendResult(conn, msg.ID, map[string]interface{}{
 		"level": params.Level,
 	})
@@ -1800,22 +1800,22 @@ func (h *MCPProtocolHandler) handleAgentRegister(conn *websocket.Conn, connID, t
 		AgentType    string   `json:"agent_type"`
 		Capabilities []string `json:"capabilities"`
 	}
-	
+
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
 		return h.sendError(conn, msg.ID, MCPErrorInvalidParams, "Invalid agent registration params")
 	}
-	
+
 	// Register agent via protocol adapter - use InitializeSession which is available
 	_, err := h.protocolAdapter.InitializeSession(connID, tenantID, map[string]interface{}{
-		"agent_id":      params.AgentID,
-		"agent_type":    params.AgentType,
-		"capabilities":  params.Capabilities,
+		"agent_id":     params.AgentID,
+		"agent_type":   params.AgentType,
+		"capabilities": params.Capabilities,
 	})
-	
+
 	if err != nil {
 		return h.sendError(conn, msg.ID, MCPErrorInternalError, fmt.Sprintf("Agent registration failed: %v", err))
 	}
-	
+
 	return h.sendResult(conn, msg.ID, map[string]interface{}{
 		"registered": true,
 		"agent_id":   params.AgentID,
@@ -1836,27 +1836,27 @@ func (h *MCPProtocolHandler) handleContextUpdate(conn *websocket.Conn, connID, t
 	var params struct {
 		Context map[string]interface{} `json:"context"`
 	}
-	
+
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
 		return h.sendError(conn, msg.ID, MCPErrorInvalidParams, "Invalid context update params")
 	}
-	
+
 	// Update context via protocol adapter ExecuteTool
 	ctx := context.Background()
 	result, err := h.protocolAdapter.ExecuteTool(ctx, "context.update", map[string]interface{}{
 		"session_id": connID,
 		"context":    params.Context,
 	})
-	
+
 	if err != nil {
 		return h.sendError(conn, msg.ID, MCPErrorInternalError, fmt.Sprintf("Context update failed: %v", err))
 	}
-	
+
 	h.logger.Info("Context updated", map[string]interface{}{
 		"connection_id": connID,
 		"result":        result,
 	})
-	
+
 	return h.sendResult(conn, msg.ID, map[string]interface{}{
 		"updated": true,
 	})
@@ -1869,23 +1869,23 @@ func (h *MCPProtocolHandler) handleSemanticSearch(conn *websocket.Conn, connID, 
 		Limit   int                    `json:"limit"`
 		Filters map[string]interface{} `json:"filters"`
 	}
-	
+
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
 		return h.sendError(conn, msg.ID, MCPErrorInvalidParams, "Invalid search params")
 	}
-	
+
 	// Default limit
 	if params.Limit == 0 {
 		params.Limit = 10
 	}
-	
+
 	// TODO: Implement actual semantic search via embeddings
 	h.logger.Info("Semantic search requested", map[string]interface{}{
 		"connection_id": connID,
 		"query":         params.Query,
 		"limit":         params.Limit,
 	})
-	
+
 	// For now, return empty results
 	return h.sendResult(conn, msg.ID, map[string]interface{}{
 		"results": []interface{}{},
@@ -1901,21 +1901,21 @@ func (h *MCPProtocolHandler) handleToolsBatch(conn *websocket.Conn, connID, tena
 			Arguments map[string]interface{} `json:"arguments"`
 		} `json:"calls"`
 	}
-	
+
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
 		return h.sendError(conn, msg.ID, MCPErrorInvalidParams, "Invalid batch params")
 	}
-	
+
 	// Execute tools in batch
 	results := make([]map[string]interface{}, 0, len(params.Calls))
 	ctx := context.Background()
-	
+
 	for _, call := range params.Calls {
 		// Execute each tool (simplified for now)
 		h.logger.Info("Executing batch tool", map[string]interface{}{
 			"tool": call.Name,
 		})
-		
+
 		// Try to execute via protocol adapter
 		result, err := h.protocolAdapter.ExecuteTool(ctx, call.Name, call.Arguments)
 		if err != nil {
@@ -1930,7 +1930,7 @@ func (h *MCPProtocolHandler) handleToolsBatch(conn *websocket.Conn, connID, tena
 			})
 		}
 	}
-	
+
 	return h.sendResult(conn, msg.ID, map[string]interface{}{
 		"results": results,
 	})

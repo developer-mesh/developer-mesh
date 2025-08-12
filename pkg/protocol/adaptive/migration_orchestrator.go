@@ -272,7 +272,7 @@ func (mo *MigrationOrchestrator) evaluateProgressive(ctx context.Context) {
 	mo.mu.RLock()
 	currentPercentage := mo.getProgress()
 	mo.mu.RUnlock()
-	
+
 	if currentPercentage < 75 {
 		// Continue progressive rollout
 		mo.progressToProgressive(ctx, int(currentPercentage*2))

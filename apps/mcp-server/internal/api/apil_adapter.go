@@ -29,16 +29,16 @@ func (a *WebSocketServerAdapter) RegisterMiddleware(middleware adaptive.Middlewa
 			// In the actual implementation, this would process the message
 			return nil
 		}
-		
+
 		// Call the APIL middleware
 		err := middleware(context.Background(), msg, next)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		return msg, nil
 	}
-	
+
 	// Note: The actual WebSocket server would need to support middleware registration
 	// For now, we'll store it internally or use a different approach
 	_ = wsMiddleware

@@ -50,10 +50,9 @@ type ConnectionState struct {
 	SystemPromptTokens   int
 	ConversationTokens   int
 	ToolTokens           int
-	Claims               *auth.Claims // Authentication claims
+	Claims               *auth.Claims   // Authentication claims
 	ConnectionMode       ConnectionMode // Type of connection
 }
-
 
 // RateLimiter implements token bucket algorithm
 type RateLimiter struct {
@@ -134,7 +133,7 @@ func (c *Connection) readPump() {
 			// Only handle MCP protocol messages (text format)
 			if msgType != websocket.MessageText {
 				readErr = fmt.Errorf("unsupported message type: expected text, got %v", msgType)
-			} else if !strings.Contains(string(data), `"jsonrpc"`) {
+			} else if !strings.Contains(string(data), `"jsonrpc":"2.0"`) && !strings.Contains(string(data), `"jsonrpc": "2.0"`) {
 				readErr = fmt.Errorf("invalid protocol: only MCP (JSON-RPC 2.0) messages are supported")
 			} else {
 				// Handle MCP protocol message

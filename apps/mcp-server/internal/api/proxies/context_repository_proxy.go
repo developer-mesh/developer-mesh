@@ -10,7 +10,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/repository"
 	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
+	// "github.com/lib/pq" // TODO: uncomment when ensureTablesExist is used
 )
 
 // ContextRepositoryProxy provides a database-backed implementation of ContextRepository
@@ -381,6 +381,9 @@ func (r *ContextRepositoryProxy) Summarize(ctx context.Context, contextID string
 }
 
 // ensureTablesExist ensures the required tables exist
+// TODO: This function is not currently used. Tables should be created via migrations.
+// Keeping for reference in case manual table creation is needed.
+/*
 func (r *ContextRepositoryProxy) ensureTablesExist(ctx context.Context) error {
 	// Create contexts table if it doesn't exist
 	contextTableQuery := `
@@ -434,3 +437,4 @@ func (r *ContextRepositoryProxy) ensureTablesExist(ctx context.Context) error {
 
 	return nil
 }
+*/

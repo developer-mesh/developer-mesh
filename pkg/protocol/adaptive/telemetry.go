@@ -56,11 +56,11 @@ type MessageSequence struct {
 
 // PatternTracker identifies communication patterns
 type PatternTracker struct {
-	mu            sync.RWMutex
+	// mu            sync.RWMutex // TODO: implement when needed
 	sequences     map[string]*SequenceStats
 	correlations  map[string]map[string]float64 // message type correlations
-	timePatterns  *TimeSeriesAnalyzer
-	burstDetector *BurstDetector
+	// timePatterns  *TimeSeriesAnalyzer // TODO: implement when needed
+	// burstDetector *BurstDetector // TODO: implement when needed
 }
 
 // SequenceStats tracks statistics for message sequences
@@ -73,8 +73,8 @@ type SequenceStats struct {
 
 // PerformanceAnalyzer analyzes performance patterns
 type PerformanceAnalyzer struct {
-	latencyTrend   *TrendAnalyzer
-	throughputCalc *ThroughputCalculator
+	// latencyTrend   *TrendAnalyzer // TODO: implement when needed
+	// throughputCalc *ThroughputCalculator // TODO: implement when needed
 	bottlenecks    map[string]*BottleneckInfo
 }
 
@@ -397,4 +397,5 @@ type PerformanceProfile struct {
 	P95Latency time.Duration
 	Throughput float64
 }
+
 // Removed duplicate startTime definitions - using field instead
