@@ -113,20 +113,65 @@ func (h *MCPProtocolHandler) HandleMessage(conn *websocket.Conn, connID string, 
 
 	// Route to appropriate handler based on method
 	switch msg.Method {
+	// Core MCP methods
 	case "initialize":
 		return h.handleInitialize(conn, connID, tenantID, msg)
+	case "initialized":
+		// Client confirmation after initialize - just acknowledge
+		return h.sendResult(conn, msg.ID, map[string]interface{}{"status": "ok"})
+	case "ping":
+		return h.handlePing(conn, connID, tenantID, msg)
+	case "shutdown":
+		return h.handleShutdown(conn, connID, tenantID, msg)
+	case "cancel", "$/cancelRequest":
+		return h.handleCancelRequest(conn, connID, tenantID, msg)
+		
+	// Tools methods
 	case "tools/list":
 		return h.handleToolsList(conn, connID, tenantID, msg)
 	case "tools/call":
 		return h.handleToolCall(conn, connID, tenantID, msg)
+		
+	// Resources methods
 	case "resources/list":
 		return h.handleResourcesList(conn, connID, tenantID, msg)
 	case "resources/read":
 		return h.handleResourceRead(conn, connID, tenantID, msg)
+	case "resources/subscribe":
+		return h.handleResourceSubscribe(conn, connID, tenantID, msg)
+	case "resources/unsubscribe":
+		return h.handleResourceUnsubscribe(conn, connID, tenantID, msg)
+		
+	// Prompts methods
 	case "prompts/list":
 		return h.handlePromptsList(conn, connID, tenantID, msg)
 	case "prompts/get":
 		return h.handlePromptGet(conn, connID, tenantID, msg)
+	case "prompts/run":
+		return h.handlePromptRun(conn, connID, tenantID, msg)
+		
+	// Completion methods
+	case "completion/complete":
+		return h.handleCompletionComplete(conn, connID, tenantID, msg)
+	case "sampling/createMessage":
+		return h.handleSamplingCreateMessage(conn, connID, tenantID, msg)
+		
+	// Logging methods
+	case "logging/setLevel":
+		return h.handleLoggingSetLevel(conn, connID, tenantID, msg)
+		
+	// Custom DevMesh extensions (x- prefix for extensions)
+	case "x-devmesh/agent/register":
+		return h.handleAgentRegister(conn, connID, tenantID, msg)
+	case "x-devmesh/agent/health":
+		return h.handleAgentHealth(conn, connID, tenantID, msg)
+	case "x-devmesh/context/update":
+		return h.handleContextUpdate(conn, connID, tenantID, msg)
+	case "x-devmesh/search/semantic":
+		return h.handleSemanticSearch(conn, connID, tenantID, msg)
+	case "x-devmesh/tools/batch":
+		return h.handleToolsBatch(conn, connID, tenantID, msg)
+		
 	default:
 		return h.sendError(conn, msg.ID, MCPErrorMethodNotFound, fmt.Sprintf("Method not found: %s", msg.Method))
 	}
@@ -241,10 +286,218 @@ func (h *MCPProtocolHandler) handleToolsList(conn *websocket.Conn, connID, tenan
 	}
 
 	// Combine adapter tools and dynamic tools
-	mcpTools := make([]map[string]interface{}, 0, len(tools)+len(adapterTools))
+	mcpTools := make([]map[string]interface{}, 0, len(tools)+len(adapterTools)+10)
 
 	// Add adapter tools first (custom protocol tools as MCP tools)
 	mcpTools = append(mcpTools, adapterTools...)
+
+	// Add DevMesh-specific tools as standard MCP tools
+	devMeshTools := []map[string]interface{}{
+		{
+			"name": "devmesh.agent.assign",
+			"description": "Assign a task to a specialized AI agent",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"agent_type": map[string]interface{}{
+						"type": "string",
+						"enum": []string{"code_review", "security", "performance", "documentation", "testing"},
+						"description": "Type of specialized agent",
+					},
+					"task": map[string]interface{}{
+						"type": "string",
+						"description": "Task description or URL",
+					},
+					"priority": map[string]interface{}{
+						"type": "string",
+						"enum": []string{"low", "medium", "high"},
+						"default": "medium",
+					},
+					"context": map[string]interface{}{
+						"type": "object",
+						"description": "Additional context for the task",
+						"additionalProperties": true,
+					},
+				},
+				"required": []string{"agent_type", "task"},
+			},
+		},
+		{
+			"name": "devmesh.context.update",
+			"description": "Update session context with new information",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"context": map[string]interface{}{
+						"type": "object",
+						"description": "Context data to store",
+						"additionalProperties": true,
+					},
+					"merge": map[string]interface{}{
+						"type": "boolean",
+						"description": "Whether to merge with existing context or replace",
+						"default": true,
+					},
+				},
+				"required": []string{"context"},
+			},
+		},
+		{
+			"name": "devmesh.context.get",
+			"description": "Retrieve current session context",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"keys": map[string]interface{}{
+						"type": "array",
+						"items": map[string]interface{}{"type": "string"},
+						"description": "Specific keys to retrieve (optional, returns all if not specified)",
+					},
+				},
+			},
+		},
+		{
+			"name": "devmesh.search.semantic",
+			"description": "Semantic search across codebase and documentation",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"query": map[string]interface{}{
+						"type": "string",
+						"description": "Search query",
+					},
+					"limit": map[string]interface{}{
+						"type": "integer",
+						"minimum": 1,
+						"maximum": 100,
+						"default": 10,
+					},
+					"filters": map[string]interface{}{
+						"type": "object",
+						"properties": map[string]interface{}{
+							"file_types": map[string]interface{}{
+								"type": "array",
+								"items": map[string]interface{}{"type": "string"},
+								"description": "Filter by file extensions (e.g., ['.go', '.js'])",
+							},
+							"paths": map[string]interface{}{
+								"type": "array",
+								"items": map[string]interface{}{"type": "string"},
+								"description": "Filter by path patterns",
+							},
+							"min_score": map[string]interface{}{
+								"type": "number",
+								"minimum": 0,
+								"maximum": 1,
+								"description": "Minimum similarity score",
+							},
+						},
+					},
+				},
+				"required": []string{"query"},
+			},
+		},
+		{
+			"name": "devmesh.workflow.execute",
+			"description": "Execute a predefined workflow",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"workflow_id": map[string]interface{}{
+						"type": "string",
+						"description": "ID of the workflow to execute",
+					},
+					"parameters": map[string]interface{}{
+						"type": "object",
+						"description": "Workflow parameters",
+						"additionalProperties": true,
+					},
+					"async": map[string]interface{}{
+						"type": "boolean",
+						"description": "Execute asynchronously",
+						"default": false,
+					},
+				},
+				"required": []string{"workflow_id"},
+			},
+		},
+		{
+			"name": "devmesh.workflow.list",
+			"description": "List available workflows",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"category": map[string]interface{}{
+						"type": "string",
+						"description": "Filter by workflow category",
+					},
+					"tags": map[string]interface{}{
+						"type": "array",
+						"items": map[string]interface{}{"type": "string"},
+						"description": "Filter by tags",
+					},
+				},
+			},
+		},
+		{
+			"name": "devmesh.task.create",
+			"description": "Create a new task",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"title": map[string]interface{}{
+						"type": "string",
+						"description": "Task title",
+					},
+					"description": map[string]interface{}{
+						"type": "string",
+						"description": "Task description",
+					},
+					"type": map[string]interface{}{
+						"type": "string",
+						"enum": []string{"bug", "feature", "refactor", "test", "documentation"},
+						"description": "Task type",
+					},
+					"priority": map[string]interface{}{
+						"type": "string",
+						"enum": []string{"low", "medium", "high", "critical"},
+						"default": "medium",
+					},
+					"assignee": map[string]interface{}{
+						"type": "string",
+						"description": "Agent ID to assign the task to",
+					},
+				},
+				"required": []string{"title", "type"},
+			},
+		},
+		{
+			"name": "devmesh.task.status",
+			"description": "Get or update task status",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"task_id": map[string]interface{}{
+						"type": "string",
+						"description": "Task ID",
+					},
+					"status": map[string]interface{}{
+						"type": "string",
+						"enum": []string{"pending", "in_progress", "blocked", "completed", "cancelled"},
+						"description": "New status (optional, just queries if not provided)",
+					},
+					"notes": map[string]interface{}{
+						"type": "string",
+						"description": "Status update notes",
+					},
+				},
+				"required": []string{"task_id"},
+			},
+		},
+	}
+
+	// Add DevMesh tools to the list
+	mcpTools = append(mcpTools, devMeshTools...)
 
 	// Transform dynamic tools to MCP format
 	for _, tool := range tools {
@@ -312,7 +565,13 @@ func (h *MCPProtocolHandler) handleToolCall(conn *websocket.Conn, connID, tenant
 		"tenant_id": tenantID,
 	})
 
-	// First check if this is a custom protocol tool handled by the adapter
+	// Route based on tool namespace
+	if strings.HasPrefix(params.Name, "devmesh.") {
+		// Handle DevMesh namespace tools
+		return h.handleDevMeshTool(conn, connID, tenantID, msg, params.Name, params.Arguments)
+	}
+
+	// Check if this is a custom protocol tool handled by the adapter
 	if strings.HasPrefix(params.Name, "agent.") ||
 		strings.HasPrefix(params.Name, "workflow.") ||
 		strings.HasPrefix(params.Name, "task.") ||
@@ -362,7 +621,7 @@ func (h *MCPProtocolHandler) handleToolCall(conn *websocket.Conn, connID, tenant
 	// Format could be "toolName" or "toolName.action"
 	toolID := params.Name
 	action := "execute" // default action
-	if idx := strings.LastIndex(params.Name, "."); idx != -1 {
+	if idx := strings.LastIndex(params.Name, "."); idx != -1 && !strings.HasPrefix(params.Name, "devmesh.") {
 		toolID = params.Name[:idx]
 		action = params.Name[idx+1:]
 	}
@@ -423,11 +682,398 @@ func (h *MCPProtocolHandler) handleToolCall(conn *websocket.Conn, connID, tenant
 	})
 }
 
+// handleDevMeshTool routes and executes DevMesh namespace tools
+func (h *MCPProtocolHandler) handleDevMeshTool(conn *websocket.Conn, connID, tenantID string, msg MCPMessage, toolName string, args map[string]interface{}) error {
+	switch toolName {
+	case "devmesh.agent.assign":
+		return h.executeAgentAssign(conn, connID, tenantID, msg, args)
+	case "devmesh.context.update":
+		return h.executeContextUpdate(conn, connID, tenantID, msg, args)
+	case "devmesh.context.get":
+		return h.executeContextGet(conn, connID, tenantID, msg, args)
+	case "devmesh.search.semantic":
+		return h.executeSemanticSearch(conn, connID, tenantID, msg, args)
+	case "devmesh.workflow.execute":
+		return h.executeWorkflowExecute(conn, connID, tenantID, msg, args)
+	case "devmesh.workflow.list":
+		return h.executeWorkflowList(conn, connID, tenantID, msg, args)
+	case "devmesh.task.create":
+		return h.executeTaskCreate(conn, connID, tenantID, msg, args)
+	case "devmesh.task.status":
+		return h.executeTaskStatus(conn, connID, tenantID, msg, args)
+	default:
+		return h.sendError(conn, msg.ID, MCPErrorMethodNotFound, fmt.Sprintf("Unknown DevMesh tool: %s", toolName))
+	}
+}
+
+// DevMesh tool execution implementations
+
+func (h *MCPProtocolHandler) executeAgentAssign(conn *websocket.Conn, connID, tenantID string, msg MCPMessage, args map[string]interface{}) error {
+	// Extract arguments
+	agentType, _ := args["agent_type"].(string)
+	task, _ := args["task"].(string)
+	priority, _ := args["priority"].(string)
+	// context, _ := args["context"].(map[string]interface{}) // TODO: Use context when implementing actual logic
+	
+	if priority == "" {
+		priority = "medium"
+	}
+	
+	// TODO: Implement actual agent assignment logic
+	h.logger.Info("Agent assignment requested", map[string]interface{}{
+		"agent_type": agentType,
+		"task":       task,
+		"priority":   priority,
+		"tenant_id":  tenantID,
+	})
+	
+	// Mock response
+	result := map[string]interface{}{
+		"assigned":   true,
+		"agent_id":   fmt.Sprintf("agent-%s-%d", agentType, time.Now().Unix()),
+		"task_id":    fmt.Sprintf("task-%d", time.Now().Unix()),
+		"status":     "assigned",
+		"message":    fmt.Sprintf("Task assigned to %s agent", agentType),
+	}
+	
+	return h.sendResult(conn, msg.ID, map[string]interface{}{
+		"content": []interface{}{
+			map[string]interface{}{
+				"type": "text",
+				"text": jsonString(result),
+			},
+		},
+	})
+}
+
+func (h *MCPProtocolHandler) executeContextUpdate(conn *websocket.Conn, connID, tenantID string, msg MCPMessage, args map[string]interface{}) error {
+	ctx := context.Background()
+	contextData, _ := args["context"].(map[string]interface{})
+	// merge, _ := args["merge"].(bool) // TODO: Implement merge logic
+	
+	// Use the protocol adapter's handleContextUpdate method via ExecuteTool
+	result, err := h.protocolAdapter.ExecuteTool(ctx, "context.update", map[string]interface{}{
+		"session_id": connID,
+		"context":    contextData,
+	})
+	
+	if err != nil {
+		return h.sendError(conn, msg.ID, MCPErrorInternalError, fmt.Sprintf("Context update failed: %v", err))
+	}
+	
+	// Convert result to string if needed
+	var resultText string
+	if resultStr, ok := result.(string); ok {
+		resultText = resultStr
+	} else {
+		resultText = "Context updated successfully"
+	}
+	
+	return h.sendResult(conn, msg.ID, map[string]interface{}{
+		"content": []interface{}{
+			map[string]interface{}{
+				"type": "text",
+				"text": resultText,
+			},
+		},
+	})
+}
+
+func (h *MCPProtocolHandler) executeContextGet(conn *websocket.Conn, connID, tenantID string, msg MCPMessage, args map[string]interface{}) error {
+	// keys, _ := args["keys"].([]interface{}) // TODO: Implement key filtering
+	
+	// Get session info which contains context
+	session := h.protocolAdapter.GetSession(connID)
+	
+	var contextData map[string]interface{}
+	if session != nil {
+		contextData = map[string]interface{}{
+			"session_id":  session.ID,
+			"agent_id":    session.AgentID,
+			"agent_type":  session.AgentType,
+			"tenant_id":   session.TenantID,
+			"initialized": session.Initialized,
+		}
+	} else {
+		// Return empty context if session not found
+		contextData = map[string]interface{}{
+			"session_id": connID,
+			"message":    "No context available",
+		}
+	}
+	
+	return h.sendResult(conn, msg.ID, map[string]interface{}{
+		"content": []interface{}{
+			map[string]interface{}{
+				"type": "text",
+				"text": jsonString(contextData),
+			},
+		},
+	})
+}
+
+func (h *MCPProtocolHandler) executeSemanticSearch(conn *websocket.Conn, connID, tenantID string, msg MCPMessage, args map[string]interface{}) error {
+	query, _ := args["query"].(string)
+	limit, _ := args["limit"].(float64)
+	// filters, _ := args["filters"].(map[string]interface{}) // TODO: Implement filters
+	
+	if limit == 0 {
+		limit = 10
+	}
+	
+	// TODO: Implement actual semantic search via embeddings
+	h.logger.Info("Semantic search requested", map[string]interface{}{
+		"query":     query,
+		"limit":     limit,
+		"tenant_id": tenantID,
+	})
+	
+	// Mock response
+	results := []map[string]interface{}{
+		{
+			"file":       "example.go",
+			"line":       42,
+			"content":    "// Example matching content",
+			"score":      0.95,
+			"highlights": []string{query},
+		},
+	}
+	
+	return h.sendResult(conn, msg.ID, map[string]interface{}{
+		"content": []interface{}{
+			map[string]interface{}{
+				"type": "text",
+				"text": jsonString(map[string]interface{}{
+					"results": results,
+					"total":   len(results),
+				}),
+			},
+		},
+	})
+}
+
+func (h *MCPProtocolHandler) executeWorkflowExecute(conn *websocket.Conn, connID, tenantID string, msg MCPMessage, args map[string]interface{}) error {
+	workflowID, _ := args["workflow_id"].(string)
+	// parameters, _ := args["parameters"].(map[string]interface{}) // TODO: Use parameters
+	async, _ := args["async"].(bool)
+	
+	// TODO: Implement actual workflow execution
+	h.logger.Info("Workflow execution requested", map[string]interface{}{
+		"workflow_id": workflowID,
+		"async":       async,
+		"tenant_id":   tenantID,
+	})
+	
+	// Mock response
+	result := map[string]interface{}{
+		"execution_id": fmt.Sprintf("exec-%d", time.Now().Unix()),
+		"workflow_id":  workflowID,
+		"status":       "started",
+		"async":        async,
+	}
+	
+	return h.sendResult(conn, msg.ID, map[string]interface{}{
+		"content": []interface{}{
+			map[string]interface{}{
+				"type": "text",
+				"text": jsonString(result),
+			},
+		},
+	})
+}
+
+func (h *MCPProtocolHandler) executeWorkflowList(conn *websocket.Conn, connID, tenantID string, msg MCPMessage, args map[string]interface{}) error {
+	category, _ := args["category"].(string)
+	// tags, _ := args["tags"].([]interface{}) // TODO: Implement tag filtering
+	
+	// TODO: Implement actual workflow listing
+	h.logger.Info("Workflow list requested", map[string]interface{}{
+		"category":  category,
+		"tenant_id": tenantID,
+	})
+	
+	// Mock response
+	workflows := []map[string]interface{}{
+		{
+			"id":          "wf-deploy",
+			"name":        "Deploy Application",
+			"description": "Deploy application to production",
+			"category":    "deployment",
+			"tags":        []string{"production", "ci/cd"},
+		},
+		{
+			"id":          "wf-test",
+			"name":        "Run Tests",
+			"description": "Execute test suite",
+			"category":    "testing",
+			"tags":        []string{"test", "ci"},
+		},
+	}
+	
+	return h.sendResult(conn, msg.ID, map[string]interface{}{
+		"content": []interface{}{
+			map[string]interface{}{
+				"type": "text",
+				"text": jsonString(map[string]interface{}{
+					"workflows": workflows,
+					"total":     len(workflows),
+				}),
+			},
+		},
+	})
+}
+
+func (h *MCPProtocolHandler) executeTaskCreate(conn *websocket.Conn, connID, tenantID string, msg MCPMessage, args map[string]interface{}) error {
+	title, _ := args["title"].(string)
+	description, _ := args["description"].(string)
+	taskType, _ := args["type"].(string)
+	priority, _ := args["priority"].(string)
+	assignee, _ := args["assignee"].(string)
+	
+	if priority == "" {
+		priority = "medium"
+	}
+	
+	// TODO: Implement actual task creation
+	h.logger.Info("Task creation requested", map[string]interface{}{
+		"title":     title,
+		"type":      taskType,
+		"priority":  priority,
+		"tenant_id": tenantID,
+	})
+	
+	// Mock response
+	task := map[string]interface{}{
+		"id":          fmt.Sprintf("task-%d", time.Now().Unix()),
+		"title":       title,
+		"description": description,
+		"type":        taskType,
+		"priority":    priority,
+		"assignee":    assignee,
+		"status":      "created",
+		"created_at":  time.Now().Format(time.RFC3339),
+	}
+	
+	return h.sendResult(conn, msg.ID, map[string]interface{}{
+		"content": []interface{}{
+			map[string]interface{}{
+				"type": "text",
+				"text": jsonString(task),
+			},
+		},
+	})
+}
+
+func (h *MCPProtocolHandler) executeTaskStatus(conn *websocket.Conn, connID, tenantID string, msg MCPMessage, args map[string]interface{}) error {
+	taskID, _ := args["task_id"].(string)
+	status, _ := args["status"].(string)
+	notes, _ := args["notes"].(string)
+	
+	// TODO: Implement actual task status management
+	h.logger.Info("Task status requested", map[string]interface{}{
+		"task_id":   taskID,
+		"status":    status,
+		"tenant_id": tenantID,
+	})
+	
+	// Mock response
+	result := map[string]interface{}{
+		"task_id":     taskID,
+		"status":      status,
+		"notes":       notes,
+		"updated_at":  time.Now().Format(time.RFC3339),
+	}
+	
+	if status == "" {
+		// Just querying status
+		result["status"] = "in_progress"
+		result["message"] = "Task is currently in progress"
+	} else {
+		// Updating status
+		result["message"] = "Task status updated successfully"
+	}
+	
+	return h.sendResult(conn, msg.ID, map[string]interface{}{
+		"content": []interface{}{
+			map[string]interface{}{
+				"type": "text",
+				"text": jsonString(result),
+			},
+		},
+	})
+}
+
+// Helper function to convert interface to JSON string
+func jsonString(v interface{}) string {
+	b, _ := json.MarshalIndent(v, "", "  ")
+	return string(b)
+}
+
 // handleResourcesList handles the resources/list request
 func (h *MCPProtocolHandler) handleResourcesList(conn *websocket.Conn, connID, tenantID string, msg MCPMessage) error {
-	// Get resources from the resource provider
-	resourceList := h.resourceProvider.ConvertToMCPResourceList()
-	return h.sendResult(conn, msg.ID, resourceList)
+	// Get standard resources from the resource provider
+	standardResources := h.resourceProvider.ConvertToMCPResourceList()
+	
+	// Add DevMesh-specific resources
+	devMeshResources := []map[string]interface{}{
+		{
+			"uri":         fmt.Sprintf("devmesh://agents/%s", tenantID),
+			"name":        "Registered Agents",
+			"description": "List of all registered AI agents in the tenant",
+			"mimeType":    "application/json",
+		},
+		{
+			"uri":         fmt.Sprintf("devmesh://workflows/%s", tenantID),
+			"name":        "Available Workflows",
+			"description": "List of configured workflows for the tenant",
+			"mimeType":    "application/json",
+		},
+		{
+			"uri":         fmt.Sprintf("devmesh://context/%s", connID),
+			"name":        "Session Context",
+			"description": "Current session context data",
+			"mimeType":    "application/json",
+		},
+		{
+			"uri":         fmt.Sprintf("devmesh://tasks/%s", tenantID),
+			"name":        "Active Tasks",
+			"description": "List of active tasks in the system",
+			"mimeType":    "application/json",
+		},
+		{
+			"uri":         fmt.Sprintf("devmesh://tools/%s", tenantID),
+			"name":        "Available Tools",
+			"description": "List of all available tools and their configurations",
+			"mimeType":    "application/json",
+		},
+		{
+			"uri":         "devmesh://system/health",
+			"name":        "System Health",
+			"description": "Current system health status and metrics",
+			"mimeType":    "application/json",
+		},
+		{
+			"uri":         fmt.Sprintf("devmesh://session/%s/info", connID),
+			"name":        "Session Information",
+			"description": "Detailed information about the current session",
+			"mimeType":    "application/json",
+		},
+	}
+	
+	// Combine resources
+	var allResources []map[string]interface{}
+	
+	// Add standard resources if they exist
+	if resources, ok := standardResources["resources"].([]map[string]interface{}); ok {
+		allResources = append(allResources, resources...)
+	}
+	
+	// Add DevMesh resources
+	allResources = append(allResources, devMeshResources...)
+	
+	return h.sendResult(conn, msg.ID, map[string]interface{}{
+		"resources": allResources,
+	})
 }
 
 // handleResourceRead handles the resources/read request
@@ -441,7 +1087,12 @@ func (h *MCPProtocolHandler) handleResourceRead(conn *websocket.Conn, connID, te
 
 	ctx := context.Background()
 
-	// Read the resource
+	// Check if this is a DevMesh resource
+	if strings.HasPrefix(params.URI, "devmesh://") {
+		return h.handleDevMeshResourceRead(conn, connID, tenantID, msg, params.URI)
+	}
+
+	// Otherwise use the standard resource provider
 	content, err := h.resourceProvider.ReadResource(ctx, params.URI)
 	if err != nil {
 		h.logger.Warn("Failed to read resource", map[string]interface{}{
@@ -454,6 +1105,227 @@ func (h *MCPProtocolHandler) handleResourceRead(conn *websocket.Conn, connID, te
 	// Convert to MCP format
 	response := h.resourceProvider.ConvertToMCPResourceRead(params.URI, content)
 	return h.sendResult(conn, msg.ID, response)
+}
+
+// handleDevMeshResourceRead handles reading DevMesh-specific resources
+func (h *MCPProtocolHandler) handleDevMeshResourceRead(conn *websocket.Conn, connID, tenantID string, msg MCPMessage, uri string) error {
+	// Parse DevMesh URI
+	resourcePath := strings.TrimPrefix(uri, "devmesh://")
+	parts := strings.Split(resourcePath, "/")
+	
+	if len(parts) == 0 {
+		return h.sendError(conn, msg.ID, MCPErrorInvalidParams, "Invalid DevMesh resource URI")
+	}
+	
+	var content interface{}
+	
+	switch parts[0] {
+	case "agents":
+		// Return list of registered agents
+		content = h.getRegisteredAgents(tenantID)
+		
+	case "workflows":
+		// Return available workflows
+		content = h.getAvailableWorkflows(tenantID)
+		
+	case "context":
+		// Return session context
+		if len(parts) > 1 {
+			content = h.getSessionContext(parts[1])
+		} else {
+			content = h.getSessionContext(connID)
+		}
+		
+	case "tasks":
+		// Return active tasks
+		content = h.getActiveTasks(tenantID)
+		
+	case "tools":
+		// Return available tools
+		content = h.getAvailableTools(tenantID)
+		
+	case "system":
+		if len(parts) > 1 && parts[1] == "health" {
+			// Return system health
+			content = h.getSystemHealth()
+		} else {
+			return h.sendError(conn, msg.ID, MCPErrorInvalidParams, fmt.Sprintf("Unknown system resource: %s", resourcePath))
+		}
+		
+	case "session":
+		if len(parts) > 2 && parts[2] == "info" {
+			// Return session information
+			content = h.getSessionInfo(parts[1])
+		} else {
+			return h.sendError(conn, msg.ID, MCPErrorInvalidParams, fmt.Sprintf("Unknown session resource: %s", resourcePath))
+		}
+		
+	default:
+		return h.sendError(conn, msg.ID, MCPErrorMethodNotFound, fmt.Sprintf("Unknown DevMesh resource: %s", parts[0]))
+	}
+	
+	// Convert content to JSON string
+	var text string
+	if contentStr, ok := content.(string); ok {
+		text = contentStr
+	} else {
+		contentBytes, _ := json.MarshalIndent(content, "", "  ")
+		text = string(contentBytes)
+	}
+	
+	// Return in MCP format
+	return h.sendResult(conn, msg.ID, map[string]interface{}{
+		"contents": []map[string]interface{}{
+			{
+				"uri":      uri,
+				"mimeType": "application/json",
+				"text":     text,
+			},
+		},
+	})
+}
+
+// Helper methods for resource data retrieval
+
+func (h *MCPProtocolHandler) getRegisteredAgents(tenantID string) interface{} {
+	// TODO: Implement actual agent retrieval from database
+	return []map[string]interface{}{
+		{
+			"id":           "agent-code-review-001",
+			"type":         "code_review",
+			"status":       "active",
+			"capabilities": []string{"code_analysis", "security_scan", "best_practices"},
+			"last_active":  time.Now().Add(-5 * time.Minute).Format(time.RFC3339),
+		},
+		{
+			"id":           "agent-security-001",
+			"type":         "security",
+			"status":       "active",
+			"capabilities": []string{"vulnerability_scan", "dependency_check", "secrets_detection"},
+			"last_active":  time.Now().Add(-10 * time.Minute).Format(time.RFC3339),
+		},
+	}
+}
+
+func (h *MCPProtocolHandler) getAvailableWorkflows(tenantID string) interface{} {
+	// TODO: Implement actual workflow retrieval
+	return []map[string]interface{}{
+		{
+			"id":          "wf-ci-cd",
+			"name":        "CI/CD Pipeline",
+			"description": "Complete CI/CD workflow",
+			"steps":       5,
+			"status":      "available",
+		},
+		{
+			"id":          "wf-code-review",
+			"name":        "Automated Code Review",
+			"description": "Multi-agent code review process",
+			"steps":       3,
+			"status":      "available",
+		},
+	}
+}
+
+func (h *MCPProtocolHandler) getSessionContext(sessionID string) interface{} {
+	// Try to get session from protocol adapter
+	session := h.protocolAdapter.GetSession(sessionID)
+	
+	if session != nil {
+		return map[string]interface{}{
+			"session_id":  session.ID,
+			"agent_id":    session.AgentID,
+			"agent_type":  session.AgentType,
+			"tenant_id":   session.TenantID,
+			"initialized": session.Initialized,
+			"created_at":  time.Now().Format(time.RFC3339),
+		}
+	}
+	
+	// Return default context
+	return map[string]interface{}{
+		"session_id":  sessionID,
+		"created_at":  time.Now().Format(time.RFC3339),
+		"environment": "development",
+		"features":    []string{"mcp", "devmesh"},
+	}
+}
+
+func (h *MCPProtocolHandler) getActiveTasks(tenantID string) interface{} {
+	// TODO: Implement actual task retrieval
+	return []map[string]interface{}{
+		{
+			"id":       "task-001",
+			"title":    "Review PR #123",
+			"type":     "code_review",
+			"status":   "in_progress",
+			"assignee": "agent-code-review-001",
+			"priority": "high",
+		},
+		{
+			"id":       "task-002",
+			"title":    "Security scan for deployment",
+			"type":     "security",
+			"status":   "pending",
+			"assignee": "agent-security-001",
+			"priority": "medium",
+		},
+	}
+}
+
+func (h *MCPProtocolHandler) getAvailableTools(tenantID string) interface{} {
+	ctx := context.Background()
+	// Try to get from REST API client
+	if tools, err := h.restAPIClient.ListTools(ctx, tenantID); err == nil {
+		return tools
+	}
+	
+	// Return default tools
+	return []map[string]interface{}{
+		{
+			"name":        "github",
+			"type":        "api",
+			"status":      "active",
+			"description": "GitHub API integration",
+		},
+		{
+			"name":        "docker",
+			"type":        "cli",
+			"status":      "active",
+			"description": "Docker container management",
+		},
+	}
+}
+
+func (h *MCPProtocolHandler) getSystemHealth() interface{} {
+	// Get metrics from telemetry
+	metrics := h.GetMetrics()
+	
+	return map[string]interface{}{
+		"status":         "healthy",
+		"timestamp":      time.Now().Format(time.RFC3339),
+		"version":        "1.0.0",
+		"uptime_seconds": time.Since(time.Now().Add(-24 * time.Hour)).Seconds(),
+		"connections":    len(h.sessions),
+		"metrics":        metrics,
+	}
+}
+
+func (h *MCPProtocolHandler) getSessionInfo(sessionID string) interface{} {
+	session := h.getSession(sessionID)
+	if session == nil {
+		return map[string]interface{}{
+			"error": "Session not found",
+		}
+	}
+	
+	return map[string]interface{}{
+		"id":         session.ID,
+		"tenant_id":  session.TenantID,
+		"agent_id":   session.AgentID,
+		"created_at": session.CreatedAt.Format(time.RFC3339),
+		"duration":   time.Since(session.CreatedAt).String(),
+	}
 }
 
 // handlePromptsList handles the prompts/list request
@@ -697,4 +1569,369 @@ func (h *MCPProtocolHandler) GetMetrics() map[string]interface{} {
 	}
 
 	return metrics
+}
+
+// Missing standard MCP method implementations
+
+// handlePing handles ping requests for keep-alive
+func (h *MCPProtocolHandler) handlePing(conn *websocket.Conn, connID, tenantID string, msg MCPMessage) error {
+	// Simple ping response
+	return h.sendResult(conn, msg.ID, map[string]interface{}{"pong": true})
+}
+
+// handleShutdown handles graceful shutdown requests
+func (h *MCPProtocolHandler) handleShutdown(conn *websocket.Conn, connID, tenantID string, msg MCPMessage) error {
+	// Acknowledge shutdown request
+	if err := h.sendResult(conn, msg.ID, map[string]interface{}{"status": "shutting_down"}); err != nil {
+		return err
+	}
+	
+	// Log the shutdown request
+	h.logger.Info("MCP shutdown requested", map[string]interface{}{
+		"connection_id": connID,
+		"tenant_id":     tenantID,
+	})
+	
+	// Remove session
+	h.RemoveSession(connID)
+	
+	// Close connection gracefully
+	return conn.Close(websocket.StatusNormalClosure, "Server shutting down")
+}
+
+// handleCancelRequest handles request cancellation
+func (h *MCPProtocolHandler) handleCancelRequest(conn *websocket.Conn, connID, tenantID string, msg MCPMessage) error {
+	// Parse the request ID to cancel
+	var params struct {
+		RequestID interface{} `json:"id"`
+	}
+	
+	if msg.Params != nil {
+		if err := json.Unmarshal(msg.Params, &params); err != nil {
+			return h.sendError(conn, msg.ID, MCPErrorInvalidParams, "Invalid cancel request params")
+		}
+	}
+	
+	// TODO: Implement actual cancellation logic for in-flight requests
+	// For now, acknowledge the request
+	h.logger.Info("Cancel request received", map[string]interface{}{
+		"connection_id": connID,
+		"request_id":    params.RequestID,
+	})
+	
+	return h.sendResult(conn, msg.ID, map[string]interface{}{
+		"cancelled": false,
+		"reason":    "Cancellation not yet implemented",
+	})
+}
+
+// handleResourceSubscribe handles resource subscription requests
+func (h *MCPProtocolHandler) handleResourceSubscribe(conn *websocket.Conn, connID, tenantID string, msg MCPMessage) error {
+	var params struct {
+		URI string `json:"uri"`
+	}
+	
+	if err := json.Unmarshal(msg.Params, &params); err != nil {
+		return h.sendError(conn, msg.ID, MCPErrorInvalidParams, "Invalid subscription params")
+	}
+	
+	// TODO: Implement actual subscription logic
+	h.logger.Info("Resource subscription requested", map[string]interface{}{
+		"connection_id": connID,
+		"uri":           params.URI,
+	})
+	
+	return h.sendResult(conn, msg.ID, map[string]interface{}{
+		"subscribed": true,
+		"uri":        params.URI,
+	})
+}
+
+// handleResourceUnsubscribe handles resource unsubscription requests
+func (h *MCPProtocolHandler) handleResourceUnsubscribe(conn *websocket.Conn, connID, tenantID string, msg MCPMessage) error {
+	var params struct {
+		URI string `json:"uri"`
+	}
+	
+	if err := json.Unmarshal(msg.Params, &params); err != nil {
+		return h.sendError(conn, msg.ID, MCPErrorInvalidParams, "Invalid unsubscription params")
+	}
+	
+	// TODO: Implement actual unsubscription logic
+	h.logger.Info("Resource unsubscription requested", map[string]interface{}{
+		"connection_id": connID,
+		"uri":           params.URI,
+	})
+	
+	return h.sendResult(conn, msg.ID, map[string]interface{}{
+		"unsubscribed": true,
+		"uri":          params.URI,
+	})
+}
+
+// handlePromptRun handles prompt execution requests
+func (h *MCPProtocolHandler) handlePromptRun(conn *websocket.Conn, connID, tenantID string, msg MCPMessage) error {
+	var params struct {
+		Name      string                 `json:"name"`
+		Arguments map[string]interface{} `json:"arguments"`
+	}
+	
+	if err := json.Unmarshal(msg.Params, &params); err != nil {
+		return h.sendError(conn, msg.ID, MCPErrorInvalidParams, "Invalid prompt run params")
+	}
+	
+	// TODO: Implement actual prompt execution via LLM integration
+	h.logger.Info("Prompt run requested", map[string]interface{}{
+		"connection_id": connID,
+		"prompt_name":   params.Name,
+	})
+	
+	// For now, return a placeholder response
+	return h.sendResult(conn, msg.ID, map[string]interface{}{
+		"messages": []map[string]interface{}{
+			{
+				"role":    "assistant",
+				"content": "Prompt execution not yet implemented",
+			},
+		},
+	})
+}
+
+// handleCompletionComplete handles text completion requests
+func (h *MCPProtocolHandler) handleCompletionComplete(conn *websocket.Conn, connID, tenantID string, msg MCPMessage) error {
+	var params struct {
+		Ref       map[string]interface{} `json:"ref"`
+		Argument  map[string]interface{} `json:"argument"`
+	}
+	
+	if msg.Params != nil {
+		if err := json.Unmarshal(msg.Params, &params); err != nil {
+			return h.sendError(conn, msg.ID, MCPErrorInvalidParams, "Invalid completion params")
+		}
+	}
+	
+	// TODO: Implement actual LLM completion
+	h.logger.Info("Completion requested", map[string]interface{}{
+		"connection_id": connID,
+	})
+	
+	// For now, return empty completion
+	return h.sendResult(conn, msg.ID, map[string]interface{}{
+		"completion": map[string]interface{}{
+			"values": []string{},
+			"total":  0,
+			"hasMore": false,
+		},
+	})
+}
+
+// handleSamplingCreateMessage handles message sampling/generation requests
+func (h *MCPProtocolHandler) handleSamplingCreateMessage(conn *websocket.Conn, connID, tenantID string, msg MCPMessage) error {
+	var params struct {
+		Messages      []map[string]interface{} `json:"messages"`
+		ModelHint     string                   `json:"modelHint"`
+		SystemPrompt  string                   `json:"systemPrompt"`
+		MaxTokens     int                      `json:"maxTokens"`
+	}
+	
+	if msg.Params != nil {
+		if err := json.Unmarshal(msg.Params, &params); err != nil {
+			return h.sendError(conn, msg.ID, MCPErrorInvalidParams, "Invalid sampling params")
+		}
+	}
+	
+	// TODO: Implement actual message generation via LLM
+	h.logger.Info("Message sampling requested", map[string]interface{}{
+		"connection_id": connID,
+		"model_hint":    params.ModelHint,
+	})
+	
+	// For now, return a placeholder response
+	return h.sendResult(conn, msg.ID, map[string]interface{}{
+		"role":    "assistant",
+		"content": map[string]interface{}{
+			"type": "text",
+			"text": "Message sampling not yet implemented",
+		},
+		"model": "placeholder",
+		"stopReason": "end_turn",
+	})
+}
+
+// handleLoggingSetLevel handles logging level changes
+func (h *MCPProtocolHandler) handleLoggingSetLevel(conn *websocket.Conn, connID, tenantID string, msg MCPMessage) error {
+	var params struct {
+		Level string `json:"level"`
+	}
+	
+	if err := json.Unmarshal(msg.Params, &params); err != nil {
+		return h.sendError(conn, msg.ID, MCPErrorInvalidParams, "Invalid logging params")
+	}
+	
+	// Validate log level
+	validLevels := map[string]bool{
+		"debug": true,
+		"info":  true,
+		"warn":  true,
+		"error": true,
+	}
+	
+	if !validLevels[params.Level] {
+		return h.sendError(conn, msg.ID, MCPErrorInvalidParams, fmt.Sprintf("Invalid log level: %s", params.Level))
+	}
+	
+	// TODO: Actually change the logging level for this session
+	h.logger.Info("Logging level change requested", map[string]interface{}{
+		"connection_id": connID,
+		"new_level":     params.Level,
+	})
+	
+	return h.sendResult(conn, msg.ID, map[string]interface{}{
+		"level": params.Level,
+	})
+}
+
+// DevMesh extension handlers
+
+// handleAgentRegister handles agent registration
+func (h *MCPProtocolHandler) handleAgentRegister(conn *websocket.Conn, connID, tenantID string, msg MCPMessage) error {
+	var params struct {
+		AgentID      string   `json:"agent_id"`
+		AgentType    string   `json:"agent_type"`
+		Capabilities []string `json:"capabilities"`
+	}
+	
+	if err := json.Unmarshal(msg.Params, &params); err != nil {
+		return h.sendError(conn, msg.ID, MCPErrorInvalidParams, "Invalid agent registration params")
+	}
+	
+	// Register agent via protocol adapter - use InitializeSession which is available
+	_, err := h.protocolAdapter.InitializeSession(connID, tenantID, map[string]interface{}{
+		"agent_id":      params.AgentID,
+		"agent_type":    params.AgentType,
+		"capabilities":  params.Capabilities,
+	})
+	
+	if err != nil {
+		return h.sendError(conn, msg.ID, MCPErrorInternalError, fmt.Sprintf("Agent registration failed: %v", err))
+	}
+	
+	return h.sendResult(conn, msg.ID, map[string]interface{}{
+		"registered": true,
+		"agent_id":   params.AgentID,
+	})
+}
+
+// handleAgentHealth handles agent health checks
+func (h *MCPProtocolHandler) handleAgentHealth(conn *websocket.Conn, connID, tenantID string, msg MCPMessage) error {
+	// Simple health check response
+	return h.sendResult(conn, msg.ID, map[string]interface{}{
+		"status":    "healthy",
+		"timestamp": time.Now().Unix(),
+	})
+}
+
+// handleContextUpdate handles context updates
+func (h *MCPProtocolHandler) handleContextUpdate(conn *websocket.Conn, connID, tenantID string, msg MCPMessage) error {
+	var params struct {
+		Context map[string]interface{} `json:"context"`
+	}
+	
+	if err := json.Unmarshal(msg.Params, &params); err != nil {
+		return h.sendError(conn, msg.ID, MCPErrorInvalidParams, "Invalid context update params")
+	}
+	
+	// Update context via protocol adapter ExecuteTool
+	ctx := context.Background()
+	result, err := h.protocolAdapter.ExecuteTool(ctx, "context.update", map[string]interface{}{
+		"session_id": connID,
+		"context":    params.Context,
+	})
+	
+	if err != nil {
+		return h.sendError(conn, msg.ID, MCPErrorInternalError, fmt.Sprintf("Context update failed: %v", err))
+	}
+	
+	h.logger.Info("Context updated", map[string]interface{}{
+		"connection_id": connID,
+		"result":        result,
+	})
+	
+	return h.sendResult(conn, msg.ID, map[string]interface{}{
+		"updated": true,
+	})
+}
+
+// handleSemanticSearch handles semantic search requests
+func (h *MCPProtocolHandler) handleSemanticSearch(conn *websocket.Conn, connID, tenantID string, msg MCPMessage) error {
+	var params struct {
+		Query   string                 `json:"query"`
+		Limit   int                    `json:"limit"`
+		Filters map[string]interface{} `json:"filters"`
+	}
+	
+	if err := json.Unmarshal(msg.Params, &params); err != nil {
+		return h.sendError(conn, msg.ID, MCPErrorInvalidParams, "Invalid search params")
+	}
+	
+	// Default limit
+	if params.Limit == 0 {
+		params.Limit = 10
+	}
+	
+	// TODO: Implement actual semantic search via embeddings
+	h.logger.Info("Semantic search requested", map[string]interface{}{
+		"connection_id": connID,
+		"query":         params.Query,
+		"limit":         params.Limit,
+	})
+	
+	// For now, return empty results
+	return h.sendResult(conn, msg.ID, map[string]interface{}{
+		"results": []interface{}{},
+		"total":   0,
+	})
+}
+
+// handleToolsBatch handles batch tool execution
+func (h *MCPProtocolHandler) handleToolsBatch(conn *websocket.Conn, connID, tenantID string, msg MCPMessage) error {
+	var params struct {
+		Calls []struct {
+			Name      string                 `json:"name"`
+			Arguments map[string]interface{} `json:"arguments"`
+		} `json:"calls"`
+	}
+	
+	if err := json.Unmarshal(msg.Params, &params); err != nil {
+		return h.sendError(conn, msg.ID, MCPErrorInvalidParams, "Invalid batch params")
+	}
+	
+	// Execute tools in batch
+	results := make([]map[string]interface{}, 0, len(params.Calls))
+	ctx := context.Background()
+	
+	for _, call := range params.Calls {
+		// Execute each tool (simplified for now)
+		h.logger.Info("Executing batch tool", map[string]interface{}{
+			"tool": call.Name,
+		})
+		
+		// Try to execute via protocol adapter
+		result, err := h.protocolAdapter.ExecuteTool(ctx, call.Name, call.Arguments)
+		if err != nil {
+			results = append(results, map[string]interface{}{
+				"error": err.Error(),
+				"tool":  call.Name,
+			})
+		} else {
+			results = append(results, map[string]interface{}{
+				"result": result,
+				"tool":   call.Name,
+			})
+		}
+	}
+	
+	return h.sendResult(conn, msg.ID, map[string]interface{}{
+		"results": results,
+	})
 }

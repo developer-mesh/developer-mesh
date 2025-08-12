@@ -15,6 +15,30 @@ import (
 	ws "github.com/developer-mesh/developer-mesh/pkg/models/websocket"
 )
 
+// ConnectionMode represents the type of connection
+type ConnectionMode int
+
+const (
+	ModeStandardMCP ConnectionMode = iota
+	ModeClaudeCode
+	ModeAgent
+	ModeIDE
+)
+
+// String returns the string representation of ConnectionMode
+func (m ConnectionMode) String() string {
+	switch m {
+	case ModeClaudeCode:
+		return "claude-code"
+	case ModeAgent:
+		return "agent"
+	case ModeIDE:
+		return "ide"
+	default:
+		return "standard-mcp"
+	}
+}
+
 // ConnectionState tracks additional connection state
 type ConnectionState struct {
 	BinaryMode           bool
@@ -27,6 +51,7 @@ type ConnectionState struct {
 	ConversationTokens   int
 	ToolTokens           int
 	Claims               *auth.Claims // Authentication claims
+	ConnectionMode       ConnectionMode // Type of connection
 }
 
 
@@ -135,9 +160,21 @@ func (c *Connection) readPump() {
 			}
 		}
 		if readErr != nil {
+			// Check for normal closure or EOF (expected for short-lived connections)
 			if websocket.CloseStatus(readErr) == websocket.StatusNormalClosure {
 				return
 			}
+			// Check for EOF which is expected for request-response pattern connections
+			if strings.Contains(readErr.Error(), "EOF") || strings.Contains(readErr.Error(), "failed to read frame header: EOF") {
+				// Log as debug instead of error for expected disconnections
+				if c.hub != nil && c.hub.logger != nil && c.Connection != nil {
+					c.hub.logger.Debug("Connection closed (expected for request-response pattern)", map[string]interface{}{
+						"connection_id": c.ID,
+					})
+				}
+				return
+			}
+			// Log actual errors
 			if c.hub != nil && c.hub.logger != nil && c.Connection != nil {
 				c.hub.logger.Error("Read error", map[string]interface{}{
 					"error":         readErr.Error(),
