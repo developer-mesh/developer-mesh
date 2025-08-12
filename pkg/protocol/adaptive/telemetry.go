@@ -57,8 +57,8 @@ type MessageSequence struct {
 // PatternTracker identifies communication patterns
 type PatternTracker struct {
 	// mu            sync.RWMutex // TODO: implement when needed
-	sequences     map[string]*SequenceStats
-	correlations  map[string]map[string]float64 // message type correlations
+	sequences    map[string]*SequenceStats
+	correlations map[string]map[string]float64 // message type correlations
 	// timePatterns  *TimeSeriesAnalyzer // TODO: implement when needed
 	// burstDetector *BurstDetector // TODO: implement when needed
 }
@@ -75,7 +75,7 @@ type SequenceStats struct {
 type PerformanceAnalyzer struct {
 	// latencyTrend   *TrendAnalyzer // TODO: implement when needed
 	// throughputCalc *ThroughputCalculator // TODO: implement when needed
-	bottlenecks    map[string]*BottleneckInfo
+	bottlenecks map[string]*BottleneckInfo
 }
 
 // OptimizationDecision records optimization decisions for learning
