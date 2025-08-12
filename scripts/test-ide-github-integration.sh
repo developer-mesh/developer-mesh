@@ -107,7 +107,10 @@ ws_send() {
     # Send message and capture response
     local response
     response=$( (printf "%s\n" "$compact_message"; sleep "$sleep_time") | \
-                websocat -t -n1 --header="X-API-Key: ${API_KEY}" "$MCP_WS_URL" 2>/dev/null )
+                websocat -t -n1 \
+                --header="Authorization: Bearer ${API_KEY}" \
+                --header="X-Tenant-ID: ${TENANT_ID}" \
+                "$MCP_WS_URL" 2>/dev/null )
     
     local duration=$(end_timer)
     
@@ -192,9 +195,9 @@ test_developer_setup() {
     # Step 1: Register agent with DevMesh
     local register_msg=$(cat <<EOF
 {
-    "type": 0,
-    "id": "$(uuidgen | tr '[:upper:]' '[:lower:]')",
+    "jsonrpc": "2.0",
     "method": "agent.register",
+    "id": "$(uuidgen | tr '[:upper:]' '[:lower:]')",
     "params": {
         "agent_id": "${AGENT_UUID}",
         "agent_type": "ide_developer",
@@ -249,9 +252,9 @@ EOF
         # Report initial health
         local health_msg=$(cat <<EOF
 {
-    "type": 0,
-    "id": "$(uuidgen | tr '[:upper:]' '[:lower:]')",
+    "jsonrpc": "2.0",
     "method": "agent.health",
+    "id": "$(uuidgen | tr '[:upper:]' '[:lower:]')",
     "params": {
         "agent_id": "${AGENT_UUID}",
         "status": "healthy",
@@ -282,9 +285,9 @@ test_code_exploration() {
     # Discover available tools first
     local discover_msg=$(cat <<EOF
 {
-    "type": 0,
+    "jsonrpc": "2.0",
+    "method": "tools/list",
     "id": "$(uuidgen | tr '[:upper:]' '[:lower:]')",
-    "method": "tool.list",
     "params": {
         "agent_id": "${AGENT_UUID}",
         "filter": {
@@ -319,28 +322,15 @@ except:
     echo -e "\n${YELLOW}Query 1: Fetching repository overview...${NC}"
     local readme_msg=$(cat <<EOF
 {
-    "type": 0,
+    "jsonrpc": "2.0",
+    "method": "tools/call",
     "id": "$(uuidgen | tr '[:upper:]' '[:lower:]')",
-    "method": "tool.execute",
     "params": {
-        "agent_id": "${AGENT_UUID}",
-        "tool_id": "${GITHUB_TOOL_ID}",
-        "action": "repos/get-content",
-        "parameters": {
+        "name": "github_get_content",
+        "arguments": {
             "owner": "${TARGET_REPO_OWNER}",
             "repo": "${TARGET_REPO_NAME}",
             "path": "README.md"
-        },
-        "execution_mode": "sync",
-        "auto_embed": true,
-        "cache_key": "readme-${TARGET_REPO_OWNER}-${TARGET_REPO_NAME}",
-        "passthrough_auth": {
-            "credentials": {
-                "github": {
-                    "type": "bearer",
-                    "token": "${USER_GITHUB_TOKEN}"
-                }
-            }
         }
     }
 }
@@ -366,21 +356,17 @@ EOF
     echo -e "\n${YELLOW}Query 2: Getting recent commits...${NC}"
     local commits_msg=$(cat <<EOF
 {
-    "type": 0,
+    "jsonrpc": "2.0",
+    "method": "tools/call",
     "id": "$(uuidgen | tr '[:upper:]' '[:lower:]')",
-    "method": "tool.execute",
     "params": {
-        "agent_id": "${AGENT_UUID}",
-        "tool_id": "${GITHUB_TOOL_ID}",
-        "action": "repos/list-commits",
-        "parameters": {
+        "name": "github_list_commits",
+        "arguments": {
             "owner": "${TARGET_REPO_OWNER}",
             "repo": "${TARGET_REPO_NAME}",
             "per_page": 5,
             "since": "$(date -u -d '1 day ago' '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date -u '+%Y-%m-%dT%H:%M:%SZ')"
-        },
-        "execution_mode": "sync",
-        "cache_key": "recent-commits-${TARGET_REPO_OWNER}-${TARGET_REPO_NAME}"
+        }
     }
 }
 EOF
@@ -409,19 +395,14 @@ test_code_search() {
     echo -e "\n${YELLOW}Performing semantic search...${NC}"
     local search_msg=$(cat <<EOF
 {
-    "type": 0,
+    "jsonrpc": "2.0",
+    "method": "search/semantic",
     "id": "$(uuidgen | tr '[:upper:]' '[:lower:]')",
-    "method": "search.semantic",
     "params": {
-        "agent_id": "${AGENT_UUID}",
         "query": "error handling try catch exception",
-        "scope": {
-            "repository": "${TARGET_REPO_OWNER}/${TARGET_REPO_NAME}",
-            "file_types": ["go", "md"]
-        },
-        "use_embeddings": true,
-        "max_results": 5,
-        "include_context": true
+        "repository": "${TARGET_REPO_OWNER}/${TARGET_REPO_NAME}",
+        "file_types": ["go", "md"],
+        "max_results": 5
     }
 }
 EOF
@@ -438,32 +419,28 @@ EOF
         echo -e "\n${YELLOW}Batch fetching relevant files...${NC}"
         local batch_msg=$(cat <<EOF
 {
-    "type": 0,
+    "jsonrpc": "2.0",
+    "method": "tools/batch",
     "id": "$(uuidgen | tr '[:upper:]' '[:lower:]')",
-    "method": "tool.execute.batch",
     "params": {
-        "agent_id": "${AGENT_UUID}",
-        "tool_id": "${GITHUB_TOOL_ID}",
         "operations": [
             {
-                "action": "repos/get-content",
-                "parameters": {
+                "name": "github_get_content",
+                "arguments": {
                     "owner": "${TARGET_REPO_OWNER}",
                     "repo": "${TARGET_REPO_NAME}",
                     "path": "src/errors/errors.go"
                 }
             },
             {
-                "action": "repos/get-content",
-                "parameters": {
+                "name": "github_get_content",
+                "arguments": {
                     "owner": "${TARGET_REPO_OWNER}",
                     "repo": "${TARGET_REPO_NAME}",
                     "path": "doc/go_faq.html"
                 }
             }
-        ],
-        "execution_mode": "async",
-        "progressive_results": true
+        ]
     }
 }
 EOF
@@ -489,24 +466,15 @@ test_code_analysis() {
     echo -e "\n${YELLOW}Fetching code for analysis...${NC}"
     local code_msg=$(cat <<EOF
 {
-    "type": 0,
+    "jsonrpc": "2.0",
+    "method": "tools/call",
     "id": "$(uuidgen | tr '[:upper:]' '[:lower:]')",
-    "method": "tool.execute",
     "params": {
-        "agent_id": "${AGENT_UUID}",
-        "tool_id": "${GITHUB_TOOL_ID}",
-        "action": "repos/get-content",
-        "parameters": {
+        "name": "github_get_content",
+        "arguments": {
             "owner": "${TARGET_REPO_OWNER}",
             "repo": "${TARGET_REPO_NAME}",
             "path": "src/crypto/tls/tls.go"
-        },
-        "execution_mode": "sync",
-        "intelligence_pipeline": {
-            "enable_security_scan": true,
-            "enable_pii_detection": true,
-            "enable_code_analysis": true,
-            "enable_embeddings": true
         }
     }
 }
@@ -550,19 +518,16 @@ test_intelligent_caching() {
     echo -e "\n${YELLOW}First request (cold cache)...${NC}"
     local cold_msg=$(cat <<EOF
 {
-    "type": 0,
+    "jsonrpc": "2.0",
+    "method": "tools/call",
     "id": "$(uuidgen | tr '[:upper:]' '[:lower:]')",
-    "method": "tool.execute",
     "params": {
-        "agent_id": "${AGENT_UUID}",
-        "tool_id": "${GITHUB_TOOL_ID}",
-        "action": "repos/get-content",
-        "parameters": {
+        "name": "github_get_content",
+        "arguments": {
             "owner": "${TARGET_REPO_OWNER}",
             "repo": "${TARGET_REPO_NAME}",
             "path": "${test_file}"
-        },
-        "cache_key": "cache-test-${test_file}"
+        }
     }
 }
 EOF
@@ -600,20 +565,17 @@ test_context_awareness() {
     # Simulate IDE providing context
     local context_msg=$(cat <<EOF
 {
-    "type": 0,
+    "jsonrpc": "2.0",
+    "method": "context/update",
     "id": "$(uuidgen | tr '[:upper:]' '[:lower:]')",
-    "method": "context.update",
     "params": {
-        "agent_id": "${AGENT_UUID}",
-        "context": {
-            "current_file": "src/main.go",
-            "open_files": ["src/main.go", "README.md", "go.mod"],
-            "recent_edits": ["src/main.go:145", "src/utils.go:23"],
-            "cursor_position": {"file": "src/main.go", "line": 145, "column": 20},
-            "selected_text": "func HandleError(err error)",
-            "project_root": "/home/${USER}/projects/${TARGET_REPO_NAME}",
-            "git_branch": "feature/error-handling"
-        }
+        "current_file": "src/main.go",
+        "open_files": ["src/main.go", "README.md", "go.mod"],
+        "recent_edits": ["src/main.go:145", "src/utils.go:23"],
+        "cursor_position": {"file": "src/main.go", "line": 145, "column": 20},
+        "selected_text": "func HandleError(err error)",
+        "project_root": "/home/${USER}/projects/${TARGET_REPO_NAME}",
+        "git_branch": "feature/error-handling"
     }
 }
 EOF
@@ -632,14 +594,12 @@ EOF
     echo -e "\n${YELLOW}Making context-aware query...${NC}"
     local aware_msg=$(cat <<EOF
 {
-    "type": 0,
+    "jsonrpc": "2.0",
+    "method": "assist/complete",
     "id": "$(uuidgen | tr '[:upper:]' '[:lower:]')",
-    "method": "assist.complete",
     "params": {
-        "agent_id": "${AGENT_UUID}",
         "request": "Find similar error handling patterns",
-        "use_context": true,
-        "include_related": true
+        "use_context": true
     }
 }
 EOF
@@ -660,17 +620,11 @@ test_network_resilience() {
     echo -e "\n${YELLOW}Testing heartbeat mechanism...${NC}"
     local heartbeat_msg=$(cat <<EOF
 {
-    "type": 0,
-    "id": "$(uuidgen | tr '[:upper:]' '[:lower:]')",
+    "jsonrpc": "2.0",
     "method": "ping",
+    "id": "$(uuidgen | tr '[:upper:]' '[:lower:]')",
     "params": {
-        "agent_id": "${AGENT_UUID}",
-        "timestamp": $(date +%s),
-        "metrics": {
-            "cache_size": ${METRICS[cache_hits]},
-            "requests_handled": ${METRICS[requests]},
-            "uptime_seconds": 60
-        }
+        "timestamp": $(date +%s)
     }
 }
 EOF
@@ -703,14 +657,12 @@ test_rate_limiting() {
     for i in {1..3}; do
         local rapid_msg=$(cat <<EOF
 {
-    "type": 0,
+    "jsonrpc": "2.0",
+    "method": "tools/call",
     "id": "$(uuidgen | tr '[:upper:]' '[:lower:]')",
-    "method": "tool.execute",
     "params": {
-        "agent_id": "${AGENT_UUID}",
-        "tool_id": "${GITHUB_TOOL_ID}",
-        "action": "repos/get",
-        "parameters": {
+        "name": "github_get_repo",
+        "arguments": {
             "owner": "${TARGET_REPO_OWNER}",
             "repo": "${TARGET_REPO_NAME}"
         }
@@ -741,11 +693,10 @@ test_security_privacy() {
     echo -e "\n${YELLOW}Testing PII detection...${NC}"
     local pii_msg=$(cat <<EOF
 {
-    "type": 0,
+    "jsonrpc": "2.0",
+    "method": "analyze/content",
     "id": "$(uuidgen | tr '[:upper:]' '[:lower:]')",
-    "method": "analyze.content",
     "params": {
-        "agent_id": "${AGENT_UUID}",
         "content": "User email: john.doe@example.com, SSN: 123-45-6789",
         "check_pii": true,
         "check_secrets": true
