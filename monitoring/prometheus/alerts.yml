@@ -1,0 +1,173 @@
+groups:
+  - name: mcp_server_alerts
+    interval: 30s
+    rules:
+      # MCP Protocol Alerts
+      - alert: MCPHighErrorRate
+        expr: rate(mcp_errors_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          component: mcp_protocol
+        annotations:
+          summary: "High MCP error rate detected"
+          description: "MCP error rate is {{ $value | humanizePercentage }} (threshold: 1%)"
+
+      - alert: MCPHighLatency
+        expr: histogram_quantile(0.95, rate(mcp_latency_seconds_bucket[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          component: mcp_protocol
+        annotations:
+          summary: "High MCP latency detected"
+          description: "MCP P95 latency is {{ $value | humanizeDuration }} (threshold: 500ms)"
+
+      # Circuit Breaker Alerts
+      - alert: CircuitBreakerOpen
+        expr: mcp_circuit_breaker_state{state="open"} > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: circuit_breaker
+        annotations:
+          summary: "Circuit breaker is open for {{ $labels.tool }}"
+          description: "Circuit breaker for tool {{ $labels.tool }} has been open for more than 1 minute"
+
+      - alert: CircuitBreakerHighTripRate
+        expr: rate(mcp_circuit_breaker_trips_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: circuit_breaker
+        annotations:
+          summary: "High circuit breaker trip rate"
+          description: "Circuit breakers are tripping at {{ $value | humanizePercentage }} rate"
+
+      # WebSocket Connection Alerts
+      - alert: WebSocketConnectionsHigh
+        expr: mcp_websocket_connections > 1000
+        for: 5m
+        labels:
+          severity: warning
+          component: websocket
+        annotations:
+          summary: "High number of WebSocket connections"
+          description: "{{ $value }} WebSocket connections (threshold: 1000)"
+
+      - alert: WebSocketConnectionDrops
+        expr: rate(mcp_websocket_disconnections_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: websocket
+        annotations:
+          summary: "High WebSocket disconnection rate"
+          description: "WebSocket disconnection rate is {{ $value | humanizePercentage }}"
+
+      # Tool Execution Alerts
+      - alert: ToolExecutionFailureRate
+        expr: rate(mcp_tool_executions_failed_total[5m]) / rate(mcp_tool_executions_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: tools
+        annotations:
+          summary: "High tool execution failure rate"
+          description: "Tool {{ $labels.tool }} has {{ $value | humanizePercentage }} failure rate"
+
+      - alert: ToolExecutionSlow
+        expr: histogram_quantile(0.95, rate(mcp_tool_execution_duration_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+          component: tools
+        annotations:
+          summary: "Slow tool execution detected"
+          description: "Tool {{ $labels.tool }} P95 execution time is {{ $value | humanizeDuration }}"
+
+      # Cache Performance Alerts
+      - alert: CacheHitRateLow
+        expr: rate(mcp_cache_hits_total[5m]) / (rate(mcp_cache_hits_total[5m]) + rate(mcp_cache_misses_total[5m])) < 0.5
+        for: 10m
+        labels:
+          severity: info
+          component: cache
+        annotations:
+          summary: "Low cache hit rate"
+          description: "Cache hit rate is {{ $value | humanizePercentage }} (threshold: 50%)"
+
+      # APIL Migration Alerts
+      - alert: APIMigrationStalled
+        expr: apil_migration_progress == apil_migration_progress offset 1h
+        for: 1h
+        labels:
+          severity: warning
+          component: apil
+        annotations:
+          summary: "APIL migration has stalled"
+          description: "Migration progress has not changed in 1 hour (stuck at {{ $value }}%)"
+
+      - alert: APIMigrationRollback
+        expr: increase(apil_migration_rollbacks_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: apil
+        annotations:
+          summary: "APIL migration rollback detected"
+          description: "Migration has rolled back {{ $value }} times in the last 5 minutes"
+
+      # Resource Alerts
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes / 1024 / 1024 / 1024 > 2
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High memory usage detected"
+          description: "MCP server is using {{ $value | humanize }}GB of memory"
+
+      - alert: HighCPUUsage
+        expr: rate(process_cpu_seconds_total[5m]) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High CPU usage detected"
+          description: "MCP server CPU usage is {{ $value | humanizePercentage }}"
+
+      # Database Connection Alerts
+      - alert: DatabaseConnectionPoolExhausted
+        expr: mcp_database_connections_active / mcp_database_connections_max > 0.9
+        for: 5m
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: "Database connection pool nearly exhausted"
+          description: "{{ $value | humanizePercentage }} of database connections in use"
+
+      # Redis Connection Alerts
+      - alert: RedisConnectionFailure
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: redis
+        annotations:
+          summary: "Redis connection failure"
+          description: "Cannot connect to Redis instance"
+
+      # Telemetry Alerts
+      - alert: TelemetryAnomalyDetected
+        expr: apil_telemetry_anomalies_total > 10
+        for: 5m
+        labels:
+          severity: info
+          component: telemetry
+        annotations:
+          summary: "Telemetry anomalies detected"
+          description: "{{ $value }} anomalies detected in the last 5 minutes"

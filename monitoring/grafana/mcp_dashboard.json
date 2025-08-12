@@ -1,0 +1,378 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "mcp-monitoring",
+    "title": "MCP Server Monitoring Dashboard",
+    "tags": ["mcp", "websocket", "apil"],
+    "timezone": "browser",
+    "schemaVersion": 16,
+    "version": 0,
+    "refresh": "10s",
+    "panels": [
+      {
+        "id": 1,
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+        "type": "graph",
+        "title": "MCP Request Rate",
+        "targets": [
+          {
+            "expr": "rate(mcp_messages_processed_total[5m])",
+            "legendFormat": "{{ method }}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "reqps", "show": true },
+          { "show": false }
+        ]
+      },
+      {
+        "id": 2,
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+        "type": "graph",
+        "title": "MCP Latency (P95)",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(mcp_latency_seconds_bucket[5m]))",
+            "legendFormat": "P95 {{ method }}",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(mcp_latency_seconds_bucket[5m]))",
+            "legendFormat": "P99 {{ method }}",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          { "format": "s", "show": true },
+          { "show": false }
+        ]
+      },
+      {
+        "id": 3,
+        "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
+        "type": "stat",
+        "title": "Active WebSocket Connections",
+        "targets": [
+          {
+            "expr": "mcp_websocket_connections",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "justifyMode": "center"
+        }
+      },
+      {
+        "id": 4,
+        "gridPos": { "h": 8, "w": 8, "x": 8, "y": 8 },
+        "type": "stat",
+        "title": "Circuit Breakers Status",
+        "targets": [
+          {
+            "expr": "sum(mcp_circuit_breaker_state{state=\"open\"})",
+            "legendFormat": "Open",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(mcp_circuit_breaker_state{state=\"half_open\"})",
+            "legendFormat": "Half Open",
+            "refId": "B"
+          }
+        ],
+        "options": {
+          "graphMode": "none",
+          "colorMode": "background",
+          "justifyMode": "center"
+        }
+      },
+      {
+        "id": 5,
+        "gridPos": { "h": 8, "w": 8, "x": 16, "y": 8 },
+        "type": "gauge",
+        "title": "Cache Hit Rate",
+        "targets": [
+          {
+            "expr": "rate(mcp_cache_hits_total[5m]) / (rate(mcp_cache_hits_total[5m]) + rate(mcp_cache_misses_total[5m])) * 100",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "red", "value": null },
+                { "color": "yellow", "value": 50 },
+                { "color": "green", "value": 80 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 6,
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+        "type": "graph",
+        "title": "Tool Execution Performance",
+        "targets": [
+          {
+            "expr": "rate(mcp_tool_executions_total[5m])",
+            "legendFormat": "{{ tool }} - Total",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(mcp_tool_executions_failed_total[5m])",
+            "legendFormat": "{{ tool }} - Failed",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          { "format": "ops", "show": true },
+          { "show": false }
+        ]
+      },
+      {
+        "id": 7,
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+        "type": "graph",
+        "title": "APIL Migration Progress",
+        "targets": [
+          {
+            "expr": "apil_migration_progress",
+            "legendFormat": "Progress %",
+            "refId": "A"
+          },
+          {
+            "expr": "apil_migration_custom_traffic",
+            "legendFormat": "Custom Protocol Traffic",
+            "refId": "B"
+          },
+          {
+            "expr": "apil_migration_mcp_traffic",
+            "legendFormat": "MCP Protocol Traffic",
+            "refId": "C"
+          }
+        ],
+        "yaxes": [
+          { "format": "percent", "show": true, "min": 0, "max": 100 },
+          { "format": "ops", "show": true }
+        ]
+      },
+      {
+        "id": 8,
+        "gridPos": { "h": 8, "w": 8, "x": 0, "y": 24 },
+        "type": "heatmap",
+        "title": "Request Latency Heatmap",
+        "targets": [
+          {
+            "expr": "sum(rate(mcp_latency_seconds_bucket[5m])) by (le)",
+            "format": "heatmap",
+            "refId": "A"
+          }
+        ],
+        "dataFormat": "timeseries",
+        "options": {
+          "calculate": true,
+          "calculation": {
+            "xBuckets": { "mode": "count", "value": "30" },
+            "yBuckets": { "mode": "count" }
+          },
+          "color": {
+            "mode": "spectrum",
+            "scheme": "Oranges"
+          }
+        }
+      },
+      {
+        "id": 9,
+        "gridPos": { "h": 8, "w": 8, "x": 8, "y": 24 },
+        "type": "graph",
+        "title": "Error Rate",
+        "targets": [
+          {
+            "expr": "rate(mcp_errors_total[5m])",
+            "legendFormat": "{{ error_type }}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "percentunit", "show": true },
+          { "show": false }
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": { "params": [0.01], "type": "gt" },
+              "operator": { "type": "and" },
+              "query": { "params": ["A", "5m", "now"] },
+              "reducer": { "params": [], "type": "avg" },
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "frequency": "60s",
+          "handler": 1,
+          "name": "High Error Rate Alert",
+          "noDataState": "no_data",
+          "notifications": []
+        }
+      },
+      {
+        "id": 10,
+        "gridPos": { "h": 8, "w": 8, "x": 16, "y": 24 },
+        "type": "stat",
+        "title": "System Resources",
+        "targets": [
+          {
+            "expr": "process_resident_memory_bytes / 1024 / 1024",
+            "legendFormat": "Memory (MB)",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(process_cpu_seconds_total[5m]) * 100",
+            "legendFormat": "CPU %",
+            "refId": "B"
+          },
+          {
+            "expr": "go_goroutines",
+            "legendFormat": "Goroutines",
+            "refId": "C"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "orientation": "horizontal",
+          "textMode": "value_and_name"
+        }
+      },
+      {
+        "id": 11,
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 32 },
+        "type": "table",
+        "title": "Circuit Breaker Details",
+        "targets": [
+          {
+            "expr": "mcp_circuit_breaker_state",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showHeader": true
+        },
+        "fieldConfig": {
+          "overrides": [
+            {
+              "matcher": { "id": "byName", "options": "state" },
+              "properties": [
+                {
+                  "id": "custom.displayMode",
+                  "value": "color-background"
+                },
+                {
+                  "id": "mappings",
+                  "value": [
+                    { "text": "Closed", "value": 0, "color": "green" },
+                    { "text": "Open", "value": 1, "color": "red" },
+                    { "text": "Half Open", "value": 2, "color": "yellow" }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": 12,
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 40 },
+        "type": "logs",
+        "title": "Recent Errors",
+        "targets": [
+          {
+            "expr": "{job=\"mcp-server\"} |= \"error\"",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showTime": true,
+          "showLabels": true,
+          "showCommonLabels": true,
+          "wrapLogMessage": true,
+          "sortOrder": "Descending"
+        }
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "current": {
+            "selected": true,
+            "text": "All",
+            "value": "$__all"
+          },
+          "datasource": "Prometheus",
+          "definition": "label_values(mcp_messages_processed_total, method)",
+          "hide": 0,
+          "includeAll": true,
+          "label": "Method",
+          "multi": true,
+          "name": "method",
+          "query": "label_values(mcp_messages_processed_total, method)",
+          "refresh": 1,
+          "regex": "",
+          "skipUrlSync": false,
+          "sort": 0,
+          "tagValuesQuery": "",
+          "tags": [],
+          "tagsQuery": "",
+          "type": "query",
+          "useTags": false
+        },
+        {
+          "current": {
+            "selected": true,
+            "text": "All",
+            "value": "$__all"
+          },
+          "datasource": "Prometheus",
+          "definition": "label_values(mcp_tool_executions_total, tool)",
+          "hide": 0,
+          "includeAll": true,
+          "label": "Tool",
+          "multi": true,
+          "name": "tool",
+          "query": "label_values(mcp_tool_executions_total, tool)",
+          "refresh": 1,
+          "regex": "",
+          "skipUrlSync": false,
+          "sort": 0,
+          "type": "query"
+        }
+      ]
+    },
+    "annotations": {
+      "list": [
+        {
+          "datasource": "Prometheus",
+          "enable": true,
+          "expr": "increase(apil_migration_stage_changes_total[1m]) > 0",
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Migration Stage Changes",
+          "tagKeys": "stage",
+          "titleFormat": "Migration Stage Changed"
+        }
+      ]
+    }
+  }
+}

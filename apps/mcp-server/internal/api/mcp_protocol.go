@@ -58,6 +58,12 @@ type MCPProtocolHandler struct {
 	logger           observability.Logger
 	protocolAdapter  *mcp.ProtocolAdapter
 	resourceProvider *resources.ResourceProvider
+	// Performance optimizations
+	toolsCache *ToolsCache
+	metrics    observability.MetricsClient
+	telemetry  *MCPTelemetry
+	// Resilience
+	circuitBreakers *ToolCircuitBreakerManager
 }
 
 // NewMCPProtocolHandler creates a new MCP protocol handler
@@ -71,17 +77,31 @@ func NewMCPProtocolHandler(
 		logger:           logger,
 		protocolAdapter:  mcp.NewProtocolAdapter(logger),
 		resourceProvider: resources.NewResourceProvider(logger),
+		toolsCache:       NewToolsCache(5 * time.Minute), // 5 minute TTL
+		telemetry:        NewMCPTelemetry(logger),
+		circuitBreakers:  NewToolCircuitBreakerManager(logger),
+	}
+}
+
+// SetMetricsClient sets the metrics client for telemetry
+func (h *MCPProtocolHandler) SetMetricsClient(metrics observability.MetricsClient) {
+	h.metrics = metrics
+	if h.telemetry != nil {
+		h.telemetry.SetMetricsClient(metrics)
 	}
 }
 
 // HandleMessage processes an MCP protocol message
 func (h *MCPProtocolHandler) HandleMessage(conn *websocket.Conn, connID string, tenantID string, message []byte) error {
+	startTime := time.Now()
+
 	var msg MCPMessage
 	if err := json.Unmarshal(message, &msg); err != nil {
 		h.logger.Error("Failed to parse MCP message", map[string]interface{}{
 			"error":         err.Error(),
 			"connection_id": connID,
 		})
+		h.recordTelemetry("parse_error", time.Since(startTime), false)
 		return h.sendError(conn, nil, MCPErrorParseError, "Parse error")
 	}
 
@@ -180,12 +200,30 @@ func (h *MCPProtocolHandler) handleInitialize(conn *websocket.Conn, connID, tena
 
 // handleToolsList handles the tools/list request
 func (h *MCPProtocolHandler) handleToolsList(conn *websocket.Conn, connID, tenantID string, msg MCPMessage) error {
+	startTime := time.Now()
+	defer func() {
+		h.recordTelemetry("tools_list", time.Since(startTime), true)
+	}()
+
 	ctx := context.Background()
 
 	// Get session
 	session := h.getSession(connID)
 	if session == nil {
+		h.recordTelemetry("tools_list", time.Since(startTime), false)
 		return h.sendError(conn, msg.ID, MCPErrorInvalidRequest, "Session not initialized")
+	}
+
+	// Check cache first
+	if h.toolsCache != nil {
+		if cachedTools, ok := h.toolsCache.Get(); ok {
+			h.logger.Debug("Using cached tools list", map[string]interface{}{
+				"count": len(cachedTools),
+			})
+			return h.sendResponse(conn, msg.ID, map[string]interface{}{
+				"tools": cachedTools,
+			})
+		}
 	}
 
 	// Get custom protocol tools from adapter
@@ -231,6 +269,15 @@ func (h *MCPProtocolHandler) handleToolsList(conn *websocket.Conn, connID, tenan
 		})
 	}
 
+	// Cache the tools list
+	if h.toolsCache != nil {
+		convertedTools := make([]interface{}, len(mcpTools))
+		for i, tool := range mcpTools {
+			convertedTools[i] = tool
+		}
+		h.toolsCache.Set(convertedTools)
+	}
+
 	return h.sendResult(conn, msg.ID, map[string]interface{}{
 		"tools": mcpTools,
 	})
@@ -238,13 +285,19 @@ func (h *MCPProtocolHandler) handleToolsList(conn *websocket.Conn, connID, tenan
 
 // handleToolCall handles the tools/call request
 func (h *MCPProtocolHandler) handleToolCall(conn *websocket.Conn, connID, tenantID string, msg MCPMessage) error {
+	startTime := time.Now()
 	var params struct {
 		Name      string                 `json:"name"`
 		Arguments map[string]interface{} `json:"arguments"`
 	}
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
+		h.recordTelemetry("tools_call", time.Since(startTime), false)
 		return h.sendError(conn, msg.ID, MCPErrorInvalidParams, "Invalid params")
 	}
+
+	defer func() {
+		h.recordTelemetry(fmt.Sprintf("tools_call.%s", params.Name), time.Since(startTime), true)
+	}()
 
 	ctx := context.Background()
 
@@ -264,16 +317,26 @@ func (h *MCPProtocolHandler) handleToolCall(conn *websocket.Conn, connID, tenant
 		strings.HasPrefix(params.Name, "workflow.") ||
 		strings.HasPrefix(params.Name, "task.") ||
 		strings.HasPrefix(params.Name, "context.") {
-		// Execute via protocol adapter
-		result, err := h.protocolAdapter.ExecuteTool(ctx, params.Name, params.Arguments)
+
+		// Get circuit breaker for this tool
+		breaker := h.circuitBreakers.GetBreaker(params.Name)
+
+		// Execute via protocol adapter with circuit breaker protection
+		resultInterface, err := breaker.Call(ctx, params.Name, func() (interface{}, error) {
+			return h.protocolAdapter.ExecuteTool(ctx, params.Name, params.Arguments)
+		})
+
 		if err != nil {
 			h.logger.Error("Adapter tool execution failed", map[string]interface{}{
 				"tool":      params.Name,
 				"error":     err.Error(),
 				"tenant_id": tenantID,
 			})
+			h.recordTelemetry(fmt.Sprintf("tools_call.%s", params.Name), time.Since(startTime), false)
 			return h.sendError(conn, msg.ID, MCPErrorInternalError, fmt.Sprintf("Tool execution failed: %v", err))
 		}
+
+		result := resultInterface
 
 		// Convert result to MCP format
 		var responseText string
@@ -304,14 +367,19 @@ func (h *MCPProtocolHandler) handleToolCall(conn *websocket.Conn, connID, tenant
 		action = params.Name[idx+1:]
 	}
 
-	// Execute via existing tool execution endpoint
-	result, err := h.restAPIClient.ExecuteTool(
-		ctx,
-		tenantID,
-		toolID,
-		action,
-		params.Arguments,
-	)
+	// Get circuit breaker for this tool
+	breaker := h.circuitBreakers.GetBreaker(toolID)
+
+	// Execute via existing tool execution endpoint with circuit breaker protection
+	resultInterface, err := breaker.Call(ctx, toolID, func() (interface{}, error) {
+		return h.restAPIClient.ExecuteTool(
+			ctx,
+			tenantID,
+			toolID,
+			action,
+			params.Arguments,
+		)
+	})
 
 	if err != nil {
 		h.logger.Error("Tool execution failed", map[string]interface{}{
@@ -319,25 +387,30 @@ func (h *MCPProtocolHandler) handleToolCall(conn *websocket.Conn, connID, tenant
 			"error":     err.Error(),
 			"tenant_id": tenantID,
 		})
+		h.recordTelemetry(fmt.Sprintf("tools_call.%s", params.Name), time.Since(startTime), false)
 		return h.sendError(conn, msg.ID, MCPErrorInternalError, fmt.Sprintf("Tool execution failed: %v", err))
 	}
+
+	result := resultInterface.(*clients.ToolExecutionResult)
 
 	// Return in MCP format
 	// Format the response based on what's available
 	var responseText string
-	if result.Body != nil {
+	if result.Result != nil && result.Result.Body != nil {
 		// Convert body to string representation
-		if bodyStr, ok := result.Body.(string); ok {
+		if bodyStr, ok := result.Result.Body.(string); ok {
 			responseText = bodyStr
 		} else {
 			// Marshal body to JSON string
-			bodyBytes, _ := json.Marshal(result.Body)
+			bodyBytes, _ := json.Marshal(result.Result.Body)
 			responseText = string(bodyBytes)
 		}
-	} else if result.Error != "" {
-		responseText = fmt.Sprintf("Error: %s", result.Error)
+	} else if result.Error != nil {
+		responseText = fmt.Sprintf("Error: %s", result.Error.Error())
+	} else if result.Result != nil {
+		responseText = fmt.Sprintf("Tool executed successfully (status: %d)", result.Result.StatusCode)
 	} else {
-		responseText = fmt.Sprintf("Tool executed successfully (status: %d)", result.StatusCode)
+		responseText = "Tool execution completed"
 	}
 
 	return h.sendResult(conn, msg.ID, map[string]interface{}{
@@ -436,6 +509,11 @@ func (h *MCPProtocolHandler) sendResult(conn *websocket.Conn, id interface{}, re
 	return conn.Write(context.Background(), websocket.MessageText, data)
 }
 
+// sendResponse is an alias for sendResult for compatibility
+func (h *MCPProtocolHandler) sendResponse(conn *websocket.Conn, id interface{}, result interface{}) error {
+	return h.sendResult(conn, id, result)
+}
+
 // sendError sends an error response
 func (h *MCPProtocolHandler) sendError(conn *websocket.Conn, id interface{}, code int, message string) error {
 	msg := MCPMessage{
@@ -458,4 +536,165 @@ func IsMCPMessage(message []byte) bool {
 	// Quick check for JSON-RPC 2.0 signature
 	return strings.Contains(string(message), `"jsonrpc":"2.0"`) ||
 		strings.Contains(string(message), `"jsonrpc": "2.0"`)
+}
+
+// recordTelemetry records telemetry for MCP operations
+func (h *MCPProtocolHandler) recordTelemetry(method string, duration time.Duration, success bool) {
+	if h.telemetry != nil {
+		h.telemetry.Record(method, duration, success)
+	}
+	if h.metrics != nil {
+		h.metrics.IncrementCounter(fmt.Sprintf("mcp.method.%s", method), 1)
+		h.metrics.RecordDuration(fmt.Sprintf("mcp.latency.%s", method), duration)
+		if !success {
+			h.metrics.IncrementCounter(fmt.Sprintf("mcp.errors.%s", method), 1)
+		}
+	}
+}
+
+// ToolsCache implements a simple TTL cache for tools list
+type ToolsCache struct {
+	mu         sync.RWMutex
+	tools      []interface{}
+	lastUpdate time.Time
+	ttl        time.Duration
+}
+
+// NewToolsCache creates a new tools cache
+func NewToolsCache(ttl time.Duration) *ToolsCache {
+	return &ToolsCache{
+		ttl: ttl,
+	}
+}
+
+// Get retrieves tools from cache if valid
+func (tc *ToolsCache) Get() ([]interface{}, bool) {
+	tc.mu.RLock()
+	defer tc.mu.RUnlock()
+
+	if time.Since(tc.lastUpdate) > tc.ttl {
+		return nil, false
+	}
+	return tc.tools, len(tc.tools) > 0
+}
+
+// Set updates the cache with new tools
+func (tc *ToolsCache) Set(tools []interface{}) {
+	tc.mu.Lock()
+	defer tc.mu.Unlock()
+
+	tc.tools = tools
+	tc.lastUpdate = time.Now()
+}
+
+// MCPTelemetry tracks MCP protocol metrics
+type MCPTelemetry struct {
+	mu      sync.RWMutex
+	logger  observability.Logger
+	metrics observability.MetricsClient
+
+	// Tracking data
+	methodCounts  map[string]uint64
+	methodLatency map[string][]time.Duration
+	errorCounts   map[string]uint64
+	totalMessages uint64
+	totalErrors   uint64
+}
+
+// NewMCPTelemetry creates a new telemetry tracker
+func NewMCPTelemetry(logger observability.Logger) *MCPTelemetry {
+	return &MCPTelemetry{
+		logger:        logger,
+		methodCounts:  make(map[string]uint64),
+		methodLatency: make(map[string][]time.Duration),
+		errorCounts:   make(map[string]uint64),
+	}
+}
+
+// SetMetricsClient sets the metrics client
+func (mt *MCPTelemetry) SetMetricsClient(metrics observability.MetricsClient) {
+	mt.mu.Lock()
+	defer mt.mu.Unlock()
+	mt.metrics = metrics
+}
+
+// Record records telemetry for a method
+func (mt *MCPTelemetry) Record(method string, duration time.Duration, success bool) {
+	mt.mu.Lock()
+	defer mt.mu.Unlock()
+
+	mt.methodCounts[method]++
+	mt.totalMessages++
+
+	// Track latency
+	if _, exists := mt.methodLatency[method]; !exists {
+		mt.methodLatency[method] = make([]time.Duration, 0, 100)
+	}
+	mt.methodLatency[method] = append(mt.methodLatency[method], duration)
+
+	// Keep bounded
+	if len(mt.methodLatency[method]) > 100 {
+		mt.methodLatency[method] = mt.methodLatency[method][1:]
+	}
+
+	if !success {
+		mt.errorCounts[method]++
+		mt.totalErrors++
+	}
+}
+
+// GetStats returns current telemetry statistics
+func (mt *MCPTelemetry) GetStats() map[string]interface{} {
+	mt.mu.RLock()
+	defer mt.mu.RUnlock()
+
+	stats := map[string]interface{}{
+		"total_messages": mt.totalMessages,
+		"total_errors":   mt.totalErrors,
+		"method_counts":  mt.methodCounts,
+		"error_counts":   mt.errorCounts,
+	}
+
+	// Calculate average latencies
+	avgLatencies := make(map[string]float64)
+	for method, latencies := range mt.methodLatency {
+		if len(latencies) > 0 {
+			var total time.Duration
+			for _, l := range latencies {
+				total += l
+			}
+			avgLatencies[method] = float64(total.Milliseconds()) / float64(len(latencies))
+		}
+	}
+	stats["avg_latency_ms"] = avgLatencies
+
+	return stats
+}
+
+// GetMetrics returns comprehensive MCP handler metrics
+func (h *MCPProtocolHandler) GetMetrics() map[string]interface{} {
+	metrics := map[string]interface{}{
+		"sessions_count": len(h.sessions),
+	}
+
+	// Add telemetry stats
+	if h.telemetry != nil {
+		metrics["telemetry"] = h.telemetry.GetStats()
+	}
+
+	// Add circuit breaker metrics
+	if h.circuitBreakers != nil {
+		metrics["circuit_breakers"] = h.circuitBreakers.GetAllMetrics()
+	}
+
+	// Add cache metrics
+	if h.toolsCache != nil {
+		tools, cached := h.toolsCache.Get()
+		metrics["tools_cache"] = map[string]interface{}{
+			"cached":      cached,
+			"tools_count": len(tools),
+		}
+	}
+
+	return metrics
 }

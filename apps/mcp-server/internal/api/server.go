@@ -21,6 +21,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/common/config"
 	commonLogging "github.com/developer-mesh/developer-mesh/pkg/common/logging"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/protocol/adaptive"
 	"github.com/developer-mesh/developer-mesh/pkg/repository"
 	"github.com/developer-mesh/developer-mesh/pkg/repository/agent"
 	"github.com/developer-mesh/developer-mesh/pkg/security"
@@ -76,6 +77,8 @@ type Server struct {
 	encryptionService    *security.EncryptionService
 	// MCP Protocol handler
 	mcpProtocolHandler *MCPProtocolHandler
+	// Adaptive Protocol Intelligence Layer
+	apisIntegration *adaptive.APISIntegration
 }
 
 // NewServer creates a new API server
@@ -271,6 +274,39 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 		// Set MCP handler if available
 		if s.mcpProtocolHandler != nil {
 			s.wsServer.SetMCPHandler(s.mcpProtocolHandler)
+
+			// Initialize APIL if enabled
+			if os.Getenv("ENABLE_APIL") != "" {
+				// Create adapters for APIL integration
+				mcpAdapter := NewMCPHandlerAdapter(s.mcpProtocolHandler)
+				wsAdapter := NewWebSocketServerAdapter(s.wsServer)
+				
+				s.apisIntegration = adaptive.NewAPISIntegration(
+					observability.DefaultLogger,
+					metrics,
+					mcpAdapter,
+					wsAdapter,
+				)
+
+				if err := s.apisIntegration.Initialize(context.Background()); err != nil {
+					observability.DefaultLogger.Error("Failed to initialize APIL", map[string]interface{}{
+						"error": err.Error(),
+					})
+				} else {
+					observability.DefaultLogger.Info("APIL initialized successfully", nil)
+
+					// Start migration if configured
+					if os.Getenv("APIL_AUTO_MIGRATE") == "true" {
+						if err := s.apisIntegration.StartMigration(context.Background()); err != nil {
+							observability.DefaultLogger.Error("Failed to start APIL migration", map[string]interface{}{
+								"error": err.Error(),
+							})
+						} else {
+							observability.DefaultLogger.Info("APIL migration started", nil)
+						}
+					}
+				}
+			}
 		}
 
 		// Set dependencies (will be properly implemented in full integration)
@@ -398,16 +434,16 @@ func (s *Server) Initialize(ctx context.Context) error {
 	if s.config.RestAPI.Enabled {
 		// Context repository initialization
 		if s.contextAPIProxy == nil {
-			// Using mock implementation until import issues are resolved
-			s.contextAPIProxy = proxies.NewMockContextRepository(s.logger)
-			s.logger.Info("Initialized Mock Context Repository for temporary use", nil)
+			// Create a database-backed context repository
+			s.contextAPIProxy = proxies.NewContextRepositoryProxy(s.db, s.logger)
+			s.logger.Info("Initialized Context Repository proxy", nil)
 		}
 
 		// Search repository initialization
 		if s.searchAPIProxy == nil {
-			// Using mock implementation until import issues are resolved
-			s.searchAPIProxy = proxies.NewMockSearchRepository(s.logger)
-			s.logger.Info("Initialized Mock Search Repository for temporary use", nil)
+			// Create a database-backed search repository (embedding service can be added later)
+			s.searchAPIProxy = proxies.NewSearchRepositoryProxy(s.db, nil, s.logger)
+			s.logger.Info("Initialized Search Repository proxy", nil)
 		}
 
 	}
@@ -538,6 +574,36 @@ func (s *Server) setupRoutes() {
 		wsMonitoring := websocket.NewMonitoringEndpoints(s.wsServer)
 		wsMonitoring.RegisterRoutes(v1)
 		s.logger.Info("WebSocket monitoring routes registered", nil)
+	}
+
+	// Register APIL monitoring routes
+	if s.apisIntegration != nil {
+		// APIL status endpoint
+		v1.GET("/apil/status", func(c *gin.Context) {
+			status := s.apisIntegration.GetMigrationStatus()
+			metrics := s.apisIntegration.GetMetrics()
+			c.JSON(http.StatusOK, gin.H{
+				"status":  status,
+				"metrics": metrics,
+			})
+		})
+
+		// APIL control endpoints
+		v1.POST("/apil/routing/:action", func(c *gin.Context) {
+			action := c.Param("action")
+			switch action {
+			case "enable":
+				s.apisIntegration.EnableAdaptiveRouting(true)
+				c.JSON(http.StatusOK, gin.H{"message": "Adaptive routing enabled"})
+			case "disable":
+				s.apisIntegration.EnableAdaptiveRouting(false)
+				c.JSON(http.StatusOK, gin.H{"message": "Adaptive routing disabled"})
+			default:
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid action"})
+			}
+		})
+
+		s.logger.Info("APIL monitoring routes registered", nil)
 	}
 
 	// Register Embedding Proxy routes

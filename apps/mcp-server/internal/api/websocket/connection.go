@@ -29,12 +29,6 @@ type ConnectionState struct {
 	Claims               *auth.Claims // Authentication claims
 }
 
-// isMCPMessage checks if a message is an MCP protocol message
-func isMCPMessage(data []byte) bool {
-	// Quick check for JSON-RPC 2.0 signature
-	return strings.Contains(string(data), `"jsonrpc":"2.0"`) ||
-		strings.Contains(string(data), `"jsonrpc": "2.0"`)
-}
 
 // RateLimiter implements token bucket algorithm
 type RateLimiter struct {
@@ -109,11 +103,15 @@ func (c *Connection) readPump() {
 			return
 		}
 
-		// Always read the raw message first to handle protocol transitions
+		// Read MCP protocol message (only protocol supported)
 		msgType, data, readErr := conn.Read(ctx)
 		if readErr == nil {
-			// Check if this is an MCP protocol message (contains "jsonrpc":"2.0")
-			if msgType == websocket.MessageText && isMCPMessage(data) {
+			// Only handle MCP protocol messages (text format)
+			if msgType != websocket.MessageText {
+				readErr = fmt.Errorf("unsupported message type: expected text, got %v", msgType)
+			} else if !strings.Contains(string(data), `"jsonrpc"`) {
+				readErr = fmt.Errorf("invalid protocol: only MCP (JSON-RPC 2.0) messages are supported")
+			} else {
 				// Handle MCP protocol message
 				if c.hub != nil && c.hub.mcpHandler != nil {
 					// Use reflection to call HandleMessage on the MCP handler
@@ -128,30 +126,12 @@ func (c *Connection) readPump() {
 								"connection_id": c.ID,
 							})
 						}
-						// MCP messages are handled separately, continue to next message
+						// MCP messages are handled, continue to next message
 						continue
 					}
-				}
-			}
-
-			// Determine how to parse based on message type for non-MCP messages
-			switch msgType {
-			case websocket.MessageBinary:
-				// Binary message - decode it
-				encoder := NewBinaryEncoder(1024)
-				decodedMsg, decodeErr := encoder.Decode(data)
-				if decodeErr != nil {
-					readErr = decodeErr
 				} else {
-					*msg = *decodedMsg
-					PutMessage(decodedMsg)
+					readErr = fmt.Errorf("MCP handler not configured")
 				}
-			case websocket.MessageText:
-				// Text message - parse as JSON
-				readErr = json.Unmarshal(data, msg)
-			default:
-				// Unsupported message type
-				readErr = fmt.Errorf("unsupported message type: %v", msgType)
 			}
 		}
 		if readErr != nil {
@@ -170,69 +150,14 @@ func (c *Connection) readPump() {
 		// Update last activity
 		c.LastPing = time.Now()
 
-		// Rate limiting
+		// Rate limiting is handled within the MCP handler
 		if !rateLimiter.Allow() {
 			if c.hub != nil && c.hub.metricsCollector != nil {
 				c.hub.metricsCollector.RecordError("rate_limit")
 			}
-			c.sendError(msg.ID, ws.ErrCodeRateLimited, "Rate limit exceeded", nil)
+			// Send rate limit error as MCP error response
+			// The MCP handler will handle this appropriately
 			continue
-		}
-
-		// Process message
-		start := time.Now()
-		var response []byte
-		var postAction *PostActionConfig
-		var err error
-		if c.hub != nil {
-			response, postAction, err = c.hub.processMessage(ctx, c, msg)
-		} else {
-			err = ws.NewError(ws.ErrCodeServerError, "Server not available", nil)
-		}
-		latency := time.Since(start)
-
-		// Record message metrics
-		if c.hub != nil && c.hub.metricsCollector != nil && c.Connection != nil {
-			c.hub.metricsCollector.RecordMessage("received", msg.Method, c.TenantID, latency)
-		}
-
-		if err != nil {
-			c.sendError(msg.ID, ws.ErrCodeServerError, err.Error(), nil)
-			continue
-		}
-
-		// Send response if any
-		if response != nil {
-			c.send <- response
-
-			// Queue post-action if any
-			if postAction != nil && postAction.Action != nil {
-				select {
-				case c.afterSend <- postAction:
-					// Successfully queued
-				default:
-					// Channel full, execute immediately
-					if postAction.Synchronous {
-						// For synchronous actions, execute immediately (blocking)
-						postAction.Action()
-					} else {
-						// For async actions, execute in goroutine to avoid blocking
-						go func() {
-							defer func() {
-								if r := recover(); r != nil {
-									if c.hub != nil && c.hub.logger != nil {
-										c.hub.logger.Error("Post-action panic", map[string]interface{}{
-											"error":         fmt.Sprintf("%v", r),
-											"connection_id": c.ID,
-										})
-									}
-								}
-							}()
-							postAction.Action()
-						}()
-					}
-				}
-			}
 		}
 	}
 }
