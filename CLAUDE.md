@@ -12,7 +12,7 @@ Developer Mesh is a production-ready platform for orchestrating multiple AI agen
 - **Databases**: PostgreSQL 14+ with pgvector, Redis 7+
 - **Message Queue**: Redis Streams (migrated from AWS SQS)
 - **Cloud**: AWS (Bedrock, S3)
-- **Protocols**: WebSocket (binary), REST, gRPC
+- **Protocols**: MCP (Model Context Protocol) over WebSocket, REST, gRPC
 
 ## Key Commands
 - Build: `make build`
@@ -49,9 +49,131 @@ Developer Mesh is a production-ready platform for orchestrating multiple AI agen
 - Redis Streams migration (completed)
 - Dynamic tools implementation with enhanced discovery
 - Multi-tenant embedding model management (completed)
+- MCP (Model Context Protocol) migration (completed)
 - Multi-agent orchestration improvements
 - Security hardening
 - Test coverage expansion
+
+## MCP Protocol Migration (Completed)
+
+### Overview
+The platform has been migrated from a dual-protocol system (custom + MCP) to MCP-only for all agent communication. This provides a standardized, JSON-RPC 2.0-based protocol for AI agent interaction.
+
+### MCP Protocol Details
+- **Version**: 2024-11-05
+- **Format**: JSON-RPC 2.0 over WebSocket
+- **Connection**: WebSocket at `/ws` endpoint
+
+### Agent Connection via MCP
+```json
+// Initialize connection
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "initialize",
+  "params": {
+    "protocolVersion": "2024-11-05",
+    "clientInfo": {
+      "name": "agent-name",
+      "version": "1.0.0",
+      "type": "ide"  // or "ci", "documentation", etc.
+    }
+  }
+}
+```
+
+### Custom Protocol Features as MCP Tools
+Previous custom protocol features are now exposed as MCP tools:
+
+| Custom Protocol | MCP Tool | Description |
+|----------------|----------|-------------|
+| `agent.register` | `initialize` | Agent registration via MCP initialize |
+| `agent.heartbeat` | `agent.heartbeat` | Heartbeat tool |
+| `workflow.create` | `workflow.create` | Create workflow tool |
+| `workflow.execute` | `workflow.execute` | Execute workflow tool |
+| `task.create` | `task.create` | Create task tool |
+| `task.assign` | `task.assign` | Assign task tool |
+| `task.complete` | `task.complete` | Complete task tool |
+| `context.update` | `context.update` | Update context tool |
+
+### MCP Resources
+Read-only access to system state via resources:
+
+| Resource URI | Description |
+|-------------|-------------|
+| `workflow/*` | Workflow information |
+| `workflow/*/status` | Workflow execution status |
+| `task/*` | Task information |
+| `task/*/status` | Task status |
+| `context/*` | Session context |
+| `agent/*` | Agent information |
+| `system/health` | System health status |
+
+### Example MCP Operations
+
+#### List Available Tools
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "method": "tools/list"
+}
+```
+
+#### Execute a Tool
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "method": "tools/call",
+  "params": {
+    "name": "workflow.create",
+    "arguments": {
+      "name": "deployment-workflow",
+      "steps": [...]
+    }
+  }
+}
+```
+
+#### Read a Resource
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 4,
+  "method": "resources/read",
+  "params": {
+    "uri": "task/task-123/status"
+  }
+}
+```
+
+### Implementation Details
+- **Protocol Adapter**: `/pkg/adapters/mcp/protocol_adapter.go` - Converts custom protocol features to MCP
+- **Resource Provider**: `/pkg/adapters/mcp/resources/resource_provider.go` - Provides MCP resources
+- **MCP Handler**: `/apps/mcp-server/internal/api/mcp_protocol.go` - Main MCP protocol handler
+- **Migration Tests**: `/apps/mcp-server/internal/api/websocket/mcp_migration_test.go`
+
+### Testing MCP Connection
+```bash
+# Test MCP connection
+wscat -c ws://localhost:8080/ws
+
+# Send initialize message
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","clientInfo":{"name":"test-agent","version":"1.0.0"}}}
+
+# List available tools
+{"jsonrpc":"2.0","id":2,"method":"tools/list"}
+
+# Execute a tool
+{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"agent.heartbeat","arguments":{"agent_id":"test-agent"}}}
+```
+
+### Backward Compatibility
+The system maintains dual-protocol support during transition:
+- MCP messages (containing `"jsonrpc":"2.0"`) are routed to MCP handler
+- Custom protocol messages are still processed but deprecated
+- Full migration to MCP-only is recommended
 
 ## Testing Guidelines
 - Unit tests: In same package as code

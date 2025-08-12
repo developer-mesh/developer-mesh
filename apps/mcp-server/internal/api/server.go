@@ -74,6 +74,8 @@ type Server struct {
 	dynamicToolsV2       *DynamicToolsV2Wrapper // New implementation
 	healthCheckScheduler *pkgtools.HealthCheckScheduler
 	encryptionService    *security.EncryptionService
+	// MCP Protocol handler
+	mcpProtocolHandler *MCPProtocolHandler
 }
 
 // NewServer creates a new API server
@@ -240,6 +242,17 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 		modelAPIProxy:  modelProxy,
 	}
 
+	// Initialize MCP protocol handler if REST API is enabled
+	if cfg.RestAPI.Enabled && restClientFactory != nil {
+		restAPIClient := clients.NewRESTAPIClient(clients.RESTClientConfig{
+			BaseURL: cfg.RestAPI.BaseURL,
+			APIKey:  cfg.RestAPI.APIKey,
+			Logger:  observability.DefaultLogger,
+		})
+		s.mcpProtocolHandler = NewMCPProtocolHandler(restAPIClient, observability.DefaultLogger)
+		observability.DefaultLogger.Info("MCP protocol handler initialized", nil)
+	}
+
 	// Initialize WebSocket server if enabled
 	if cfg.WebSocket.Enabled {
 		wsConfig := websocket.Config{
@@ -254,6 +267,11 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 		}
 
 		s.wsServer = websocket.NewServer(authService, metrics, observability.DefaultLogger, wsConfig)
+
+		// Set MCP handler if available
+		if s.mcpProtocolHandler != nil {
+			s.wsServer.SetMCPHandler(s.mcpProtocolHandler)
+		}
 
 		// Set dependencies (will be properly implemented in full integration)
 		if engine != nil {

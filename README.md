@@ -30,6 +30,7 @@ DevOps teams struggle to integrate AI effectively - managing multiple models, co
 ## 🌟 Key Features
 
 ### AI Agent Orchestration
+- **MCP Protocol Support**: Industry-standard Model Context Protocol (JSON-RPC 2.0)
 - **Capability-Based Discovery**: Agents advertise their strengths (code analysis, security, documentation)
 - **Dynamic Load Balancing**: Routes tasks to least-loaded agents in real-time
 - **Collaboration Strategies**: MapReduce, parallel execution, consensus building
@@ -115,7 +116,7 @@ graph TB
     end
     
     subgraph "API Gateway"
-        B1[WebSocket Server<br/>:8080] <!-- Source: pkg/models/websocket/binary.go -->
+        B1[MCP WebSocket Server<br/>:8080] <!-- MCP Protocol (JSON-RPC 2.0) -->
         B2[REST API<br/>:8081]
         B3[Auth Service]
     end

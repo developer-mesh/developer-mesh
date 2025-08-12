@@ -70,6 +70,9 @@ type Server struct {
 
 	// Server start time
 	startTime time.Time
+
+	// MCP Protocol handler
+	mcpHandler interface{} // Will be set to *api.MCPProtocolHandler to avoid circular import
 }
 
 type Config struct {
@@ -455,6 +458,12 @@ func (s *Server) SetRESTClient(client clients.RESTAPIClient) {
 		s.restAPIClient = client
 		s.logger.Info("REST API client configured for WebSocket server", nil)
 	}
+}
+
+// SetMCPHandler sets the MCP protocol handler
+func (s *Server) SetMCPHandler(handler interface{}) {
+	s.mcpHandler = handler
+	s.logger.Info("MCP protocol handler configured for WebSocket server", nil)
 }
 
 // SetContextManager sets the context manager for the server

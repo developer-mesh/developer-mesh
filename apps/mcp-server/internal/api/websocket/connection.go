@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -26,6 +27,13 @@ type ConnectionState struct {
 	ConversationTokens   int
 	ToolTokens           int
 	Claims               *auth.Claims // Authentication claims
+}
+
+// isMCPMessage checks if a message is an MCP protocol message
+func isMCPMessage(data []byte) bool {
+	// Quick check for JSON-RPC 2.0 signature
+	return strings.Contains(string(data), `"jsonrpc":"2.0"`) ||
+		strings.Contains(string(data), `"jsonrpc": "2.0"`)
 }
 
 // RateLimiter implements token bucket algorithm
@@ -104,7 +112,29 @@ func (c *Connection) readPump() {
 		// Always read the raw message first to handle protocol transitions
 		msgType, data, readErr := conn.Read(ctx)
 		if readErr == nil {
-			// Determine how to parse based on message type
+			// Check if this is an MCP protocol message (contains "jsonrpc":"2.0")
+			if msgType == websocket.MessageText && isMCPMessage(data) {
+				// Handle MCP protocol message
+				if c.hub != nil && c.hub.mcpHandler != nil {
+					// Use reflection to call HandleMessage on the MCP handler
+					// This avoids circular import issues
+					if handler, ok := c.hub.mcpHandler.(interface {
+						HandleMessage(*websocket.Conn, string, string, []byte) error
+					}); ok {
+						// Route to MCP handler
+						if err := handler.HandleMessage(conn, c.ID, c.TenantID, data); err != nil {
+							c.hub.logger.Error("MCP handler error", map[string]interface{}{
+								"error":         err.Error(),
+								"connection_id": c.ID,
+							})
+						}
+						// MCP messages are handled separately, continue to next message
+						continue
+					}
+				}
+			}
+
+			// Determine how to parse based on message type for non-MCP messages
 			switch msgType {
 			case websocket.MessageBinary:
 				// Binary message - decode it
