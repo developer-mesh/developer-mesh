@@ -936,73 +936,1283 @@ func (c *CorePlatformClient) GetSharedContext(contextID string) (*Context, error
 }
 ```
 
-## Phase 9: Documentation and Testing (Day 5)
+## Phase 9: Comprehensive Documentation (Day 5)
 
-### 9.1 Quick Start Guide
+### 9.1 Complete README.md for Edge MCP Template
 ```markdown
-# Edge MCP Quick Start
+# Edge MCP - Lightweight Model Context Protocol Server
 
-## Installation
-1. Clone the template: `git clone https://github.com/developer-mesh/edge-mcp-template`
-2. Install dependencies: `go mod download`
-3. Build: `make build`
-4. Run: `./bin/edge-mcp -port 8082`
+Edge MCP is a lightweight, standalone implementation of the Model Context Protocol (MCP) that runs locally without infrastructure dependencies. Perfect for adding custom tools to Claude Code, Cursor, or Windsurf.
 
-## Connect from Claude Code
-Add to your `.claude/config.json`:
+## Features
+- 🚀 **Zero Infrastructure** - No Redis, PostgreSQL, or cloud services required
+- 💾 **Minimal Memory** - Uses <50MB RAM with in-memory caching
+- ⚡ **Fast Startup** - Starts in <1 second
+- 🔧 **Easy Tool Development** - Simple function registration
+- 🔒 **Optional Authentication** - API key support for security
+- 🏥 **Health Monitoring** - Built-in health check endpoint
+- 🔄 **Auto Port Discovery** - Automatically finds available ports
+- 📦 **Cross-Platform** - Works on Mac, Linux, and Windows
+
+## Quick Start
+
+### Installation
+```bash
+# Clone the template
+git clone https://github.com/developer-mesh/edge-mcp-template
+cd edge-mcp-template
+
+# Install dependencies
+go mod download
+
+# Build
+make build
+
+# Run
+./bin/edge-mcp -port 8082
+```
+
+### Connect from Claude Code
+1. Create or edit `.claude/config.json` in your project:
+```json
 {
   "mcpServers": {
-    "my-edge-mcp": {
-      "url": "ws://localhost:8082/ws"
+    "my-tools": {
+      "url": "ws://localhost:8082/ws",
+      "apiKey": "optional-key"
     }
   }
 }
-
-## Create Your First Tool
-1. Define the tool function
-2. Register it in main.go
-3. Restart the server
-4. Tool is now available in Claude Code!
 ```
 
-### 9.2 Tool Development Guide
+2. Restart Claude Code to load the new server
+3. Your tools are now available!
+
+### Command Line Options
+```bash
+./edge-mcp [options]
+
+Options:
+  -port string      Port to listen on (default "8082")
+  -api-key string   API key for authentication (optional)
+  -log-level string Log level: debug, info, warn, error (default "info")
+  -config string    Path to config file (default "./config.yaml")
+  -version         Show version information
+  -help            Show this help message
+```
+
+## Creating Tools
+
+### Basic Tool Example
 ```go
-// Example tool implementation
-func handleGitStatus(ctx context.Context, args json.RawMessage) (interface{}, error) {
+func handleHello(ctx context.Context, args json.RawMessage) (interface{}, error) {
     var params struct {
-        Path string `json:"path"`
+        Name string `json:"name"`
     }
     
     if err := json.Unmarshal(args, &params); err != nil {
         return nil, fmt.Errorf("invalid arguments: %w", err)
     }
     
-    // Execute git status
-    cmd := exec.CommandContext(ctx, "git", "status", "--short")
-    cmd.Dir = params.Path
+    return fmt.Sprintf("Hello, %s!", params.Name), nil
+}
+
+// In main.go
+srv.RegisterTool("hello", handleHello)
+```
+
+### Tool Registration
+```go
+srv.RegisterTool("tool-name", handler, ToolOptions{
+    Description: "What this tool does",
+    InputSchema: map[string]interface{}{
+        "type": "object",
+        "properties": map[string]interface{}{
+            "param1": map[string]string{"type": "string"},
+        },
+        "required": []string{"param1"},
+    },
+})
+```
+
+## Configuration
+
+All settings can be configured via `config.yaml` or environment variables:
+
+| Setting | Config Path | Environment Variable | Default | Description |
+|---------|------------|---------------------|---------|-------------|
+| Port | `server.port` | `EDGE_MCP_PORT` | 8082 | WebSocket server port |
+| API Key | `auth.api_key` | `EDGE_MCP_API_KEY` | "" | Optional authentication |
+| Log Level | `logging.level` | `EDGE_MCP_LOG_LEVEL` | info | Logging verbosity |
+| Cache Size | `cache.max_items` | `EDGE_MCP_CACHE_SIZE` | 1000 | Max cached items |
+| Tool Timeout | `tools.execution_timeout` | `EDGE_MCP_TOOL_TIMEOUT` | 30s | Max tool execution time |
+
+## Building from Source
+
+### Prerequisites
+- Go 1.21 or higher
+- Make (optional, for using Makefile)
+
+### Build Commands
+```bash
+# Standard build
+go build -o edge-mcp cmd/edge-mcp/main.go
+
+# With version info
+go build -ldflags "-X main.Version=1.0.0" -o edge-mcp cmd/edge-mcp/main.go
+
+# Cross-platform builds
+make build-all  # Builds for Mac, Linux, Windows
+```
+
+## Docker Support
+
+### Build and Run with Docker
+```bash
+# Build image
+docker build -t edge-mcp:latest .
+
+# Run container
+docker run -d -p 8082:8082 edge-mcp:latest
+
+# With custom port
+docker run -d -p 9000:9000 edge-mcp:latest -port 9000
+```
+
+## Testing
+
+### Run Tests
+```bash
+# Unit tests
+make test
+
+# With coverage
+make test-coverage
+
+# E2E tests
+./scripts/test-e2e.sh
+```
+
+## Troubleshooting
+
+See [Troubleshooting Guide](#troubleshooting-guide) below for common issues.
+
+## Contributing
+
+Contributions welcome! Please read CONTRIBUTING.md first.
+
+## License
+
+MIT License - see LICENSE file for details.
+```
+
+### 9.2 Comprehensive Tool Development Guide
+```markdown
+# Tool Development Guide
+
+## Tool Anatomy
+
+Every tool consists of three parts:
+
+1. **Handler Function** - Executes the tool logic
+2. **Input Schema** - Defines parameters (JSON Schema)
+3. **Registration** - Adds tool to the server
+
+## Basic Tool Template
+```go
+// tools/my_tool.go
+package tools
+
+import (
+    "context"
+    "encoding/json"
+    "fmt"
+)
+
+// Tool handler function
+func HandleMyTool(ctx context.Context, args json.RawMessage) (interface{}, error) {
+    // 1. Parse arguments
+    var params struct {
+        RequiredField string   `json:"required_field"`
+        OptionalField string   `json:"optional_field,omitempty"`
+        NumberField   int      `json:"number_field"`
+        BoolField     bool     `json:"bool_field"`
+        ArrayField    []string `json:"array_field"`
+    }
     
-    output, err := cmd.Output()
+    if err := json.Unmarshal(args, &params); err != nil {
+        return nil, fmt.Errorf("invalid arguments: %w", err)
+    }
+    
+    // 2. Validate inputs
+    if params.RequiredField == "" {
+        return nil, fmt.Errorf("required_field cannot be empty")
+    }
+    
+    // 3. Execute tool logic
+    result := processData(params)
+    
+    // 4. Return result (will be converted to JSON)
+    return result, nil
+}
+
+// Tool definition for registration
+var MyToolDefinition = ToolDefinition{
+    Name:        "category.my_tool",
+    Description: "Processes data according to parameters",
+    InputSchema: map[string]interface{}{
+        "type": "object",
+        "properties": map[string]interface{}{
+            "required_field": map[string]interface{}{
+                "type":        "string",
+                "description": "A required string parameter",
+            },
+            "optional_field": map[string]interface{}{
+                "type":        "string",
+                "description": "An optional string parameter",
+            },
+            "number_field": map[string]interface{}{
+                "type":        "number",
+                "description": "A numeric parameter",
+                "minimum":     0,
+                "maximum":     100,
+            },
+            "bool_field": map[string]interface{}{
+                "type":        "boolean",
+                "description": "A boolean flag",
+                "default":     false,
+            },
+            "array_field": map[string]interface{}{
+                "type": "array",
+                "items": map[string]interface{}{
+                    "type": "string",
+                },
+                "description": "An array of strings",
+            },
+        },
+        "required": []string{"required_field"},
+    },
+    Handler: HandleMyTool,
+}
+```
+
+## Common Tool Patterns
+
+### 1. File System Tool
+```go
+func HandleReadFile(ctx context.Context, args json.RawMessage) (interface{}, error) {
+    var params struct {
+        Path string `json:"path"`
+    }
+    
+    if err := json.Unmarshal(args, &params); err != nil {
+        return nil, err
+    }
+    
+    // Validate path (security!)
+    if !isPathSafe(params.Path) {
+        return nil, fmt.Errorf("invalid path: %s", params.Path)
+    }
+    
+    content, err := os.ReadFile(params.Path)
     if err != nil {
-        return nil, fmt.Errorf("git status failed: %w", err)
+        return nil, fmt.Errorf("failed to read file: %w", err)
+    }
+    
+    return string(content), nil
+}
+```
+
+### 2. External Command Tool
+```go
+func HandleGitCommand(ctx context.Context, args json.RawMessage) (interface{}, error) {
+    var params struct {
+        Command string   `json:"command"`
+        Args    []string `json:"args"`
+        Dir     string   `json:"dir"`
+    }
+    
+    if err := json.Unmarshal(args, &params); err != nil {
+        return nil, err
+    }
+    
+    // Create command with timeout
+    cmd := exec.CommandContext(ctx, "git", params.Args...)
+    cmd.Dir = params.Dir
+    
+    // Capture output
+    output, err := cmd.CombinedOutput()
+    if err != nil {
+        return nil, fmt.Errorf("git command failed: %w\nOutput: %s", err, output)
     }
     
     return string(output), nil
 }
-
-// Register in main.go
-srv.RegisterTool("git.status", handleGitStatus)
 ```
 
-### 9.3 Troubleshooting Guide
+### 3. HTTP API Tool
+```go
+func HandleAPIRequest(ctx context.Context, args json.RawMessage) (interface{}, error) {
+    var params struct {
+        URL     string            `json:"url"`
+        Method  string            `json:"method"`
+        Headers map[string]string `json:"headers"`
+        Body    json.RawMessage   `json:"body"`
+    }
+    
+    if err := json.Unmarshal(args, &params); err != nil {
+        return nil, err
+    }
+    
+    // Create request
+    req, err := http.NewRequestWithContext(ctx, params.Method, params.URL, 
+        bytes.NewReader(params.Body))
+    if err != nil {
+        return nil, err
+    }
+    
+    // Add headers
+    for k, v := range params.Headers {
+        req.Header.Set(k, v)
+    }
+    
+    // Execute request
+    client := &http.Client{Timeout: 30 * time.Second}
+    resp, err := client.Do(req)
+    if err != nil {
+        return nil, err
+    }
+    defer resp.Body.Close()
+    
+    // Read response
+    body, err := io.ReadAll(resp.Body)
+    if err != nil {
+        return nil, err
+    }
+    
+    return map[string]interface{}{
+        "status": resp.StatusCode,
+        "body":   string(body),
+        "headers": resp.Header,
+    }, nil
+}
+```
 
-| Problem | Solution |
-|---------|----------|
-| Port already in use | Edge MCP auto-finds next available port |
-| WebSocket connection drops | Check firewall, ensure localhost is accessible |
-| Tool not found | Verify tool is registered with correct name |
-| Authentication fails | Check API key in config matches server |
-| High memory usage | Reduce cache size in config |
-| Tool timeout | Increase execution_timeout in config |
+### 4. Database Query Tool
+```go
+func HandleDatabaseQuery(ctx context.Context, args json.RawMessage) (interface{}, error) {
+    var params struct {
+        Query  string        `json:"query"`
+        Params []interface{} `json:"params"`
+    }
+    
+    if err := json.Unmarshal(args, &params); err != nil {
+        return nil, err
+    }
+    
+    // Validate query (prevent SQL injection)
+    if !isReadOnlyQuery(params.Query) {
+        return nil, fmt.Errorf("only SELECT queries allowed")
+    }
+    
+    // Execute query (example with database/sql)
+    rows, err := db.QueryContext(ctx, params.Query, params.Params...)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+    
+    // Collect results
+    var results []map[string]interface{}
+    columns, _ := rows.Columns()
+    
+    for rows.Next() {
+        values := make([]interface{}, len(columns))
+        valuePtrs := make([]interface{}, len(columns))
+        for i := range values {
+            valuePtrs[i] = &values[i]
+        }
+        
+        if err := rows.Scan(valuePtrs...); err != nil {
+            return nil, err
+        }
+        
+        row := make(map[string]interface{})
+        for i, col := range columns {
+            row[col] = values[i]
+        }
+        results = append(results, row)
+    }
+    
+    return results, nil
+}
+```
+
+## Error Handling Best Practices
+
+1. **Always validate inputs**
+```go
+if params.Path == "" {
+    return nil, fmt.Errorf("path is required")
+}
+```
+
+2. **Provide context in errors**
+```go
+if err != nil {
+    return nil, fmt.Errorf("failed to read file %s: %w", path, err)
+}
+```
+
+3. **Handle timeouts properly**
+```go
+ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+defer cancel()
+```
+
+4. **Sanitize sensitive data in errors**
+```go
+// Don't include passwords or tokens in error messages
+return nil, fmt.Errorf("authentication failed for user %s", username)
+```
+
+## Testing Your Tools
+
+### Unit Test Example
+```go
+func TestHandleMyTool(t *testing.T) {
+    tests := []struct {
+        name    string
+        args    json.RawMessage
+        want    interface{}
+        wantErr bool
+    }{
+        {
+            name: "valid input",
+            args: json.RawMessage(`{"required_field": "test"}`),
+            want: "processed: test",
+            wantErr: false,
+        },
+        {
+            name: "missing required field",
+            args: json.RawMessage(`{}`),
+            want: nil,
+            wantErr: true,
+        },
+    }
+    
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            ctx := context.Background()
+            got, err := HandleMyTool(ctx, tt.args)
+            
+            if (err != nil) != tt.wantErr {
+                t.Errorf("HandleMyTool() error = %v, wantErr %v", err, tt.wantErr)
+                return
+            }
+            
+            if !reflect.DeepEqual(got, tt.want) {
+                t.Errorf("HandleMyTool() = %v, want %v", got, tt.want)
+            }
+        })
+    }
+}
+```
+
+## Performance Tips
+
+1. **Use context for cancellation**
+2. **Set reasonable timeouts**
+3. **Cache expensive operations**
+4. **Limit concurrent operations**
+5. **Stream large responses**
+6. **Validate early, fail fast**
+```
+
+### 9.3 MCP Protocol Reference Documentation
+```markdown
+# MCP Protocol Reference
+
+## Protocol Version
+Edge MCP implements MCP protocol version **2025-06-18**.
+
+## Connection Flow
+
+1. **Client connects** via WebSocket to `ws://localhost:PORT/ws`
+2. **Client sends `initialize`** with protocol version and client info
+3. **Server responds** with capabilities
+4. **Client sends `initialized`** to confirm
+5. **Client can now call tools** and access resources
+
+## Required Methods
+
+### initialize
+Initialize the connection and negotiate capabilities.
+
+**Request:**
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "initialize",
+  "params": {
+    "protocolVersion": "2025-06-18",
+    "clientInfo": {
+      "name": "claude-code",
+      "version": "1.0.0"
+    }
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "protocolVersion": "2025-06-18",
+    "serverInfo": {
+      "name": "edge-mcp",
+      "version": "1.0.0"
+    },
+    "capabilities": {
+      "tools": {
+        "listChanged": true
+      },
+      "resources": {
+        "subscribe": false,
+        "listChanged": false
+      }
+    }
+  }
+}
+```
+
+### initialized
+Confirm successful initialization.
+
+**Request:**
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "method": "initialized",
+  "params": {}
+}
+```
+
+### tools/list
+List all available tools.
+
+**Request:**
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "method": "tools/list"
+}
+```
+
+**Response:**
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "result": {
+    "tools": [
+      {
+        "name": "example.hello",
+        "description": "Says hello",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Name to greet"
+            }
+          },
+          "required": ["name"]
+        }
+      }
+    ]
+  }
+}
+```
+
+### tools/call
+Execute a tool with arguments.
+
+**Request:**
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 4,
+  "method": "tools/call",
+  "params": {
+    "name": "example.hello",
+    "arguments": {
+      "name": "World"
+    }
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 4,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "Hello, World!"
+      }
+    ]
+  }
+}
+```
+
+### ping
+Keep-alive ping.
+
+**Request:**
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 5,
+  "method": "ping"
+}
+```
+
+**Response:**
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 5,
+  "result": {}
+}
+```
+
+### shutdown
+Gracefully close the connection.
+
+**Request:**
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 6,
+  "method": "shutdown"
+}
+```
+
+## Error Responses
+
+All errors follow JSON-RPC 2.0 format:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32601,
+    "message": "Method not found",
+    "data": {
+      "details": "Additional error information"
+    }
+  }
+}
+```
+
+### Error Codes
+- `-32700` Parse error
+- `-32600` Invalid request
+- `-32601` Method not found
+- `-32602` Invalid params
+- `-32603` Internal error
+
+## Content Types
+
+Tool responses can return different content types:
+
+### Text Content
+```json
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "Plain text response"
+    }
+  ]
+}
+```
+
+### Error Content
+```json
+{
+  "content": [
+    {
+      "type": "error",
+      "error": "Error message"
+    }
+  ]
+}
+```
+
+### Multiple Content Items
+```json
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "First part"
+    },
+    {
+      "type": "text",
+      "text": "Second part"
+    }
+  ]
+}
+```
+```
+
+### 9.4 IDE-Specific Setup Guides
+```markdown
+# IDE Setup Guides
+
+## Claude Code Setup
+
+### 1. Configuration File
+Create `.claude/config.json` in your project root:
+
+```json
+{
+  "mcpServers": {
+    "local-tools": {
+      "url": "ws://localhost:8082/ws",
+      "name": "My Local Tools",
+      "description": "Custom tools for this project",
+      "apiKey": "optional-api-key",
+      "autoStart": true,
+      "startCommand": "edge-mcp -port 8082"
+    }
+  }
+}
+```
+
+### 2. Auto-start Script (Optional)
+Create `.claude/start-mcp.sh`:
+
+```bash
+#!/bin/bash
+# Check if edge-mcp is running
+if ! pgrep -f "edge-mcp.*8082" > /dev/null; then
+    echo "Starting Edge MCP server..."
+    edge-mcp -port 8082 &
+    sleep 2
+fi
+```
+
+### 3. Verify Connection
+1. Open Claude Code
+2. Check the status bar for "MCP: Connected"
+3. Type `/tools` to see available tools
+
+## Cursor Setup
+
+### 1. Configuration
+Add to `.cursor/settings.json`:
+
+```json
+{
+  "mcp.servers": [
+    {
+      "name": "local-edge-mcp",
+      "url": "ws://localhost:8082/ws",
+      "enabled": true
+    }
+  ]
+}
+```
+
+### 2. Workspace Settings
+For workspace-specific tools, create `.cursor/workspace.json`:
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "project-tools": {
+        "url": "ws://localhost:8082/ws",
+        "tools": ["git.*", "docker.*"]
+      }
+    }
+  }
+}
+```
+
+## Windsurf Setup
+
+### 1. Global Configuration
+Edit `~/.windsurf/mcp-config.yaml`:
+
+```yaml
+servers:
+  - name: edge-mcp-global
+    url: ws://localhost:8082/ws
+    autoConnect: true
+    reconnectInterval: 5s
+```
+
+### 2. Project Configuration
+Create `.windsurf/mcp.yaml` in project:
+
+```yaml
+servers:
+  - name: project-tools
+    url: ws://localhost:8082/ws
+    tools:
+      include:
+        - "project.*"
+        - "test.*"
+      exclude:
+        - "*.dangerous"
+```
+
+## VS Code with Continue.dev
+
+### 1. Install Continue Extension
+```bash
+code --install-extension continue.continue
+```
+
+### 2. Configure Continue
+Edit `~/.continue/config.json`:
+
+```json
+{
+  "models": [...],
+  "mcpServers": [
+    {
+      "name": "edge-mcp",
+      "url": "ws://localhost:8082/ws"
+    }
+  ]
+}
+```
+
+## Troubleshooting IDE Connections
+
+### Connection Issues
+1. **Check server is running**: `ps aux | grep edge-mcp`
+2. **Test with websocat**: `websocat ws://localhost:8082/ws`
+3. **Check firewall**: Ensure localhost connections allowed
+4. **Verify port**: `lsof -i :8082`
+
+### Tool Discovery Issues
+1. **Refresh tools**: Restart IDE or reload window
+2. **Check tool names**: Must match registered names exactly
+3. **Verify protocol**: Must use MCP 2025-06-18
+
+### Authentication Issues
+1. **Check API key**: Must match in both config and server
+2. **Try without auth**: Remove API key for testing
+3. **Check headers**: Some IDEs need explicit auth config
+```
+
+### 9.5 Security and Performance Documentation
+```markdown
+# Security Best Practices
+
+## Authentication
+
+### API Key Authentication
+```bash
+# Start with API key
+edge-mcp -api-key "your-secret-key"
+
+# Or use environment variable
+export EDGE_MCP_API_KEY="your-secret-key"
+edge-mcp
+```
+
+### Secure Tool Development
+
+1. **Input Validation**
+```go
+// Always validate and sanitize inputs
+if !regexp.MustCompile(`^[a-zA-Z0-9_-]+$`).MatchString(params.Name) {
+    return nil, fmt.Errorf("invalid name format")
+}
+```
+
+2. **Path Traversal Prevention**
+```go
+// Prevent directory traversal attacks
+cleanPath := filepath.Clean(params.Path)
+if strings.Contains(cleanPath, "..") {
+    return nil, fmt.Errorf("invalid path")
+}
+```
+
+3. **Command Injection Prevention**
+```go
+// Never construct shell commands from user input
+// Use exec.Command with separate arguments
+cmd := exec.Command("git", "log", "--oneline", "-n", strconv.Itoa(params.Count))
+// NOT: exec.Command("sh", "-c", "git log " + params.Args)
+```
+
+4. **Secrets Management**
+- Never log sensitive data
+- Don't include secrets in error messages
+- Use environment variables for credentials
+- Implement secret rotation
+
+## Performance Optimization
+
+### Memory Management
+
+1. **Cache Configuration**
+```yaml
+cache:
+  max_items: 500      # Reduce for low-memory systems
+  default_ttl: 2m     # Shorter TTL for less memory
+  cleanup_interval: 5m
+```
+
+2. **Tool Optimization**
+```go
+// Stream large outputs instead of loading into memory
+func streamLargeFile(ctx context.Context, path string) (io.Reader, error) {
+    file, err := os.Open(path)
+    if err != nil {
+        return nil, err
+    }
+    
+    // Return reader, not entire content
+    return file, nil
+}
+```
+
+3. **Connection Limits**
+```yaml
+server:
+  max_connections: 10     # Limit concurrent connections
+  max_message_size: 1MB   # Limit message size
+```
+
+### CPU Optimization
+
+1. **Concurrent Tool Execution**
+```go
+// Limit concurrent tool executions
+sem := make(chan struct{}, 5) // Max 5 concurrent
+
+func executeWithLimit(ctx context.Context, fn func() error) error {
+    sem <- struct{}{}        // Acquire
+    defer func() { <-sem }() // Release
+    return fn()
+}
+```
+
+2. **Timeout Configuration**
+```yaml
+tools:
+  execution_timeout: 10s    # Prevent long-running tools
+  max_concurrent: 5         # Limit parallel executions
+```
+
+## Monitoring and Metrics
+
+### Health Check Endpoint
+```go
+// Implement comprehensive health check
+func healthCheck() HealthStatus {
+    return HealthStatus{
+        Status: "healthy",
+        Uptime: time.Since(startTime),
+        Memory: getMemoryUsage(),
+        Tools:  len(registeredTools),
+        Connections: activeConnections,
+    }
+}
+```
+
+### Logging Configuration
+```yaml
+logging:
+  level: info      # Reduce to warn in production
+  format: json     # Structured logging
+  output: file     # Don't log to stdout in production
+  file: /var/log/edge-mcp.log
+  max_size: 100MB
+  max_backups: 5
+  max_age: 30
+```
+
+### Performance Metrics
+```go
+// Track tool execution times
+start := time.Now()
+result, err := tool.Execute(ctx, args)
+duration := time.Since(start)
+
+metrics.RecordToolExecution(tool.Name, duration, err == nil)
+```
+
+## Production Deployment
+
+### Systemd Service
+```ini
+[Unit]
+Description=Edge MCP Server
+After=network.target
+
+[Service]
+Type=simple
+User=edge-mcp
+Group=edge-mcp
+ExecStart=/usr/local/bin/edge-mcp -config /etc/edge-mcp/config.yaml
+Restart=always
+RestartSec=10
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/edge-mcp
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### Docker Compose
+```yaml
+version: '3.8'
+services:
+  edge-mcp:
+    image: edge-mcp:latest
+    ports:
+      - "8082:8082"
+    environment:
+      - EDGE_MCP_API_KEY=${API_KEY}
+      - EDGE_MCP_LOG_LEVEL=info
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ./logs:/var/log/edge-mcp
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:8082/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+```
+```
+
+### 9.6 Enhanced Troubleshooting Guide
+```markdown
+# Comprehensive Troubleshooting Guide
+
+## Common Issues and Solutions
+
+### Connection Problems
+
+#### "Connection refused" Error
+```bash
+# Check if server is running
+ps aux | grep edge-mcp
+
+# Check if port is listening
+netstat -an | grep 8082
+lsof -i :8082
+
+# Try starting manually with debug logging
+edge-mcp -port 8082 -log-level debug
+```
+
+#### "WebSocket upgrade failed"
+- Check firewall settings
+- Verify no proxy interference
+- Try different port: `edge-mcp -port 9000`
+- Check for conflicting services
+
+#### "Authentication failed"
+```bash
+# Test without authentication
+edge-mcp  # No -api-key flag
+
+# Verify API key matches
+echo $EDGE_MCP_API_KEY
+
+# Check client configuration
+cat .claude/config.json | grep apiKey
+```
+
+### Tool Execution Problems
+
+#### "Tool not found"
+```bash
+# List registered tools (add this endpoint)
+curl http://localhost:8082/tools
+
+# Check tool name spelling
+# Tools are case-sensitive!
+```
+
+#### "Tool timeout"
+```yaml
+# Increase timeout in config.yaml
+tools:
+  execution_timeout: 60s  # Increase from default 30s
+```
+
+#### "Tool execution failed"
+```go
+// Add detailed logging to your tool
+func HandleMyTool(ctx context.Context, args json.RawMessage) (interface{}, error) {
+    log.Printf("Tool called with args: %s", string(args))
+    
+    // Your tool logic...
+    
+    if err != nil {
+        log.Printf("Tool error: %v", err)
+        return nil, fmt.Errorf("detailed error: %w", err)
+    }
+}
+```
+
+### Memory Issues
+
+#### High Memory Usage
+```bash
+# Check memory usage
+ps aux | grep edge-mcp
+top -p $(pgrep edge-mcp)
+
+# Reduce cache size
+edge-mcp -cache-size 100  # Default is 1000
+```
+
+#### Memory Leaks
+```go
+// Ensure cleanup in tools
+defer func() {
+    // Clean up resources
+    file.Close()
+    cmd.Process.Kill()
+}()
+```
+
+### Performance Issues
+
+#### Slow Tool Execution
+1. Profile the tool:
+```go
+start := time.Now()
+// Tool logic
+log.Printf("Tool took %v", time.Since(start))
+```
+
+2. Check for blocking operations
+3. Add context timeout
+4. Use goroutines for parallel work
+
+#### High CPU Usage
+```bash
+# Check CPU usage
+top -p $(pgrep edge-mcp)
+
+# Limit concurrent executions
+# In config.yaml:
+tools:
+  max_concurrent: 3  # Reduce from default
+```
+
+### IDE-Specific Issues
+
+#### Claude Code Not Connecting
+1. Check `.claude/config.json` syntax
+2. Restart Claude Code
+3. Check Claude Code logs: View → Output → MCP
+
+#### Cursor Not Finding Tools
+1. Reload window: Cmd+R (Mac) / Ctrl+R (Windows/Linux)
+2. Check Cursor logs: Help → Toggle Developer Tools → Console
+
+#### Windsurf Connection Drops
+1. Check reconnect settings
+2. Increase ping interval
+3. Check network stability
+
+### Debugging Techniques
+
+#### Enable Debug Logging
+```bash
+edge-mcp -log-level debug
+```
+
+#### Use Verbose Output
+```go
+// Add debug prints (remove in production)
+log.Printf("[DEBUG] Received: %v", params)
+log.Printf("[DEBUG] Processing: %s", stage)
+log.Printf("[DEBUG] Result: %v", result)
+```
+
+#### Test with websocat
+```bash
+# Interactive testing
+websocat ws://localhost:8082/ws
+
+# Send test message
+echo '{"jsonrpc":"2.0","method":"tools/list","id":1}' | websocat ws://localhost:8082/ws
+```
+
+#### Monitor Network Traffic
+```bash
+# Watch WebSocket traffic
+tcpdump -i lo0 -A 'port 8082'
+
+# Use Chrome DevTools
+# Open chrome://inspect → Devices → Inspect
+```
+
+### Error Messages Reference
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| "Protocol version mismatch" | Wrong MCP version | Use version 2025-06-18 |
+| "Invalid JSON-RPC request" | Malformed request | Check JSON syntax |
+| "Method not implemented" | Missing handler | Implement the method |
+| "Context deadline exceeded" | Timeout | Increase timeout or optimize tool |
+| "Too many connections" | Connection limit | Increase max_connections |
+| "Message too large" | Exceeds max_message_size | Increase limit or reduce payload |
+
+### Getting Help
+
+1. **Check Logs**
+```bash
+tail -f edge-mcp.log
+journalctl -u edge-mcp -f  # If using systemd
+```
+
+2. **Enable Metrics**
+```go
+// Add metrics endpoint
+http.HandleFunc("/metrics", metricsHandler)
+```
+
+3. **File an Issue**
+Include:
+- Edge MCP version
+- OS and Go version
+- Full error message
+- Steps to reproduce
+- Relevant config
+```
 
 ## Implementation Timeline
 
