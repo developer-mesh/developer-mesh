@@ -122,7 +122,7 @@ func TestMCPProtocolHandler_HandleInitialize(t *testing.T) {
 		JSONRPC: "2.0",
 		Method:  "initialize",
 		ID:      1,
-		Params:  json.RawMessage(`{"protocolVersion": "2024-11-05", "clientInfo": {"name": "test-client"}}`),
+		Params:  json.RawMessage(`{"protocolVersion": "2025-06-18", "clientInfo": {"name": "test-client"}}`),
 	}
 
 	// Marshal message

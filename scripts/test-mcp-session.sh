@@ -42,7 +42,7 @@ trap "rm -f $TEMP_FILE" EXIT
 
 # Build the test sequence
 cat > $TEMP_FILE << 'EOF'
-{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","clientInfo":{"name":"test-session","version":"1.0.0"}},"id":"1"}
+{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-06-18","clientInfo":{"name":"test-session","version":"1.0.0"}},"id":"1"}
 {"jsonrpc":"2.0","method":"initialized","params":{},"id":"2"}
 {"jsonrpc":"2.0","method":"tools/list","params":{},"id":"3"}
 {"jsonrpc":"2.0","method":"resources/list","params":{},"id":"4"}
@@ -133,7 +133,7 @@ echo "---"
 
 # Claude Code session
 print_status "Testing Claude Code session"
-(echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","clientInfo":{"name":"claude-code","version":"1.0.0"}},"id":"100"}'; 
+(echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-06-18","clientInfo":{"name":"claude-code","version":"1.0.0"}},"id":"100"}'; 
  echo '{"jsonrpc":"2.0","method":"tools/list","params":{},"id":"101"}'; 
  echo '{"jsonrpc":"2.0","method":"shutdown","params":{},"id":"102"}') | \
     websocat --header="$AUTH_HEADER" --header="User-Agent: Claude-Code/1.0.0" -n "$WS_URL" | \

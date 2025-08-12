@@ -223,7 +223,7 @@ func (h *MCPProtocolHandler) handleInitialize(conn *websocket.Conn, connID, tena
 
 	// Return capabilities
 	return h.sendResult(conn, msg.ID, map[string]interface{}{
-		"protocolVersion": "2024-11-05",
+		"protocolVersion": "2025-06-18",
 		"serverInfo": map[string]interface{}{
 			"name":    "developer-mesh-mcp",
 			"version": "1.0.0",

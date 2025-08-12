@@ -30,7 +30,7 @@ DevOps teams struggle to integrate AI effectively - managing multiple models, co
 ## 🌟 Key Features
 
 ### AI Agent Orchestration
-- **MCP Protocol Support**: Full Model Context Protocol 2024-11-05 implementation (JSON-RPC 2.0)
+- **MCP Protocol Support**: Full Model Context Protocol 2025-06-18 implementation (JSON-RPC 2.0)
 - **Connection Modes**: Optimized for Claude Code, IDEs, and custom agents
 - **Capability-Based Discovery**: Agents advertise their strengths (code analysis, security, documentation)
 - **Dynamic Load Balancing**: Routes tasks to least-loaded agents in real-time
@@ -69,7 +69,7 @@ DevOps teams struggle to integrate AI effectively - managing multiple models, co
   - Detailed billing integration support
 
 ### Real-time Communication
-- **MCP over WebSocket**: Industry-standard Model Context Protocol (MCP) 2024-11-05
+- **MCP over WebSocket**: Industry-standard Model Context Protocol (MCP) 2025-06-18
 - **JSON-RPC 2.0**: Standard message format for all operations
 - **Connection Modes**: Auto-detection for Claude Code, IDEs, and agents
 - **DevMesh Tools**: All functionality exposed as standard MCP tools
@@ -290,7 +290,7 @@ make run-worker      # Background worker
 wscat -c ws://localhost:8080/ws
 
 # Initialize connection
-> {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","clientInfo":{"name":"my-agent","version":"1.0.0"}}}
+> {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","clientInfo":{"name":"my-agent","version":"1.0.0"}}}
 
 # List available tools
 > {"jsonrpc":"2.0","id":2,"method":"tools/list"}
@@ -325,7 +325,7 @@ msg := map[string]interface{}{
     "id": 1,
     "method": "initialize",
     "params": map[string]interface{}{
-        "protocolVersion": "2024-11-05",
+        "protocolVersion": "2025-06-18",
         "clientInfo": map[string]interface{}{
             "name": "security-agent",
             "version": "1.0.0",

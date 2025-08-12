@@ -23,7 +23,7 @@ echo
 
 # Test workflow list response structure
 echo -e "${GREEN}[TEST]${NC} Validating workflow list response structure..."
-RESPONSE=$(echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05"},"id":"1"}
+RESPONSE=$(echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-06-18"},"id":"1"}
 {"jsonrpc":"2.0","method":"tools/call","params":{"name":"devmesh.workflow.list","arguments":{}},"id":"2"}' | \
     websocat --header="$AUTH_HEADER" -n "$WS_URL" 2>/dev/null | tail -1)
 
@@ -47,7 +47,7 @@ echo
 
 # Test task creation response structure
 echo -e "${GREEN}[TEST]${NC} Validating task creation response structure..."
-RESPONSE=$(echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05"},"id":"1"}
+RESPONSE=$(echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-06-18"},"id":"1"}
 {"jsonrpc":"2.0","method":"tools/call","params":{"name":"devmesh.task.create","arguments":{"title":"Validation Test","type":"feature"}},"id":"2"}' | \
     websocat --header="$AUTH_HEADER" -n "$WS_URL" 2>/dev/null | tail -1)
 
@@ -78,7 +78,7 @@ echo -e "${GREEN}[TEST]${NC} Validating context management cycle..."
 SESSION_ID="test-$(date +%s)"
 
 # First update context
-UPDATE_RESPONSE=$(echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","clientInfo":{"name":"'$SESSION_ID'"}},"id":"1"}
+UPDATE_RESPONSE=$(echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-06-18","clientInfo":{"name":"'$SESSION_ID'"}},"id":"1"}
 {"jsonrpc":"2.0","method":"tools/call","params":{"name":"devmesh.context.update","arguments":{"context":{"test_key":"test_value","session":"'$SESSION_ID'"}}},"id":"2"}' | \
     websocat --header="$AUTH_HEADER" -n "$WS_URL" 2>/dev/null | tail -1)
 
@@ -86,7 +86,7 @@ if echo "$UPDATE_RESPONSE" | jq -e '.result.content[0].text' | grep -q "success"
     echo -e "${GREEN}[✓]${NC} Context update successful"
     
     # Now get the context
-    GET_RESPONSE=$(echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","clientInfo":{"name":"'$SESSION_ID'"}},"id":"1"}
+    GET_RESPONSE=$(echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-06-18","clientInfo":{"name":"'$SESSION_ID'"}},"id":"1"}
 {"jsonrpc":"2.0","method":"tools/call","params":{"name":"devmesh.context.get","arguments":{}},"id":"2"}' | \
         websocat --header="$AUTH_HEADER" -n "$WS_URL" 2>/dev/null | tail -1)
     
@@ -107,7 +107,7 @@ echo
 
 # Test resource reading
 echo -e "${GREEN}[TEST]${NC} Validating resource reading..."
-RESOURCE_RESPONSE=$(echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05"},"id":"1"}
+RESOURCE_RESPONSE=$(echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-06-18"},"id":"1"}
 {"jsonrpc":"2.0","method":"resources/read","params":{"uri":"devmesh://system/health"},"id":"2"}' | \
     websocat --header="$AUTH_HEADER" -n "$WS_URL" 2>/dev/null | tail -1)
 

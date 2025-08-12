@@ -2,12 +2,12 @@
 
 ## Overview
 
-DevMesh implements the Model Context Protocol (MCP) version 2024-11-05, providing a standardized JSON-RPC 2.0 interface for AI agent communication over WebSocket connections.
+DevMesh implements the Model Context Protocol (MCP) version 2025-06-18, providing a standardized JSON-RPC 2.0 interface for AI agent communication over WebSocket connections.
 
 ## Protocol Specification
 
 ### Version
-- **Protocol Version**: `2024-11-05`
+- **Protocol Version**: `2025-06-18`
 - **JSON-RPC Version**: `2.0`
 - **Transport**: WebSocket
 - **Endpoint**: `/ws`
@@ -46,7 +46,7 @@ Establishes MCP session and exchanges capabilities.
   "id": 1,
   "method": "initialize",
   "params": {
-    "protocolVersion": "2024-11-05",
+    "protocolVersion": "2025-06-18",
     "clientInfo": {
       "name": "client-name",
       "version": "1.0.0",
@@ -62,7 +62,7 @@ Establishes MCP session and exchanges capabilities.
   "jsonrpc": "2.0",
   "id": 1,
   "result": {
-    "protocolVersion": "2024-11-05",
+    "protocolVersion": "2025-06-18",
     "serverInfo": {
       "name": "devmesh-mcp-server",
       "version": "1.0.0"
@@ -449,7 +449,7 @@ websocat --header="X-Agent-ID: agent-123" ws://localhost:8080/ws
 ### Basic Connection Test
 ```bash
 # Test with websocat
-echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05"},"id":1}' | \
+echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-06-18"},"id":1}' | \
   websocat -n1 ws://localhost:8080/ws
 ```
 
@@ -474,7 +474,7 @@ npm install -g wscat
 wscat -c ws://localhost:8080/ws
 
 # Send messages interactively
-> {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05"}}
+> {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}
 > {"jsonrpc":"2.0","id":2,"method":"tools/list"}
 > {"jsonrpc":"2.0","id":3,"method":"shutdown"}
 ```
@@ -583,7 +583,7 @@ For clients still using the custom protocol:
 ### Common Issues
 
 1. **"Method not found" errors**
-   - Check protocol version is "2024-11-05"
+   - Check protocol version is "2025-06-18"
    - Verify method name is correct
    - Ensure initialize was called first
 

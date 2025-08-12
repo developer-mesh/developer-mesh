@@ -1,7 +1,7 @@
 # MCP Server - Model Context Protocol Server
 
 ## Service Overview
-The MCP Server is the core WebSocket server implementing the Model Context Protocol (MCP) 2024-11-05 specification for AI agent communication and orchestration. It provides:
+The MCP Server is the core WebSocket server implementing the Model Context Protocol (MCP) 2025-06-18 specification for AI agent communication and orchestration. It provides:
 - Full MCP protocol support over WebSocket
 - JSON-RPC 2.0 message handling
 - DevMesh-specific tools exposed as standard MCP tools
@@ -13,7 +13,7 @@ The MCP Server is the core WebSocket server implementing the Model Context Proto
 - Multi-agent task coordination
 
 ## Architecture
-- **Protocol**: MCP 2024-11-05 over WebSocket
+- **Protocol**: MCP 2025-06-18 over WebSocket
 - **Format**: JSON-RPC 2.0
 - **Port**: 8080 (configurable)
 - **Framework**: Gin for HTTP, gorilla/websocket
@@ -47,7 +47,7 @@ The MCP Server is the core WebSocket server implementing the Model Context Proto
 ## MCP Protocol Implementation
 
 ### Protocol Version
-- **Version**: 2024-11-05
+- **Version**: 2025-06-18
 - **Format**: JSON-RPC 2.0
 - **Transport**: WebSocket
 
@@ -59,7 +59,7 @@ The MCP Server is the core WebSocket server implementing the Model Context Proto
   "id": 1,
   "method": "initialize",
   "params": {
-    "protocolVersion": "2024-11-05",
+    "protocolVersion": "2025-06-18",
     "clientInfo": {
       "name": "client-name",
       "version": "1.0.0",
@@ -73,7 +73,7 @@ The MCP Server is the core WebSocket server implementing the Model Context Proto
   "jsonrpc": "2.0",
   "id": 1,
   "result": {
-    "protocolVersion": "2024-11-05",
+    "protocolVersion": "2025-06-18",
     "serverInfo": {
       "name": "devmesh-mcp-server",
       "version": "1.0.0"
@@ -192,7 +192,7 @@ go test ./internal/api -run TestMCPProtocol
 
 # Test with wscat
 wscat -c ws://localhost:8080/ws
-> {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05"}}
+> {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}
 > {"jsonrpc":"2.0","id":2,"method":"tools/list"}
 > {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"devmesh.workflow.list","arguments":{}}}
 ```
@@ -243,11 +243,11 @@ tools:
 ### MCP Connection Testing
 ```bash
 # Test MCP connection with websocat
-echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05"},"id":1}' | \
+echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-06-18"},"id":1}' | \
   websocat -n1 ws://localhost:8080/ws
 
 # Test as Claude Code client
-echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05"},"id":1}' | \
+echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-06-18"},"id":1}' | \
   websocat -n1 --header="User-Agent: Claude-Code/1.0.0" ws://localhost:8080/ws
 
 # Monitor logs

@@ -291,7 +291,7 @@ func (a *ProtocolAdapter) convertAgentRegister(msgID string, customMsg map[strin
 		"id":      msgID,
 		"method":  "initialize",
 		"params": map[string]interface{}{
-			"protocolVersion": "2024-11-05",
+			"protocolVersion": "2025-06-18",
 			"clientInfo": map[string]interface{}{
 				"name":    payload["agent_id"],
 				"type":    payload["agent_type"],

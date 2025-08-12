@@ -57,10 +57,10 @@ Developer Mesh is a production-ready platform for orchestrating multiple AI agen
 ## MCP Protocol Implementation (Complete)
 
 ### Overview
-DevMesh fully implements the Model Context Protocol (MCP) 2024-11-05 specification for standardized AI agent communication. The platform exposes all DevMesh capabilities through standard MCP tools and resources.
+DevMesh fully implements the Model Context Protocol (MCP) 2025-06-18 specification for standardized AI agent communication. The platform exposes all DevMesh capabilities through standard MCP tools and resources.
 
 ### MCP Protocol Details
-- **Version**: 2024-11-05 (Industry Standard)
+- **Version**: 2025-06-18 (Industry Standard)
 - **Format**: JSON-RPC 2.0 over WebSocket
 - **Endpoint**: `ws://localhost:8080/ws` (WebSocket)
 - **Authentication**: Bearer token via Authorization header
@@ -69,7 +69,7 @@ DevMesh fully implements the Model Context Protocol (MCP) 2024-11-05 specificati
 ### Quick Start - Connect with MCP Client
 ```bash
 # Using websocat (for testing)
-echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","clientInfo":{"name":"my-client","version":"1.0.0"}},"id":"1"}' | \
+echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-06-18","clientInfo":{"name":"my-client","version":"1.0.0"}},"id":"1"}' | \
   websocat --header="Authorization: Bearer YOUR_API_KEY" ws://localhost:8080/ws
 
 # The server will respond with capabilities
@@ -83,7 +83,7 @@ echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-1
   "id": 1,
   "method": "initialize",
   "params": {
-    "protocolVersion": "2024-11-05",
+    "protocolVersion": "2025-06-18",
     "clientInfo": {
       "name": "your-client",
       "version": "1.0.0"
@@ -96,7 +96,7 @@ echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-1
   "jsonrpc": "2.0",
   "id": 1,
   "result": {
-    "protocolVersion": "2024-11-05",
+    "protocolVersion": "2025-06-18",
     "serverInfo": {
       "name": "developer-mesh-mcp",
       "version": "1.0.0"
@@ -291,14 +291,14 @@ websocat --header="Authorization: Bearer dev-admin-key-1234567890" \
   ws://localhost:8080/ws
 
 # Then send:
-{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","clientInfo":{"name":"test","version":"1.0.0"}}}
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","clientInfo":{"name":"test","version":"1.0.0"}}}
 {"jsonrpc":"2.0","id":2,"method":"initialized","params":{}}
 {"jsonrpc":"2.0","id":3,"method":"tools/list"}
 ```
 
 ### MCP Compliance
 
-DevMesh fully implements the MCP 2024-11-05 specification:
+DevMesh fully implements the MCP 2025-06-18 specification:
 - ✅ All required methods implemented
 - ✅ Standard error codes (JSON-RPC 2.0)
 - ✅ Tool discovery and execution

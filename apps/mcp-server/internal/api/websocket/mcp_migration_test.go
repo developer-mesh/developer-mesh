@@ -90,7 +90,7 @@ func TestMCPAgentRegistration(t *testing.T) {
 		"id":      1,
 		"method":  "initialize",
 		"params": map[string]interface{}{
-			"protocolVersion": "2024-11-05",
+			"protocolVersion": "2025-06-18",
 			"clientInfo": map[string]interface{}{
 				"name":    "test-agent",
 				"version": "1.0.0",

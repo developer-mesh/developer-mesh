@@ -77,7 +77,7 @@ echo
 # Test 1: Initialize
 print_status "Test 1: Initialize connection"
 test_mcp_method "initialize" \
-    '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","clientInfo":{"name":"test-client","version":"1.0.0","type":"testing"}},"id":"1"}' \
+    '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-06-18","clientInfo":{"name":"test-client","version":"1.0.0","type":"testing"}},"id":"1"}' \
     "MCP Initialize"
 
 # Test 2: Initialized confirmation
@@ -193,15 +193,15 @@ echo "Testing Connection Mode Detection..."
 echo "---"
 
 print_status "Testing Claude Code detection"
-echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05"},"id":"100"}' | \
+echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-06-18"},"id":"100"}' | \
     websocat -n1 --header="$AUTH_HEADER" --header="User-Agent: Claude-Code/1.0.0" "$WS_URL" 2>/dev/null || true
 
 print_status "Testing IDE detection"
-echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05"},"id":"101"}' | \
+echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-06-18"},"id":"101"}' | \
     websocat -n1 --header="$AUTH_HEADER" --header="X-IDE-Name: VSCode" "$WS_URL" 2>/dev/null || true
 
 print_status "Testing Agent detection"
-echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05"},"id":"102"}' | \
+echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-06-18"},"id":"102"}' | \
     websocat -n1 --header="$AUTH_HEADER" --header="X-Agent-ID: agent-123" "$WS_URL" 2>/dev/null || true
 
 echo
