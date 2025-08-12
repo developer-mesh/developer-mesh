@@ -16,13 +16,37 @@ This document outlines the implementation plan for creating lightweight Edge MCP
 ```
 Developer Machine
 ├── IDE (Claude Code/Cursor/Windsurf)
-│   ├── → Edge MCP: GitHub (localhost:8082)
-│   ├── → Edge MCP: Kubernetes (localhost:8083)
-│   └── → Edge MCP: Custom Tools (localhost:8084)
+│   └── → Edge MCP (localhost:8082)
+│       ├── Local Tools (no latency, local resources)
+│       │   ├── fs.read_file
+│       │   ├── git.status
+│       │   ├── docker.build
+│       │   └── shell.execute
+│       │
+│       └── → Core Platform Connection (required)
+│           ├── Agent Network Access
+│           ├── Shared Context & Memory
+│           ├── Tool Registry & Discovery
+│           ├── Advanced Orchestration
+│           └── Persistent Storage
 │
-└── Optional: Connect to Core Platform (remote)
-    └── Full DevOps MCP with Redis, PostgreSQL, AWS
+Core Platform (remote/cloud)
+├── Full MCP Server
+├── Agent Orchestration
+├── PostgreSQL (context, tools, history)
+├── Redis (message queue, cache)
+├── Embedding Services (AWS Bedrock)
+└── Other Edge MCPs (collaborative network)
 ```
+
+**Key Architecture Points:**
+- **Single Edge MCP**: ONE Edge MCP instance per developer machine
+- **Hybrid Execution**: Local tools for speed, core platform for intelligence
+- **Always Connected**: Edge MCP maintains persistent connection to Core Platform
+- **Local Cache**: Edge MCP caches frequently used data locally (in-memory)
+- **Tool Federation**: Edge MCP can execute both local tools AND core platform tools
+- **Context Sync**: Bidirectional context sharing between edge and core
+- **Lightweight**: Edge MCP itself requires no Redis/PostgreSQL (uses core's)
 
 ## Phase 1: Tenant Tool Credentials Migration (Day 1)
 
@@ -503,62 +527,231 @@ func (h *MCPHandler) errorResponse(id interface{}, code int, message string, err
 }
 ```
 
-## Phase 4: Example Edge MCPs (Day 3-4)
+## Phase 4: Example Edge MCP with Multiple Tool Categories (Day 3-4)
 
-### 4.1 GitHub Edge MCP
+### 4.1 Complete Edge MCP with All Tools in One Instance
 ```go
-// edge-mcp-template/examples/github-mcp/main.go
+// edge-mcp-template/examples/complete-edge-mcp/main.go
+package main
+
+import (
+    "context"
+    "flag"
+    "log"
+    "os"
+    
+    "edge-mcp/internal/server"
+    "edge-mcp/internal/core"
+    "edge-mcp/tools/github"
+    "edge-mcp/tools/kubernetes"
+    "edge-mcp/tools/filesystem"
+    "edge-mcp/tools/docker"
+)
+
 func main() {
+    // Configuration flags
+    port := flag.String("port", "8082", "Port to listen on")
+    coreURL := flag.String("core", "https://devmesh.example.com", "Core platform URL")
+    apiKey := flag.String("api-key", os.Getenv("DEVMESH_API_KEY"), "API key for core platform")
+    flag.Parse()
+    
+    // Connect to Core Platform for advanced features
+    coreClient, err := core.NewCorePlatformClient(*coreURL, *apiKey, "edge-001")
+    if err != nil {
+        log.Printf("Warning: Could not connect to core platform: %v", err)
+        log.Printf("Running in local-only mode with limited functionality")
+    }
+    
+    // Create Edge MCP server
     srv := server.NewEdgeMCPServer(&server.Config{
-        Port: "8082",
-        Name: "github-edge-mcp",
+        Port:       *port,
+        Name:       "developer-edge-mcp",
+        CoreClient: coreClient,  // Connection to core platform
     })
     
-    // Register GitHub tools
-    srv.RegisterTool("github.create_issue", createIssue)
-    srv.RegisterTool("github.create_pr", createPR)
-    srv.RegisterTool("github.list_repos", listRepos)
-    srv.RegisterTool("github.get_pr_status", getPRStatus)
+    // Register ALL tools in single instance
     
-    srv.Start()
+    // GitHub tools
+    srv.RegisterTool("github.create_issue", github.CreateIssue)
+    srv.RegisterTool("github.create_pr", github.CreatePR)
+    srv.RegisterTool("github.list_repos", github.ListRepos)
+    srv.RegisterTool("github.get_pr_status", github.GetPRStatus)
+    srv.RegisterTool("github.merge_pr", github.MergePR)
+    
+    // Kubernetes tools
+    srv.RegisterTool("k8s.list_pods", kubernetes.ListPods)
+    srv.RegisterTool("k8s.deploy", kubernetes.Deploy)
+    srv.RegisterTool("k8s.scale", kubernetes.Scale)
+    srv.RegisterTool("k8s.get_logs", kubernetes.GetLogs)
+    srv.RegisterTool("k8s.port_forward", kubernetes.PortForward)
+    
+    // File system tools (local execution)
+    srv.RegisterTool("fs.read", filesystem.ReadFile)
+    srv.RegisterTool("fs.write", filesystem.WriteFile)
+    srv.RegisterTool("fs.list", filesystem.ListFiles)
+    srv.RegisterTool("fs.search", filesystem.SearchFiles)
+    srv.RegisterTool("fs.watch", filesystem.WatchFiles)
+    
+    // Docker tools (local execution)
+    srv.RegisterTool("docker.build", docker.Build)
+    srv.RegisterTool("docker.run", docker.Run)
+    srv.RegisterTool("docker.ps", docker.ListContainers)
+    srv.RegisterTool("docker.logs", docker.GetLogs)
+    srv.RegisterTool("docker.compose", docker.Compose)
+    
+    // Git tools (local execution)
+    srv.RegisterTool("git.status", git.Status)
+    srv.RegisterTool("git.diff", git.Diff)
+    srv.RegisterTool("git.commit", git.Commit)
+    srv.RegisterTool("git.push", git.Push)
+    srv.RegisterTool("git.branch", git.Branch)
+    
+    // Shell tools (local execution)
+    srv.RegisterTool("shell.execute", shell.Execute)
+    srv.RegisterTool("shell.script", shell.RunScript)
+    
+    // Register local tools with core platform for network discovery
+    if coreClient != nil {
+        if err := coreClient.RegisterLocalTools(srv.GetToolDefinitions()); err != nil {
+            log.Printf("Warning: Could not register tools with core: %v", err)
+        }
+        
+        // Subscribe to agent network for collaboration
+        coreClient.SubscribeToAgentNetwork(func(msg core.AgentMessage) {
+            log.Printf("Agent message: %+v", msg)
+        })
+    }
+    
+    // Start server
+    if err := srv.Start(); err != nil {
+        log.Fatal(err)
+    }
+    
+    log.Printf("Edge MCP started on port %s with %d tools", *port, srv.ToolCount())
+    if coreClient != nil {
+        log.Printf("Connected to core platform at %s", *coreURL)
+    }
+    
+    // Wait for shutdown
+    srv.WaitForShutdown()
 }
 ```
 
-### 4.2 Kubernetes Edge MCP
+### 4.2 Tool Implementation Example - GitHub
 ```go
-// edge-mcp-template/examples/kubernetes-mcp/main.go
-func main() {
-    srv := server.NewEdgeMCPServer(&server.Config{
-        Port: "8083",
-        Name: "kubernetes-edge-mcp",
-    })
+// edge-mcp-template/tools/github/github.go
+package github
+
+import (
+    "context"
+    "encoding/json"
+    "fmt"
+    "os/exec"
+)
+
+// CreatePR creates a GitHub pull request using gh CLI
+func CreatePR(ctx context.Context, args json.RawMessage) (interface{}, error) {
+    var params struct {
+        Title       string `json:"title"`
+        Body        string `json:"body"`
+        Base        string `json:"base"`
+        Head        string `json:"head"`
+        Draft       bool   `json:"draft"`
+        Reviewers   []string `json:"reviewers"`
+    }
     
-    // Register K8s tools
-    srv.RegisterTool("k8s.list_pods", listPods)
-    srv.RegisterTool("k8s.deploy", deploy)
-    srv.RegisterTool("k8s.scale", scale)
-    srv.RegisterTool("k8s.logs", getLogs)
+    if err := json.Unmarshal(args, &params); err != nil {
+        return nil, fmt.Errorf("invalid arguments: %w", err)
+    }
     
-    srv.Start()
+    // Build gh command
+    cmdArgs := []string{"pr", "create", 
+        "--title", params.Title,
+        "--body", params.Body,
+    }
+    
+    if params.Base != "" {
+        cmdArgs = append(cmdArgs, "--base", params.Base)
+    }
+    
+    if params.Draft {
+        cmdArgs = append(cmdArgs, "--draft")
+    }
+    
+    for _, reviewer := range params.Reviewers {
+        cmdArgs = append(cmdArgs, "--reviewer", reviewer)
+    }
+    
+    // Execute gh CLI
+    cmd := exec.CommandContext(ctx, "gh", cmdArgs...)
+    output, err := cmd.CombinedOutput()
+    if err != nil {
+        return nil, fmt.Errorf("gh pr create failed: %w\nOutput: %s", err, output)
+    }
+    
+    return map[string]interface{}{
+        "success": true,
+        "output": string(output),
+    }, nil
 }
 ```
 
-### 4.3 File System Edge MCP
+### 4.3 Tool Implementation Example - Local File System
 ```go
-// edge-mcp-template/examples/filesystem-mcp/main.go
-func main() {
-    srv := server.NewEdgeMCPServer(&server.Config{
-        Port: "8084",
-        Name: "filesystem-edge-mcp",
-    })
+// edge-mcp-template/tools/filesystem/filesystem.go
+package filesystem
+
+import (
+    "context"
+    "encoding/json"
+    "fmt"
+    "io/fs"
+    "os"
+    "path/filepath"
+)
+
+// ReadFile reads a local file (security checks included)
+func ReadFile(ctx context.Context, args json.RawMessage) (interface{}, error) {
+    var params struct {
+        Path     string `json:"path"`
+        Encoding string `json:"encoding"` // "utf8", "base64", etc.
+    }
     
-    // Register file system tools
-    srv.RegisterTool("fs.read", readFile)
-    srv.RegisterTool("fs.write", writeFile)
-    srv.RegisterTool("fs.list", listFiles)
-    srv.RegisterTool("fs.search", searchFiles)
+    if err := json.Unmarshal(args, &params); err != nil {
+        return nil, fmt.Errorf("invalid arguments: %w", err)
+    }
     
-    srv.Start()
+    // Security: Clean and validate path
+    cleanPath := filepath.Clean(params.Path)
+    
+    // Security: Prevent directory traversal
+    if filepath.IsAbs(cleanPath) {
+        // Only allow if within allowed directories
+        if !isPathAllowed(cleanPath) {
+            return nil, fmt.Errorf("access denied: path outside allowed directories")
+        }
+    }
+    
+    // Read file
+    content, err := os.ReadFile(cleanPath)
+    if err != nil {
+        return nil, fmt.Errorf("failed to read file: %w", err)
+    }
+    
+    // Return based on encoding
+    if params.Encoding == "base64" {
+        return map[string]interface{}{
+            "path": cleanPath,
+            "content": base64.StdEncoding.EncodeToString(content),
+            "encoding": "base64",
+        }, nil
+    }
+    
+    return map[string]interface{}{
+        "path": cleanPath,
+        "content": string(content),
+        "encoding": "utf8",
+    }, nil
 }
 ```
 
@@ -902,37 +1095,118 @@ func (a *SimpleAuthenticator) Authenticate(r *http.Request) bool {
 }
 ```
 
-### 8.2 Optional Core Platform Connection
+### 8.2 Core Platform Connection (Required for Full Functionality)
 ```go
 // edge-mcp-template/internal/core/client.go
 package core
 
-// CorePlatformClient connects to the main DevOps MCP platform for shared services
+import (
+    "context"
+    "encoding/json"
+    "fmt"
+    "net/http"
+    "time"
+)
+
+// CorePlatformClient maintains connection to the main DevOps MCP platform
 type CorePlatformClient struct {
-    baseURL string
-    apiKey  string
-    client  *http.Client
+    baseURL    string
+    apiKey     string
+    client     *http.Client
+    wsClient   *websocket.Conn  // Persistent WebSocket for real-time sync
+    agentID    string
+    sessionID  string
 }
 
-func NewCorePlatformClient(baseURL, apiKey string) *CorePlatformClient {
-    return &CorePlatformClient{
-        baseURL: baseURL,
-        apiKey:  apiKey,
-        client:  &http.Client{Timeout: 30 * time.Second},
+func NewCorePlatformClient(baseURL, apiKey, agentID string) (*CorePlatformClient, error) {
+    c := &CorePlatformClient{
+        baseURL:  baseURL,
+        apiKey:   apiKey,
+        agentID:  agentID,
+        client:   &http.Client{Timeout: 30 * time.Second},
     }
+    
+    // Establish WebSocket connection for real-time features
+    if err := c.connectWebSocket(); err != nil {
+        return nil, fmt.Errorf("failed to connect to core platform: %w", err)
+    }
+    
+    return c, nil
 }
 
-// RegisterTool registers this Edge MCP's tools with the core platform
-func (c *CorePlatformClient) RegisterTool(tool ToolDefinition) error {
-    // Optional: Register with core platform for discovery
-    // This allows the core platform to know about edge tools
-    return nil
+// RegisterLocalTools registers Edge MCP's local tools with core platform
+func (c *CorePlatformClient) RegisterLocalTools(tools []ToolDefinition) error {
+    // Register tools so they're discoverable by other agents
+    payload := map[string]interface{}{
+        "agent_id": c.agentID,
+        "tools":    tools,
+        "location": "edge",
+    }
+    
+    _, err := c.post("/api/v1/tools/register", payload)
+    return err
 }
 
-// GetSharedContext retrieves shared context from core platform
-func (c *CorePlatformClient) GetSharedContext(contextID string) (*Context, error) {
-    // Optional: Get shared context from core platform
-    return nil, nil
+// GetSharedContext retrieves current context from core platform
+func (c *CorePlatformClient) GetSharedContext(ctx context.Context) (*SharedContext, error) {
+    resp, err := c.get(fmt.Sprintf("/api/v1/context/%s", c.sessionID))
+    if err != nil {
+        return nil, err
+    }
+    
+    var context SharedContext
+    if err := json.Unmarshal(resp, &context); err != nil {
+        return nil, err
+    }
+    
+    return &context, nil
+}
+
+// UpdateContext sends local context updates to core platform
+func (c *CorePlatformClient) UpdateContext(ctx context.Context, update ContextUpdate) error {
+    _, err := c.post(fmt.Sprintf("/api/v1/context/%s", c.sessionID), update)
+    return err
+}
+
+// ExecuteRemoteTool executes a tool on the core platform
+func (c *CorePlatformClient) ExecuteRemoteTool(ctx context.Context, toolName string, args interface{}) (interface{}, error) {
+    payload := map[string]interface{}{
+        "tool": toolName,
+        "args": args,
+    }
+    
+    resp, err := c.post("/api/v1/tools/execute", payload)
+    if err != nil {
+        return nil, err
+    }
+    
+    var result interface{}
+    if err := json.Unmarshal(resp, &result); err != nil {
+        return nil, err
+    }
+    
+    return result, nil
+}
+
+// SubscribeToAgentNetwork receives updates from other agents
+func (c *CorePlatformClient) SubscribeToAgentNetwork(handler func(AgentMessage)) error {
+    // WebSocket subscription for real-time agent collaboration
+    return c.wsSubscribe("agent.messages", handler)
+}
+
+// GetAvailableTools fetches all tools available in the network
+func (c *CorePlatformClient) GetAvailableTools(ctx context.Context) ([]NetworkTool, error) {
+    resp, err := c.get("/api/v1/tools/network")
+    if err != nil {
+        return nil, err
+    }
+    
+    var tools []NetworkTool
+    if err := json.Unmarshal(resp, &tools); err != nil {
+        return nil, err
+    }
+    
+    return tools, nil
 }
 ```
 
