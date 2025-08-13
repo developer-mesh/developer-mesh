@@ -105,6 +105,13 @@ func (c *MemoryCache) Close() error {
 	return nil
 }
 
+// Size returns the number of items in cache
+func (c *MemoryCache) Size() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return len(c.items)
+}
+
 // evictOldest removes the oldest item from cache
 func (c *MemoryCache) evictOldest() {
 	var oldestKey string

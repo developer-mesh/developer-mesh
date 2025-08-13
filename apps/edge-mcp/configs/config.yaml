@@ -1,0 +1,20 @@
+# Edge MCP Configuration
+# This file provides defaults that can be overridden by environment variables
+
+server:
+  port: 8082
+
+auth:
+  # Set via EDGE_MCP_API_KEY environment variable
+  api_key: ""
+
+core:
+  # Connection to Core Platform (optional)
+  # Set via CORE_PLATFORM_URL environment variable
+  url: ""
+  # Set via CORE_PLATFORM_API_KEY environment variable
+  api_key: ""
+  # Set via TENANT_ID environment variable
+  tenant_id: ""
+  # Set via EDGE_MCP_ID environment variable (auto-generated if not set)
+  edge_mcp_id: ""
