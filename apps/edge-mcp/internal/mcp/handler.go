@@ -682,4 +682,3 @@ func (h *Handler) untrackRequest(id interface{}) {
 	delete(h.activeRequests, id)
 	h.requestsMu.Unlock()
 }
-

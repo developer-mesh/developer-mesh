@@ -135,7 +135,7 @@ func (e *CommandExecutor) Execute(ctx context.Context, command string, args []st
 		Error:    err,
 		ExitCode: exitCode,
 		Duration: duration,
-	}, nil
+	}, err
 }
 
 // IsPathSafe validates that a path is within allowed directories
