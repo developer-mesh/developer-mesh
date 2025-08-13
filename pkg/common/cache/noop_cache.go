@@ -43,3 +43,8 @@ func (n *NoOpCache) Flush(ctx context.Context) error {
 func (n *NoOpCache) Close() error {
 	return nil
 }
+
+// Size returns 0 for no-op cache
+func (n *NoOpCache) Size() int {
+	return 0
+}

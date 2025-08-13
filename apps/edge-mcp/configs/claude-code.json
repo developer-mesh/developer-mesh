@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "edge-mcp": {
+      "command": "./bin/edge-mcp",
+      "args": [
+        "--config", "configs/config.yaml"
+      ],
+      "env": {
+        "EDGE_MCP_API_KEY": "${EDGE_MCP_API_KEY}",
+        "CORE_PLATFORM_URL": "${CORE_PLATFORM_URL}"
+      }
+    }
+  }
+}

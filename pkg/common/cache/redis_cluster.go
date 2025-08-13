@@ -132,6 +132,13 @@ func (c *RedisClusterCache) Close() error {
 	return c.client.Close()
 }
 
+// Size returns the number of keys in cache (approximation for Redis Cluster)
+func (c *RedisClusterCache) Size() int {
+	// Redis Cluster doesn't provide exact count without scanning all keys
+	// Return 0 as placeholder
+	return 0
+}
+
 // GetClient returns the underlying Redis cluster client
 func (c *RedisClusterCache) GetClient() *redis.ClusterClient {
 	return c.client

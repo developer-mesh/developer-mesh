@@ -20,6 +20,8 @@ type Cache interface {
 	Flush(ctx context.Context) error
 	// Close closes the cache connection
 	Close() error
+	// Size returns the number of items in cache
+	Size() int
 }
 
 // Error represents a cache-related error

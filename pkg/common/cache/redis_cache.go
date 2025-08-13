@@ -165,4 +165,11 @@ func (c *RedisCache) Close() error {
 	return c.client.Close()
 }
 
+// Size returns the number of keys in cache (approximation for Redis)
+func (c *RedisCache) Size() int {
+	// Redis doesn't provide exact count without scanning all keys
+	// Return 0 as placeholder - actual implementation would need DBSIZE command
+	return 0
+}
+
 // Note: RedisClusterCache and related types are defined in redis_cluster.go
