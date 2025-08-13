@@ -31,11 +31,23 @@ func (m *MockLogger) Error(msg string, fields map[string]interface{}) {
 	m.logs = append(m.logs, fields)
 }
 
-func (m *MockLogger) WithField(key string, value interface{}) observability.Logger {
+func (m *MockLogger) Fatal(msg string, fields map[string]interface{}) {
+	m.logs = append(m.logs, fields)
+}
+
+// Formatted logging methods
+func (m *MockLogger) Debugf(format string, args ...interface{}) {}
+func (m *MockLogger) Infof(format string, args ...interface{})  {}
+func (m *MockLogger) Warnf(format string, args ...interface{})  {}
+func (m *MockLogger) Errorf(format string, args ...interface{}) {}
+func (m *MockLogger) Fatalf(format string, args ...interface{}) {}
+
+// Context methods
+func (m *MockLogger) WithPrefix(prefix string) observability.Logger {
 	return m
 }
 
-func (m *MockLogger) WithFields(fields map[string]interface{}) observability.Logger {
+func (m *MockLogger) With(fields map[string]interface{}) observability.Logger {
 	return m
 }
 

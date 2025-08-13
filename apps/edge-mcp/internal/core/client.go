@@ -98,7 +98,13 @@ func (c *Client) AuthenticateWithCore(ctx context.Context) error {
 		c.handleFailure(err)
 		return fmt.Errorf("authentication failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			c.logger.Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	// Check response status
 	if resp.StatusCode != http.StatusOK {
@@ -162,7 +168,13 @@ func (c *Client) FetchRemoteTools(ctx context.Context) ([]tools.ToolDefinition, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch tools: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			c.logger.Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -217,7 +229,13 @@ func (c *Client) createProxyHandler(toolName string) tools.ToolHandler {
 		if err != nil {
 			return nil, fmt.Errorf("failed to execute remote tool: %w", err)
 		}
-		defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				c.logger.Warn("Failed to close response body", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+		}()
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
@@ -259,7 +277,13 @@ func (c *Client) CreateSession(ctx context.Context, clientName, clientType strin
 		})
 		return sessionID, nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			c.logger.Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	if resp.StatusCode == http.StatusOK {
 		c.logger.Info("Session registered with Core Platform", map[string]interface{}{
@@ -280,7 +304,13 @@ func (c *Client) CloseSession(ctx context.Context, sessionID string) error {
 	if err != nil {
 		return fmt.Errorf("failed to close session: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			c.logger.Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	return nil
 }
@@ -307,7 +337,13 @@ func (c *Client) RecordToolExecution(ctx context.Context, sessionID, toolName st
 		})
 		return nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			c.logger.Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	return nil
 }
@@ -326,7 +362,13 @@ func (c *Client) UpdateContext(ctx context.Context, sessionID string, contextDat
 	if err != nil {
 		return fmt.Errorf("failed to update context: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			c.logger.Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	return nil
 }
@@ -341,7 +383,13 @@ func (c *Client) GetContext(ctx context.Context, sessionID string) (map[string]i
 	if err != nil {
 		return nil, fmt.Errorf("failed to get context: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			c.logger.Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	var context map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&context); err != nil {
@@ -365,7 +413,13 @@ func (c *Client) AppendContext(ctx context.Context, sessionID string, appendData
 	if err != nil {
 		return fmt.Errorf("failed to append context: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			c.logger.Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	return nil
 }

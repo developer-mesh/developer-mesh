@@ -344,6 +344,7 @@ func (h *Handler) handleToolCall(sessionID string, msg *MCPMessage) (*MCPMessage
 
 	// Create cancellable context for tool execution
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel() // Ensure cancel is always called to prevent context leak
 
 	// Track the request for potential cancellation (only if ID is present)
 	if msg.ID != nil {
@@ -682,24 +683,3 @@ func (h *Handler) untrackRequest(id interface{}) {
 	h.requestsMu.Unlock()
 }
 
-// Error codes
-const (
-	ErrorParseError     = -32700
-	ErrorInvalidRequest = -32600
-	ErrorMethodNotFound = -32601
-	ErrorInvalidParams  = -32602
-	ErrorInternalError  = -32603
-)
-
-// errorResponse creates an error response
-func (h *Handler) errorResponse(id interface{}, code int, message string, data interface{}) *MCPMessage {
-	return &MCPMessage{
-		JSONRPC: "2.0",
-		ID:      id,
-		Error: &MCPError{
-			Code:    code,
-			Message: message,
-			Data:    data,
-		},
-	}
-}
