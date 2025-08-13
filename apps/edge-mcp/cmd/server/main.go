@@ -17,6 +17,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/core"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/executor"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/mcp"
+	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/platform"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tools"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/gin-gonic/gin"
@@ -46,6 +47,17 @@ func main() {
 
 	// Initialize logger
 	logger := observability.NewStandardLogger("edge-mcp")
+	
+	// Log platform information at startup
+	platformInfo := platform.GetInfo()
+	logger.Info("Edge MCP starting", map[string]interface{}{
+		"version":       version,
+		"platform":      platformInfo.OS,
+		"architecture":  platformInfo.Architecture,
+		"go_version":    platformInfo.Version,
+		"hostname":      platformInfo.Hostname,
+		"capabilities":  platformInfo.Capabilities,
+	})
 
 	// Set log level based on flag
 	levelMap := map[string]observability.LogLevel{

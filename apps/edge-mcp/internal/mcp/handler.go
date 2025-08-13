@@ -13,6 +13,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/auth"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/cache"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/core"
+	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/platform"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tools"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/google/uuid"
@@ -493,6 +494,12 @@ func (h *Handler) handleResourcesList(sessionID string, msg *MCPMessage) (*MCPMe
 			"mimeType":    "application/json",
 		},
 		{
+			"uri":         "edge://platform/info",
+			"name":        "Platform Information",
+			"description": "Operating system and platform capabilities",
+			"mimeType":    "application/json",
+		},
+		{
 			"uri":         "edge://tools/list",
 			"name":        "Available Tools",
 			"description": "List of available tools",
@@ -539,6 +546,9 @@ func (h *Handler) handleResourceRead(sessionID string, msg *MCPMessage) (*MCPMes
 			"tools_count":    h.tools.Count(),
 			"cache_size":     h.cache.Size(),
 		}
+
+	case "edge://platform/info":
+		content = platform.GetInfo()
 
 	case "edge://tools/list":
 		tools := h.tools.ListAll()
