@@ -18,19 +18,19 @@ type Info struct {
 
 // Capabilities describes what this platform can do
 type Capabilities struct {
-	Docker           bool `json:"docker"`
-	Git              bool `json:"git"`
-	ProcessGroups    bool `json:"process_groups"`
-	SymbolicLinks    bool `json:"symbolic_links"`
-	CaseSensitiveFS  bool `json:"case_sensitive_fs"`
-	ShellAvailable   bool `json:"shell_available"`
-	PosixCompliant   bool `json:"posix_compliant"`
+	Docker          bool `json:"docker"`
+	Git             bool `json:"git"`
+	ProcessGroups   bool `json:"process_groups"`
+	SymbolicLinks   bool `json:"symbolic_links"`
+	CaseSensitiveFS bool `json:"case_sensitive_fs"`
+	ShellAvailable  bool `json:"shell_available"`
+	PosixCompliant  bool `json:"posix_compliant"`
 }
 
 // GetInfo returns current platform information
 func GetInfo() *Info {
 	hostname, _ := os.Hostname()
-	
+
 	info := &Info{
 		OS:           runtime.GOOS,
 		Architecture: runtime.GOARCH,
@@ -39,37 +39,37 @@ func GetInfo() *Info {
 		Environment:  getEnvironment(),
 		Capabilities: getCapabilities(),
 	}
-	
+
 	return info
 }
 
 // getEnvironment returns safe environment variables
 func getEnvironment() map[string]string {
 	env := make(map[string]string)
-	
+
 	// Only include safe environment variables
 	safeVars := []string{
 		"PATH", "HOME", "USER", "SHELL", "LANG", "LC_ALL",
 		"TERM", "EDITOR", "VISUAL", "TZ", "PWD",
 	}
-	
+
 	for _, key := range safeVars {
 		if value := os.Getenv(key); value != "" {
 			env[key] = value
 		}
 	}
-	
+
 	return env
 }
 
 // getCapabilities returns platform-specific capabilities
 func getCapabilities() Capabilities {
 	caps := Capabilities{
-		Docker:        checkCommand("docker"),
-		Git:           checkCommand("git"),
+		Docker:         checkCommand("docker"),
+		Git:            checkCommand("git"),
 		ShellAvailable: true,
 	}
-	
+
 	// Platform-specific capabilities
 	switch runtime.GOOS {
 	case "windows":
@@ -89,7 +89,7 @@ func getCapabilities() Capabilities {
 		caps.CaseSensitiveFS = false
 		caps.PosixCompliant = false
 	}
-	
+
 	return caps
 }
 

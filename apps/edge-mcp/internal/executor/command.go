@@ -36,7 +36,7 @@ type CommandExecutor struct {
 func NewCommandExecutor(logger observability.Logger, workDir string, maxTimeout time.Duration) *CommandExecutor {
 	// Get platform-specific command mappings
 	platformCmds := platformCommands()
-	
+
 	// Build allowed commands list with platform-specific mappings
 	allowedCmds := map[string]bool{
 		// Git commands (cross-platform)
@@ -57,12 +57,12 @@ func NewCommandExecutor(logger observability.Logger, workDir string, maxTimeout 
 		"sort":  true,
 		"uniq":  true,
 	}
-	
+
 	// Add platform-specific commands
 	for _, cmd := range platformCmds {
 		allowedCmds[cmd] = true
 	}
-	
+
 	executor := &CommandExecutor{
 		logger:      logger,
 		maxTimeout:  maxTimeout,
@@ -72,16 +72,16 @@ func NewCommandExecutor(logger observability.Logger, workDir string, maxTimeout 
 			workDir, // Only allow operations in workDir by default
 		},
 	}
-	
+
 	// Log platform detection
 	logger.Info("CommandExecutor initialized", map[string]interface{}{
-		"platform":      runtime.GOOS,
-		"architecture":  runtime.GOARCH,
-		"work_dir":      workDir,
-		"max_timeout":   maxTimeout,
-		"allowed_cmds":  len(allowedCmds),
+		"platform":     runtime.GOOS,
+		"architecture": runtime.GOARCH,
+		"work_dir":     workDir,
+		"max_timeout":  maxTimeout,
+		"allowed_cmds": len(allowedCmds),
 	})
-	
+
 	return executor
 }
 
@@ -227,7 +227,7 @@ func (e *CommandExecutor) getMappedCommand(command string) (string, bool) {
 	if runtime.GOOS != "windows" {
 		return command, false
 	}
-	
+
 	// Check if we have a mapping for this command
 	platformCmds := platformCommands()
 	for unix, win := range platformCmds {
@@ -235,7 +235,7 @@ func (e *CommandExecutor) getMappedCommand(command string) (string, bool) {
 			return win, true
 		}
 	}
-	
+
 	return command, false
 }
 
@@ -244,7 +244,7 @@ func (e *CommandExecutor) getExitCode(err error) int {
 	if err == nil {
 		return 0
 	}
-	
+
 	if exitError, ok := err.(*exec.ExitError); ok {
 		// On Unix systems, use WaitStatus
 		if runtime.GOOS != "windows" {
@@ -256,7 +256,7 @@ func (e *CommandExecutor) getExitCode(err error) int {
 			return exitError.ExitCode()
 		}
 	}
-	
+
 	// Default to 1 for any other error
 	return 1
 }

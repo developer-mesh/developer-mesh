@@ -47,16 +47,16 @@ func main() {
 
 	// Initialize logger
 	logger := observability.NewStandardLogger("edge-mcp")
-	
+
 	// Log platform information at startup
 	platformInfo := platform.GetInfo()
 	logger.Info("Edge MCP starting", map[string]interface{}{
-		"version":       version,
-		"platform":      platformInfo.OS,
-		"architecture":  platformInfo.Architecture,
-		"go_version":    platformInfo.Version,
-		"hostname":      platformInfo.Hostname,
-		"capabilities":  platformInfo.Capabilities,
+		"version":      version,
+		"platform":     platformInfo.OS,
+		"architecture": platformInfo.Architecture,
+		"go_version":   platformInfo.Version,
+		"hostname":     platformInfo.Hostname,
+		"capabilities": platformInfo.Capabilities,
 	})
 
 	// Set log level based on flag

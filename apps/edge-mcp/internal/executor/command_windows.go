@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 package executor
@@ -41,18 +42,18 @@ func validatePlatformCommand(command string) error {
 		"format", "del", "rd", "rmdir", "shutdown", "reg",
 		"bcdedit", "diskpart", "netsh", "sc",
 	}
-	
+
 	cmdLower := strings.ToLower(command)
 	for _, dangerous := range dangerousWinCommands {
 		if cmdLower == dangerous {
 			return fmt.Errorf("dangerous Windows command blocked: %s", command)
 		}
 	}
-	
+
 	// Check for PowerShell attempts
 	if strings.Contains(cmdLower, "powershell") || strings.Contains(cmdLower, "pwsh") {
 		return fmt.Errorf("PowerShell execution blocked for security")
 	}
-	
+
 	return nil
 }
