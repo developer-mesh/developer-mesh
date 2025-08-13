@@ -167,7 +167,15 @@ Edge MCP implements defense-in-depth with multiple security layers:
 
 ## Architecture
 
-Edge MCP is designed for simplicity and security:
+Edge MCP is designed as a lightweight, standalone MCP server with zero infrastructure dependencies:
+
+### Infrastructure Independence
+- **No Direct Database Access**: Edge MCP does not connect to PostgreSQL
+- **No Direct Redis Access**: Edge MCP does not connect to Redis
+- **In-Memory Only**: All state is maintained in-memory
+- **API-Based Sync**: When connected to Core Platform, state synchronization happens via REST API, not direct infrastructure connections
+
+Edge MCP architecture:
 
 ```
 ┌─────────────────┐

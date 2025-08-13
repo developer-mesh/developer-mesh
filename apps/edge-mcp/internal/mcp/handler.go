@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -12,9 +11,10 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/auth"
+	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/cache"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/core"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tools"
-	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/google/uuid"
 )
 
@@ -43,6 +43,11 @@ type Handler struct {
 	authenticator auth.Authenticator
 	sessions      map[string]*Session
 	sessionsMu    sync.RWMutex
+	logger        observability.Logger
+	
+	// Request tracking for cancellation
+	activeRequests map[interface{}]context.CancelFunc
+	requestsMu     sync.RWMutex
 }
 
 // Session represents an MCP session
@@ -63,13 +68,16 @@ func NewHandler(
 	cache cache.Cache,
 	coreClient *core.Client,
 	authenticator auth.Authenticator,
+	logger observability.Logger,
 ) *Handler {
 	return &Handler{
-		tools:         toolRegistry,
-		cache:         cache,
-		coreClient:    coreClient,
-		authenticator: authenticator,
-		sessions:      make(map[string]*Session),
+		tools:          toolRegistry,
+		cache:          cache,
+		coreClient:     coreClient,
+		authenticator:  authenticator,
+		sessions:       make(map[string]*Session),
+		logger:         logger,
+		activeRequests: make(map[interface{}]context.CancelFunc),
 	}
 }
 
@@ -119,7 +127,9 @@ func (h *Handler) HandleConnection(conn *websocket.Conn, r *http.Request) {
 		var msg MCPMessage
 		if err := wsjson.Read(ctx, conn, &msg); err != nil {
 			if websocket.CloseStatus(err) != websocket.StatusNormalClosure {
-				log.Printf("WebSocket error: %v", err)
+				h.logger.Error("WebSocket error", map[string]interface{}{
+					"error": err.Error(),
+				})
 			}
 			break
 		}
@@ -146,7 +156,9 @@ func (h *Handler) HandleConnection(conn *websocket.Conn, r *http.Request) {
 
 		if response != nil {
 			if err := wsjson.Write(ctx, conn, response); err != nil {
-				log.Printf("Failed to write response: %v", err)
+				h.logger.Error("Failed to write response", map[string]interface{}{
+					"error": err.Error(),
+				})
 				break
 			}
 		}
@@ -216,7 +228,9 @@ func (h *Handler) handleInitialize(sessionID string, msg *MCPMessage) (*MCPMessa
 				params.ClientInfo.Type,
 			)
 			if err != nil {
-				log.Printf("Failed to create Core Platform session: %v", err)
+				h.logger.Warn("Failed to create Core Platform session", map[string]interface{}{
+					"error": err.Error(),
+				})
 			} else {
 				session.CoreSession = coreSessionID
 			}
@@ -328,8 +342,17 @@ func (h *Handler) handleToolCall(sessionID string, msg *MCPMessage) (*MCPMessage
 		return h.handleContextOperation(sessionID, msg.ID, params.Name, params.Arguments)
 	}
 
-	// Execute tool
-	result, err := h.tools.Execute(context.Background(), params.Name, params.Arguments)
+	// Create cancellable context for tool execution
+	ctx, cancel := context.WithCancel(context.Background())
+	
+	// Track the request for potential cancellation (only if ID is present)
+	if msg.ID != nil {
+		h.trackRequest(msg.ID, cancel)
+		defer h.untrackRequest(msg.ID)
+	}
+
+	// Execute tool with cancellable context
+	result, err := h.tools.Execute(ctx, params.Name, params.Arguments)
 	if err != nil {
 		return nil, fmt.Errorf("tool execution failed: %w", err)
 	}
@@ -577,8 +600,27 @@ func (h *Handler) handleLoggingSetLevel(sessionID string, msg *MCPMessage) (*MCP
 		return nil, fmt.Errorf("invalid logging params: %w", err)
 	}
 
-	// TODO: Actually set logging level
-	log.Printf("Logging level set to: %s", params.Level)
+	// Map MCP log levels to observability log levels
+	levelMap := map[string]observability.LogLevel{
+		"debug":   observability.LogLevelDebug,
+		"info":    observability.LogLevelInfo,
+		"warning": observability.LogLevelWarn,
+		"warn":    observability.LogLevelWarn,
+		"error":   observability.LogLevelError,
+	}
+
+	newLevel, ok := levelMap[params.Level]
+	if !ok {
+		return nil, fmt.Errorf("invalid log level: %s", params.Level)
+	}
+
+	// Create a new logger with the specified level if StandardLogger
+	if stdLogger, ok := h.logger.(*observability.StandardLogger); ok {
+		h.logger = stdLogger.WithLevel(newLevel)
+		h.logger.Info("Log level changed", map[string]interface{}{
+			"new_level": params.Level,
+		})
+	}
 
 	return &MCPMessage{
 		JSONRPC: "2.0",
@@ -597,14 +639,47 @@ func (h *Handler) handleCancelRequest(sessionID string, msg *MCPMessage) (*MCPMe
 		return nil, fmt.Errorf("invalid cancel params: %w", err)
 	}
 
-	// TODO: Implement request cancellation
-	log.Printf("Request cancellation requested for: %v", params.ID)
+	// Look up and cancel the request
+	h.requestsMu.Lock()
+	cancel, exists := h.activeRequests[params.ID]
+	if exists {
+		delete(h.activeRequests, params.ID)
+	}
+	h.requestsMu.Unlock()
+
+	if exists {
+		// Cancel the request context
+		cancel()
+		h.logger.Info("Request cancelled", map[string]interface{}{
+			"request_id": params.ID,
+			"session_id": sessionID,
+		})
+	} else {
+		h.logger.Warn("Request not found for cancellation", map[string]interface{}{
+			"request_id": params.ID,
+			"session_id": sessionID,
+		})
+	}
 
 	return &MCPMessage{
 		JSONRPC: "2.0",
 		ID:      msg.ID,
 		Result:  map[string]interface{}{},
 	}, nil
+}
+
+// trackRequest registers a request for potential cancellation
+func (h *Handler) trackRequest(id interface{}, cancel context.CancelFunc) {
+	h.requestsMu.Lock()
+	h.activeRequests[id] = cancel
+	h.requestsMu.Unlock()
+}
+
+// untrackRequest removes a request from tracking
+func (h *Handler) untrackRequest(id interface{}) {
+	h.requestsMu.Lock()
+	delete(h.activeRequests, id)
+	h.requestsMu.Unlock()
 }
 
 // Error codes

@@ -5,16 +5,63 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
-// FileSystemTool provides file system operations
+// FileSystemTool provides file system operations with security
 type FileSystemTool struct {
-	basePath string // Optional: restrict to a base path
+	basePath      string   // Base path for operations
+	allowedPaths  []string // List of allowed paths
+	logger        observability.Logger
 }
 
-// NewFileSystemTool creates a new file system tool
-func NewFileSystemTool() *FileSystemTool {
-	return &FileSystemTool{}
+// NewFileSystemTool creates a new file system tool with security constraints
+func NewFileSystemTool(basePath string, logger observability.Logger) *FileSystemTool {
+	// Default to current working directory if not specified
+	if basePath == "" {
+		basePath, _ = os.Getwd()
+	}
+	
+	return &FileSystemTool{
+		basePath:     basePath,
+		allowedPaths: []string{basePath},
+		logger:       logger,
+	}
+}
+
+// isPathSafe validates that a path is within allowed directories
+func (t *FileSystemTool) isPathSafe(path string) bool {
+	// Clean the path to prevent traversal attacks
+	cleaned := filepath.Clean(path)
+	
+	// Reject paths with .. to prevent traversal
+	if strings.Contains(cleaned, "..") {
+		return false
+	}
+	
+	// Make path absolute
+	absPath, err := filepath.Abs(cleaned)
+	if err != nil {
+		return false
+	}
+	
+	// Check if path is within allowed directories
+	for _, allowed := range t.allowedPaths {
+		absAllowed, err := filepath.Abs(allowed)
+		if err != nil {
+			continue
+		}
+		
+		// Check if path is within allowed directory
+		if strings.HasPrefix(absPath, absAllowed) {
+			return true
+		}
+	}
+	
+	return false
 }
 
 // GetDefinitions returns tool definitions
@@ -81,10 +128,23 @@ func (t *FileSystemTool) handleReadFile(ctx context.Context, args json.RawMessag
 		return nil, fmt.Errorf("invalid arguments: %w", err)
 	}
 
+	// Validate path security
+	if !t.isPathSafe(params.Path) {
+		t.logger.Warn("Blocked unsafe path access attempt", map[string]interface{}{
+			"path": params.Path,
+		})
+		return nil, fmt.Errorf("access denied: path outside allowed directory")
+	}
+
 	content, err := os.ReadFile(params.Path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
 	}
+
+	t.logger.Info("File read successfully", map[string]interface{}{
+		"path": params.Path,
+		"size": len(content),
+	})
 
 	return map[string]interface{}{
 		"content": string(content),
@@ -102,9 +162,33 @@ func (t *FileSystemTool) handleWriteFile(ctx context.Context, args json.RawMessa
 		return nil, fmt.Errorf("invalid arguments: %w", err)
 	}
 
+	// Validate path security
+	if !t.isPathSafe(params.Path) {
+		t.logger.Warn("Blocked unsafe write attempt", map[string]interface{}{
+			"path": params.Path,
+		})
+		return nil, fmt.Errorf("access denied: path outside allowed directory")
+	}
+
+	// Don't allow writing to sensitive files
+	sensitiveFiles := []string{".ssh", ".git/config", ".env", "id_rsa", "id_ed25519"}
+	for _, sensitive := range sensitiveFiles {
+		if strings.Contains(params.Path, sensitive) {
+			t.logger.Warn("Blocked write to sensitive file", map[string]interface{}{
+				"path": params.Path,
+			})
+			return nil, fmt.Errorf("access denied: cannot write to sensitive files")
+		}
+	}
+
 	if err := os.WriteFile(params.Path, []byte(params.Content), 0644); err != nil {
 		return nil, fmt.Errorf("failed to write file: %w", err)
 	}
+
+	t.logger.Info("File written successfully", map[string]interface{}{
+		"path": params.Path,
+		"size": len(params.Content),
+	})
 
 	return map[string]interface{}{
 		"success": true,
@@ -119,6 +203,14 @@ func (t *FileSystemTool) handleListDirectory(ctx context.Context, args json.RawM
 
 	if err := json.Unmarshal(args, &params); err != nil {
 		return nil, fmt.Errorf("invalid arguments: %w", err)
+	}
+
+	// Validate path security
+	if !t.isPathSafe(params.Path) {
+		t.logger.Warn("Blocked unsafe directory list attempt", map[string]interface{}{
+			"path": params.Path,
+		})
+		return nil, fmt.Errorf("access denied: path outside allowed directory")
 	}
 
 	entries, err := os.ReadDir(params.Path)
@@ -136,6 +228,11 @@ func (t *FileSystemTool) handleListDirectory(ctx context.Context, args json.RawM
 			"mode": info.Mode().String(),
 		})
 	}
+
+	t.logger.Info("Directory listed", map[string]interface{}{
+		"path":  params.Path,
+		"count": len(files),
+	})
 
 	return map[string]interface{}{
 		"files": files,

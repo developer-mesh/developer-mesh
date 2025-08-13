@@ -23,6 +23,11 @@ test:
 	@echo "Running tests..."
 	@go test -v -race -cover ./...
 
+# Run integration tests
+test-integration: build
+	@echo "Running integration tests..."
+	@../../scripts/test-edge-mcp.sh
+
 # Run the server
 run: build
 	@echo "Starting Edge MCP..."
@@ -85,7 +90,8 @@ build-all:
 help:
 	@echo "Edge MCP Makefile targets:"
 	@echo "  make build       - Build the binary"
-	@echo "  make test        - Run tests"
+	@echo "  make test        - Run unit tests"
+	@echo "  make test-integration - Run integration tests"
 	@echo "  make run         - Build and run the server"
 	@echo "  make clean       - Clean build artifacts"
 	@echo "  make docker-build - Build Docker image"

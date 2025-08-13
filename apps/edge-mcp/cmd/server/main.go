@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,11 +12,13 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/auth"
+	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/cache"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/config"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/core"
+	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/executor"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/mcp"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tools"
-	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/gin-gonic/gin"
 )
 
@@ -33,6 +34,8 @@ func main() {
 		apiKey      = flag.String("api-key", "", "API key for authentication")
 		coreURL     = flag.String("core-url", "", "Core Platform URL for advanced features")
 		showVersion = flag.Bool("version", false, "Show version information")
+		logLevel    = flag.String("log-level", "info", "Log level (debug, info, warn, error)")
+		workDir     = flag.String("work-dir", "", "Working directory for command execution")
 	)
 	flag.Parse()
 
@@ -41,10 +44,28 @@ func main() {
 		os.Exit(0)
 	}
 
+	// Initialize logger
+	logger := observability.NewStandardLogger("edge-mcp")
+	
+	// Set log level based on flag
+	levelMap := map[string]observability.LogLevel{
+		"debug": observability.LogLevelDebug,
+		"info":  observability.LogLevelInfo,
+		"warn":  observability.LogLevelWarn,
+		"error": observability.LogLevelError,
+	}
+	if level, ok := levelMap[*logLevel]; ok {
+		if stdLogger, ok := logger.(*observability.StandardLogger); ok {
+			logger = stdLogger.WithLevel(level)
+		}
+	}
+
 	// Load configuration
 	cfg, err := config.Load(*configFile)
 	if err != nil {
-		log.Printf("Warning: Could not load config file: %v. Using defaults.", err)
+		logger.Warn("Could not load config file, using defaults", map[string]interface{}{
+			"error": err.Error(),
+		})
 		cfg = config.Default()
 	}
 
@@ -59,7 +80,7 @@ func main() {
 		cfg.Server.Port = *port
 	}
 
-	// Initialize components using existing pkg/common/cache
+	// Initialize in-memory cache (no Redis/DB dependencies)
 	memCache := cache.NewMemoryCache(1000, 5*time.Minute)
 
 	// Initialize Core Platform client (optional)
@@ -70,11 +91,14 @@ func main() {
 			cfg.Core.APIKey,
 			cfg.Core.TenantID,
 			cfg.Core.EdgeMCPID,
+			logger,
 		)
 
 		// Authenticate with Core Platform
 		if err := coreClient.AuthenticateWithCore(context.Background()); err != nil {
-			log.Printf("Warning: Could not authenticate with Core Platform: %v. Running in standalone mode.", err)
+			logger.Warn("Could not authenticate with Core Platform, running in standalone mode", map[string]interface{}{
+				"error": err.Error(),
+			})
 			coreClient = nil
 		}
 	}
@@ -85,21 +109,32 @@ func main() {
 	// Initialize tool registry
 	toolRegistry := tools.NewRegistry()
 
-	// Register local tools
-	toolRegistry.Register(tools.NewFileSystemTool())
-	toolRegistry.Register(tools.NewGitTool())
-	toolRegistry.Register(tools.NewDockerTool())
-	toolRegistry.Register(tools.NewShellTool())
+	// Create command executor for tools
+	if *workDir == "" {
+		*workDir, _ = os.Getwd()
+	}
+	cmdExecutor := executor.NewCommandExecutor(logger, *workDir, 30*time.Second)
+
+	// Register local tools with proper initialization
+	toolRegistry.Register(tools.NewFileSystemTool(*workDir, logger))
+	toolRegistry.Register(tools.NewGitTool(cmdExecutor, logger))
+	toolRegistry.Register(tools.NewDockerTool(cmdExecutor, logger))
+	toolRegistry.Register(tools.NewShellTool(cmdExecutor, logger))
 
 	// Fetch and register remote tools from Core Platform
 	if coreClient != nil {
 		remoteTools, err := coreClient.FetchRemoteTools(context.Background())
 		if err != nil {
-			log.Printf("Warning: Could not fetch remote tools: %v", err)
+			logger.Warn("Could not fetch remote tools", map[string]interface{}{
+				"error": err.Error(),
+			})
 		} else {
 			for _, tool := range remoteTools {
 				toolRegistry.RegisterRemote(tool)
 			}
+			logger.Info("Registered remote tools", map[string]interface{}{
+				"count": len(remoteTools),
+			})
 		}
 	}
 
@@ -109,6 +144,7 @@ func main() {
 		memCache,
 		coreClient,
 		authenticator,
+		logger,
 	)
 
 	// Setup HTTP server with Gin
@@ -138,7 +174,9 @@ func main() {
 			OriginPatterns: []string{"*"}, // Allow all origins for local development
 		})
 		if err != nil {
-			log.Printf("WebSocket upgrade failed: %v", err)
+			logger.Error("WebSocket upgrade failed", map[string]interface{}{
+				"error": err.Error(),
+			})
 			return
 		}
 		defer func() {
@@ -161,24 +199,33 @@ func main() {
 		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 		<-sigChan
 
-		log.Println("Shutting down Edge MCP...")
+		logger.Info("Shutting down Edge MCP", nil)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
 		if err := srv.Shutdown(ctx); err != nil {
-			log.Printf("Server shutdown error: %v", err)
+			logger.Error("Server shutdown error", map[string]interface{}{
+				"error": err.Error(),
+			})
 		}
 	}()
 
-	log.Printf("Edge MCP v%s starting on port %d", version, cfg.Server.Port)
+	logger.Info("Edge MCP starting", map[string]interface{}{
+		"version": version,
+		"port":    cfg.Server.Port,
+	})
 	if coreClient != nil {
-		log.Printf("Connected to Core Platform at %s", cfg.Core.URL)
+		logger.Info("Connected to Core Platform", map[string]interface{}{
+			"url": cfg.Core.URL,
+		})
 	} else {
-		log.Println("Running in standalone mode (no Core Platform connection)")
+		logger.Info("Running in standalone mode (no Core Platform connection)", nil)
 	}
 
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatalf("Server failed to start: %v", err)
+		logger.Fatal("Server failed to start", map[string]interface{}{
+			"error": err.Error(),
+		})
 	}
 }

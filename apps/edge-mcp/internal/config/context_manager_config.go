@@ -2,41 +2,26 @@ package config
 
 import "time"
 
-// ContextManagerConfig provides optimized configuration for high-performance context management
+// ContextManagerConfig provides configuration for Edge MCP context management
+// Note: Edge MCP uses only in-memory storage and syncs with Core Platform via API
 type ContextManagerConfig struct {
-	// Database connection pooling settings
-	Database DatabasePoolConfig `yaml:"database"`
-
-	// Multi-level cache configuration
+	// In-memory cache configuration
 	Cache CacheConfig `yaml:"cache"`
 
-	// Circuit breaker settings for resilience
+	// Circuit breaker settings for Core Platform API calls
 	CircuitBreaker CircuitBreakerConfig `yaml:"circuit_breaker"`
-
-	// Read replica configuration for scaling
-	ReadReplicas []DatabasePoolConfig `yaml:"read_replicas"`
 
 	// Performance monitoring settings
 	Monitoring MonitoringConfig `yaml:"monitoring"`
 }
 
-// DatabasePoolConfig optimizes database connections for high concurrency
-type DatabasePoolConfig struct {
-	DSN                 string        `yaml:"dsn"`
-	MaxOpenConns        int           `yaml:"max_open_conns" default:"50"`
-	MaxIdleConns        int           `yaml:"max_idle_conns" default:"25"`
-	ConnMaxLifetime     time.Duration `yaml:"conn_max_lifetime" default:"5m"`
-	ConnMaxIdleTime     time.Duration `yaml:"conn_max_idle_time" default:"90s"`
-	HealthCheckInterval time.Duration `yaml:"health_check_interval" default:"30s"`
-}
+// Note: Edge MCP does not use direct database connections
+// All persistent state is managed through Core Platform API
 
-// CacheConfig configures multi-level caching strategy
+// CacheConfig configures caching strategy for Edge MCP (in-memory only)
 type CacheConfig struct {
 	// In-memory LRU cache settings
 	InMemory InMemoryCacheConfig `yaml:"in_memory"`
-
-	// Redis distributed cache settings
-	Redis RedisCacheConfig `yaml:"redis"`
 
 	// Cache warming configuration
 	Warming CacheWarmingConfig `yaml:"warming"`
@@ -50,23 +35,8 @@ type InMemoryCacheConfig struct {
 	MaxItemSize int           `yaml:"max_item_size" default:"1048576"` // 1MB
 }
 
-// RedisCacheConfig for distributed caching
-type RedisCacheConfig struct {
-	Enabled      bool          `yaml:"enabled" default:"true"`
-	Endpoints    []string      `yaml:"endpoints"`
-	Password     string        `yaml:"password"`
-	DB           int           `yaml:"db" default:"0"`
-	TTL          time.Duration `yaml:"ttl" default:"1h"`
-	MaxRetries   int           `yaml:"max_retries" default:"3"`
-	DialTimeout  time.Duration `yaml:"dial_timeout" default:"5s"`
-	ReadTimeout  time.Duration `yaml:"read_timeout" default:"3s"`
-	WriteTimeout time.Duration `yaml:"write_timeout" default:"3s"`
-	PoolSize     int           `yaml:"pool_size" default:"100"`
-	MinIdleConns int           `yaml:"min_idle_conns" default:"10"`
-	MaxConnAge   time.Duration `yaml:"max_conn_age" default:"0"`
-	PoolTimeout  time.Duration `yaml:"pool_timeout" default:"4s"`
-	IdleTimeout  time.Duration `yaml:"idle_timeout" default:"5m"`
-}
+// Note: Edge MCP uses only in-memory caching
+// Any distributed state is synchronized through Core Platform API, not direct Redis access
 
 // CacheWarmingConfig for proactive cache population
 type CacheWarmingConfig struct {
@@ -93,34 +63,15 @@ type MonitoringConfig struct {
 	SamplingRate       float64       `yaml:"sampling_rate" default:"0.1"`
 }
 
-// DefaultContextManagerConfig returns production-ready default configuration
+// DefaultContextManagerConfig returns production-ready default configuration for Edge MCP
 func DefaultContextManagerConfig() *ContextManagerConfig {
 	return &ContextManagerConfig{
-		Database: DatabasePoolConfig{
-			MaxOpenConns:        50,
-			MaxIdleConns:        25,
-			ConnMaxLifetime:     5 * time.Minute,
-			ConnMaxIdleTime:     90 * time.Second,
-			HealthCheckInterval: 30 * time.Second,
-		},
 		Cache: CacheConfig{
 			InMemory: InMemoryCacheConfig{
 				Enabled:     true,
 				MaxSize:     10000,
 				TTL:         5 * time.Minute,
 				MaxItemSize: 1048576, // 1MB
-			},
-			Redis: RedisCacheConfig{
-				Enabled:      true,
-				TTL:          1 * time.Hour,
-				MaxRetries:   3,
-				DialTimeout:  5 * time.Second,
-				ReadTimeout:  3 * time.Second,
-				WriteTimeout: 3 * time.Second,
-				PoolSize:     100,
-				MinIdleConns: 10,
-				PoolTimeout:  4 * time.Second,
-				IdleTimeout:  5 * time.Minute,
 			},
 			Warming: CacheWarmingConfig{
 				Enabled:              true,

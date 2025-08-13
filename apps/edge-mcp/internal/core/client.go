@@ -14,7 +14,9 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
-// Client connects to the Core Platform
+// Client connects Edge MCP to Core Platform for state synchronization
+// Edge MCP maintains only in-memory state and syncs through this API client
+// No direct Redis or database connections are used
 type Client struct {
 	baseURL    string
 	tenantID   string
