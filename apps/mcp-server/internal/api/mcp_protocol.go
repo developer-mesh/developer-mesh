@@ -123,7 +123,7 @@ func (h *MCPProtocolHandler) resolveToolNameToID(ctx context.Context, tenantID, 
 	if h.toolNameCache[tenantID] == nil {
 		h.toolNameCache[tenantID] = make(map[string]string)
 	}
-	
+
 	var foundID string
 	for _, tool := range tools {
 		// Use display name if available, otherwise tool name
@@ -132,7 +132,7 @@ func (h *MCPProtocolHandler) resolveToolNameToID(ctx context.Context, tenantID, 
 			name = tool.ToolName
 		}
 		h.toolNameCache[tenantID][name] = tool.ID
-		
+
 		// Check if this is the tool we're looking for
 		if name == toolName {
 			foundID = tool.ID
@@ -145,9 +145,9 @@ func (h *MCPProtocolHandler) resolveToolNameToID(ctx context.Context, tenantID, 
 	}
 
 	h.logger.Info("Tool name resolved and cached", map[string]interface{}{
-		"tenant_id": tenantID,
-		"tool_name": toolName,
-		"tool_id":   foundID,
+		"tenant_id":          tenantID,
+		"tool_name":          toolName,
+		"tool_id":            foundID,
 		"total_tools_cached": len(tools),
 	})
 
@@ -160,7 +160,7 @@ func (h *MCPProtocolHandler) invalidateToolNameCache(tenantID string) {
 	h.toolNameCacheMu.Lock()
 	delete(h.toolNameCache, tenantID)
 	h.toolNameCacheMu.Unlock()
-	
+
 	h.logger.Debug("Tool name cache invalidated", map[string]interface{}{
 		"tenant_id": tenantID,
 	})

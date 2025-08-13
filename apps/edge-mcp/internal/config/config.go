@@ -1,68 +1,68 @@
 package config
 
 import (
-    "os"
-    "time"
+	"os"
+	"time"
 )
 
 // Config represents the Edge MCP configuration
 type Config struct {
-    Server ServerConfig `yaml:"server"`
-    Auth   AuthConfig   `yaml:"auth"`
-    Core   CoreConfig   `yaml:"core"`
+	Server ServerConfig `yaml:"server"`
+	Auth   AuthConfig   `yaml:"auth"`
+	Core   CoreConfig   `yaml:"core"`
 }
 
 // ServerConfig represents server configuration
 type ServerConfig struct {
-    Port int `yaml:"port"`
+	Port int `yaml:"port"`
 }
 
 // AuthConfig represents authentication configuration
 type AuthConfig struct {
-    APIKey string `yaml:"api_key"`
+	APIKey string `yaml:"api_key"`
 }
 
 // CoreConfig represents Core Platform configuration
 type CoreConfig struct {
-    URL       string `yaml:"url"`
-    APIKey    string `yaml:"api_key"`
-    TenantID  string `yaml:"tenant_id"`
-    EdgeMCPID string `yaml:"edge_mcp_id"`
+	URL       string `yaml:"url"`
+	APIKey    string `yaml:"api_key"`
+	TenantID  string `yaml:"tenant_id"`
+	EdgeMCPID string `yaml:"edge_mcp_id"`
 }
 
 // Load loads configuration from file or environment
 func Load(configFile string) (*Config, error) {
-    // For Edge MCP, we primarily use environment variables and defaults
-    // Config file is optional
-    return Default(), nil
+	// For Edge MCP, we primarily use environment variables and defaults
+	// Config file is optional
+	return Default(), nil
 }
 
 // Default returns default configuration
 func Default() *Config {
-    return &Config{
-        Server: ServerConfig{
-            Port: 8082,
-        },
-        Auth: AuthConfig{
-            APIKey: getEnv("EDGE_MCP_API_KEY", ""),
-        },
-        Core: CoreConfig{
-            URL:       getEnv("CORE_PLATFORM_URL", ""),
-            APIKey:    getEnv("CORE_PLATFORM_API_KEY", ""),
-            TenantID:  getEnv("TENANT_ID", ""),
-            EdgeMCPID: getEnv("EDGE_MCP_ID", generateEdgeMCPID()),
-        },
-    }
+	return &Config{
+		Server: ServerConfig{
+			Port: 8082,
+		},
+		Auth: AuthConfig{
+			APIKey: getEnv("EDGE_MCP_API_KEY", ""),
+		},
+		Core: CoreConfig{
+			URL:       getEnv("CORE_PLATFORM_URL", ""),
+			APIKey:    getEnv("CORE_PLATFORM_API_KEY", ""),
+			TenantID:  getEnv("TENANT_ID", ""),
+			EdgeMCPID: getEnv("EDGE_MCP_ID", generateEdgeMCPID()),
+		},
+	}
 }
 
 func getEnv(key, defaultValue string) string {
-    if value := os.Getenv(key); value != "" {
-        return value
-    }
-    return defaultValue
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
 }
 
 func generateEdgeMCPID() string {
-    hostname, _ := os.Hostname()
-    return "edge-" + hostname + "-" + time.Now().Format("20060102")
+	hostname, _ := os.Hostname()
+	return "edge-" + hostname + "-" + time.Now().Format("20060102")
 }

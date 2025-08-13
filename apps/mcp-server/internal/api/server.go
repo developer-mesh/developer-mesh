@@ -54,7 +54,7 @@ type Server struct {
 	authService       *auth.Service
 	authMiddleware    *auth.AuthMiddleware // Enhanced auth with rate limiting, metrics, and audit
 	cache             cache.Cache
-	restAPIBaseURL    string               // REST API base URL from MCPServer config
+	restAPIBaseURL    string // REST API base URL from MCPServer config
 	// API proxies that delegate to REST API
 	vectorAPIProxy  repository.VectorAPIRepository // Proxy for vector operations
 	agentAPIProxy   agent.Repository               // Proxy for agent operations
@@ -203,13 +203,13 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 	restAPIBaseURL := cfg.RestAPI.BaseURL
 	restAPIKey := cfg.RestAPI.APIKey
 	restAPIEnabled := cfg.RestAPI.Enabled
-	
+
 	if config != nil && config.MCPServer != nil && config.MCPServer.RestAPI.Enabled {
 		restAPIBaseURL = config.MCPServer.RestAPI.BaseURL
 		restAPIKey = config.MCPServer.RestAPI.APIKey
 		restAPIEnabled = config.MCPServer.RestAPI.Enabled
 	}
-	
+
 	if restAPIEnabled {
 		// Create the REST client factory
 		restClientFactory = rest.NewFactory(
