@@ -13,28 +13,133 @@ Edge MCP is a secure, lightweight, standalone MCP server that runs on developer 
 - ✅ **Offline Mode** - Full functionality without network connection
 - ✅ **Circuit Breaker** - Resilient Core Platform integration
 
-## Quick Start
+## Installation
+
+### Quick Install (Recommended)
+
+#### Unix/Linux/macOS
+```bash
+curl -sSL https://raw.githubusercontent.com/developer-mesh/developer-mesh/main/apps/edge-mcp/install.sh | bash
+```
+
+#### Windows (PowerShell as Administrator)
+```powershell
+iwr -useb https://raw.githubusercontent.com/developer-mesh/developer-mesh/main/apps/edge-mcp/install.ps1 | iex
+```
+
+### Download Pre-built Binaries
+
+Download the latest release for your platform from the [releases page](https://github.com/developer-mesh/developer-mesh/releases?q=edge-mcp&expanded=true).
+
+| Platform | Architecture | Download |
+|----------|-------------|----------|
+| macOS | Apple Silicon (M1/M2/M3) | [edge-mcp-darwin-arm64.tar.gz](https://github.com/developer-mesh/developer-mesh/releases/latest/download/edge-mcp-darwin-arm64.tar.gz) |
+| macOS | Intel | [edge-mcp-darwin-amd64.tar.gz](https://github.com/developer-mesh/developer-mesh/releases/latest/download/edge-mcp-darwin-amd64.tar.gz) |
+| Linux | x64 | [edge-mcp-linux-amd64.tar.gz](https://github.com/developer-mesh/developer-mesh/releases/latest/download/edge-mcp-linux-amd64.tar.gz) |
+| Linux | ARM64 | [edge-mcp-linux-arm64.tar.gz](https://github.com/developer-mesh/developer-mesh/releases/latest/download/edge-mcp-linux-arm64.tar.gz) |
+| Windows | x64 | [edge-mcp-windows-amd64.exe.zip](https://github.com/developer-mesh/developer-mesh/releases/latest/download/edge-mcp-windows-amd64.exe.zip) |
+| Windows | ARM64 | [edge-mcp-windows-arm64.exe.zip](https://github.com/developer-mesh/developer-mesh/releases/latest/download/edge-mcp-windows-arm64.exe.zip) |
+
+### Manual Installation
+
+#### macOS/Linux
+```bash
+# Download for your platform (example: macOS Apple Silicon)
+curl -L https://github.com/developer-mesh/developer-mesh/releases/latest/download/edge-mcp-darwin-arm64.tar.gz -o edge-mcp.tar.gz
+
+# Extract
+tar -xzf edge-mcp.tar.gz
+
+# Make executable
+chmod +x edge-mcp-darwin-arm64
+
+# Move to PATH (optional)
+sudo mv edge-mcp-darwin-arm64 /usr/local/bin/edge-mcp
+
+# Verify installation
+edge-mcp --version
+```
+
+#### Windows
+```powershell
+# Download (example: Windows x64)
+Invoke-WebRequest -Uri "https://github.com/developer-mesh/developer-mesh/releases/latest/download/edge-mcp-windows-amd64.exe.zip" -OutFile "edge-mcp.zip"
+
+# Extract
+Expand-Archive -Path "edge-mcp.zip" -DestinationPath .
+
+# Move to Program Files (optional)
+New-Item -ItemType Directory -Path "$env:ProgramFiles\edge-mcp" -Force
+Move-Item edge-mcp-windows-amd64.exe "$env:ProgramFiles\edge-mcp\edge-mcp.exe"
+
+# Add to PATH (optional, requires admin)
+[Environment]::SetEnvironmentVariable("Path", $env:Path + ";$env:ProgramFiles\edge-mcp", [EnvironmentVariableTarget]::Machine)
+
+# Verify installation (restart terminal first if you added to PATH)
+edge-mcp --version
+```
 
 ### Build from Source
 
 ```bash
-make build
+# Clone repository
+git clone https://github.com/developer-mesh/developer-mesh.git
+cd developer-mesh/apps/edge-mcp
+
+# Build
+go build -o edge-mcp ./cmd/server
+
+# Run
+./edge-mcp --port 8082
 ```
+
+## Uninstallation
+
+### Unix/Linux/macOS
+```bash
+# Remove binary
+sudo rm -f /usr/local/bin/edge-mcp
+
+# Or if installed elsewhere
+which edge-mcp | xargs sudo rm -f
+```
+
+### Windows
+```powershell
+# Remove from Program Files
+Remove-Item -Path "$env:ProgramFiles\edge-mcp" -Recurse -Force
+
+# Remove from PATH (requires admin)
+$path = [Environment]::GetEnvironmentVariable("Path", [EnvironmentVariableTarget]::Machine)
+$newPath = ($path.Split(';') | Where-Object { $_ -ne "$env:ProgramFiles\edge-mcp" }) -join ';'
+[Environment]::SetEnvironmentVariable("Path", $newPath, [EnvironmentVariableTarget]::Machine)
+```
+
+## Quick Start
 
 ### Run Standalone
 
 ```bash
-./bin/edge-mcp --port 8082
+# Run with default settings
+edge-mcp
+
+# Run on specific port
+edge-mcp --port 8082
+
+# Run with debug logging
+edge-mcp --log-level debug
 ```
 
 ### Run with Core Platform Integration
 
 ```bash
+# Set environment variables
 export CORE_PLATFORM_URL=https://api.devmesh.ai
 export CORE_PLATFORM_API_KEY=your-api-key
 export TENANT_ID=your-tenant-id
 
-./bin/edge-mcp --core-url $CORE_PLATFORM_URL
+# Run with Core Platform connection
+edge-mcp --core-url $CORE_PLATFORM_URL
 ```
 
 ## IDE Integration

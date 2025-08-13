@@ -148,11 +148,38 @@ dev-certs: ## Generate development TLS certificates
 # ==============================================================================
 
 .PHONY: build
-build: build-mcp-server build-rest-api build-worker ## Build all applications
+build: build-mcp-server build-rest-api build-worker build-edge-mcp ## Build all applications
 
 .PHONY: build-mcp-server
 build-mcp-server: ## Build MCP server
 	$(GOBUILD) -o $(MCP_SERVER_DIR)/$(MCP_SERVER_BINARY) -v $(MCP_SERVER_DIR)/cmd/server
+
+.PHONY: build-edge-mcp
+build-edge-mcp: ## Build Edge MCP binary
+	@echo "Building Edge MCP..."
+	@cd apps/edge-mcp && go build -o ../../bin/edge-mcp ./cmd/server
+	@echo "✅ Edge MCP built: bin/edge-mcp"
+
+.PHONY: build-edge-mcp-all
+build-edge-mcp-all: ## Build Edge MCP for all platforms
+	@echo "Building Edge MCP for all platforms..."
+	@mkdir -p dist
+	@cd apps/edge-mcp && \
+		GOOS=darwin GOARCH=amd64 go build -o ../../dist/edge-mcp-darwin-amd64 ./cmd/server && \
+		GOOS=darwin GOARCH=arm64 go build -o ../../dist/edge-mcp-darwin-arm64 ./cmd/server && \
+		GOOS=linux GOARCH=amd64 go build -o ../../dist/edge-mcp-linux-amd64 ./cmd/server && \
+		GOOS=linux GOARCH=arm64 go build -o ../../dist/edge-mcp-linux-arm64 ./cmd/server && \
+		GOOS=windows GOARCH=amd64 go build -o ../../dist/edge-mcp-windows-amd64.exe ./cmd/server && \
+		GOOS=windows GOARCH=arm64 go build -o ../../dist/edge-mcp-windows-arm64.exe ./cmd/server
+	@echo "✅ Built Edge MCP for all platforms in dist/"
+
+.PHONY: install-edge-mcp
+install-edge-mcp: build-edge-mcp ## Install Edge MCP to /usr/local/bin
+	@echo "Installing Edge MCP..."
+	@sudo cp bin/edge-mcp /usr/local/bin/edge-mcp
+	@sudo chmod +x /usr/local/bin/edge-mcp
+	@echo "✅ Edge MCP installed to /usr/local/bin/edge-mcp"
+	@edge-mcp --version || echo "Run 'edge-mcp --version' to verify installation"
 
 .PHONY: build-rest-api
 build-rest-api: ## Build REST API

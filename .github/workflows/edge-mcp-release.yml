@@ -1,0 +1,297 @@
+name: Edge MCP Release
+
+on:
+  push:
+    tags:
+      - 'edge-mcp-v[0-9]+.[0-9]+.[0-9]+'
+      - 'edge-mcp-v[0-9]+.[0-9]+.[0-9]+-*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., 1.0.0)'
+        required: true
+        type: string
+
+env:
+  GO_VERSION: '1.24.4'
+
+jobs:
+  prepare-release:
+    name: Prepare Edge MCP Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+            TAG="edge-mcp-v${VERSION}"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+            VERSION="${TAG#edge-mcp-v}"
+          fi
+          
+          # Validate semantic version format
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9\.\-]+)?$ ]]; then
+            echo "Error: Version '$VERSION' does not follow semantic versioning"
+            exit 1
+          fi
+          
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "Release version: ${VERSION} (tag: ${TAG})"
+
+  build-binaries:
+    name: Build Edge MCP Binaries
+    runs-on: ubuntu-latest
+    needs: prepare-release
+    strategy:
+      matrix:
+        include:
+          # Linux builds
+          - os: linux
+            arch: amd64
+            suffix: ""
+            name: "Linux x64"
+          - os: linux
+            arch: arm64
+            suffix: ""
+            name: "Linux ARM64"
+          - os: linux
+            arch: "386"
+            suffix: ""
+            name: "Linux x86"
+          # macOS builds
+          - os: darwin
+            arch: amd64
+            suffix: ""
+            name: "macOS Intel"
+          - os: darwin
+            arch: arm64
+            suffix: ""
+            name: "macOS Apple Silicon"
+          # Windows builds
+          - os: windows
+            arch: amd64
+            suffix: ".exe"
+            name: "Windows x64"
+          - os: windows
+            arch: "386"
+            suffix: ".exe"
+            name: "Windows x86"
+          - os: windows
+            arch: arm64
+            suffix: ".exe"
+            name: "Windows ARM64"
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Set GOWORK environment variable
+        run: echo "GOWORK=${{ github.workspace }}/go.work" >> $GITHUB_ENV
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-edge-mcp-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-edge-mcp-
+
+      - name: Build binary
+        run: |
+          cd apps/edge-mcp
+          
+          # Binary naming
+          BINARY_NAME="edge-mcp-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.suffix }}"
+          OUTPUT_DIR="${{ github.workspace }}/dist"
+          mkdir -p "${OUTPUT_DIR}"
+          
+          echo "Building ${BINARY_NAME} (${{ matrix.name }})..."
+          
+          # Version info
+          VERSION="${{ needs.prepare-release.outputs.version }}"
+          COMMIT=$(git rev-parse --short HEAD)
+          BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          
+          # Build with version info embedded
+          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} CGO_ENABLED=0 go build \
+            -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.buildTime=${BUILD_TIME}" \
+            -o "${OUTPUT_DIR}/${BINARY_NAME}" \
+            ./cmd/server
+          
+          # Create tar.gz for Unix systems
+          if [[ "${{ matrix.os }}" != "windows" ]]; then
+            cd "${OUTPUT_DIR}"
+            tar -czf "${BINARY_NAME}.tar.gz" "${BINARY_NAME}"
+            echo "Created ${BINARY_NAME}.tar.gz"
+          else
+            # Create zip for Windows
+            cd "${OUTPUT_DIR}"
+            zip "${BINARY_NAME}.zip" "${BINARY_NAME}"
+            echo "Created ${BINARY_NAME}.zip"
+          fi
+
+      - name: Generate checksum
+        run: |
+          cd dist
+          if [[ "${{ matrix.os }}" != "windows" ]]; then
+            sha256sum "edge-mcp-${{ matrix.os }}-${{ matrix.arch }}.tar.gz" > "edge-mcp-${{ matrix.os }}-${{ matrix.arch }}.tar.gz.sha256"
+          else
+            sha256sum "edge-mcp-${{ matrix.os }}-${{ matrix.arch }}.exe.zip" > "edge-mcp-${{ matrix.os }}-${{ matrix.arch }}.exe.zip.sha256"
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: edge-mcp-${{ matrix.os }}-${{ matrix.arch }}
+          path: |
+            dist/edge-mcp-*
+          retention-days: 7
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [prepare-release, build-binaries]
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: edge-mcp-*
+          merge-multiple: true
+
+      - name: Create combined checksums file
+        run: |
+          cd dist
+          sha256sum edge-mcp-*.tar.gz edge-mcp-*.zip 2>/dev/null > checksums.txt || true
+          echo "Checksums:"
+          cat checksums.txt
+
+      - name: Generate release notes
+        run: |
+          VERSION="${{ needs.prepare-release.outputs.version }}"
+          cat > release-notes.md << 'EOF'
+          ## Edge MCP v${{ needs.prepare-release.outputs.version }}
+          
+          ### 📦 Installation
+          
+          #### Quick Install Script (Unix/Linux/macOS)
+          ```bash
+          # Install latest Edge MCP
+          curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/main/apps/edge-mcp/install.sh | bash
+          ```
+          
+          #### Manual Installation
+          
+          **macOS (Apple Silicon)**
+          ```bash
+          curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-release.outputs.tag }}/edge-mcp-darwin-arm64.tar.gz | tar xz
+          chmod +x edge-mcp-darwin-arm64
+          sudo mv edge-mcp-darwin-arm64 /usr/local/bin/edge-mcp
+          ```
+          
+          **macOS (Intel)**
+          ```bash
+          curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-release.outputs.tag }}/edge-mcp-darwin-amd64.tar.gz | tar xz
+          chmod +x edge-mcp-darwin-amd64
+          sudo mv edge-mcp-darwin-amd64 /usr/local/bin/edge-mcp
+          ```
+          
+          **Linux (x64)**
+          ```bash
+          curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-release.outputs.tag }}/edge-mcp-linux-amd64.tar.gz | tar xz
+          chmod +x edge-mcp-linux-amd64
+          sudo mv edge-mcp-linux-amd64 /usr/local/bin/edge-mcp
+          ```
+          
+          **Linux (ARM64)**
+          ```bash
+          curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-release.outputs.tag }}/edge-mcp-linux-arm64.tar.gz | tar xz
+          chmod +x edge-mcp-linux-arm64
+          sudo mv edge-mcp-linux-arm64 /usr/local/bin/edge-mcp
+          ```
+          
+          **Windows (PowerShell as Administrator)**
+          ```powershell
+          # Download and extract
+          Invoke-WebRequest -Uri "https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-release.outputs.tag }}/edge-mcp-windows-amd64.exe.zip" -OutFile "edge-mcp.zip"
+          Expand-Archive -Path "edge-mcp.zip" -DestinationPath .
+          
+          # Add to PATH (optional)
+          Move-Item edge-mcp-windows-amd64.exe "C:\Program Files\edge-mcp\edge-mcp.exe"
+          [Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\Program Files\edge-mcp", [EnvironmentVariableTarget]::Machine)
+          ```
+          
+          ### 🚀 Quick Start
+          
+          ```bash
+          # Run Edge MCP
+          edge-mcp --port 8082
+          
+          # Check version
+          edge-mcp --version
+          
+          # Run with debug logging
+          edge-mcp --log-level debug
+          ```
+          
+          ### 📝 What's Changed
+          
+          See full changelog below or visit [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/apps/edge-mcp/CHANGELOG.md)
+          
+          ### 🔐 Verifying Downloads
+          
+          All binaries include SHA-256 checksums. To verify your download:
+          
+          ```bash
+          # Download checksum file
+          curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-release.outputs.tag }}/checksums.txt -o checksums.txt
+          
+          # Verify your binary (example for Linux x64)
+          sha256sum -c checksums.txt --ignore-missing
+          ```
+          
+          ### 📚 Documentation
+          
+          - [Edge MCP Documentation](https://github.com/${{ github.repository }}/tree/main/apps/edge-mcp)
+          - [IDE Setup Guides](https://github.com/${{ github.repository }}/tree/main/apps/edge-mcp/docs/ide-setup)
+          - [API Reference](https://github.com/${{ github.repository }}/tree/main/apps/edge-mcp/docs/api)
+          
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare-release.outputs.tag }}
+          name: Edge MCP v${{ needs.prepare-release.outputs.version }}
+          body_path: release-notes.md
+          draft: false
+          prerelease: ${{ contains(needs.prepare-release.outputs.version, '-') }}
+          files: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*.sha256
+            dist/checksums.txt

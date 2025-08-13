@@ -1,0 +1,200 @@
+name: Edge MCP CI
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'apps/edge-mcp/**'
+      - '.github/workflows/edge-mcp-ci.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'apps/edge-mcp/**'
+      - '.github/workflows/edge-mcp-ci.yml'
+  workflow_dispatch:
+
+env:
+  GO_VERSION: '1.24.4'
+
+jobs:
+  test:
+    name: Test Edge MCP
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Set GOWORK environment variable
+        run: echo "GOWORK=${{ github.workspace }}/go.work" >> $GITHUB_ENV
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-edge-mcp-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-edge-mcp-
+
+      - name: Run go work sync
+        run: go work sync
+
+      - name: Download dependencies
+        run: |
+          cd apps/edge-mcp && go mod download
+
+      - name: Run tests
+        run: |
+          cd apps/edge-mcp && go test -v -race -coverprofile=coverage.out ./...
+
+      - name: Run linter
+        run: |
+          cd apps/edge-mcp && golangci-lint run ./...
+
+  build:
+    name: Build Binaries
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    strategy:
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+            suffix: ""
+          - os: linux
+            arch: arm64
+            suffix: ""
+          - os: darwin
+            arch: amd64
+            suffix: ""
+          - os: darwin
+            arch: arm64
+            suffix: ""
+          - os: windows
+            arch: amd64
+            suffix: ".exe"
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Set GOWORK environment variable
+        run: echo "GOWORK=${{ github.workspace }}/go.work" >> $GITHUB_ENV
+
+      - name: Build binary
+        run: |
+          cd apps/edge-mcp
+          BINARY_NAME="edge-mcp-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.suffix }}"
+          echo "Building ${BINARY_NAME}..."
+          
+          # Get version info
+          VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+          COMMIT=$(git rev-parse --short HEAD)
+          BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          
+          # Build with version info
+          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} CGO_ENABLED=0 go build \
+            -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.buildTime=${BUILD_TIME}" \
+            -o "../../dist/${BINARY_NAME}" \
+            ./cmd/server
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: edge-mcp-${{ matrix.os }}-${{ matrix.arch }}
+          path: dist/edge-mcp-*
+          retention-days: 7
+
+  create-nightly:
+    name: Create Nightly Build
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: edge-mcp-*
+          merge-multiple: true
+
+      - name: Create checksums
+        run: |
+          cd dist
+          sha256sum edge-mcp-* > checksums.txt
+          cat checksums.txt
+
+      - name: Update nightly tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Delete the old nightly tag if it exists
+          git push --delete origin edge-mcp-nightly 2>/dev/null || true
+          
+          # Create new nightly tag
+          git tag -fa edge-mcp-nightly -m "Edge MCP nightly build $(date -u +%Y%m%d)"
+          git push origin edge-mcp-nightly --force
+
+      - name: Create/Update Nightly Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: edge-mcp-nightly
+          name: Edge MCP Nightly Build
+          body: |
+            ## 🌙 Edge MCP Nightly Build
+            
+            **Built from:** ${{ github.sha }}
+            **Date:** $(date -u +"%Y-%m-%d %H:%M UTC")
+            
+            ### Installation
+            
+            #### macOS (Intel)
+            ```bash
+            curl -L https://github.com/${{ github.repository }}/releases/download/edge-mcp-nightly/edge-mcp-darwin-amd64 -o edge-mcp
+            chmod +x edge-mcp
+            ./edge-mcp --version
+            ```
+            
+            #### macOS (Apple Silicon)
+            ```bash
+            curl -L https://github.com/${{ github.repository }}/releases/download/edge-mcp-nightly/edge-mcp-darwin-arm64 -o edge-mcp
+            chmod +x edge-mcp
+            ./edge-mcp --version
+            ```
+            
+            #### Linux (x64)
+            ```bash
+            curl -L https://github.com/${{ github.repository }}/releases/download/edge-mcp-nightly/edge-mcp-linux-amd64 -o edge-mcp
+            chmod +x edge-mcp
+            ./edge-mcp --version
+            ```
+            
+            #### Windows (x64)
+            ```powershell
+            Invoke-WebRequest -Uri "https://github.com/${{ github.repository }}/releases/download/edge-mcp-nightly/edge-mcp-windows-amd64.exe" -OutFile "edge-mcp.exe"
+            .\edge-mcp.exe --version
+            ```
+            
+            ⚠️ **Note:** This is a nightly build and may be unstable. For production use, please use a stable release.
+          files: |
+            dist/edge-mcp-*
+            dist/checksums.txt
+          prerelease: true
+          make_latest: false
