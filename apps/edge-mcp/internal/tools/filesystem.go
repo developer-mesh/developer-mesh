@@ -13,9 +13,9 @@ import (
 
 // FileSystemTool provides file system operations with security
 type FileSystemTool struct {
-	basePath      string   // Base path for operations
-	allowedPaths  []string // List of allowed paths
-	logger        observability.Logger
+	basePath     string   // Base path for operations
+	allowedPaths []string // List of allowed paths
+	logger       observability.Logger
 }
 
 // NewFileSystemTool creates a new file system tool with security constraints
@@ -24,7 +24,7 @@ func NewFileSystemTool(basePath string, logger observability.Logger) *FileSystem
 	if basePath == "" {
 		basePath, _ = os.Getwd()
 	}
-	
+
 	return &FileSystemTool{
 		basePath:     basePath,
 		allowedPaths: []string{basePath},
@@ -36,31 +36,31 @@ func NewFileSystemTool(basePath string, logger observability.Logger) *FileSystem
 func (t *FileSystemTool) isPathSafe(path string) bool {
 	// Clean the path to prevent traversal attacks
 	cleaned := filepath.Clean(path)
-	
+
 	// Reject paths with .. to prevent traversal
 	if strings.Contains(cleaned, "..") {
 		return false
 	}
-	
+
 	// Make path absolute
 	absPath, err := filepath.Abs(cleaned)
 	if err != nil {
 		return false
 	}
-	
+
 	// Check if path is within allowed directories
 	for _, allowed := range t.allowedPaths {
 		absAllowed, err := filepath.Abs(allowed)
 		if err != nil {
 			continue
 		}
-		
+
 		// Check if path is within allowed directory
 		if strings.HasPrefix(absPath, absAllowed) {
 			return true
 		}
 	}
-	
+
 	return false
 }
 

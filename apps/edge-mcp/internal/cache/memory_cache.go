@@ -37,10 +37,10 @@ func NewMemoryCache(maxItems int, defaultTTL time.Duration) Cache {
 		maxItems:   maxItems,
 		defaultTTL: defaultTTL,
 	}
-	
+
 	// Start cleanup goroutine
 	go cache.cleanupExpired()
-	
+
 	return cache
 }
 
@@ -48,16 +48,16 @@ func NewMemoryCache(maxItems int, defaultTTL time.Duration) Cache {
 func (c *MemoryCache) Get(ctx context.Context, key string, value interface{}) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	
+
 	item, exists := c.items[key]
 	if !exists {
 		return fmt.Errorf("key not found: %s", key)
 	}
-	
+
 	if time.Now().After(item.expiration) {
 		return fmt.Errorf("key expired: %s", key)
 	}
-	
+
 	// Simple type assertion - in production you'd use reflection or encoding
 	switch v := value.(type) {
 	case *map[string]interface{}:
@@ -76,13 +76,13 @@ func (c *MemoryCache) Get(ctx context.Context, key string, value interface{}) er
 			return nil
 		}
 	}
-	
+
 	// Fallback: direct assignment
 	if ptr, ok := value.(*interface{}); ok {
 		*ptr = item.value
 		return nil
 	}
-	
+
 	return fmt.Errorf("type mismatch for key: %s", key)
 }
 
@@ -91,10 +91,10 @@ func (c *MemoryCache) Set(ctx context.Context, key string, value interface{}, tt
 	if ttl == 0 {
 		ttl = c.defaultTTL
 	}
-	
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	// Simple eviction if at max capacity
 	if len(c.items) >= c.maxItems && c.items[key] == nil {
 		// Remove oldest expired item
@@ -104,7 +104,7 @@ func (c *MemoryCache) Set(ctx context.Context, key string, value interface{}, tt
 				break
 			}
 		}
-		
+
 		// If still at capacity, remove a random item
 		if len(c.items) >= c.maxItems {
 			for k := range c.items {
@@ -113,12 +113,12 @@ func (c *MemoryCache) Set(ctx context.Context, key string, value interface{}, tt
 			}
 		}
 	}
-	
+
 	c.items[key] = &cacheItem{
 		value:      value,
 		expiration: time.Now().Add(ttl),
 	}
-	
+
 	return nil
 }
 
@@ -126,7 +126,7 @@ func (c *MemoryCache) Set(ctx context.Context, key string, value interface{}, tt
 func (c *MemoryCache) Delete(ctx context.Context, key string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	delete(c.items, key)
 	return nil
 }
@@ -135,7 +135,7 @@ func (c *MemoryCache) Delete(ctx context.Context, key string) error {
 func (c *MemoryCache) Size() int {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	
+
 	return len(c.items)
 }
 
@@ -143,7 +143,7 @@ func (c *MemoryCache) Size() int {
 func (c *MemoryCache) cleanupExpired() {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
-	
+
 	for range ticker.C {
 		c.mu.Lock()
 		now := time.Now()

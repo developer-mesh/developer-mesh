@@ -46,7 +46,7 @@ func main() {
 
 	// Initialize logger
 	logger := observability.NewStandardLogger("edge-mcp")
-	
+
 	// Set log level based on flag
 	levelMap := map[string]observability.LogLevel{
 		"debug": observability.LogLevelDebug,

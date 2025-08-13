@@ -44,7 +44,7 @@ type Handler struct {
 	sessions      map[string]*Session
 	sessionsMu    sync.RWMutex
 	logger        observability.Logger
-	
+
 	// Request tracking for cancellation
 	activeRequests map[interface{}]context.CancelFunc
 	requestsMu     sync.RWMutex
@@ -344,7 +344,7 @@ func (h *Handler) handleToolCall(sessionID string, msg *MCPMessage) (*MCPMessage
 
 	// Create cancellable context for tool execution
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	// Track the request for potential cancellation (only if ID is present)
 	if msg.ID != nil {
 		h.trackRequest(msg.ID, cancel)
