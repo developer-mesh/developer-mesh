@@ -141,7 +141,9 @@ func main() {
 			log.Printf("WebSocket upgrade failed: %v", err)
 			return
 		}
-		defer conn.Close(websocket.StatusNormalClosure, "")
+		defer func() {
+			_ = conn.Close(websocket.StatusNormalClosure, "")
+		}()
 
 		// Handle MCP connection
 		mcpHandler.HandleConnection(conn, c.Request)

@@ -154,18 +154,6 @@ func (h *MCPProtocolHandler) resolveToolNameToID(ctx context.Context, tenantID, 
 	return foundID, nil
 }
 
-// invalidateToolNameCache invalidates the tool name cache for a specific tenant
-// This should be called when tools are added, updated, or deleted
-func (h *MCPProtocolHandler) invalidateToolNameCache(tenantID string) {
-	h.toolNameCacheMu.Lock()
-	delete(h.toolNameCache, tenantID)
-	h.toolNameCacheMu.Unlock()
-
-	h.logger.Debug("Tool name cache invalidated", map[string]interface{}{
-		"tenant_id": tenantID,
-	})
-}
-
 // HandleMessage processes an MCP protocol message
 func (h *MCPProtocolHandler) HandleMessage(conn *websocket.Conn, connID string, tenantID string, message []byte) error {
 	startTime := time.Now()

@@ -145,3 +145,13 @@ func (c *InMemoryCache) GetSet(ctx context.Context, key string, value interface{
 func (c *InMemoryCache) Flush(ctx context.Context) error {
 	return c.Clear(ctx)
 }
+
+// Size returns the number of items in the cache
+func (c *InMemoryCache) Size() int {
+	count := 0
+	c.data.Range(func(key, value interface{}) bool {
+		count++
+		return true
+	})
+	return count
+}

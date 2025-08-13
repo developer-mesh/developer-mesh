@@ -47,3 +47,9 @@ func (m *MockCache) Close() error {
 	args := m.Called()
 	return args.Error(0)
 }
+
+// Size mocks the Size method
+func (m *MockCache) Size() int {
+	args := m.Called()
+	return args.Int(0)
+}

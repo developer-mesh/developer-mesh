@@ -83,6 +83,12 @@ func (m *mockCache) Close() error {
 	return args.Error(0)
 }
 
+// Size returns the number of items in the cache
+func (m *mockCache) Size() int {
+	args := m.Called()
+	return args.Int(0)
+}
+
 type mockEncryptionService struct {
 	mock.Mock
 }

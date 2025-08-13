@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tools"
@@ -20,11 +19,6 @@ type Client struct {
 	edgeMCPID  string
 	apiKey     string
 	httpClient *http.Client
-
-	// Authentication state
-	authToken   string
-	tokenExpiry time.Time
-	authMu      sync.RWMutex
 
 	// Connection status
 	connected bool
@@ -132,9 +126,7 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body interf
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	if c.authToken != "" {
-		req.Header.Set("Authorization", "Bearer "+c.authToken)
-	} else if c.apiKey != "" {
+	if c.apiKey != "" {
 		req.Header.Set("X-API-Key", c.apiKey)
 	}
 

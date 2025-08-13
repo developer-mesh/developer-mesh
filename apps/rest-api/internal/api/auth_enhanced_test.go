@@ -436,3 +436,9 @@ func (c *testCache) Clear() {
 	defer c.mu.Unlock()
 	c.data = make(map[string]interface{})
 }
+
+func (c *testCache) Size() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return len(c.data)
+}

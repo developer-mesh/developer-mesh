@@ -47,3 +47,9 @@ func (m *MockCache) Flush(ctx context.Context) error {
 	args := m.Called(ctx)
 	return args.Error(0)
 }
+
+// Size mocks the cache.Cache.Size method
+func (m *MockCache) Size() int {
+	args := m.Called()
+	return args.Int(0)
+}

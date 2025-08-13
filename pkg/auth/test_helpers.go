@@ -167,6 +167,13 @@ func (c *TestCache) unmarshalValue(stored, target interface{}) error {
 	return fmt.Errorf("cannot unmarshal %T into %T", stored, target)
 }
 
+// Size returns the size of the cache
+func (c *TestCache) Size() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return len(c.data)
+}
+
 // Test Configuration Helpers
 
 // TestAuthConfig creates a complete test configuration

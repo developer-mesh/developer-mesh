@@ -533,6 +533,13 @@ func (m *mockCache) Close() error {
 	return nil
 }
 
+// Size returns the number of items in the cache
+func (m *mockCache) Size() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return len(m.data)
+}
+
 func (m *mockCache) Exists(ctx context.Context, key string) (bool, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()

@@ -282,3 +282,9 @@ func (m *mockCache) Flush(ctx context.Context) error {
 func (m *mockCache) Close() error {
 	return nil
 }
+
+func (m *mockCache) Size() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return len(m.data)
+}

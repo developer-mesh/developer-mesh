@@ -36,6 +36,12 @@ func (m *MockCache) Close() error {
 	return args.Error(0)
 }
 
+// Size returns the number of items in the cache
+func (m *MockCache) Size() int {
+	args := m.Called()
+	return args.Int(0)
+}
+
 // Exists mocks the cache.Cache.Exists method
 func (m *MockCache) Exists(ctx context.Context, key string) (bool, error) {
 	args := m.Called(ctx, key)

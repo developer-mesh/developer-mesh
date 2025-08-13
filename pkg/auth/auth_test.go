@@ -313,6 +313,11 @@ func (m *MockCache) Close() error {
 	return nil
 }
 
+// Size returns the number of items in the cache
+func (m *MockCache) Size() int {
+	return len(m.data)
+}
+
 // TestAuthenticationIntegration tests the full authentication stack
 func TestAuthenticationIntegration(t *testing.T) {
 	// Setup

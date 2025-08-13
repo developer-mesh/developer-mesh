@@ -91,7 +91,7 @@ func (h *Handler) HandleConnection(conn *websocket.Conn, r *http.Request) {
 		h.sessionsMu.Lock()
 		delete(h.sessions, sessionID)
 		h.sessionsMu.Unlock()
-		conn.Close(websocket.StatusNormalClosure, "")
+		_ = conn.Close(websocket.StatusNormalClosure, "")
 	}()
 
 	// Create a context for this connection
@@ -277,7 +277,7 @@ func (h *Handler) handleShutdown(sessionID string, msg *MCPMessage) (*MCPMessage
 	if session, exists := h.sessions[sessionID]; exists {
 		// If connected to Core Platform, close the linked session
 		if h.coreClient != nil && session.CoreSession != "" {
-			h.coreClient.CloseSession(context.Background(), session.CoreSession)
+			_ = h.coreClient.CloseSession(context.Background(), session.CoreSession)
 		}
 	}
 	delete(h.sessions, sessionID)
@@ -345,7 +345,7 @@ func (h *Handler) handleToolCall(sessionID string, msg *MCPMessage) (*MCPMessage
 		h.sessionsMu.RUnlock()
 
 		if coreSessionID != "" {
-			h.coreClient.RecordToolExecution(
+			_ = h.coreClient.RecordToolExecution(
 				context.Background(),
 				coreSessionID,
 				params.Name,
@@ -411,7 +411,7 @@ func (h *Handler) handleContextOperation(sessionID string, msgID interface{}, op
 		err = h.coreClient.UpdateContext(context.Background(), coreContextID, contextUpdate)
 		if err == nil {
 			// Cache locally for performance
-			h.cache.Set(context.Background(), fmt.Sprintf("context:%s", sessionID), contextUpdate, 5*time.Minute)
+			_ = h.cache.Set(context.Background(), fmt.Sprintf("context:%s", sessionID), contextUpdate, 5*time.Minute)
 			result = map[string]interface{}{"success": true}
 		}
 
@@ -425,7 +425,7 @@ func (h *Handler) handleContextOperation(sessionID string, msgID interface{}, op
 			result, err = h.coreClient.GetContext(context.Background(), coreContextID)
 			if err == nil {
 				// Cache the result
-				h.cache.Set(context.Background(), fmt.Sprintf("context:%s", sessionID), result, 5*time.Minute)
+				_ = h.cache.Set(context.Background(), fmt.Sprintf("context:%s", sessionID), result, 5*time.Minute)
 			}
 		}
 

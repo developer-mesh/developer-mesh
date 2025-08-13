@@ -108,6 +108,13 @@ func (m *mockCache) Close() error {
 	return nil
 }
 
+// Size returns the number of items in the cache
+func (m *mockCache) Size() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return len(m.data)
+}
+
 // mockMetricsClient implements observability.MetricsClient for testing
 type mockMetricsClient struct {
 	counters map[string]float64

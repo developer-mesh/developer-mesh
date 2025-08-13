@@ -41,9 +41,7 @@ func (a *EdgeAuthenticator) AuthenticateRequest(r *http.Request) bool {
 	}
 
 	// Handle Bearer token format
-	if strings.HasPrefix(authHeader, "Bearer ") {
-		authHeader = strings.TrimPrefix(authHeader, "Bearer ")
-	}
+	authHeader = strings.TrimPrefix(authHeader, "Bearer ")
 
 	return authHeader == a.apiKey
 }

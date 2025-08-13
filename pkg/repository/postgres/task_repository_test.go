@@ -385,3 +385,8 @@ func (m *mockCache) Flush(ctx context.Context) error {
 func (m *mockCache) Close() error {
 	return nil
 }
+
+// Size returns the number of items in the cache
+func (m *mockCache) Size() int {
+	return len(m.data)
+}
