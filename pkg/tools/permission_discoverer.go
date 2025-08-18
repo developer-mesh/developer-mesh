@@ -111,7 +111,13 @@ func (d *PermissionDiscoverer) tryEndpoint(ctx context.Context, url string, toke
 	if err != nil || resp.StatusCode >= 400 {
 		return nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			d.logger.Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	perms := &DiscoveredPermissions{
 		RawHeaders: make(map[string]string),
@@ -209,7 +215,13 @@ func (d *PermissionDiscoverer) extractFromHeaders(ctx context.Context, baseURL s
 	if err != nil || resp.StatusCode >= 400 {
 		return nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			d.logger.Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	perms := &DiscoveredPermissions{
 		RawHeaders: make(map[string]string),
@@ -369,7 +381,7 @@ func (d *PermissionDiscoverer) FilterOperationsByPermissions(
 			// Check operation-level security first
 			if operation.Security != nil && len(*operation.Security) > 0 {
 				allowed = d.checkSecurityRequirements(*operation.Security, permissions)
-			} else if spec.Security != nil && len(spec.Security) > 0 {
+			} else if len(spec.Security) > 0 {
 				// Fall back to global security
 				allowed = d.checkSecurityRequirements(spec.Security, permissions)
 			}
@@ -516,7 +528,7 @@ func (d *PermissionDiscoverer) hasSecurityRequirements(operation *openapi3.Opera
 	if operation.Security != nil && len(*operation.Security) > 0 {
 		return true
 	}
-	if spec.Security != nil && len(spec.Security) > 0 {
+	if len(spec.Security) > 0 {
 		return true
 	}
 	return false

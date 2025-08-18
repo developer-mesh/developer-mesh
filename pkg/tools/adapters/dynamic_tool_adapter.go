@@ -1017,7 +1017,7 @@ func (a *DynamicToolAdapter) discoverAndCachePermissions(ctx context.Context, sp
 	}
 
 	// Only discover permissions if we have credentials
-	if a.tool.CredentialsEncrypted == nil || len(a.tool.CredentialsEncrypted) == 0 {
+	if len(a.tool.CredentialsEncrypted) == 0 {
 		a.logger.Debug("No credentials available for permission discovery", map[string]interface{}{})
 		return
 	}
