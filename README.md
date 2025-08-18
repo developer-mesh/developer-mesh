@@ -37,6 +37,13 @@ DevOps teams struggle to integrate AI effectively - managing multiple models, co
 - **Collaboration Support**: Framework for agent coordination
 - **Workload Management**: Track and optimize agent utilization
 
+### Security & Data Protection
+- **Per-Tenant Encryption**: AES-256-GCM with unique keys per tenant (PBKDF2 key derivation)
+- **Credential Protection**: All API keys and secrets encrypted at rest
+- **Forward Secrecy**: Unique salt/nonce per encryption operation
+- **Authenticated Encryption**: GCM mode prevents tampering and ensures data integrity
+- **Tenant Isolation**: Cryptographic isolation prevents cross-tenant data access
+
 ### Intelligent Task Assignment
 <!-- Source: pkg/services/assignment_engine.go -->
 - **Multiple Assignment Strategies**:
@@ -250,6 +257,7 @@ cd developer-mesh
 # Configure environment
 cp .env.example .env
 # Edit .env with your settings (AWS credentials optional for local dev)
+# Note: Default encryption keys are provided for local dev only
 
 # Start all services
 docker-compose -f docker-compose.local.yml up -d

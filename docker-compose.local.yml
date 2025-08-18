@@ -93,10 +93,9 @@ services:
       - RATE_LIMIT_ENABLED=true
       - RATE_LIMIT_REQUESTS=100
       - RATE_LIMIT_PERIOD=1m
-      - CREDENTIAL_ENCRYPTION_KEY=${CREDENTIAL_ENCRYPTION_KEY:-docker-encryption-key-32-chars-ok!}
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-dev_encryption_key_32_chars_long}
       - ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY:-dev_master_key_32_chars_long123}
-      - DEVMESH_ENCRYPTION_KEY=${DEVMESH_ENCRYPTION_KEY:-dev_mesh_key_32_chars_long123456}
+      # Legacy keys for backward compatibility (deprecated - will be removed)
+      - DEVMESH_ENCRYPTION_KEY=${ENCRYPTION_MASTER_KEY:-dev_master_key_32_chars_long123}
       # Feature Flags
       - FEATURE_WEBHOOKS_ENABLED=true
       - FEATURE_VECTOR_SEARCH_ENABLED=true
@@ -210,10 +209,9 @@ services:
       - CORS_ENABLED=true
       - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080
       - RATE_LIMIT_ENABLED=true
-      - CREDENTIAL_ENCRYPTION_KEY=${CREDENTIAL_ENCRYPTION_KEY:-docker-encryption-key-32-chars-ok!}
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-dev_encryption_key_32_chars_long}
       - ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY:-dev_master_key_32_chars_long123}
-      - DEVMESH_ENCRYPTION_KEY=${DEVMESH_ENCRYPTION_KEY:-dev_mesh_key_32_chars_long123456}
+      # Legacy keys for backward compatibility (deprecated - will be removed)
+      - DEVMESH_ENCRYPTION_KEY=${ENCRYPTION_MASTER_KEY:-dev_master_key_32_chars_long123}
       # Feature Flags
       - FEATURE_WEBHOOKS_ENABLED=true
       - FEATURE_VECTOR_SEARCH_ENABLED=true

@@ -25,13 +25,14 @@ The DevOps MCP platform implements a sophisticated per-tenant credential encrypt
    - Handles key rotation and secure token generation
 
 2. **Master Key Management**
-   - Single master key stored in environment variable `ENCRYPTION_KEY`
-   - Used as base material for deriving tenant-specific keys
-   - Never directly used for encryption
+   - All services use `ENCRYPTION_MASTER_KEY` environment variable
+   - Master key is hashed with SHA-256 before use
+   - Never directly used for encryption - only for key derivation
+   - Single key simplifies key rotation and management
 
 3. **Tenant-Specific Key Derivation**
    - Each tenant gets a unique encryption key derived from:
-     - Master key
+     - SHA-256 hash of master key
      - Tenant ID
      - Random salt (per encryption operation)
    - Uses PBKDF2 with SHA-256 and 10,000 iterations
@@ -41,14 +42,19 @@ The DevOps MCP platform implements a sophisticated per-tenant credential encrypt
 ### Encryption Process
 
 ```go
-// 1. Generate random salt (32 bytes)
+// 0. Master key is hashed with SHA-256 on service initialization
+hash := sha256.Sum256([]byte(masterKey))
+masterKeyHash := hash[:]
+
+// 1. Generate random salt (32 bytes) for each encryption
 salt := make([]byte, 32)
 io.ReadFull(rand.Reader, salt)
 
 // 2. Derive tenant-specific key
+info := append(masterKeyHash, []byte(tenantID)...)  // Combine hashed master key + tenant ID
 key := pbkdf2.Key(
-    append(masterKey, tenantID...), // Combine master key + tenant ID
-    salt,                            // Random salt
+    info,                           // Combined key material
+    salt,                           // Random salt
     10000,                          // Iterations
     32,                             // Key size (256 bits)
     sha256.New                      // Hash function
@@ -257,12 +263,11 @@ func RotateKey(oldEncrypted []byte, tenantID string, newMasterKey string) ([]byt
 ### Environment Variables
 
 ```bash
-# Required - Master encryption key (minimum 32 characters)
-ENCRYPTION_KEY=your-very-secure-master-key-here
+# Master encryption key for all services (minimum 32 characters recommended)
+ENCRYPTION_MASTER_KEY=your-very-secure-master-key-here
 
-# Optional - Override default parameters
-ENCRYPTION_SALT_SIZE=32        # Salt size in bytes
-ENCRYPTION_KEY_ITERATIONS=10000 # PBKDF2 iterations
+# Note: Key is SHA-256 hashed, so any length works, but 32+ chars recommended
+# Generate secure key with: openssl rand -base64 32
 ```
 
 ### Security Best Practices

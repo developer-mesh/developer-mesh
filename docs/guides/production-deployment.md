@@ -413,6 +413,10 @@ REDIS_CONSUMER_GROUP=webhook_workers
 # Secrets
 JWT_SECRET=your-jwt-secret
 ADMIN_API_KEY=your-admin-key
+
+# Encryption Key (CRITICAL for production)
+# Generate with: openssl rand -base64 32
+ENCRYPTION_MASTER_KEY=your-secure-master-encryption-key-32chars
 EOF
 
 # Start services

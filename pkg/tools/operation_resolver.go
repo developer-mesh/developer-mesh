@@ -267,7 +267,7 @@ func (r *OperationResolver) scoreOperation(info *ResolvedOperation, context map[
 		if strings.HasPrefix(param, "__") {
 			continue
 		}
-		
+
 		// Check for nested parameters (e.g., parameters.ref)
 		if paramsMap, ok := context["parameters"].(map[string]interface{}); ok {
 			for nestedParam := range paramsMap {
@@ -277,7 +277,7 @@ func (r *OperationResolver) scoreOperation(info *ResolvedOperation, context map[
 					score += 100 // Very high score for ref parameter matching ref operation
 					r.logger.Debug("Boosting score for ref parameter match", map[string]interface{}{
 						"operation_id": info.OperationID,
-						"boost": 100,
+						"boost":        100,
 					})
 				}
 				if nestedParam == "tree" && strings.Contains(strings.ToLower(info.OperationID), "tree") {
@@ -288,12 +288,12 @@ func (r *OperationResolver) scoreOperation(info *ResolvedOperation, context map[
 				}
 			}
 		}
-		
+
 		// Direct parameter matching
 		if param == "ref" && strings.Contains(strings.ToLower(info.OperationID), "ref") {
 			score += 100 // Very high score for ref parameter matching ref operation
 		}
-		
+
 		if strings.Contains(info.Path, "{"+param+"}") {
 			score += 10 // High score for exact parameter match in path
 		}

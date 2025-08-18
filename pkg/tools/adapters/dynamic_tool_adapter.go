@@ -794,7 +794,16 @@ func (a *DynamicToolAdapter) buildRequest(
 		}
 		param := paramRef.Value
 
+		// Try to find the parameter value
+		// First check direct params, then check nested in "parameters" map
 		value, exists := params[param.Name]
+		if !exists {
+			// Check if parameter is nested in "parameters" map (common for MCP tools)
+			if paramsMap, ok := params["parameters"].(map[string]interface{}); ok {
+				value, exists = paramsMap[param.Name]
+			}
+		}
+
 		if !exists && param.Required {
 			return nil, fmt.Errorf("required parameter missing: %s", param.Name)
 		}
@@ -802,7 +811,14 @@ func (a *DynamicToolAdapter) buildRequest(
 		if exists {
 			switch param.In {
 			case "path":
-				urlPath = strings.ReplaceAll(urlPath, "{"+param.Name+"}", fmt.Sprintf("%v", value))
+				// For path parameters like {ref}, handle special encoding for Git refs
+				pathValue := fmt.Sprintf("%v", value)
+				// For Git refs, we need to URL encode but preserve the forward slashes
+				if param.Name == "ref" && strings.HasPrefix(pathValue, "refs/") {
+					// Remove "refs/" prefix for the path parameter
+					pathValue = strings.TrimPrefix(pathValue, "refs/")
+				}
+				urlPath = strings.ReplaceAll(urlPath, "{"+param.Name+"}", pathValue)
 			case "query":
 				queryParams.Set(param.Name, fmt.Sprintf("%v", value))
 			case "header":

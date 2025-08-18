@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Unified Encryption Key**: Consolidated to single `ENCRYPTION_MASTER_KEY` for all services
+  - Both REST API and MCP Server now use the same `ENCRYPTION_MASTER_KEY` environment variable
+  - Deprecated `DEVMESH_ENCRYPTION_KEY` (falls back to `ENCRYPTION_MASTER_KEY` for backward compatibility)
+  - Removed `ENCRYPTION_KEY` and `CREDENTIAL_ENCRYPTION_KEY` variables
+  - Simplifies key management and rotation in production
+  - Updated all configuration files and documentation
+
+### Documentation
+- **Encryption Documentation**: Clarified and corrected encryption key configuration
+  - Updated `docs/ENVIRONMENT_VARIABLES.md` to reflect single master key
+  - Fixed `docs/configuration/encryption-keys.md` with unified key approach
+  - Added technical details about AES-256-GCM and per-tenant key derivation
+  - Updated all deployment guides to use single `ENCRYPTION_MASTER_KEY`
+  - Added migration instructions for existing deployments
+  - Updated README with security features section
+
 ## [0.0.2] - 2025-01-18
 
 ### Added

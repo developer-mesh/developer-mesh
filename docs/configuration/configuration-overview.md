@@ -179,13 +179,13 @@ aws:
 
 ```yaml
 encryption:
-  # Master keys for encryption
-  rest_api_key: ${DEVMESH_ENCRYPTION_KEY}
-  mcp_server_key: ${ENCRYPTION_MASTER_KEY}
+  # Single master key for all services
+  master_key: ${ENCRYPTION_MASTER_KEY}
   
   # Key requirements
-  min_key_length: 32             # Minimum 32 characters
+  min_key_length: 32             # Minimum 32 characters recommended
   algorithm: "AES-256-GCM"       # Encryption algorithm
+  key_derivation: "PBKDF2"      # Per-tenant key derivation
 ```
 
 ## Environment-Specific Configurations

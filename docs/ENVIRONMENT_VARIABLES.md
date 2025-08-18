@@ -85,16 +85,23 @@ These variables are aliases for the above and work identically:
 ## Authentication & Security
 
 ### Encryption Keys
-**IMPORTANT**: All encryption keys must be at least 32 characters long for AES-256 encryption.
+**IMPORTANT**: A single master encryption key is used by all services. It should be at least 32 characters long for AES-256 encryption.
 
-| Variable | Description | Default | Required | Services |
-|----------|-------------|---------|----------|----------|
-| `CREDENTIAL_ENCRYPTION_KEY` | Key for encrypting tool credentials | - | Yes* | REST API, Worker |
-| `DEVMESH_ENCRYPTION_KEY` | REST API encryption key | - | Yes* | REST API |
-| `ENCRYPTION_MASTER_KEY` | MCP Server encryption key | - | Yes* | MCP Server |
-| `ENCRYPTION_KEY` | Legacy encryption key | - | No | All |
+| Variable | Description | Default (Development) | Required | Services |
+|----------|-------------|----------------------|----------|----------|
+| `ENCRYPTION_MASTER_KEY` | Master encryption key for all services | `dev_master_key_32_chars_long123` | Yes* | All services |
+| `DEVMESH_ENCRYPTION_KEY` | **DEPRECATED** - Use ENCRYPTION_MASTER_KEY | Falls back to ENCRYPTION_MASTER_KEY | No | REST API (legacy) |
 
-*Required for production. Development environments will generate temporary keys with warnings.
+*Required for production. Development environments have defaults but will show warnings if not explicitly set.
+
+**How It Works**:
+- A single `ENCRYPTION_MASTER_KEY` is used by all services for consistency
+- The encryption service uses AES-256-GCM with authenticated encryption
+- Each tenant's credentials are encrypted with a unique key derived from: master key + tenant ID + salt
+- Keys are hashed with SHA-256 before use, so any length works (but 32+ chars recommended)
+- Per-tenant isolation ensures one tenant cannot decrypt another tenant's credentials
+
+**Migration Note**: If you're currently using `DEVMESH_ENCRYPTION_KEY`, migrate to `ENCRYPTION_MASTER_KEY`. The system will fall back to the old key for backward compatibility but will log deprecation warnings.
 
 ### API Keys
 | Variable | Description | Default | Required | Services |
@@ -281,10 +288,8 @@ export JWT_SECRET=dev-secret
 
 ### Full Production Setup
 ```bash
-# Security
-export CREDENTIAL_ENCRYPTION_KEY=$(openssl rand -base64 32)
-export DEVMESH_ENCRYPTION_KEY=$(openssl rand -base64 32)
-export ENCRYPTION_MASTER_KEY=$(openssl rand -base64 32)
+# Security - Encryption Key (CRITICAL for production)
+export ENCRYPTION_MASTER_KEY=$(openssl rand -base64 32)    # Single master key for all services
 export JWT_SECRET=$(openssl rand -base64 32)
 
 # Database

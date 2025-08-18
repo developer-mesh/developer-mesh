@@ -162,6 +162,14 @@ CipherSuites: []uint16{
 ### Encryption at Rest
 
 **Current Implementation**:
+- **Application-Level Credential Encryption** (`pkg/security/encryption.go`):
+  - AES-256-GCM encryption with per-tenant key derivation
+  - All API keys and secrets encrypted before database storage
+  - Each tenant has unique encryption key derived from master key + tenant ID + salt
+  - PBKDF2 with 10,000 iterations for key derivation
+  - Forward secrecy through unique salt per encryption operation
+  - Required environment variable:
+    - `ENCRYPTION_MASTER_KEY` for all services
 - PostgreSQL: Standard encryption (depends on deployment)
 - Redis: Data not encrypted at rest by default
 - S3: Server-side encryption enabled (SSE-S3)
@@ -842,6 +850,9 @@ docker-compose up -d mcp-server
 ### Configuration Required ⚠️
 - [ ] TLS certificates for production
 - [ ] Strong JWT secrets and API keys
+- [ ] Strong encryption key (32+ characters):
+  - [ ] `ENCRYPTION_MASTER_KEY` for all services
+  - [ ] Generate with: `openssl rand -base64 32`
 - [ ] Database encryption at rest
 - [ ] Log retention and rotation
 - [ ] Firewall rules

@@ -712,9 +712,9 @@ func createAuthorizer(cacheClient cache.Cache, logger observability.Logger, metr
 // createEncryptionService creates the appropriate encryption service
 func createEncryptionService(logger observability.Logger) services.EncryptionService {
 	// Check for encryption key in environment
-	encryptionKey := os.Getenv("ENCRYPTION_KEY")
+	encryptionKey := os.Getenv("ENCRYPTION_MASTER_KEY")
 	if encryptionKey == "" {
-		logger.Warn("ENCRYPTION_KEY not set, using no-op encryption service", nil)
+		logger.Warn("ENCRYPTION_MASTER_KEY not set, using no-op encryption service", nil)
 		return services.NewNoOpEncryptionService()
 	}
 
