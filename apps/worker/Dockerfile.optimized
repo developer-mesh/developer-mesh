@@ -1,0 +1,82 @@
+# syntax=docker/dockerfile:1
+# Optimized Dockerfile for worker with build caching
+
+# Build arguments
+ARG VERSION=dev
+ARG COMMIT_SHA=unknown
+ARG BUILD_DATE
+
+# Build stage
+FROM golang:1.24-alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache git ca-certificates tzdata
+
+# Set working directory
+WORKDIR /workspace
+
+# CRITICAL OPTIMIZATION: Copy workspace files first for better caching
+COPY go.work go.work.sum ./
+
+# Copy all module files for dependency resolution
+COPY apps/mcp-server/go.mod apps/mcp-server/go.sum ./apps/mcp-server/
+COPY apps/rest-api/go.mod apps/rest-api/go.sum ./apps/rest-api/
+COPY apps/worker/go.mod apps/worker/go.sum ./apps/worker/
+COPY apps/mockserver/go.mod apps/mockserver/go.sum ./apps/mockserver/
+COPY pkg/go.mod pkg/go.sum ./pkg/
+
+# Download dependencies with caching
+# This layer is cached unless go.mod/go.sum files change
+WORKDIR /workspace/apps/worker
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    GOWORK=/workspace/go.work go mod download
+
+# Now copy the source code
+WORKDIR /workspace
+COPY . .
+
+# Build with cache mounts for 10-20x faster builds
+WORKDIR /workspace/apps/worker
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    GOWORK=/workspace/go.work \
+    go build -ldflags="-w -s -X main.Version=${VERSION} -X main.GitCommit=${COMMIT_SHA} -X main.BuildDate=${BUILD_DATE}" \
+    -o /tmp/worker ./cmd/worker
+
+# Final stage - unchanged for security
+FROM gcr.io/distroless/static:nonroot
+
+# Copy binary
+COPY --from=builder /tmp/worker /app/worker
+
+# Copy configuration files
+COPY --chown=nonroot:nonroot apps/worker/configs /app/configs
+
+# Set working directory
+WORKDIR /app
+
+# Use non-root user
+USER nonroot
+
+# Expose port (if needed)
+EXPOSE 8082
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD ["/app/worker", "-health-check"]
+
+# Minimal environment variables
+ENV PORT=8082
+
+# Metadata labels
+ARG VERSION
+ARG COMMIT_SHA  
+ARG BUILD_DATE
+LABEL org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${COMMIT_SHA}" \
+      org.opencontainers.image.created="${BUILD_DATE}"
+
+# Run the application
+ENTRYPOINT ["/app/worker"]

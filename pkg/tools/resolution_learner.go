@@ -513,7 +513,7 @@ func (l *ResolutionLearner) PruneOldHistory(ctx context.Context, olderThan time.
 				`
 				if _, err := l.db.ExecContext(ctx, updateQuery, updatedJSON, toolID); err != nil {
 					l.logger.Warn("Failed to update resolution history", map[string]interface{}{
-						"error": err.Error(),
+						"error":  err.Error(),
 						"toolID": toolID,
 					})
 				}

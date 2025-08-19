@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/developer-mesh/developer-mesh/pkg/adapters/mcp"
 	"github.com/developer-mesh/developer-mesh/pkg/adapters/mcp/resources"
@@ -66,6 +67,9 @@ type MCPProtocolHandler struct {
 	telemetry       *MCPTelemetry
 	// Resilience
 	circuitBreakers *ToolCircuitBreakerManager
+	// Tool enhancement
+	toolEnhancer    *MCPToolEnhancer
+	db              *sqlx.DB
 }
 
 // NewMCPProtocolHandler creates a new MCP protocol handler
@@ -83,6 +87,14 @@ func NewMCPProtocolHandler(
 		toolNameCache:    make(map[string]map[string]string),
 		telemetry:        NewMCPTelemetry(logger),
 		circuitBreakers:  NewToolCircuitBreakerManager(logger),
+	}
+}
+
+// SetDatabase sets the database connection for tool enhancement
+func (h *MCPProtocolHandler) SetDatabase(db *sqlx.DB) {
+	h.db = db
+	if db != nil {
+		h.toolEnhancer = NewMCPToolEnhancer(db, h.restAPIClient, h.logger)
 	}
 }
 
@@ -559,24 +571,50 @@ func (h *MCPProtocolHandler) handleToolsList(conn *websocket.Conn, connID, tenan
 
 	// Transform dynamic tools to MCP format
 	for _, tool := range tools {
-		// Generate minimal inputSchema to reduce context usage
-		// This creates tool-specific schemas based on naming patterns
-		inputSchema := h.generateMinimalInputSchema(tool.ToolName)
-
-		// Use tool name for consistency
-		name := tool.ToolName
-
-		// Get tool description
-		description := tool.DisplayName
-		if description == "" {
-			description = fmt.Sprintf("%s integration", name)
+		var mcpTool map[string]interface{}
+		
+		// Use the enhancer if available for better schemas
+		if h.toolEnhancer != nil {
+			// tool is already a pointer (*models.DynamicTool)
+			enhanced, err := h.toolEnhancer.GenerateEnhancedSchema(ctx, tool)
+			if err == nil && enhanced != nil {
+				mcpTool = map[string]interface{}{
+					"name":        enhanced.Name,
+					"description": enhanced.Description,
+					"inputSchema": enhanced.InputSchema,
+				}
+				
+				// Add hints and examples as metadata for AI understanding
+				if len(enhanced.Examples) > 0 {
+					mcpTool["x-examples"] = enhanced.Examples
+				}
+				if len(enhanced.Hints) > 0 {
+					mcpTool["x-hints"] = enhanced.Hints
+				}
+			}
 		}
-
-		mcpTools = append(mcpTools, map[string]interface{}{
-			"name":        name,
-			"description": description,
-			"inputSchema": inputSchema,
-		})
+		
+		// Fallback to minimal schema if enhancer not available or failed
+		if mcpTool == nil {
+			inputSchema := h.generateMinimalInputSchema(tool.ToolName)
+			
+			// Use tool name for consistency
+			name := tool.ToolName
+			
+			// Get tool description
+			description := tool.DisplayName
+			if description == "" {
+				description = fmt.Sprintf("%s integration", name)
+			}
+			
+			mcpTool = map[string]interface{}{
+				"name":        name,
+				"description": description,
+				"inputSchema": inputSchema,
+			}
+		}
+		
+		mcpTools = append(mcpTools, mcpTool)
 	}
 
 	// Cache the tools list

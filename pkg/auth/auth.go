@@ -213,14 +213,16 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 			"provided_key_suffix": getKeyPrefix(apiKey),
 			"exists":              exists,
 			"total_keys_loaded":   len(s.apiKeys),
+			"db_available":        s.db != nil,
 		})
 	}
 	s.mu.RUnlock()
 
 	// If not found in memory and we have a database connection (production mode)
 	if !exists && s.db != nil {
-		s.logDebug("API key not in memory, checking database", map[string]interface{}{
+		s.logInfo("API key not in memory, checking database", map[string]interface{}{
 			"key_prefix": getKeyPrefix(apiKey),
+			"db_not_nil": s.db != nil,
 		})
 
 		// Hash the API key to match stored hash
@@ -246,16 +248,23 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 			AllowedServices pq.StringArray `db:"allowed_services"`
 		}
 
+		s.logInfo("Executing database query for API key", map[string]interface{}{
+			"key_hash": keyHash[:8] + "...",
+			"query":    "SELECT FROM mcp.api_keys WHERE key_hash = $1",
+		})
+
 		err := s.db.Get(&dbKey, query, keyHash)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				s.logInfo("API key not found in database", map[string]interface{}{
 					"key_prefix": getKeyPrefix(apiKey),
+					"key_hash":   keyHash[:8] + "...",
 				})
 				return nil, ErrInvalidAPIKey
 			}
 			s.logError("Failed to query API key from database", map[string]interface{}{
-				"error": err.Error(),
+				"error":    err.Error(),
+				"key_hash": keyHash[:8] + "...",
 			})
 			return nil, fmt.Errorf("database error: %w", err)
 		}

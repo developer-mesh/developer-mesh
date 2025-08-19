@@ -93,9 +93,7 @@ services:
       - RATE_LIMIT_ENABLED=true
       - RATE_LIMIT_REQUESTS=100
       - RATE_LIMIT_PERIOD=1m
-      - ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY:-dev_master_key_32_chars_long123}
-      # Legacy keys for backward compatibility (deprecated - will be removed)
-      - DEVMESH_ENCRYPTION_KEY=${ENCRYPTION_MASTER_KEY:-dev_master_key_32_chars_long123}
+      - ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY:-ZGV2X21hc3Rlcl9rZXlfMzJfY2hhcnNfbG9uZzEyMw==}
       # Feature Flags
       - FEATURE_WEBHOOKS_ENABLED=true
       - FEATURE_VECTOR_SEARCH_ENABLED=true
@@ -209,9 +207,7 @@ services:
       - CORS_ENABLED=true
       - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080
       - RATE_LIMIT_ENABLED=true
-      - ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY:-dev_master_key_32_chars_long123}
-      # Legacy keys for backward compatibility (deprecated - will be removed)
-      - DEVMESH_ENCRYPTION_KEY=${ENCRYPTION_MASTER_KEY:-dev_master_key_32_chars_long123}
+      - ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY:-ZGV2X21hc3Rlcl9rZXlfMzJfY2hhcnNfbG9uZzEyMw==}
       # Feature Flags
       - FEATURE_WEBHOOKS_ENABLED=true
       - FEATURE_VECTOR_SEARCH_ENABLED=true

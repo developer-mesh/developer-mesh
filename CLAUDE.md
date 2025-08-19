@@ -16,6 +16,7 @@
 | GitHub PRs | `mcp__devmesh__github_pulls` | `gh pr` |
 | GitHub actions | `mcp__devmesh__github_actions` | `gh workflow` |
 | Any GitHub operation | `mcp__devmesh__github_*` | `gh` CLI |
+| Snyk security scans | `mcp__devmesh__snyk` | `snyk` CLI, API calls |
 | API calls | MCP API tools | `curl`, `WebFetch` |
 | Database operations | MCP database tools | `psql` via Bash |
 

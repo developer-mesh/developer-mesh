@@ -5,18 +5,22 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
 // SchemaGenerator generates MCP-compatible tool schemas from OpenAPI specs
+// Enhanced with 2025 AI agent best practices for better tool discovery
 type SchemaGenerator struct {
 	// Configuration for schema generation
 	MaxOperationsPerTool int
 	GroupByTag           bool
 	IncludeDeprecated    bool
+	EnhanceForAI         bool // Enable AI-friendly enhancements
 
 	// Operation grouper for multi-tool generation
 	grouper *OperationGrouper
+	logger  observability.Logger
 }
 
 // NewSchemaGenerator creates a new schema generator with default settings
@@ -25,8 +29,17 @@ func NewSchemaGenerator() *SchemaGenerator {
 		MaxOperationsPerTool: 50,   // Limit operations per tool to avoid overwhelming agents
 		GroupByTag:           true, // Group operations by tag for better organization
 		IncludeDeprecated:    false,
+		EnhanceForAI:         true, // Enable AI enhancements by default
 		grouper:              NewOperationGrouper(),
+		logger:               observability.NewStandardLogger("schema-generator"),
 	}
+}
+
+// NewSchemaGeneratorWithLogger creates a schema generator with a custom logger
+func NewSchemaGeneratorWithLogger(logger observability.Logger) *SchemaGenerator {
+	gen := NewSchemaGenerator()
+	gen.logger = logger
+	return gen
 }
 
 // GenerateMCPSchema generates an MCP-compatible schema from an OpenAPI spec
@@ -333,9 +346,10 @@ func (g *SchemaGenerator) extractOperationParameters(operation *openapi3.Operati
 }
 
 // parameterToSchema converts an OpenAPI parameter to MCP schema
+// Enhanced with AI-friendly descriptions and examples
 func (g *SchemaGenerator) parameterToSchema(param *openapi3.Parameter) map[string]interface{} {
 	schema := map[string]interface{}{
-		"description": param.Description,
+		"description": g.enhanceParameterDescription(param),
 	}
 
 	if param.Schema != nil && param.Schema.Value != nil {
@@ -343,6 +357,27 @@ func (g *SchemaGenerator) parameterToSchema(param *openapi3.Parameter) map[strin
 		schemaValue := param.Schema.Value
 		if schemaValue.Type != nil {
 			schema["type"] = g.getSchemaType(schemaValue)
+		}
+
+		// Add AI enhancements
+		if g.EnhanceForAI {
+			// Add example if available
+			if param.Example != nil {
+				schema["example"] = param.Example
+			} else if param.Examples != nil && len(param.Examples) > 0 {
+				// Extract first example
+				for _, ex := range param.Examples {
+					if ex.Value != nil && ex.Value.Value != nil {
+						schema["example"] = ex.Value.Value
+						break
+					}
+				}
+			}
+
+			// Add parameter location hint
+			if param.In != "" {
+				schema["x-parameter-location"] = param.In
+			}
 		}
 		if len(schemaValue.Enum) > 0 {
 			schema["enum"] = schemaValue.Enum
@@ -363,6 +398,68 @@ func (g *SchemaGenerator) parameterToSchema(param *openapi3.Parameter) map[strin
 	}
 
 	return schema
+}
+
+// enhanceParameterDescription creates an AI-friendly parameter description
+func (g *SchemaGenerator) enhanceParameterDescription(param *openapi3.Parameter) string {
+	var desc strings.Builder
+
+	// Base description
+	if param.Description != "" {
+		desc.WriteString(param.Description)
+	} else {
+		desc.WriteString(fmt.Sprintf("%s parameter", strings.Title(param.Name)))
+	}
+
+	if !g.EnhanceForAI {
+		return desc.String()
+	}
+
+	// Add location context for AI
+	switch param.In {
+	case "path":
+		desc.WriteString(" (URL path parameter)")
+	case "query":
+		desc.WriteString(" (query string parameter)")
+	case "header":
+		desc.WriteString(" (HTTP header)")
+	case "cookie":
+		desc.WriteString(" (cookie value)")
+	}
+
+	// Add requirement status
+	if param.Required {
+		desc.WriteString(" [REQUIRED]")
+	} else {
+		desc.WriteString(" [OPTIONAL]")
+	}
+
+	// Add schema constraints if available
+	if param.Schema != nil && param.Schema.Value != nil {
+		schema := param.Schema.Value
+
+		// Add enum values if present
+		if len(schema.Enum) > 0 && len(schema.Enum) <= 10 {
+			desc.WriteString(". Allowed values: ")
+			enumStrs := make([]string, len(schema.Enum))
+			for i, v := range schema.Enum {
+				enumStrs[i] = fmt.Sprintf("%v", v)
+			}
+			desc.WriteString(strings.Join(enumStrs, ", "))
+		}
+
+		// Add format hint
+		if schema.Format != "" {
+			desc.WriteString(fmt.Sprintf(". Format: %s", schema.Format))
+		}
+
+		// Add pattern if present
+		if schema.Pattern != "" && len(schema.Pattern) < 50 {
+			desc.WriteString(fmt.Sprintf(". Pattern: %s", schema.Pattern))
+		}
+	}
+
+	return desc.String()
 }
 
 // schemaToMCPSchema converts an OpenAPI schema to MCP schema
@@ -466,35 +563,171 @@ func (g *SchemaGenerator) getSchemaType(schema *openapi3.Schema) string {
 }
 
 // generateOperationID generates an operation ID from method and path
+// Enhanced to follow 2025 AI agent naming conventions (snake_case, max 60 chars)
 func (g *SchemaGenerator) generateOperationID(method, path string) string {
-	// Clean the path
-	parts := strings.Split(strings.Trim(path, "/"), "/")
-	cleanParts := []string{strings.ToLower(method)}
-
-	for _, part := range parts {
-		// Skip parameters and version indicators
-		if strings.HasPrefix(part, "{") || part == "v1" || part == "v2" || part == "api" {
-			continue
+	if !g.EnhanceForAI {
+		// Original behavior
+		parts := strings.Split(strings.Trim(path, "/"), "/")
+		cleanParts := []string{strings.ToLower(method)}
+		for _, part := range parts {
+			if strings.HasPrefix(part, "{") || part == "v1" || part == "v2" || part == "api" {
+				continue
+			}
+			cleanParts = append(cleanParts, part)
 		}
-		cleanParts = append(cleanParts, part)
+		return strings.Join(cleanParts, "_")
 	}
 
-	return strings.Join(cleanParts, "_")
+	// Enhanced AI-friendly operation ID generation
+	// Following Google ADK and OpenAI standards
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	var cleanParts []string
+
+	// Use semantic verb mapping for common REST operations
+	verb := g.mapMethodToSemanticVerb(method, path)
+	cleanParts = append(cleanParts, verb)
+
+	// Extract resource names from path
+	for i, part := range parts {
+		// Skip version indicators and generic terms
+		if part == "v1" || part == "v2" || part == "api" || part == "rest" {
+			continue
+		}
+
+		// Handle path parameters intelligently
+		if strings.HasPrefix(part, "{") && strings.HasSuffix(part, "}") {
+			// Include context about what's being identified
+			if i > 0 && i == len(parts)-1 {
+				// Last segment parameter, likely an ID
+				cleanParts = append(cleanParts, "by_id")
+			}
+			continue
+		}
+
+		// Convert to snake_case
+		cleanParts = append(cleanParts, toSnakeCase(part))
+	}
+
+	// Generate ID and enforce length limit
+	id := strings.Join(cleanParts, "_")
+	if len(id) > 60 {
+		id = id[:60]
+	}
+
+	return id
+}
+
+// mapMethodToSemanticVerb maps HTTP methods to semantic verbs for AI understanding
+func (g *SchemaGenerator) mapMethodToSemanticVerb(method, path string) string {
+	methodLower := strings.ToLower(method)
+	pathLower := strings.ToLower(path)
+
+	switch methodLower {
+	case "get":
+		if strings.Contains(pathLower, "search") || strings.Contains(pathLower, "query") {
+			return "search"
+		}
+		if strings.Contains(pathLower, "list") || !strings.Contains(path, "{") {
+			return "list"
+		}
+		return "get"
+	case "post":
+		if strings.Contains(pathLower, "search") {
+			return "search"
+		}
+		if strings.Contains(pathLower, "execute") || strings.Contains(pathLower, "run") {
+			return "execute"
+		}
+		return "create"
+	case "put":
+		return "update"
+	case "patch":
+		return "patch"
+	case "delete":
+		return "delete"
+	default:
+		return methodLower
+	}
+}
+
+// toSnakeCase converts a string to snake_case
+func toSnakeCase(s string) string {
+	var result strings.Builder
+	for i, r := range s {
+		if i > 0 && r >= 'A' && r <= 'Z' {
+			result.WriteRune('_')
+		}
+		result.WriteRune(r)
+	}
+	return strings.ToLower(result.String())
 }
 
 // getOperationDescription gets a description for an operation
+// Enhanced with AI-friendly descriptions following 2025 best practices
 func (g *SchemaGenerator) getOperationDescription(operation *openapi3.Operation) string {
-	if operation.Summary != "" {
-		return operation.Summary
-	}
-	if operation.Description != "" {
-		// Truncate long descriptions
-		if len(operation.Description) > 200 {
-			return operation.Description[:197] + "..."
+	if !g.EnhanceForAI {
+		// Original behavior
+		if operation.Summary != "" {
+			return operation.Summary
 		}
-		return operation.Description
+		if operation.Description != "" {
+			// Truncate long descriptions
+			if len(operation.Description) > 200 {
+				return operation.Description[:197] + "..."
+			}
+			return operation.Description
+		}
+		return "API operation"
 	}
-	return "API operation"
+
+	// Enhanced AI-friendly description
+	var desc strings.Builder
+
+	// Primary description from summary or description
+	if operation.Summary != "" {
+		desc.WriteString(operation.Summary)
+	} else if operation.Description != "" {
+		lines := strings.Split(operation.Description, "\n")
+		if len(lines) > 0 {
+			desc.WriteString(lines[0])
+		}
+	} else {
+		desc.WriteString("Perform API operation")
+	}
+
+	// Add parameter context for AI understanding
+	if len(operation.Parameters) > 0 {
+		requiredParams := []string{}
+		optionalParams := []string{}
+		for _, param := range operation.Parameters {
+			if param.Value != nil {
+				if param.Value.Required {
+					requiredParams = append(requiredParams, param.Value.Name)
+				} else {
+					optionalParams = append(optionalParams, param.Value.Name)
+				}
+			}
+		}
+		if len(requiredParams) > 0 {
+			desc.WriteString(". Required: ")
+			desc.WriteString(strings.Join(requiredParams, ", "))
+		}
+		if len(optionalParams) > 0 {
+			desc.WriteString(". Optional: ")
+			desc.WriteString(strings.Join(optionalParams, ", "))
+		}
+	}
+
+	// Add response context
+	if operation.Responses != nil && operation.Responses.Status(200) != nil {
+		resp200 := operation.Responses.Status(200)
+		if resp200.Value != nil && resp200.Value.Description != nil && *resp200.Value.Description != "" {
+			desc.WriteString(". Returns: ")
+			desc.WriteString(*resp200.Value.Description)
+		}
+	}
+
+	return desc.String()
 }
 
 // mergeSchemas attempts to merge two schemas intelligently
@@ -664,4 +897,220 @@ func (g *SchemaGenerator) ConfigureGrouping(strategy GroupingStrategy, maxPerGro
 		g.grouper.GroupingStrategy = strategy
 		g.grouper.MaxOperationsPerGroup = maxPerGroup
 	}
+}
+
+// GenerateAIEnhancedSchema generates a schema with AI agent enhancements
+// This method provides the best possible schema for AI agents to understand tools
+func (g *SchemaGenerator) GenerateAIEnhancedSchema(spec *openapi3.T, toolName string) (map[string]interface{}, error) {
+	if spec == nil {
+		return nil, fmt.Errorf("OpenAPI spec is nil")
+	}
+
+	// Ensure AI enhancements are enabled
+	originalEnhance := g.EnhanceForAI
+	g.EnhanceForAI = true
+	defer func() { g.EnhanceForAI = originalEnhance }()
+
+	// Extract tool metadata
+	toolInfo := g.extractToolMetadata(spec, toolName)
+
+	// Generate operation schemas
+	operations, err := g.GenerateOperationSchemas(spec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate operation schemas: %w", err)
+	}
+
+	// Build enhanced schema following MCP standards
+	schema := map[string]interface{}{
+		"name":        toolInfo["name"],
+		"description": toolInfo["description"],
+		"version":     toolInfo["version"],
+		"operations":  operations,
+	}
+
+	// Add semantic categories for better AI understanding
+	if categories := g.extractSemanticCategories(spec); len(categories) > 0 {
+		schema["categories"] = categories
+	}
+
+	// Add usage examples if available
+	if examples := g.extractUsageExamples(spec); len(examples) > 0 {
+		schema["examples"] = examples
+	}
+
+	// Add authentication requirements
+	if authInfo := g.extractAuthenticationInfo(spec); authInfo != nil {
+		schema["authentication"] = authInfo
+	}
+
+	return schema, nil
+}
+
+// extractToolMetadata extracts metadata about the tool from the spec
+func (g *SchemaGenerator) extractToolMetadata(spec *openapi3.T, toolName string) map[string]interface{} {
+	metadata := map[string]interface{}{
+		"name": toolName,
+	}
+
+	if spec.Info != nil {
+		if spec.Info.Title != "" {
+			metadata["display_name"] = spec.Info.Title
+		}
+
+		// Generate comprehensive description
+		var desc strings.Builder
+		if spec.Info.Description != "" {
+			desc.WriteString(spec.Info.Description)
+		} else if spec.Info.Title != "" {
+			desc.WriteString(fmt.Sprintf("API for %s", spec.Info.Title))
+		}
+
+		// Add contact info if available
+		if spec.Info.Contact != nil {
+			if spec.Info.Contact.URL != "" {
+				desc.WriteString(fmt.Sprintf(". Documentation: %s", spec.Info.Contact.URL))
+			}
+		}
+
+		metadata["description"] = desc.String()
+
+		if spec.Info.Version != "" {
+			metadata["version"] = spec.Info.Version
+		}
+	}
+
+	return metadata
+}
+
+// extractSemanticCategories extracts categories from tags and paths
+func (g *SchemaGenerator) extractSemanticCategories(spec *openapi3.T) []map[string]interface{} {
+	categories := make(map[string]map[string]interface{})
+
+	// Extract from tags
+	if spec.Tags != nil {
+		for _, tag := range spec.Tags {
+			if tag.Name != "" {
+				categories[tag.Name] = map[string]interface{}{
+					"name":        tag.Name,
+					"description": tag.Description,
+				}
+			}
+		}
+	}
+
+	// Extract from paths
+	for path := range spec.Paths.Map() {
+		parts := strings.Split(strings.Trim(path, "/"), "/")
+		if len(parts) > 0 {
+			category := parts[0]
+			// Skip version indicators
+			if category == "v1" || category == "v2" || category == "api" {
+				if len(parts) > 1 {
+					category = parts[1]
+				}
+			}
+
+			if _, exists := categories[category]; !exists {
+				categories[category] = map[string]interface{}{
+					"name":        category,
+					"description": fmt.Sprintf("Operations related to %s", category),
+				}
+			}
+		}
+	}
+
+	// Convert to slice
+	result := make([]map[string]interface{}, 0, len(categories))
+	for _, cat := range categories {
+		result = append(result, cat)
+	}
+
+	return result
+}
+
+// extractUsageExamples extracts examples from the spec
+func (g *SchemaGenerator) extractUsageExamples(spec *openapi3.T) []map[string]interface{} {
+	examples := []map[string]interface{}{}
+
+	// Look for examples in a few common operations
+	for path, pathItem := range spec.Paths.Map() {
+		if pathItem == nil {
+			continue
+		}
+
+		for method, operation := range pathItem.Operations() {
+			if operation == nil || operation.RequestBody == nil {
+				continue
+			}
+
+			if content := operation.RequestBody.Value.Content.Get("application/json"); content != nil {
+				if content.Example != nil {
+					examples = append(examples, map[string]interface{}{
+						"operation":   operation.OperationID,
+						"method":      method,
+						"path":        path,
+						"description": operation.Summary,
+						"request":     content.Example,
+					})
+				}
+
+				if len(examples) >= 3 {
+					break // Limit examples
+				}
+			}
+		}
+
+		if len(examples) >= 3 {
+			break
+		}
+	}
+
+	return examples
+}
+
+// extractAuthenticationInfo extracts authentication requirements
+func (g *SchemaGenerator) extractAuthenticationInfo(spec *openapi3.T) map[string]interface{} {
+	if spec.Components == nil || len(spec.Components.SecuritySchemes) == 0 {
+		return nil
+	}
+
+	authInfo := make(map[string]interface{})
+	schemes := []map[string]interface{}{}
+
+	for name, schemeRef := range spec.Components.SecuritySchemes {
+		if schemeRef.Value == nil {
+			continue
+		}
+
+		scheme := schemeRef.Value
+		schemeInfo := map[string]interface{}{
+			"name": name,
+			"type": scheme.Type,
+		}
+
+		if scheme.Description != "" {
+			schemeInfo["description"] = scheme.Description
+		}
+
+		switch scheme.Type {
+		case "apiKey":
+			schemeInfo["in"] = scheme.In
+			schemeInfo["name"] = scheme.Name
+		case "http":
+			schemeInfo["scheme"] = scheme.Scheme
+		case "oauth2":
+			if scheme.Flows != nil {
+				schemeInfo["flows"] = "OAuth2"
+			}
+		}
+
+		schemes = append(schemes, schemeInfo)
+	}
+
+	if len(schemes) > 0 {
+		authInfo["schemes"] = schemes
+		authInfo["required"] = len(spec.Security) > 0
+	}
+
+	return authInfo
 }

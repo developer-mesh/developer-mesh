@@ -1,5 +1,13 @@
 # MCP Server - Model Context Protocol Server
 
+## 🚨 CRITICAL: Use MCP Tools via DevMesh Connection
+
+When working on this service, remember:
+1. **ALWAYS use `mcp__devmesh__github_*` tools** for GitHub operations
+2. **ALWAYS use `mcp__devmesh__snyk` tool** for security scanning
+3. **DO NOT use CLI tools** (`git`, `gh`, `snyk`) when MCP equivalents exist
+4. Check `tools/list` to see available MCP tools before any operation
+
 ## Service Overview
 The MCP Server is the core WebSocket server implementing the Model Context Protocol (MCP) 2025-06-18 specification for AI agent communication and orchestration. It provides:
 - Full MCP protocol support over WebSocket

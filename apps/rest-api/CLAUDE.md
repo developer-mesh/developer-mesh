@@ -1,5 +1,13 @@
 # REST API - Data Management & Integration Service
 
+## 🚨 CRITICAL: Use MCP Tools via DevMesh Connection
+
+When working on this service, remember:
+1. **ALWAYS use `mcp__devmesh__github_*` tools** for GitHub operations
+2. **ALWAYS use `mcp__devmesh__snyk` tool** for security scanning
+3. **DO NOT use CLI tools** (`git`, `gh`, `snyk`) when MCP equivalents exist
+4. Check `tools/list` to see available MCP tools before any operation
+
 ## Service Overview
 The REST API is the primary data management service providing:
 - CRUD operations for all entities
