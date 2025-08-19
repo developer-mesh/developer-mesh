@@ -67,6 +67,7 @@ Request Body:
     "token": "ghp_xxxxxxxxxxxx"
   },
   "provider": "github",
+  "group_operations": false,  // Optional: Enable operation grouping (see below)
   "passthrough_config": {
     "mode": "optional",
     "fallback_to_service": true
@@ -75,9 +76,49 @@ Request Body:
     "mode": "periodic",
     "interval": "5m",
     "timeout": "30s"
+  },
+  "config": {
+    // Optional: Configuration for grouped operations
+    "max_operations_per_group": 50,
+    "grouping_strategy": "hybrid"
   }
 }
 ```
+
+**Operation Grouping Feature**
+
+When `group_operations: true` is set, the system will automatically split a large API into multiple logical tools based on the OpenAPI specification structure. This is particularly useful for large APIs like GitHub or GitLab that have hundreds of operations.
+
+**How it works:**
+1. The system analyzes the OpenAPI specification
+2. Groups operations by their tags, paths, or resource types
+3. Creates separate tool entries for each group (e.g., `github_repos`, `github_issues`, `github_pulls`)
+4. Each grouped tool contains only the relevant operations, making them easier for AI agents to understand and use
+
+**Example with grouping enabled:**
+```json
+{
+  "name": "github",
+  "base_url": "https://api.github.com",
+  "openapi_url": "https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.json",
+  "group_operations": true,
+  "config": {
+    "max_operations_per_group": 50,
+    "grouping_strategy": "hybrid"  // Options: "tag", "path", "hybrid"
+  },
+  "credential": {
+    "type": "token",
+    "token": "ghp_xxxxxxxxxxxx"
+  }
+}
+```
+
+This will create tools like:
+- `github_repos` - Repository operations
+- `github_issues` - Issue management
+- `github_pulls` - Pull request operations
+- `github_actions` - GitHub Actions operations
+- And more...
 
 #### Get Tool
 ```

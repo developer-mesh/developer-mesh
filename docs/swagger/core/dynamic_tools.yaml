@@ -53,6 +53,13 @@ paths:
         - Learning system: Learns from successful discoveries to improve future attempts
         - Pattern matching: Tries common OpenAPI paths and subdomain variations
         
+        **Operation Grouping (group_operations: true):**
+        - Automatically splits large APIs into multiple logical tools
+        - Groups operations by tags, paths, or resource types
+        - Creates separate tool entries (e.g., github_repos, github_issues)
+        - Each group contains related operations for better AI agent understanding
+        - Configurable grouping strategies: tag, path, or hybrid
+        
         **User-Guided Discovery:**
         - Provide discovery hints to speed up the process
         - Specify custom paths, authentication examples, or API format
@@ -655,7 +662,11 @@ components:
         config:
           type: object
           additionalProperties: true
-          description: Tool-specific configuration
+          description: |
+            Tool-specific configuration. When group_operations is enabled, can include:
+            - max_operations_per_group: Maximum operations per grouped tool (default: 50)
+            - grouping_strategy: How to group operations ("tag", "path", or "hybrid")
+            - default_parameters: Parameters to include in all operations
         retry_policy:
           $ref: '#/components/schemas/RetryPolicy'
         health_config:
@@ -663,6 +674,14 @@ components:
         discovery_hints:
           $ref: '#/components/schemas/DiscoveryHints'
           description: Optional hints to assist with API discovery
+        group_operations:
+          type: boolean
+          default: false
+          description: |
+            Enable automatic operation grouping to split large APIs into multiple logical tools.
+            When enabled, the system will analyze the OpenAPI specification and create separate
+            tool entries for each logical group (e.g., github_repos, github_issues).
+            This makes large APIs more manageable for AI agents.
 
     UpdateToolRequest:
       type: object

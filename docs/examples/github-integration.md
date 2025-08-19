@@ -42,7 +42,39 @@ graph TB
 
 ## Quick Start
 
-### 1. Initialize GitHub Client
+### 1. Register GitHub with Operation Grouping
+
+When registering GitHub as a dynamic tool, enable `group_operations` to automatically split the massive GitHub API into manageable tools:
+
+```bash
+curl -X POST http://localhost:8081/api/v1/tools \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "github",
+    "base_url": "https://api.github.com",
+    "openapi_url": "https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.json",
+    "group_operations": true,
+    "config": {
+      "max_operations_per_group": 50,
+      "grouping_strategy": "hybrid"
+    },
+    "credential": {
+      "type": "token",
+      "token": "ghp_your_token_here"
+    }
+  }'
+```
+
+This creates multiple tools like:
+- `github_repos` - Repository operations
+- `github_issues` - Issue management  
+- `github_pulls` - Pull request operations
+- `github_actions` - GitHub Actions workflows
+- `github_users` - User management
+- And 30+ more grouped tools
+
+### 2. Initialize GitHub Client
 
 ```go
 package main

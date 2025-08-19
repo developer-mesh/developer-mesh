@@ -1319,19 +1319,32 @@ func (s *DynamicToolsService) preCacheOpenAPISpec(ctx context.Context, specURL s
 
 		// Log success with operation count
 		operationCount := 0
+		pathCount := 0
 		if spec.Paths != nil {
+			pathCount = len(spec.Paths.Map())
 			for _, pathItem := range spec.Paths.Map() {
 				operationCount += len(pathItem.Operations())
 			}
 		}
 
-		s.logger.Info("Cached OpenAPI spec", map[string]interface{}{
+		// Build log fields safely
+		logFields := map[string]interface{}{
 			"spec_url":   specURL,
-			"paths":      len(spec.Paths.Map()),
+			"paths":      pathCount,
 			"operations": operationCount,
-			"title":      spec.Info.Title,
-			"version":    spec.Info.Version,
-		})
+		}
+		
+		// Add info fields if available
+		if spec.Info != nil {
+			if spec.Info.Title != "" {
+				logFields["title"] = spec.Info.Title
+			}
+			if spec.Info.Version != "" {
+				logFields["version"] = spec.Info.Version
+			}
+		}
+
+		s.logger.Info("Cached OpenAPI spec", logFields)
 	}
 
 	return nil
