@@ -1170,6 +1170,37 @@ func (a *DynamicToolAdapter) buildRequest(
 		baseURL = spec.Servers[0].URL
 	}
 
+	// Merge default parameters from tool config
+	mergedParams := make(map[string]interface{})
+	
+	// First, add default parameters if they exist
+	if a.tool.Config != nil {
+		if defaultParams, ok := a.tool.Config["default_parameters"].(map[string]interface{}); ok {
+			a.logger.Info("Applying default parameters", map[string]interface{}{
+				"defaults": defaultParams,
+				"tool": a.tool.ToolName,
+			})
+			for k, v := range defaultParams {
+				mergedParams[k] = v
+			}
+		}
+	}
+	
+	// Then overlay the provided parameters (they take precedence)
+	for k, v := range params {
+		mergedParams[k] = v
+	}
+	
+	// Log the merged parameters
+	a.logger.Debug("Merged parameters", map[string]interface{}{
+		"original": params,
+		"merged": mergedParams,
+		"tool": a.tool.ToolName,
+	})
+	
+	// Use merged parameters for the rest of the function
+	params = mergedParams
+
 	// Build URL with path parameters
 	urlPath := path
 	queryParams := url.Values{}
@@ -1325,6 +1356,48 @@ func (a *DynamicToolAdapter) applyAuthentication(req *http.Request) error {
 		err := a.encryptionSvc.DecryptJSON(string(a.tool.CredentialsEncrypted), a.tool.TenantID, creds)
 		if err != nil {
 			return fmt.Errorf("failed to decrypt credentials: %w", err)
+		}
+	}
+
+	// Merge auth_config from tool into credentials
+	// This allows tools to specify custom authentication formats (e.g., Snyk uses "token" prefix instead of "Bearer")
+	if creds != nil && a.tool.AuthConfig != nil {
+		// Apply header prefix if specified in auth_config
+		if headerPrefix, ok := a.tool.AuthConfig["header_prefix"].(string); ok && headerPrefix != "" {
+			creds.HeaderPrefix = headerPrefix
+			// If we have a custom header prefix, we need to use custom_header type
+			// unless it's already set to something else specific
+			if creds.Type == "" || creds.Type == "bearer" {
+				creds.Type = "custom_header"
+			}
+		}
+		
+		// Apply header name if specified in auth_config
+		if headerName, ok := a.tool.AuthConfig["header_name"].(string); ok && headerName != "" {
+			creds.HeaderName = headerName
+			// If header name is not "Authorization", we need custom_header type
+			if headerName != "Authorization" && (creds.Type == "" || creds.Type == "bearer") {
+				creds.Type = "custom_header"
+			}
+		}
+		
+		// Apply query param if specified in auth_config
+		if queryParam, ok := a.tool.AuthConfig["query_param"].(string); ok && queryParam != "" {
+			creds.QueryParam = queryParam
+			// If we're using query param, switch to api_key type
+			if creds.Type == "" || creds.Type == "bearer" {
+				creds.Type = "api_key"
+			}
+		}
+		
+		// If auth_config explicitly specifies a type, use it (overrides above logic)
+		if authType, ok := a.tool.AuthConfig["type"].(string); ok && authType != "" {
+			creds.Type = authType
+		}
+		
+		// Default header name for Authorization header if not specified
+		if creds.HeaderName == "" && (creds.Type == "bearer" || creds.Type == "custom_header") {
+			creds.HeaderName = "Authorization"
 		}
 	}
 
