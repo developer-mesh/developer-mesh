@@ -16,11 +16,11 @@ import (
 
 // MCPToolEnhancer enhances MCP tool schemas with AI-friendly information
 type MCPToolEnhancer struct {
-	db            *sqlx.DB
-	restClient    clients.RESTAPIClient
-	logger        observability.Logger
-	schemaCache   map[string]*EnhancedToolSchema
-	cacheRepo     repository.OpenAPICacheRepository
+	db          *sqlx.DB
+	restClient  clients.RESTAPIClient
+	logger      observability.Logger
+	schemaCache map[string]*EnhancedToolSchema
+	cacheRepo   repository.OpenAPICacheRepository
 }
 
 // EnhancedToolSchema contains enhanced schema information for MCP tools
@@ -43,19 +43,19 @@ type UsageExample struct {
 
 // OperationInfo contains information about an available operation
 type OperationInfo struct {
-	ID          string                 `json:"id"`
-	Method      string                 `json:"method"`
-	Path        string                 `json:"path"`
-	Summary     string                 `json:"summary"`
-	Parameters  []ParameterInfo        `json:"parameters"`
+	ID         string          `json:"id"`
+	Method     string          `json:"method"`
+	Path       string          `json:"path"`
+	Summary    string          `json:"summary"`
+	Parameters []ParameterInfo `json:"parameters"`
 }
 
 // ParameterInfo contains parameter information
 type ParameterInfo struct {
-	Name        string `json:"name"`
-	Type        string `json:"type"`
-	Required    bool   `json:"required"`
-	Description string `json:"description"`
+	Name        string      `json:"name"`
+	Type        string      `json:"type"`
+	Required    bool        `json:"required"`
+	Description string      `json:"description"`
 	Example     interface{} `json:"example,omitempty"`
 }
 
@@ -103,7 +103,7 @@ func (e *MCPToolEnhancer) GenerateEnhancedSchema(ctx context.Context, tool *mode
 // generateEnhancedDescription creates a comprehensive description
 func (e *MCPToolEnhancer) generateEnhancedDescription(tool *models.DynamicTool, spec *openapi3.T) string {
 	var desc strings.Builder
-	
+
 	// Base description
 	if tool.Description != nil && *tool.Description != "" {
 		desc.WriteString(*tool.Description)
@@ -117,7 +117,7 @@ func (e *MCPToolEnhancer) generateEnhancedDescription(tool *models.DynamicTool, 
 	if spec != nil && spec.Paths != nil {
 		operationCount := 0
 		resourceTypes := make(map[string]bool)
-		
+
 		for path, pathItem := range spec.Paths.Map() {
 			if pathItem != nil {
 				operationCount += len(pathItem.Operations())
@@ -130,7 +130,7 @@ func (e *MCPToolEnhancer) generateEnhancedDescription(tool *models.DynamicTool, 
 				}
 			}
 		}
-		
+
 		if operationCount > 0 {
 			desc.WriteString(fmt.Sprintf(". Provides %d operations", operationCount))
 			if len(resourceTypes) > 0 {
@@ -151,9 +151,9 @@ func (e *MCPToolEnhancer) generateEnhancedDescription(tool *models.DynamicTool, 
 // generateEnhancedInputSchema creates an AI-friendly input schema
 func (e *MCPToolEnhancer) generateEnhancedInputSchema(tool *models.DynamicTool, spec *openapi3.T) map[string]interface{} {
 	schema := map[string]interface{}{
-		"type": "object",
+		"type":       "object",
 		"properties": map[string]interface{}{},
-		"required": []string{},
+		"required":   []string{},
 	}
 
 	properties := schema["properties"].(map[string]interface{})
@@ -162,7 +162,7 @@ func (e *MCPToolEnhancer) generateEnhancedInputSchema(tool *models.DynamicTool, 
 	if spec != nil && spec.Paths != nil {
 		operations := []string{}
 		operationDetails := make(map[string]string)
-		
+
 		for _, pathItem := range spec.Paths.Map() {
 			if pathItem == nil {
 				continue
@@ -183,11 +183,11 @@ func (e *MCPToolEnhancer) generateEnhancedInputSchema(tool *models.DynamicTool, 
 				"type":        "string",
 				"description": "The operation to perform",
 			}
-			
+
 			// Only add enum if we have a reasonable number of operations
 			if len(operations) <= 50 {
 				operationSchema["enum"] = operations
-				
+
 				// Add operation descriptions as x-enumDescriptions for AI understanding
 				if len(operationDetails) > 0 {
 					descriptions := make(map[string]string)
@@ -205,7 +205,7 @@ func (e *MCPToolEnhancer) generateEnhancedInputSchema(tool *models.DynamicTool, 
 				operationSchema["examples"] = examples
 				operationSchema["description"] = fmt.Sprintf("The operation to perform. %d operations available", len(operations))
 			}
-			
+
 			properties["operation"] = operationSchema
 			schema["required"] = append(schema["required"].([]string), "operation")
 		}
@@ -293,7 +293,7 @@ func (e *MCPToolEnhancer) generateUsageExamples(tool *models.DynamicTool, spec *
 			Title:       "Scan a project for vulnerabilities",
 			Description: "Run a security scan on a Snyk project",
 			Arguments: map[string]interface{}{
-				"operation":  "test_project",
+				"operation": "test_project",
 				"parameters": map[string]interface{}{
 					"org_id":     "your-org-id",
 					"project_id": "your-project-id",
@@ -407,8 +407,8 @@ func (e *MCPToolEnhancer) generateHints(tool *models.DynamicTool, spec *openapi3
 	// Authentication hints
 	if tool.AuthType != "" {
 		hints["authentication"] = map[string]interface{}{
-			"type":   tool.AuthType,
-			"hint":   e.getAuthHint(tool.AuthType),
+			"type": tool.AuthType,
+			"hint": e.getAuthHint(tool.AuthType),
 		}
 	}
 
@@ -494,7 +494,7 @@ func (e *MCPToolEnhancer) getOpenAPISpec(ctx context.Context, tool *models.Dynam
 				return spec, nil
 			}
 		}
-		
+
 		// Try treating it as direct JSON
 		loader := openapi3.NewLoader()
 		spec, err := loader.LoadFromData([]byte(*tool.OpenAPISpec))
@@ -504,10 +504,13 @@ func (e *MCPToolEnhancer) getOpenAPISpec(ctx context.Context, tool *models.Dynam
 	}
 
 	// Try to fetch from URL if available
-	if tool.OpenAPIURL != nil && *tool.OpenAPIURL != "" {
-		// This would involve fetching the spec from the URL
-		// For now, return nil to use fallback
-	}
+	// TODO: Implement URL fetching when needed
+	// if tool.OpenAPIURL != nil && *tool.OpenAPIURL != "" {
+	//     spec, err := fetchOpenAPIFromURL(*tool.OpenAPIURL)
+	//     if err == nil {
+	//         return spec, nil
+	//     }
+	// }
 
 	return nil, fmt.Errorf("no OpenAPI spec available")
 }

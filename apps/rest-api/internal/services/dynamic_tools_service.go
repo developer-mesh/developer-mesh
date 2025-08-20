@@ -1343,7 +1343,7 @@ func (s *DynamicToolsService) preCacheOpenAPISpec(ctx context.Context, specURL s
 			"paths":      pathCount,
 			"operations": operationCount,
 		}
-		
+
 		// Add info fields if available
 		if spec.Info != nil {
 			if spec.Info.Title != "" {
@@ -1481,13 +1481,16 @@ func (s *DynamicToolsService) createSingleTool(ctx context.Context, tenantID str
 		toolType = "graphql"
 	}
 
-	// Marshal auth_config if provided
+	// Marshal auth_config - use empty JSON object if nil
 	var authConfigJSON []byte
 	if config.AuthConfig != nil {
 		authConfigJSON, err = json.Marshal(config.AuthConfig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal auth_config: %w", err)
 		}
+	} else {
+		// Use empty JSON object instead of nil to avoid database error
+		authConfigJSON = []byte("{}")
 	}
 
 	// Insert tool into database

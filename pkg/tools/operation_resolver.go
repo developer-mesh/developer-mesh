@@ -106,6 +106,12 @@ func (r *OperationResolver) ResolveOperation(action string, context map[string]i
 	// Clean and normalize the action
 	action = strings.TrimSpace(strings.ToLower(action))
 
+	// Store the original action in context for disambiguation
+	if context == nil {
+		context = make(map[string]interface{})
+	}
+	context["__action"] = action
+
 	r.logger.Debug("Resolving operation", map[string]interface{}{
 		"action":  action,
 		"context": context,
@@ -139,6 +145,9 @@ func (r *OperationResolver) ResolveOperation(action string, context map[string]i
 		}
 
 		// Multiple candidates - try to disambiguate with context
+		// This is critical for distinguishing between:
+		// - "pulls/create" (create new PR)
+		// - "pulls/create-review" (create review on existing PR)
 		if bestMatch := r.disambiguateWithContext(candidates, context); bestMatch != nil {
 			return bestMatch, nil
 		}
@@ -214,9 +223,36 @@ func (r *OperationResolver) disambiguateWithContext(candidates []string, context
 		resourceType = rt
 	}
 
+	// Extract the action being requested from context
+	requestAction := ""
+	if action, ok := context["__action"].(string); ok {
+		requestAction = strings.ToLower(action)
+	}
+
 	for _, candidate := range candidates {
 		if info, ok := r.operationCache[candidate]; ok {
 			score := r.scoreOperation(info, context)
+
+			// CRITICAL: Prioritize exact action matches for disambiguation
+			// When action is "create", prefer "pulls/create" over "pulls/create-review"
+			if requestAction != "" {
+				candidateLower := strings.ToLower(candidate)
+				// Check for exact suffix match (e.g., "/create" or "-create")
+				if strings.HasSuffix(candidateLower, "/"+requestAction) ||
+					strings.HasSuffix(candidateLower, "-"+requestAction) ||
+					strings.HasSuffix(candidateLower, "_"+requestAction) {
+					// Exact action match gets highest priority
+					score += 5000
+					r.logger.Debug("Exact action suffix match", map[string]interface{}{
+						"candidate":      candidate,
+						"request_action": requestAction,
+						"boost":          5000,
+					})
+				} else if strings.Contains(candidateLower, requestAction) {
+					// Partial match gets lower score
+					score += 100
+				}
+			}
 
 			// CRITICAL: Prioritize operations that start with the primary resource type
 			// This prevents "repos/list-pull-requests-associated-with-commit" from being chosen
@@ -237,6 +273,24 @@ func (r *OperationResolver) disambiguateWithContext(candidates []string, context
 				}
 			}
 
+			// CRITICAL: Penalize operations that require resource IDs for creation operations
+			// When creating new resources, prefer endpoints without {id} parameters
+			if requestAction == "create" || requestAction == "add" || requestAction == "new" {
+				// Check if path requires resource IDs
+				if strings.Contains(info.Path, "{pull_number}") ||
+					strings.Contains(info.Path, "{issue_number}") ||
+					strings.Contains(info.Path, "{comment_id}") ||
+					strings.Contains(info.Path, "{review_id}") {
+					// Penalize operations that require existing resource IDs
+					score -= 2000
+					r.logger.Debug("Penalizing operation requiring resource ID for creation", map[string]interface{}{
+						"candidate": candidate,
+						"path":      info.Path,
+						"penalty":   -2000,
+					})
+				}
+			}
+
 			if score > bestScore {
 				bestScore = score
 				bestMatch = info
@@ -244,12 +298,13 @@ func (r *OperationResolver) disambiguateWithContext(candidates []string, context
 		}
 	}
 
-	if bestMatch != nil && bestScore > 0 {
+	if bestMatch != nil {
 		r.logger.Debug("Disambiguated operation with context", map[string]interface{}{
-			"candidates":    candidates,
-			"selected":      bestMatch.OperationID,
-			"score":         bestScore,
-			"resource_type": resourceType,
+			"candidates":     candidates,
+			"selected":       bestMatch.OperationID,
+			"score":          bestScore,
+			"resource_type":  resourceType,
+			"request_action": requestAction,
 		})
 		return bestMatch
 	}

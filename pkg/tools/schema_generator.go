@@ -7,6 +7,8 @@ import (
 
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/getkin/kin-openapi/openapi3"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 // SchemaGenerator generates MCP-compatible tool schemas from OpenAPI specs
@@ -364,7 +366,7 @@ func (g *SchemaGenerator) parameterToSchema(param *openapi3.Parameter) map[strin
 			// Add example if available
 			if param.Example != nil {
 				schema["example"] = param.Example
-			} else if param.Examples != nil && len(param.Examples) > 0 {
+			} else if len(param.Examples) > 0 {
 				// Extract first example
 				for _, ex := range param.Examples {
 					if ex.Value != nil && ex.Value.Value != nil {
@@ -408,7 +410,7 @@ func (g *SchemaGenerator) enhanceParameterDescription(param *openapi3.Parameter)
 	if param.Description != "" {
 		desc.WriteString(param.Description)
 	} else {
-		desc.WriteString(fmt.Sprintf("%s parameter", strings.Title(param.Name)))
+		desc.WriteString(fmt.Sprintf("%s parameter", cases.Title(language.English).String(param.Name)))
 	}
 
 	if !g.EnhanceForAI {

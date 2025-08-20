@@ -55,7 +55,7 @@ type ToolConfig struct {
 	DocumentationURL  string                  `json:"documentation_url,omitempty"`
 	OpenAPIURL        string                  `json:"openapi_url,omitempty"`
 	AuthType          string                  `json:"auth_type,omitempty"`
-	AuthConfig        map[string]interface{} `json:"auth_config,omitempty"`
+	AuthConfig        map[string]interface{}  `json:"auth_config,omitempty"`
 	Config            map[string]interface{}  `json:"config"`
 	Credential        *models.TokenCredential `json:"-"` // Never serialize credentials
 	RetryPolicy       *ToolRetryPolicy        `json:"retry_policy,omitempty"`

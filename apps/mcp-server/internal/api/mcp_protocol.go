@@ -68,8 +68,8 @@ type MCPProtocolHandler struct {
 	// Resilience
 	circuitBreakers *ToolCircuitBreakerManager
 	// Tool enhancement
-	toolEnhancer    *MCPToolEnhancer
-	db              *sqlx.DB
+	toolEnhancer *MCPToolEnhancer
+	db           *sqlx.DB
 }
 
 // NewMCPProtocolHandler creates a new MCP protocol handler
@@ -572,7 +572,7 @@ func (h *MCPProtocolHandler) handleToolsList(conn *websocket.Conn, connID, tenan
 	// Transform dynamic tools to MCP format
 	for _, tool := range tools {
 		var mcpTool map[string]interface{}
-		
+
 		// Use the enhancer if available for better schemas
 		if h.toolEnhancer != nil {
 			// tool is already a pointer (*models.DynamicTool)
@@ -583,7 +583,7 @@ func (h *MCPProtocolHandler) handleToolsList(conn *websocket.Conn, connID, tenan
 					"description": enhanced.Description,
 					"inputSchema": enhanced.InputSchema,
 				}
-				
+
 				// Add hints and examples as metadata for AI understanding
 				if len(enhanced.Examples) > 0 {
 					mcpTool["x-examples"] = enhanced.Examples
@@ -593,27 +593,27 @@ func (h *MCPProtocolHandler) handleToolsList(conn *websocket.Conn, connID, tenan
 				}
 			}
 		}
-		
+
 		// Fallback to minimal schema if enhancer not available or failed
 		if mcpTool == nil {
 			inputSchema := h.generateMinimalInputSchema(tool.ToolName)
-			
+
 			// Use tool name for consistency
 			name := tool.ToolName
-			
+
 			// Get tool description
 			description := tool.DisplayName
 			if description == "" {
 				description = fmt.Sprintf("%s integration", name)
 			}
-			
+
 			mcpTool = map[string]interface{}{
 				"name":        name,
 				"description": description,
 				"inputSchema": inputSchema,
 			}
 		}
-		
+
 		mcpTools = append(mcpTools, mcpTool)
 	}
 

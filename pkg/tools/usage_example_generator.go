@@ -6,6 +6,8 @@ import (
 
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/getkin/kin-openapi/openapi3"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 // UsageExampleGenerator generates usage examples for AI agents
@@ -227,7 +229,7 @@ func (g *UsageExampleGenerator) extractResourceName(path string) string {
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	for _, part := range parts {
 		if !strings.HasPrefix(part, "{") && part != "v1" && part != "v2" && part != "api" {
-			return strings.Title(part)
+			return cases.Title(language.English).String(part)
 		}
 	}
 	return "Resources"
