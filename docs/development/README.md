@@ -27,7 +27,7 @@
 ### 1. Prerequisites
 ```bash
 # Required tools
-- Go 1.24+
+- Go 1.24.6+
 - Docker & Docker Compose
 - PostgreSQL 14+
 - Redis 7+

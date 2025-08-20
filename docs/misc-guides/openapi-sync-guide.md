@@ -294,7 +294,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.24'
+          go-version: '1.24.6'
       
       - name: Install tools
         run: |

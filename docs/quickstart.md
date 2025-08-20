@@ -21,7 +21,7 @@ Get Developer Mesh running locally in under 5 minutes.
 ### Required
 - **[Docker](https://www.docker.com/get-started)** and Docker Compose
 - **[Git](https://git-scm.com/downloads)**
-- **[Go](https://golang.org/doc/install)** 1.24 (for building from source)
+- **[Go](https://golang.org/doc/install)** 1.24.6 (for building from source)
 - **Make** (usually pre-installed on Linux/Mac)
 
 ### Optional
@@ -508,11 +508,11 @@ chmod +x scripts/*.sh
 ### Go Version Issues
 
 ```bash
-# Check Go version (must be 1.24)
+# Check Go version (must be 1.24.6)
 go version
 
-# If using wrong version, install Go 1.24:
-# macOS: brew install go@1.24
+# If using wrong version, install Go 1.24.6:
+# macOS: brew install go@1.24.6
 # Linux: Follow https://golang.org/doc/install
 ```
 

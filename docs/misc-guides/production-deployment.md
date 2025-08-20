@@ -40,7 +40,7 @@ docker-compose --version  # 2.20+
 ssh -V
 
 # Go (for building from source)
-go version  # 1.24 required
+go version  # 1.24.6 required
 
 # Note: No Terraform or Kubernetes required
 # Deployment uses Docker Compose on EC2

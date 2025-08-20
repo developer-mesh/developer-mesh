@@ -395,7 +395,7 @@ resource "aws_autoscaling_group" "workers" {
 
 ```dockerfile
 # Multi-stage build for smaller images
-FROM golang:1.24.3-alpine AS builder
+FROM golang:1.24.6-alpine AS builder
 
 WORKDIR /build
 COPY go.mod go.sum ./

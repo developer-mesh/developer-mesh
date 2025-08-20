@@ -5,7 +5,7 @@ This directory contains integration tests for the context lifecycle management s
 ## Prerequisites
 
 - Docker must be installed and running
-- Go 1.24+ with testcontainers-go support
+- Go 1.24.6+ with testcontainers-go support
 
 ## Running the Tests
 

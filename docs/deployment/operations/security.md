@@ -755,7 +755,7 @@ docker-compose up -d mcp-server
 1. **Docker Security**:
    ```dockerfile
    # Current Dockerfile uses good practices:
-   FROM golang:1.24-alpine AS builder
+   FROM golang:1.24.6-alpine AS builder
    # ... build stage ...
    
    FROM alpine:latest

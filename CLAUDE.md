@@ -41,7 +41,7 @@ Developer Mesh is a production-ready platform for orchestrating multiple AI agen
 - **Shared Packages**: Common functionality in `/pkg`
 
 ## Architecture
-- **Language**: Go 1.24+ with workspace support
+- **Language**: Go 1.24.6+ with workspace support
 - **Databases**: PostgreSQL 14+ with pgvector, Redis 7+
 - **Message Queue**: Redis Streams (migrated from AWS SQS)
 - **Cloud**: AWS (Bedrock, S3)

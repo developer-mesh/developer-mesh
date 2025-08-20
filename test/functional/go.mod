@@ -1,6 +1,6 @@
 module functional-tests
 
-go 1.24
+go 1.24.6
 
 require (
 	github.com/developer-mesh/developer-mesh/pkg v0.0.0-20250630205011-78836993db88

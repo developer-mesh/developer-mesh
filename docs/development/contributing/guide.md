@@ -34,7 +34,7 @@ Harassment, offensive behavior, or discrimination of any kind will not be tolera
 
 ### Prerequisites
 
-- Go 1.24
+- Go 1.24.6
 - Docker and Docker Compose
 - PostgreSQL 14+ with pgvector extension
 - Redis 7.0+ (for Redis Streams)

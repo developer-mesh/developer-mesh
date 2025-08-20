@@ -7,7 +7,7 @@ Batch: ad
 # Developer Mesh - AI Agent Orchestration Platform
 
 ![Version](https://img.shields.io/badge/version-0.0.2-blue.svg)
-![Go](https://img.shields.io/badge/go-1.24+-00ADD8.svg)
+![Go](https://img.shields.io/badge/go-1.24.6+-00ADD8.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/developer-mesh/developer-mesh)](https://goreportcard.com/report/github.com/developer-mesh/developer-mesh)
 ![Status](https://img.shields.io/badge/status-alpha-orange.svg)
@@ -257,7 +257,7 @@ graph LR
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Go 1.24+ (workspace support)
+- Go 1.24.6+ (workspace support)
 - Docker & Docker Compose
 - PostgreSQL 14+ with pgvector extension
 - Redis 6.2+ (for streams support)
@@ -486,7 +486,7 @@ Monitor system state via MCP resources:
 
 ## 🛠️ Technology Stack
 
-- **Language**: Go 1.24+ with workspace support
+- **Language**: Go 1.24.6+ with workspace support
 - **Databases**: PostgreSQL 14+ with pgvector extension, Redis 6.2+
 - **AI/ML**: AWS Bedrock (primary), OpenAI, Google AI, Anthropic (via adapters)
 - **Message Queue**: Redis Streams for webhook processing

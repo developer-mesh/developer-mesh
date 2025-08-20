@@ -11,7 +11,7 @@ This guide provides a comprehensive setup for developing on the Developer Mesh A
 ## Prerequisites
 
 ### Required Tools
-- **Go 1.24** - Required for workspace support
+- **Go 1.24.6** - Required for workspace support
 - **Docker** & **Docker Compose** - For local services
 - **Git** - For version control
 - **Make** - For build automation
@@ -132,7 +132,7 @@ ADMIN_API_KEY=dev-admin-key
 
 ```bash
 # Verify Go version
-go version  # Should be 1.24+
+go version  # Should be 1.24.6+
 
 # The workspace is already configured (go.work exists)
 # Sync workspace modules

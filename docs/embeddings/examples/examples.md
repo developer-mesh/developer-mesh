@@ -456,7 +456,7 @@ func main() {
         TaskType: "general_qa",
         Metadata: map[string]interface{}{
             "language": "go",
-            "version":  "1.21",
+            "version":  "1.24.6",
         },
     })
 

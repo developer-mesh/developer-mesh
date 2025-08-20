@@ -50,7 +50,7 @@ Note: Full observability stack (Grafana, Prometheus, Jaeger) is not currently co
 
 ```dockerfile
 # Dockerfile.debug (example, not currently in project)
-FROM golang:1.24-alpine AS debug
+FROM golang:1.24.6-alpine AS debug
 RUN go install github.com/go-delve/delve/cmd/dlv@latest
 WORKDIR /app
 COPY . .

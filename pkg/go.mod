@@ -1,6 +1,6 @@
 module github.com/developer-mesh/developer-mesh/pkg
 
-go 1.24
+go 1.24.6
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2

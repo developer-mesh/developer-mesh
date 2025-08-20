@@ -1,7 +1,7 @@
 # Developer Mesh (Model Context Protocol)
 
 ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
-![Go](https://img.shields.io/badge/go-1.24+-00ADD8.svg)
+![Go](https://img.shields.io/badge/go-1.24.6+-00ADD8.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/developer-mesh/developer-mesh)](https://goreportcard.com/report/github.com/developer-mesh/developer-mesh)
 
@@ -61,7 +61,7 @@ For development or customization:
 
 #### Prerequisites
 
-- **Go 1.24+** (required for workspace support)
+- **Go 1.24.6+** (required for workspace support)
 - Docker & Docker Compose
 - PostgreSQL 14+ with pgvector extension
 - Redis 6.2+
@@ -147,7 +147,7 @@ developer-mesh/
 
 ## 🛠️ Technology Stack
 
-- **Language**: Go 1.24+ with workspace support
+- **Language**: Go 1.24.6+ with workspace support
 - **Databases**: PostgreSQL 14+ (with pgvector), Redis 6.2+
 - **Message Queue**: AWS SQS
 - **Storage**: AWS S3 (optional)

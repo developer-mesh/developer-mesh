@@ -10,7 +10,7 @@ Get up and running with Developer Mesh authentication in 5 minutes.
 
 ## Prerequisites
 
-- Go 1.24
+- Go 1.24.6
 - Docker and Docker Compose
 - Access to PostgreSQL and Redis (or use Docker Compose)
 

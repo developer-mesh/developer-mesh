@@ -1154,7 +1154,7 @@ on:
     branches: [main]
 
 env:
-  GO_VERSION: '1.24.4'  # Current version used in CI
+  GO_VERSION: '1.24.6'  # Current version used in CI
   AWS_REGION: us-east-1
   TEST_S3_BUCKET: sean-mcp-dev-contexts
   TEST_SQS_QUEUE: https://sqs.us-east-1.amazonaws.com/594992249511/sean-mcp-test

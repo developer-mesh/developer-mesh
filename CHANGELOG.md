@@ -191,7 +191,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Required for Operation**:
   - PostgreSQL 14+ (for tool configs)
   - Redis 7+ (for queues and caching)
-  - Go 1.21+ for building
+  - Go 1.24.6+ for building
   
 - **Optional/Unused**:
   - AWS Bedrock (embedding models not used)

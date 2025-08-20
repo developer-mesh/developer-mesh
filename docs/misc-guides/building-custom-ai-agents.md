@@ -1286,7 +1286,7 @@ func TestAgentMCPIntegration(t *testing.T) {
 
 ```dockerfile
 # Dockerfile
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24.6-alpine AS builder
 
 WORKDIR /build
 COPY go.mod go.sum ./

@@ -8,7 +8,7 @@ Batch: aa
 
 ## Overview
 
-Developer Mesh uses Go 1.24's workspace feature to organize the codebase as a monorepo with multiple modules. This architecture provides strong module boundaries while enabling code sharing, making it ideal for the AI agent orchestration platform's microservices architecture.
+Developer Mesh uses Go 1.24.6's workspace feature to organize the codebase as a monorepo with multiple modules. This architecture provides strong module boundaries while enabling code sharing, making it ideal for the AI agent orchestration platform's microservices architecture.
 
 ## Why Go Workspaces?
 
@@ -76,7 +76,7 @@ developer-mesh/
 ### go.work File
 
 ```go
-go 1.24
+go 1.24.6
 
 use (
     ./apps/edge-mcp

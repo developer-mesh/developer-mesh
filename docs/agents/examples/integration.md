@@ -1722,7 +1722,7 @@ func NewAgentMetrics() *AgentMetrics {
 
 ```dockerfile
 # Multi-stage build for production agent
-FROM golang:1.21-alpine AS builder
+FROM golang:1.24.6-alpine AS builder
 
 WORKDIR /app
 

@@ -1,9 +1,6 @@
 module github.com/developer-mesh/developer-mesh
 
-go 1.24
-
-// Using Go 1.24.2 toolchain
-toolchain go1.24.2
+go 1.24.6
 
 // Replace directives removed - using go workspaces instead
 
