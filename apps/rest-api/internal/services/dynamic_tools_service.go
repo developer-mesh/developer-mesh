@@ -123,7 +123,7 @@ func (s *DynamicToolsService) ListTools(ctx context.Context, tenantID string, st
 	query := `
 		SELECT 
 			id, tenant_id, tool_name, display_name, base_url,
-			config, auth_type, retry_policy, status, 
+			config, auth_type, auth_config, retry_policy, status, 
 			health_status, last_health_check,
 			created_at, updated_at, provider, passthrough_config
 		FROM mcp.tool_configurations
@@ -1115,7 +1115,7 @@ func (s *DynamicToolsService) performDiscovery(ctx context.Context, sessionID st
 // scanTool scans a tool from database row
 func (s *DynamicToolsService) scanTool(rows *sql.Rows) (*models.DynamicTool, error) {
 	var tool models.DynamicTool
-	var configJSON, healthStatusJSON []byte
+	var configJSON, healthStatusJSON, authConfigJSON []byte
 	var retryPolicyJSON, passthroughConfigJSON sql.NullString
 
 	err := rows.Scan(
@@ -1126,6 +1126,7 @@ func (s *DynamicToolsService) scanTool(rows *sql.Rows) (*models.DynamicTool, err
 		&tool.BaseURL,
 		&configJSON,
 		&tool.AuthType,
+		&authConfigJSON,
 		&retryPolicyJSON,
 		&tool.Status,
 		&healthStatusJSON,
@@ -1142,6 +1143,15 @@ func (s *DynamicToolsService) scanTool(rows *sql.Rows) (*models.DynamicTool, err
 	// Unmarshal JSON fields
 	if err := json.Unmarshal(configJSON, &tool.Config); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
+	}
+
+	// Unmarshal auth_config
+	if len(authConfigJSON) > 0 {
+		if err := json.Unmarshal(authConfigJSON, &tool.AuthConfig); err != nil {
+			s.logger.Warn("Failed to unmarshal auth config", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
 	}
 
 	if len(healthStatusJSON) > 0 {
@@ -1319,19 +1329,32 @@ func (s *DynamicToolsService) preCacheOpenAPISpec(ctx context.Context, specURL s
 
 		// Log success with operation count
 		operationCount := 0
+		pathCount := 0
 		if spec.Paths != nil {
+			pathCount = len(spec.Paths.Map())
 			for _, pathItem := range spec.Paths.Map() {
 				operationCount += len(pathItem.Operations())
 			}
 		}
 
-		s.logger.Info("Cached OpenAPI spec", map[string]interface{}{
+		// Build log fields safely
+		logFields := map[string]interface{}{
 			"spec_url":   specURL,
-			"paths":      len(spec.Paths.Map()),
+			"paths":      pathCount,
 			"operations": operationCount,
-			"title":      spec.Info.Title,
-			"version":    spec.Info.Version,
-		})
+		}
+
+		// Add info fields if available
+		if spec.Info != nil {
+			if spec.Info.Title != "" {
+				logFields["title"] = spec.Info.Title
+			}
+			if spec.Info.Version != "" {
+				logFields["version"] = spec.Info.Version
+			}
+		}
+
+		s.logger.Info("Cached OpenAPI spec", logFields)
 	}
 
 	return nil
@@ -1361,6 +1384,9 @@ func (s *DynamicToolsService) createGroupedTools(ctx context.Context, tenantID s
 		groupConfig := config
 		groupConfig.Name = fmt.Sprintf("%s_%s", config.Name, groupName)
 		groupConfig.ID = uuid.New().String()
+		// Preserve auth fields
+		groupConfig.AuthType = config.AuthType
+		groupConfig.AuthConfig = config.AuthConfig
 
 		// Store the schema for this group
 		if groupConfig.Config == nil {
@@ -1370,6 +1396,12 @@ func (s *DynamicToolsService) createGroupedTools(ctx context.Context, tenantID s
 		groupConfig.Config["group_name"] = groupName
 		groupConfig.Config["operations"] = groupSchema.Operations
 		groupConfig.Config["parent_api"] = config.Name
+		// Copy over default_parameters if they exist
+		if config.Config != nil {
+			if defaultParams, ok := config.Config["default_parameters"]; ok {
+				groupConfig.Config["default_parameters"] = defaultParams
+			}
+		}
 
 		// Create the tool in the database
 		tool, err := s.createSingleTool(ctx, tenantID, groupConfig, result)
@@ -1449,20 +1481,32 @@ func (s *DynamicToolsService) createSingleTool(ctx context.Context, tenantID str
 		toolType = "graphql"
 	}
 
+	// Marshal auth_config - use empty JSON object if nil
+	var authConfigJSON []byte
+	if config.AuthConfig != nil {
+		authConfigJSON, err = json.Marshal(config.AuthConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal auth_config: %w", err)
+		}
+	} else {
+		// Use empty JSON object instead of nil to avoid database error
+		authConfigJSON = []byte("{}")
+	}
+
 	// Insert tool into database
 	query := `
 		INSERT INTO mcp.tool_configurations (
 			id, tenant_id, tool_name, tool_type, display_name, base_url, config,
-			auth_type, credentials_encrypted, status,
+			auth_type, auth_config, credentials_encrypted, status,
 			created_at, updated_at, provider
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
 		)
 	`
 
 	_, err = s.db.ExecContext(ctx, query,
 		toolID, tenantID, sanitizedName, toolType, config.Name, config.BaseURL,
-		configJSON, "bearer", encryptedCreds, "active",
+		configJSON, config.AuthType, authConfigJSON, encryptedCreds, "active",
 		now, now, config.Provider,
 	)
 	if err != nil {
@@ -1477,6 +1521,8 @@ func (s *DynamicToolsService) createSingleTool(ctx context.Context, tenantID str
 		DisplayName: config.Name,
 		BaseURL:     config.BaseURL,
 		Config:      config.Config,
+		AuthType:    config.AuthType,
+		AuthConfig:  config.AuthConfig,
 		Status:      "active",
 		IsActive:    true,
 		Provider:    config.Provider,

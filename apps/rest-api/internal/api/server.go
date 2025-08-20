@@ -442,7 +442,14 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	// Dynamic Tools API - Enhanced discovery and management
 	patternRepo := storage.NewDiscoveryPatternRepository(s.db.DB)
 	// Create encryption service with a secure key from environment or config
-	encryptionKey := os.Getenv("DEVMESH_ENCRYPTION_KEY")
+	encryptionKey := os.Getenv("ENCRYPTION_MASTER_KEY")
+	if encryptionKey == "" {
+		// Fall back to legacy DEVMESH_ENCRYPTION_KEY for backward compatibility
+		encryptionKey = os.Getenv("DEVMESH_ENCRYPTION_KEY")
+		if encryptionKey != "" {
+			s.logger.Warn("Using deprecated DEVMESH_ENCRYPTION_KEY - please migrate to ENCRYPTION_MASTER_KEY", nil)
+		}
+	}
 	if encryptionKey == "" {
 		// Generate a random key if not provided, but log a warning
 		randomKey, err := security.GenerateSecureToken(32)
@@ -456,8 +463,8 @@ func (s *Server) setupRoutes(ctx context.Context) {
 			panic("Failed to generate encryption key")
 		}
 		encryptionKey = randomKey
-		s.logger.Warn("DEVMESH_ENCRYPTION_KEY not set - using randomly generated key. This is not suitable for production!", map[string]interface{}{
-			"recommendation": "Set DEVMESH_ENCRYPTION_KEY environment variable with a secure 32+ character key",
+		s.logger.Warn("ENCRYPTION_MASTER_KEY not set - using randomly generated key. This is not suitable for production!", map[string]interface{}{
+			"recommendation": "Set ENCRYPTION_MASTER_KEY environment variable with a secure 32+ character key",
 		})
 	}
 	encryptionService := security.NewEncryptionService(encryptionKey)

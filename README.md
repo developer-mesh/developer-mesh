@@ -7,13 +7,29 @@ Batch: ad
 # Developer Mesh - AI Agent Orchestration Platform
 
 ![Version](https://img.shields.io/badge/version-0.0.2-blue.svg)
-![Go](https://img.shields.io/badge/go-1.24+-00ADD8.svg)
+![Go](https://img.shields.io/badge/go-1.24.6+-00ADD8.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/developer-mesh/developer-mesh)](https://goreportcard.com/report/github.com/developer-mesh/developer-mesh)
+![Status](https://img.shields.io/badge/status-alpha-orange.svg)
+![Docker](https://img.shields.io/badge/docker-ready-2496ED.svg)
+![MCP](https://img.shields.io/badge/MCP-2025--06--18-purple.svg)
 
-> 🚀 The production-ready platform for orchestrating multiple AI agents in your DevOps workflows
+> 🚀 Open-source platform for orchestrating multiple AI agents in your DevOps workflows
 > 
-> Connect AI models • Intelligent task routing • Real-time collaboration • Enterprise scale <!-- Source: pkg/services/assignment_engine.go -->
+> Connect AI models • Intelligent task routing • Real-time collaboration • Self-hosted <!-- Source: pkg/services/assignment_engine.go -->
+
+## 📑 Table of Contents
+
+- [Key Features](#-key-features)
+- [Use Cases](#-use-cases)
+- [Architecture](#️-architecture)
+- [Quick Start](#-quick-start)
+- [Usage Examples](#-usage-examples)
+- [Technology Stack](#️-technology-stack)
+- [Documentation](#-documentation)
+- [Project Status](#-project-status)
+- [Contributing](#-contributing)
+- [License](#-license)
 
 ## 🎯 Transform Your DevOps with AI Orchestration
 
@@ -36,6 +52,13 @@ DevOps teams struggle to integrate AI effectively - managing multiple models, co
 - **Dynamic Load Balancing**: Routes tasks to least-loaded agents in real-time
 - **Collaboration Support**: Framework for agent coordination
 - **Workload Management**: Track and optimize agent utilization
+
+### Security & Data Protection
+- **Per-Tenant Encryption**: AES-256-GCM with unique keys per tenant (PBKDF2 key derivation)
+- **Credential Protection**: All API keys and secrets encrypted at rest
+- **Forward Secrecy**: Unique salt/nonce per encryption operation
+- **Authenticated Encryption**: GCM mode prevents tampering and ensures data integrity
+- **Tenant Isolation**: Cryptographic isolation prevents cross-tenant data access
 
 ### Intelligent Task Assignment
 <!-- Source: pkg/services/assignment_engine.go -->
@@ -234,7 +257,7 @@ graph LR
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Go 1.24+ (workspace support)
+- Go 1.24.6+ (workspace support)
 - Docker & Docker Compose
 - PostgreSQL 14+ with pgvector extension
 - Redis 6.2+ (for streams support)
@@ -250,6 +273,7 @@ cd developer-mesh
 # Configure environment
 cp .env.example .env
 # Edit .env with your settings (AWS credentials optional for local dev)
+# Note: Default encryption keys are provided for local dev only
 
 # Start all services
 docker-compose -f docker-compose.local.yml up -d
@@ -462,7 +486,7 @@ Monitor system state via MCP resources:
 
 ## 🛠️ Technology Stack
 
-- **Language**: Go 1.24+ with workspace support
+- **Language**: Go 1.24.6+ with workspace support
 - **Databases**: PostgreSQL 14+ with pgvector extension, Redis 6.2+
 - **AI/ML**: AWS Bedrock (primary), OpenAI, Google AI, Anthropic (via adapters)
 - **Message Queue**: Redis Streams for webhook processing
@@ -473,50 +497,48 @@ Monitor system state via MCP resources:
 ## 📚 Documentation
 <!-- All links verified against actual files in docs/ directory -->
 
-### Getting Started
-- [Quick Start Guide](docs/getting-started/quick-start-guide.md)
-- [Authentication Quick Start](docs/getting-started/authentication-quick-start.md)
-- [Embedding Quick Start](docs/getting-started/embedding-quick-start.md)
-- [Local Development](docs/LOCAL_DEVELOPMENT.md)
+### 🚀 Getting Started
+- [Quick Start Guide](docs/quickstart.md) - Get running in 5 minutes
+- [Full Documentation](docs/) - Comprehensive documentation
 
-### API Reference
-- [MCP Protocol Guide](docs/MCP_PROTOCOL.md) - Complete MCP implementation details
-- [REST API Reference](docs/api-reference/rest-api-reference.md)
-- [MCP Server Reference](docs/api-reference/mcp-server-reference.md)
-- [Webhook API Reference](docs/api-reference/webhook-api-reference.md)
-- [Embedding API Reference](docs/api-reference/embedding-api-reference.md)
-- [Dynamic Tools API](docs/dynamic_tools_api.md)
+### 📚 Documentation by Domain
 
-### Architecture
-- [System Overview](docs/architecture/system-overview.md)
-- [Go Workspace Structure](docs/architecture/go-workspace-structure.md)
-- [Multi-Agent Embedding Architecture](docs/architecture/multi-agent-embedding-architecture.md)
-- [Package Dependencies](docs/architecture/package-dependencies.md)
-- [Agent Architecture](docs/AGENT_ARCHITECTURE.md)
+#### Core Features
+- [**AI Agents**](docs/agents/) - Agent integration and orchestration
+- [**Authentication**](docs/authentication/) - Security and access control
+- [**Dynamic Tools**](docs/dynamic-tools/) - Zero-code tool integration
+- [**Embeddings**](docs/embeddings/) - Vector search and semantic understanding
+- [**MCP Protocol**](docs/mcp-protocol/) - Model Context Protocol implementation
 
-### Developer Guides
-- [Development Environment](docs/developer/development-environment.md)
-- [Testing Guide](docs/developer/testing-guide.md)
-- [Debugging Guide](docs/developer/debugging-guide.md)
-- [Authentication Implementation](docs/developer/authentication-implementation-guide.md)
+#### Platform
+- [**API Reference**](docs/api/) - Complete API documentation
+- [**Architecture**](docs/architecture/) - System design and architecture
+- [**Organizations**](docs/organizations/) - Multi-tenant management
 
-### Operations
-- [Configuration Guide](docs/operations/configuration-guide.md)
-- [API Key Management](docs/operations/api-key-management.md)
-- [Security](docs/operations/SECURITY.md)
-- [Operations Runbook](docs/operations/OPERATIONS_RUNBOOK.md)
-- [Monitoring](docs/operations/MONITORING.md)
+#### Operations
+- [**Deployment**](docs/deployment/) - Production deployment guide
+- [**Development**](docs/development/) - Developer documentation
+- [**Troubleshooting**](docs/troubleshooting/) - Problem-solving guides
 
-### Guides
-- [AI Agent Orchestration](docs/guides/ai-agent-orchestration.md)
-- [Multi-Agent Collaboration](docs/guides/multi-agent-collaboration.md)
-- [Cost Optimization](docs/guides/cost-optimization-guide.md)
-- [Performance Tuning](docs/guides/performance-tuning-guide.md)
-- [Production Deployment](docs/guides/production-deployment.md)
+## 📊 Project Status
+
+**Current Stage**: Alpha (v0.0.2)
+- ✅ Core MCP protocol implementation complete
+- ✅ Basic agent orchestration working
+- ✅ Dynamic tool integration functional
+- 🚧 Production hardening in progress
+- 🚧 Additional AI provider integrations
+- 📋 Comprehensive testing needed
+
+**Not Yet Available**:
+- Security certifications (SOC2, ISO 27001)
+- Cloud native certifications (CNCF membership)
+- Enterprise support contracts
+- SLA guarantees
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](docs/contributing/CONTRIBUTING.md) for details.
+We welcome contributions! Please see our [Contributing Guide](docs/development/contributing/guide.md) for details.
 
 ### Development Workflow
 1. Fork the repository
@@ -529,18 +551,57 @@ We welcome contributions! Please see our [Contributing Guide](docs/contributing/
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+## 🌟 Community & Support
+
+### Getting Help
+- 📖 [Documentation](docs/) - Start here
+- 🐛 [GitHub Issues](https://github.com/developer-mesh/developer-mesh/issues) - Report bugs
+- 💬 [GitHub Discussions](https://github.com/developer-mesh/developer-mesh/discussions) - Ask questions
+- 📧 Email: support@developer-mesh.io (community support only)
+
+### Project Resources
+- [Roadmap](https://github.com/developer-mesh/developer-mesh/projects) - See what's coming
+- [Changelog](CHANGELOG.md) - Recent updates
+- [Security Policy](SECURITY.md) - Report vulnerabilities
+
 ## 🙏 Acknowledgments
 
 - AWS Bedrock team for AI/ML infrastructure
 - pgvector for vector similarity search
 - OpenTelemetry for observability standards
 - The Go community for excellent tooling
+- MCP Protocol creators for standardization
+
+## 🔒 Security Considerations
+
+**Important**: This is an alpha project without formal security audits.
+
+- ✅ Per-tenant encryption (AES-256-GCM)
+- ✅ API key authentication
+- ✅ Input validation and SQL injection prevention
+- ⚠️ Not audited by third-party security firms
+- ⚠️ No compliance certifications (SOC2, GDPR, HIPAA)
+- ⚠️ Use at your own risk in production
+
+For security concerns, see [SECURITY.md](SECURITY.md) or email security@developer-mesh.io
+
+## 🔄 Comparison with Alternatives
+
+| Feature | Developer Mesh | LangChain | AutoGPT | CrewAI |
+|---------|---------------|-----------|---------|---------|
+| Multi-agent orchestration | ✅ | Partial | ✅ | ✅ |
+| MCP Protocol support | ✅ Native | ❌ | ❌ | ❌ |
+| Dynamic tool discovery | ✅ | ❌ | Partial | ❌ |
+| Self-hosted option | ✅ | ✅ | ✅ | ✅ |
+| DevOps focus | ✅ | ❌ | ❌ | ❌ |
+| Production ready | 🚧 Alpha | ✅ | 🚧 | 🚧 |
+| Enterprise support | ❌ | ✅ | ❌ | Partial |
 
 ---
-
 
 <!-- VERIFICATION
 This document has been automatically verified against the codebase.
 Last verification: 2025-08-11 14:43:14
 All features mentioned have been confirmed to exist in the code.
+Documentation links updated: 2025-08-19
 -->

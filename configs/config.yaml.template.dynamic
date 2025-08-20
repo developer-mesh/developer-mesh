@@ -150,7 +150,7 @@ dynamic_tools:
   
   # Security configuration
   security:
-    encryption_key: "${TOOL_ENCRYPTION_KEY}" # Used for credential encryption
+    encryption_key: "${ENCRYPTION_MASTER_KEY}" # Master key for credential encryption
     allowed_auth_types: ["bearer", "api_key", "basic", "oauth2"]
     require_https: ${TOOL_REQUIRE_HTTPS:-true}
     validate_certs: ${TOOL_VALIDATE_CERTS:-true}

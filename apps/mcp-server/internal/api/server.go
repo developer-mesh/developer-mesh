@@ -266,6 +266,10 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 			Logger:  observability.DefaultLogger,
 		})
 		s.mcpProtocolHandler = NewMCPProtocolHandler(restAPIClient, observability.DefaultLogger)
+		// Set database for enhanced tool discovery
+		if s.db != nil {
+			s.mcpProtocolHandler.SetDatabase(s.db)
+		}
 		observability.DefaultLogger.Info("MCP protocol handler initialized", nil)
 	}
 

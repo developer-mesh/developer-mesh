@@ -237,7 +237,7 @@ The worker includes comprehensive unit tests for all components:
 ### Docker
 
 ```dockerfile
-FROM golang:1.21-alpine AS builder
+FROM golang:1.24.6-alpine AS builder
 WORKDIR /app
 COPY . .
 RUN go build -o worker ./cmd/worker

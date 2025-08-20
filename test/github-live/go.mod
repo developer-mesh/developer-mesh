@@ -1,6 +1,6 @@
 module github.com/developer-mesh/developer-mesh/test/github-live
 
-go 1.24
+go 1.24.6
 
 toolchain go1.24.2
 

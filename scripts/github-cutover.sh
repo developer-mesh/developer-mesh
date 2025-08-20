@@ -163,7 +163,7 @@ MANUAL STEPS REQUIRED:
 
 2. Update environment variables:
    - Remove GITHUB_TOKEN, GITHUB_WEBHOOK_SECRET if set globally
-   - Ensure ENCRYPTION_KEY is set for credential encryption
+   - Ensure ENCRYPTION_MASTER_KEY is set for credential encryption
 
 3. Deploy the new application version with dynamic tools support
 

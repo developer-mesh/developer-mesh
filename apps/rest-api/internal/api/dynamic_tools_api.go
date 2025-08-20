@@ -263,6 +263,19 @@ func (api *DynamicToolsAPI) CreateTool(c *gin.Context) {
 		return
 	}
 
+	// Handle credentials - convert from new format to old format if needed
+	var credential *models.TokenCredential
+	if req.Credential != nil {
+		credential = req.Credential
+	} else if req.Credentials != nil {
+		// Handle the new "credentials" field with bearer_token
+		if bearerToken, ok := req.Credentials["bearer_token"].(string); ok {
+			credential = &models.TokenCredential{
+				Token: bearerToken,
+			}
+		}
+	}
+
 	// Convert to ToolConfig
 	config := tools.ToolConfig{
 		TenantID:          tenantID,
@@ -270,8 +283,10 @@ func (api *DynamicToolsAPI) CreateTool(c *gin.Context) {
 		BaseURL:           req.BaseURL,
 		DocumentationURL:  req.DocumentationURL,
 		OpenAPIURL:        req.OpenAPIURL,
+		AuthType:          req.AuthType,
+		AuthConfig:        req.AuthConfig,
 		Config:            req.Config,
-		Credential:        req.Credential,
+		Credential:        credential,
 		Provider:          req.Provider,
 		PassthroughConfig: (*tools.PassthroughConfig)(req.PassthroughConfig),
 		GroupOperations:   req.GroupOperations,
@@ -916,6 +931,9 @@ type CreateToolRequest struct {
 	BaseURL           string                    `json:"base_url" binding:"required"`
 	DocumentationURL  string                    `json:"documentation_url,omitempty"`
 	OpenAPIURL        string                    `json:"openapi_url,omitempty"`
+	AuthType          string                    `json:"auth_type,omitempty"`
+	AuthConfig        map[string]interface{}    `json:"auth_config,omitempty"`
+	Credentials       map[string]interface{}    `json:"credentials,omitempty"`
 	Config            map[string]interface{}    `json:"config,omitempty"`
 	Credential        *models.TokenCredential   `json:"credential,omitempty"`
 	Provider          string                    `json:"provider,omitempty"`

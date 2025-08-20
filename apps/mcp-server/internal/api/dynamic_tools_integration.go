@@ -2,11 +2,13 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/api/handlers"
 	"github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/services"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/security"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 )
@@ -20,12 +22,16 @@ func InitializeDynamicToolsV2(
 	// Get encryption key
 	masterKey := os.Getenv("ENCRYPTION_MASTER_KEY")
 	if masterKey == "" {
-		masterKey = os.Getenv("ENCRYPTION_KEY")
-	}
-	if masterKey == "" {
-		// For development only - in production this should fail
-		logger.Warn("No encryption key provided, using temporary key for development", nil)
-		masterKey = "temporary-development-key-change-in-production"
+		// For development only - generate a random key
+		logger.Warn("ENCRYPTION_MASTER_KEY not set - generating temporary key for development", nil)
+		randomKey, err := security.GenerateSecureToken(32)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate encryption key: %w", err)
+		}
+		masterKey = randomKey
+		logger.Warn("Using randomly generated encryption key - this is not suitable for production!", map[string]interface{}{
+			"recommendation": "Set ENCRYPTION_MASTER_KEY environment variable with a secure 32+ character key",
+		})
 	}
 
 	// Create credential manager

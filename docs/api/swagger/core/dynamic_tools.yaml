@@ -1,0 +1,1241 @@
+paths:
+  /tools:
+    get:
+      tags:
+        - Dynamic Tools
+      summary: List dynamic tools
+      description: |
+        Returns a list of all dynamically configured tools for the tenant.
+        Tools can be filtered by status and optionally include health information.
+      operationId: listDynamicTools
+      parameters:
+        - name: status
+          in: query
+          description: Filter tools by status
+          schema:
+            type: string
+            enum: [active, inactive, disabled]
+        - name: include_health
+          in: query
+          description: Include current health status for each tool
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: List of dynamic tools
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tools:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DynamicTool'
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - Dynamic Tools
+      summary: Create a new dynamic tool
+      description: |
+        Creates a new dynamic tool configuration with enhanced discovery capabilities:
+        
+        **Automatic Discovery Features:**
+        - Format detection: Automatically detects OpenAPI, Swagger, RAML, and custom JSON formats
+        - Format conversion: Converts non-OpenAPI formats to OpenAPI 3.0
+        - Learning system: Learns from successful discoveries to improve future attempts
+        - Pattern matching: Tries common OpenAPI paths and subdomain variations
+        
+        **Operation Grouping (group_operations: true):**
+        - Automatically splits large APIs into multiple logical tools
+        - Groups operations by tags, paths, or resource types
+        - Creates separate tool entries (e.g., github_repos, github_issues)
+        - Each group contains related operations for better AI agent understanding
+        - Configurable grouping strategies: tag, path, or hybrid
+        
+        **User-Guided Discovery:**
+        - Provide discovery hints to speed up the process
+        - Specify custom paths, authentication examples, or API format
+        - Works with tools that don't expose standard OpenAPI endpoints
+        
+        **Supported Formats:**
+        - OpenAPI 3.x (JSON/YAML)
+        - Swagger/OpenAPI 2.0
+        - Custom JSON formats (e.g., SonarQube)
+        - RAML (detection only)
+        - Postman Collections (coming soon)
+      operationId: createDynamicTool
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateToolRequest'
+      responses:
+        '201':
+          description: Tool created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DynamicTool'
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '409':
+          description: Tool already exists
+          content:
+            application/json:
+              schema:
+                $ref: '../common/schemas.yaml#/components/schemas/Error'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /tools/{toolId}:
+    parameters:
+      - $ref: '../common/parameters.yaml#/components/parameters/ToolID'
+    
+    get:
+      tags:
+        - Dynamic Tools
+      summary: Get dynamic tool details
+      description: |
+        Returns detailed information about a specific dynamic tool including
+        its configuration, available actions, and current health status.
+      operationId: getDynamicTool
+      responses:
+        '200':
+          description: Tool details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DynamicTool'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+    put:
+      tags:
+        - Dynamic Tools
+      summary: Update dynamic tool
+      description: |
+        Updates an existing dynamic tool configuration. Only provided fields
+        will be updated, others will remain unchanged.
+      operationId: updateDynamicTool
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateToolRequest'
+      responses:
+        '200':
+          description: Tool updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DynamicTool'
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+    delete:
+      tags:
+        - Dynamic Tools
+      summary: Delete dynamic tool
+      description: |
+        Deletes a dynamic tool configuration. This will remove all associated
+        credentials and health check history.
+      operationId: deleteDynamicTool
+      responses:
+        '204':
+          description: Tool deleted successfully
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /tools/discover:
+    post:
+      tags:
+        - Dynamic Tools
+      summary: Discover tool APIs
+      description: |
+        Initiates discovery of APIs and OpenAPI specifications from a base URL.
+        Returns a discovery session that can be used to confirm the discovered endpoints.
+      operationId: discoverTool
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DiscoverToolRequest'
+      responses:
+        '200':
+          description: Discovery initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscoverySession'
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /tools/discover/{sessionId}:
+    parameters:
+      - name: sessionId
+        in: path
+        required: true
+        description: Discovery session ID
+        schema:
+          type: string
+          format: uuid
+    
+    get:
+      tags:
+        - Dynamic Tools
+      summary: Get discovery session status
+      description: |
+        Returns the current status of a discovery session including any
+        discovered OpenAPI specifications and their locations.
+      operationId: getDiscoverySession
+      responses:
+        '200':
+          description: Discovery session details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscoverySession'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /tools/discover/{sessionId}/confirm:
+    parameters:
+      - name: sessionId
+        in: path
+        required: true
+        description: Discovery session ID
+        schema:
+          type: string
+          format: uuid
+    
+    post:
+      tags:
+        - Dynamic Tools
+      summary: Confirm discovery results
+      description: |
+        Confirms the discovery results and creates a tool configuration
+        based on the selected OpenAPI specification.
+      operationId: confirmDiscovery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmDiscoveryRequest'
+      responses:
+        '200':
+          description: Tool created from discovery
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DynamicTool'
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /tools/{toolId}/health:
+    parameters:
+      - $ref: '../common/parameters.yaml#/components/parameters/ToolID'
+    
+    get:
+      tags:
+        - Dynamic Tools
+      summary: Check tool health
+      description: |
+        Returns the current health status of a dynamic tool. By default returns
+        cached status. Use force=true to trigger a fresh health check.
+      operationId: checkToolHealth
+      parameters:
+        - name: force
+          in: query
+          description: Force a fresh health check instead of returning cached status
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Health status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /tools/{toolId}/health/refresh:
+    parameters:
+      - $ref: '../common/parameters.yaml#/components/parameters/ToolID'
+    
+    post:
+      tags:
+        - Dynamic Tools
+      summary: Refresh health status
+      description: |
+        Forces an immediate health check for the tool and updates the cached status.
+      operationId: refreshToolHealth
+      responses:
+        '200':
+          description: Health status refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /tools/{toolId}/actions:
+    parameters:
+      - $ref: '../common/parameters.yaml#/components/parameters/ToolID'
+    
+    get:
+      tags:
+        - Dynamic Tools
+      summary: List tool actions
+      description: |
+        Returns all available actions for a dynamic tool based on its
+        OpenAPI specification or custom configuration.
+      operationId: listDynamicToolActions
+      responses:
+        '200':
+          description: Available actions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tool_id:
+                    type: string
+                  tool_name:
+                    type: string
+                  actions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ActionDefinition'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /tools/{toolId}/execute/{action}:
+    parameters:
+      - $ref: '../common/parameters.yaml#/components/parameters/ToolID'
+      - name: action
+        in: path
+        required: true
+        description: Action name to execute
+        schema:
+          type: string
+    
+    post:
+      tags:
+        - Dynamic Tools
+      summary: Execute tool action
+      description: |
+        Executes a specific action on a dynamic tool. The request body should
+        match the action's parameter schema.
+      operationId: executeDynamicToolAction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              description: Action-specific parameters
+      responses:
+        '200':
+          description: Action executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionResult'
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: '../common/responses.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /tools/{toolId}/credentials:
+    parameters:
+      - $ref: '../common/parameters.yaml#/components/parameters/ToolID'
+    
+    put:
+      tags:
+        - Dynamic Tools
+      summary: Update tool credentials
+      description: |
+        Updates the authentication credentials for a dynamic tool.
+        Credentials are encrypted per-tenant before storage.
+      operationId: updateToolCredentials
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCredentialsRequest'
+      responses:
+        '200':
+          description: Credentials updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Credentials updated successfully"
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /tools/discover-multiple:
+    post:
+      tags:
+        - Dynamic Tools
+      summary: Discover multiple APIs from a portal
+      description: |
+        Discovers all available APIs from an API portal (e.g., Harness.io, AWS, Azure).
+        
+        **Supported Portals:**
+        - **Harness**: Automatically discovers Platform, CI/CD, Chaos, and Feature Flag APIs
+        - **AWS**: Discovers services from AWS documentation portals
+        - **Azure**: Finds Resource Manager and Data Plane APIs
+        - **Google Cloud**: Discovers GCP service APIs
+        - **Kubernetes**: Finds core and extension APIs
+        - **Generic**: Works with any portal following common patterns
+        
+        **Discovery Methods:**
+        - Pattern-based discovery using portal-specific URL patterns
+        - HTML crawling to find API documentation links
+        - Well-known paths checking (e.g., /openapi.json, /swagger.json)
+        - API catalog endpoints for portals with service registries
+        
+        **Features:**
+        - Concurrent discovery with rate limiting
+        - Automatic format detection and conversion to OpenAPI 3.0
+        - API categorization (Platform, CI/CD, etc.)
+        - Deduplication of discovered APIs
+      operationId: discoverMultipleAPIs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MultiAPIDiscoveryRequest'
+      responses:
+        '200':
+          description: Discovery completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MultiAPIDiscoveryResult'
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /tools/discover-multiple/create:
+    post:
+      tags:
+        - Dynamic Tools
+      summary: Create tools from multiple discovered APIs
+      description: |
+        Creates multiple tools from APIs discovered from a portal.
+        This endpoint combines discovery and bulk tool creation in one operation.
+        
+        **Process:**
+        1. Discovers all APIs from the provided portal URL
+        2. Creates a tool for each discovered API
+        3. Applies the provided configuration to all tools
+        4. Returns both the discovery results and created tools
+        
+        **Benefits:**
+        - One-click integration with complex API ecosystems
+        - Automatic tool naming based on API names
+        - Consistent configuration across all tools
+        - Detailed error reporting for partial failures
+      operationId: createToolsFromMultipleAPIs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateToolsFromMultipleAPIsRequest'
+      responses:
+        '201':
+          description: Tools created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tools_created:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DynamicTool'
+                    description: Successfully created tools
+                  count:
+                    type: integer
+                    description: Number of tools created
+                  discovery_result:
+                    $ref: '#/components/schemas/MultiAPIDiscoveryResult'
+                    description: Full discovery results including any errors
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          description: No APIs found at the portal URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  discovery_result:
+                    $ref: '#/components/schemas/MultiAPIDiscoveryResult'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    DynamicTool:
+      type: object
+      required:
+        - id
+        - tenant_id
+        - name
+        - base_url
+        - auth_type
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique tool identifier
+        tenant_id:
+          type: string
+          description: Tenant ID that owns this tool
+        name:
+          type: string
+          description: Tool name (must be unique per tenant)
+        description:
+          type: string
+          description: Tool description
+        base_url:
+          type: string
+          format: uri
+          description: Base URL for the tool's API
+        documentation_url:
+          type: string
+          format: uri
+          description: URL to tool documentation
+        openapi_url:
+          type: string
+          format: uri
+          description: URL to OpenAPI specification
+        auth_type:
+          type: string
+          enum: [none, api_key, bearer, basic, oauth2, custom]
+          description: Authentication type required
+        config:
+          type: object
+          additionalProperties: true
+          description: Tool-specific configuration
+        retry_policy:
+          $ref: '#/components/schemas/RetryPolicy'
+        health_config:
+          $ref: '#/components/schemas/HealthCheckConfig'
+        status:
+          type: string
+          enum: [active, inactive, disabled]
+          description: Tool status
+        health_status:
+          $ref: '#/components/schemas/HealthStatus'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateToolRequest:
+      type: object
+      required:
+        - name
+        - base_url
+        - auth_type
+      properties:
+        name:
+          type: string
+          description: Tool name (must be unique per tenant)
+          pattern: '^[a-zA-Z0-9_-]+$'
+          minLength: 3
+          maxLength: 50
+        description:
+          type: string
+          description: Tool description
+          maxLength: 500
+        base_url:
+          type: string
+          format: uri
+          description: Base URL for the tool's API
+        documentation_url:
+          type: string
+          format: uri
+          description: URL to tool documentation
+        openapi_url:
+          type: string
+          format: uri
+          description: URL to OpenAPI specification
+        auth_type:
+          type: string
+          enum: [none, api_key, bearer, basic, oauth2, custom]
+          description: Authentication type
+        credential:
+          $ref: '#/components/schemas/CredentialRequest'
+        config:
+          type: object
+          additionalProperties: true
+          description: |
+            Tool-specific configuration. When group_operations is enabled, can include:
+            - max_operations_per_group: Maximum operations per grouped tool (default: 50)
+            - grouping_strategy: How to group operations ("tag", "path", or "hybrid")
+            - default_parameters: Parameters to include in all operations
+        retry_policy:
+          $ref: '#/components/schemas/RetryPolicy'
+        health_config:
+          $ref: '#/components/schemas/HealthCheckConfig'
+        discovery_hints:
+          $ref: '#/components/schemas/DiscoveryHints'
+          description: Optional hints to assist with API discovery
+        group_operations:
+          type: boolean
+          default: false
+          description: |
+            Enable automatic operation grouping to split large APIs into multiple logical tools.
+            When enabled, the system will analyze the OpenAPI specification and create separate
+            tool entries for each logical group (e.g., github_repos, github_issues).
+            This makes large APIs more manageable for AI agents.
+
+    UpdateToolRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Tool name
+          pattern: '^[a-zA-Z0-9_-]+$'
+          minLength: 3
+          maxLength: 50
+        description:
+          type: string
+          description: Tool description
+          maxLength: 500
+        base_url:
+          type: string
+          format: uri
+          description: Base URL for the tool's API
+        documentation_url:
+          type: string
+          format: uri
+          description: URL to tool documentation
+        openapi_url:
+          type: string
+          format: uri
+          description: URL to OpenAPI specification
+        config:
+          type: object
+          additionalProperties: true
+          description: Tool-specific configuration
+        retry_policy:
+          $ref: '#/components/schemas/RetryPolicy'
+        health_config:
+          $ref: '#/components/schemas/HealthCheckConfig'
+        status:
+          type: string
+          enum: [active, inactive, disabled]
+          description: Tool status
+
+    CredentialRequest:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum: [api_key, bearer, basic, oauth2, custom]
+        token:
+          type: string
+          description: API key or bearer token
+        username:
+          type: string
+          description: Username for basic auth
+        password:
+          type: string
+          format: password
+          description: Password for basic auth
+        header_name:
+          type: string
+          description: Custom header name for API key
+        query_param:
+          type: string
+          description: Query parameter name for API key
+        oauth_config:
+          type: object
+          properties:
+            client_id:
+              type: string
+            client_secret:
+              type: string
+            token_url:
+              type: string
+            scopes:
+              type: array
+              items:
+                type: string
+
+    DiscoverToolRequest:
+      type: object
+      required:
+        - base_url
+      properties:
+        base_url:
+          type: string
+          format: uri
+          description: Base URL to discover APIs from
+        auth_type:
+          type: string
+          enum: [none, api_key, bearer, basic, oauth2]
+          description: Authentication type if known
+        credential:
+          $ref: '#/components/schemas/CredentialRequest'
+        discovery_hints:
+          type: object
+          properties:
+            paths:
+              type: array
+              items:
+                type: string
+              description: Additional paths to check
+            subdomains:
+              type: array
+              items:
+                type: string
+              description: Additional subdomains to try
+
+    ConfirmDiscoveryRequest:
+      type: object
+      required:
+        - selected_url
+        - tool_name
+      properties:
+        selected_url:
+          type: string
+          format: uri
+          description: Selected OpenAPI specification URL
+        tool_name:
+          type: string
+          description: Name for the new tool
+        description:
+          type: string
+          description: Tool description
+        credential:
+          $ref: '#/components/schemas/CredentialRequest'
+
+    UpdateCredentialsRequest:
+      type: object
+      required:
+        - auth_type
+        - credential
+      properties:
+        auth_type:
+          type: string
+          enum: [none, api_key, bearer, basic, oauth2, custom]
+        credential:
+          $ref: '#/components/schemas/CredentialRequest'
+
+    DiscoverySession:
+      type: object
+      required:
+        - session_id
+        - status
+        - created_at
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, in_progress, success, partial, manual_needed, failed]
+        base_url:
+          type: string
+          format: uri
+        discovered_urls:
+          type: array
+          items:
+            type: string
+            format: uri
+          description: URLs where OpenAPI specs were found
+        openapi_specs:
+          type: array
+          items:
+            type: object
+            properties:
+              url:
+                type: string
+                format: uri
+              title:
+                type: string
+              version:
+                type: string
+              description:
+                type: string
+        selected_url:
+          type: string
+          format: uri
+          description: URL selected for tool creation
+        error_message:
+          type: string
+          description: Error message if discovery failed
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Additional discovery metadata
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ActionDefinition:
+      type: object
+      required:
+        - name
+        - method
+        - path
+      properties:
+        name:
+          type: string
+          description: Action name
+        description:
+          type: string
+          description: Action description
+        method:
+          type: string
+          enum: [GET, POST, PUT, PATCH, DELETE]
+          description: HTTP method
+        path:
+          type: string
+          description: API path
+        parameters:
+          type: object
+          description: Parameter schema
+        response_schema:
+          type: object
+          description: Response schema
+        tags:
+          type: array
+          items:
+            type: string
+          description: Action tags/categories
+
+    ExecutionResult:
+      type: object
+      required:
+        - tool_id
+        - action
+        - status
+        - executed_at
+      properties:
+        tool_id:
+          type: string
+          format: uuid
+        tool_name:
+          type: string
+        action:
+          type: string
+        status:
+          type: string
+          enum: [success, failure]
+        result:
+          type: object
+          additionalProperties: true
+          description: Action result data
+        error:
+          type: string
+          description: Error message if failed
+        response_time:
+          type: integer
+          description: Response time in milliseconds
+        retry_count:
+          type: integer
+          description: Number of retries attempted
+        executed_at:
+          type: string
+          format: date-time
+
+    DiscoveryHints:
+      type: object
+      description: |
+        Hints to assist with API discovery. These hints help the discovery system
+        find and understand your API faster, especially for non-standard implementations.
+      properties:
+        openapi_url:
+          type: string
+          format: uri
+          description: Direct URL to OpenAPI/Swagger specification if known
+        auth_headers:
+          type: object
+          additionalProperties:
+            type: string
+          description: Example authentication headers that work with the API
+        api_key_name:
+          type: string
+          description: Name of the API key header/parameter (e.g., 'X-API-Key')
+        api_key_in:
+          type: string
+          enum: [header, query, cookie]
+          description: Where the API key should be sent
+        custom_paths:
+          type: array
+          items:
+            type: string
+          description: Custom paths to check for API documentation
+          example: ['/api/v2/spec', '/docs/api.json', '/api-docs']
+        api_format:
+          type: string
+          enum: [openapi3, openapi2, swagger, raml, custom_json, postman]
+          description: API documentation format if known
+        example_endpoint:
+          type: string
+          description: Example working endpoint to analyze
+          example: '/api/v1/users'
+        example_method:
+          type: string
+          enum: [GET, POST, PUT, DELETE, PATCH]
+          description: HTTP method for the example endpoint
+        example_headers:
+          type: object
+          additionalProperties:
+            type: string
+          description: Headers required for the example endpoint
+        documentation_url:
+          type: string
+          format: uri
+          description: URL to human-readable API documentation
+        response_format:
+          type: string
+          enum: [json, xml, yaml]
+          description: Expected response format
+        api_version:
+          type: string
+          description: API version if known
+        rate_limit_header:
+          type: string
+          description: Header that contains rate limit information
+        pagination_style:
+          type: string
+          enum: [offset, cursor, page, link_header]
+          description: Pagination style used by the API
+        page_param:
+          type: string
+          description: Query parameter name for page number
+        limit_param:
+          type: string
+          description: Query parameter name for page size
+
+    HealthStatus:
+      type: object
+      required:
+        - is_healthy
+        - last_checked
+      properties:
+        is_healthy:
+          type: boolean
+          description: Whether the tool is healthy
+        last_checked:
+          type: string
+          format: date-time
+          description: Last health check time
+        response_time:
+          type: integer
+          description: Response time in milliseconds
+        error:
+          type: string
+          description: Error message if unhealthy
+        version:
+          type: string
+          description: Tool version if available
+        details:
+          type: object
+          additionalProperties: true
+          description: Additional health details
+
+    RetryPolicy:
+      type: object
+      properties:
+        max_retries:
+          type: integer
+          minimum: 0
+          maximum: 10
+          default: 3
+          description: Maximum number of retries
+        initial_delay:
+          type: integer
+          minimum: 100
+          maximum: 60000
+          default: 1000
+          description: Initial retry delay in milliseconds
+        max_delay:
+          type: integer
+          minimum: 1000
+          maximum: 300000
+          default: 30000
+          description: Maximum retry delay in milliseconds
+        multiplier:
+          type: number
+          format: float
+          minimum: 1.0
+          maximum: 10.0
+          default: 2.0
+          description: Delay multiplier for exponential backoff
+        retry_on:
+          type: array
+          items:
+            type: integer
+          default: [408, 429, 500, 502, 503, 504]
+          description: HTTP status codes to retry on
+
+    HealthCheckConfig:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          default: true
+          description: Whether health checks are enabled
+        interval:
+          type: integer
+          minimum: 60
+          maximum: 86400
+          default: 300
+          description: Health check interval in seconds
+        timeout:
+          type: integer
+          minimum: 1
+          maximum: 300
+          default: 30
+          description: Health check timeout in seconds
+        endpoint:
+          type: string
+          description: Custom health check endpoint path
+        method:
+          type: string
+          enum: [GET, POST]
+          default: GET
+          description: HTTP method for health check
+        expected_status:
+          type: array
+          items:
+            type: integer
+          default: [200, 204]
+          description: Expected HTTP status codes for healthy state
+
+    MultiAPIDiscoveryRequest:
+      type: object
+      required:
+        - portal_url
+      properties:
+        portal_url:
+          type: string
+          format: uri
+          description: URL of the API portal to discover APIs from
+          example: "https://apidocs.harness.io/"
+        discovery_timeout:
+          type: integer
+          minimum: 1
+          maximum: 600
+          description: Discovery timeout in seconds (default 300)
+          example: 300
+        credential:
+          $ref: '#/components/schemas/CredentialRequest'
+          description: Optional credentials for authenticated API discovery
+
+    CreateToolsFromMultipleAPIsRequest:
+      type: object
+      required:
+        - portal_url
+        - name_prefix
+      properties:
+        portal_url:
+          type: string
+          format: uri
+          description: URL of the API portal to discover APIs from
+          example: "https://apidocs.harness.io/"
+        name_prefix:
+          type: string
+          description: Prefix for created tool names
+          example: "Harness"
+          minLength: 1
+          maxLength: 30
+        auto_create:
+          type: boolean
+          description: Automatically create tools without manual confirmation
+          default: true
+        credential:
+          $ref: '#/components/schemas/CredentialRequest'
+          description: Credentials to use for all created tools
+        provider:
+          type: string
+          description: Provider name for passthrough authentication
+          example: "harness"
+        passthrough_config:
+          type: object
+          properties:
+            required:
+              type: boolean
+              description: Whether passthrough authentication is required
+            header_name:
+              type: string
+              description: Header name for passthrough token
+        config:
+          type: object
+          additionalProperties: true
+          description: Additional configuration applied to all tools
+
+    MultiAPIDiscoveryResult:
+      type: object
+      required:
+        - base_url
+        - discovered_apis
+        - status
+        - discovery_method
+        - timestamp
+      properties:
+        base_url:
+          type: string
+          format: uri
+          description: Portal URL that was searched
+        discovered_apis:
+          type: array
+          items:
+            $ref: '#/components/schemas/APIDefinition'
+          description: List of discovered APIs
+        status:
+          type: string
+          enum: [success, partial, manual_needed, failed]
+          description: Overall discovery status
+        discovery_method:
+          type: string
+          description: Portal type that was detected (e.g., "Harness", "AWS", "Generic")
+        timestamp:
+          type: string
+          format: date-time
+          description: When the discovery was performed
+        errors:
+          type: array
+          items:
+            type: string
+          description: Any errors encountered during discovery
+
+    APIDefinition:
+      type: object
+      required:
+        - name
+        - spec_url
+        - format
+        - discovered
+      properties:
+        name:
+          type: string
+          description: API name extracted from the specification
+          example: "Platform API"
+        description:
+          type: string
+          description: API description if available
+        spec_url:
+          type: string
+          format: uri
+          description: URL where the API specification was found
+          example: "https://api.harness.io/platform/swagger.json"
+        version:
+          type: string
+          description: API version
+          example: "1.0.0"
+        category:
+          type: string
+          description: API category based on portal patterns
+          example: "Platform"
+        format:
+          type: string
+          enum: [openapi3, openapi2, swagger, custom_json, raml, graphql, postman, unknown]
+          description: Detected API documentation format
+        discovered:
+          type: string
+          format: date-time
+          description: When this API was discovered

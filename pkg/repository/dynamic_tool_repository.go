@@ -90,13 +90,13 @@ func (r *dynamicToolRepository) Create(ctx context.Context, tool *models.Dynamic
 // GetByID retrieves a dynamic tool by ID
 func (r *dynamicToolRepository) GetByID(ctx context.Context, id string) (*models.DynamicTool, error) {
 	var tool models.DynamicTool
-	var configJSON, webhookConfigJSON, retryPolicyJSON, passthroughConfigJSON, healthStatusJSON []byte
+	var configJSON, webhookConfigJSON, retryPolicyJSON, passthroughConfigJSON, healthStatusJSON, authConfigJSON []byte
 
 	query := `
 		SELECT 
 			id, tool_name, display_name, base_url, provider,
 			config, webhook_config, retry_policy, passthrough_config,
-			auth_type, credentials_encrypted, status, health_status,
+			auth_type, auth_config, credentials_encrypted, status, health_status,
 			last_health_check, tenant_id, created_at, updated_at
 		FROM mcp.tool_configurations 
 		WHERE id = $1`
@@ -104,7 +104,7 @@ func (r *dynamicToolRepository) GetByID(ctx context.Context, id string) (*models
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&tool.ID, &tool.ToolName, &tool.DisplayName, &tool.BaseURL, &tool.Provider,
 		&configJSON, &webhookConfigJSON, &retryPolicyJSON, &passthroughConfigJSON,
-		&tool.AuthType, &tool.CredentialsEncrypted, &tool.Status, &healthStatusJSON,
+		&tool.AuthType, &authConfigJSON, &tool.CredentialsEncrypted, &tool.Status, &healthStatusJSON,
 		&tool.LastHealthCheck, &tool.TenantID, &tool.CreatedAt, &tool.UpdatedAt,
 	)
 
@@ -119,6 +119,11 @@ func (r *dynamicToolRepository) GetByID(ctx context.Context, id string) (*models
 	if configJSON != nil {
 		if err := json.Unmarshal(configJSON, &tool.Config); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal config: %w", err)
+		}
+	}
+	if authConfigJSON != nil {
+		if err := json.Unmarshal(authConfigJSON, &tool.AuthConfig); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal auth config: %w", err)
 		}
 	}
 	if webhookConfigJSON != nil {
@@ -147,13 +152,13 @@ func (r *dynamicToolRepository) GetByID(ctx context.Context, id string) (*models
 // GetByToolName retrieves a dynamic tool by name and tenant
 func (r *dynamicToolRepository) GetByToolName(ctx context.Context, tenantID, toolName string) (*models.DynamicTool, error) {
 	var tool models.DynamicTool
-	var configJSON, webhookConfigJSON, retryPolicyJSON, passthroughConfigJSON, healthStatusJSON []byte
+	var configJSON, webhookConfigJSON, retryPolicyJSON, passthroughConfigJSON, healthStatusJSON, authConfigJSON []byte
 
 	query := `
 		SELECT 
 			id, tool_name, display_name, base_url, provider,
 			config, webhook_config, retry_policy, passthrough_config,
-			auth_type, credentials_encrypted, status, health_status,
+			auth_type, auth_config, credentials_encrypted, status, health_status,
 			last_health_check, tenant_id, created_at, updated_at
 		FROM mcp.tool_configurations 
 		WHERE tenant_id = $1 AND tool_name = $2`
@@ -161,7 +166,7 @@ func (r *dynamicToolRepository) GetByToolName(ctx context.Context, tenantID, too
 	err := r.db.QueryRowContext(ctx, query, tenantID, toolName).Scan(
 		&tool.ID, &tool.ToolName, &tool.DisplayName, &tool.BaseURL, &tool.Provider,
 		&configJSON, &webhookConfigJSON, &retryPolicyJSON, &passthroughConfigJSON,
-		&tool.AuthType, &tool.CredentialsEncrypted, &tool.Status, &healthStatusJSON,
+		&tool.AuthType, &authConfigJSON, &tool.CredentialsEncrypted, &tool.Status, &healthStatusJSON,
 		&tool.LastHealthCheck, &tool.TenantID, &tool.CreatedAt, &tool.UpdatedAt,
 	)
 
@@ -176,6 +181,11 @@ func (r *dynamicToolRepository) GetByToolName(ctx context.Context, tenantID, too
 	if configJSON != nil {
 		if err := json.Unmarshal(configJSON, &tool.Config); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal config: %w", err)
+		}
+	}
+	if authConfigJSON != nil {
+		if err := json.Unmarshal(authConfigJSON, &tool.AuthConfig); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal auth config: %w", err)
 		}
 	}
 	if webhookConfigJSON != nil {
@@ -207,7 +217,7 @@ func (r *dynamicToolRepository) List(ctx context.Context, tenantID string, statu
 		SELECT 
 			id, tool_name, display_name, base_url, provider,
 			config, webhook_config, retry_policy, passthrough_config,
-			auth_type, credentials_encrypted, status, health_status,
+			auth_type, auth_config, credentials_encrypted, status, health_status,
 			last_health_check, tenant_id, created_at, updated_at
 		FROM mcp.tool_configurations 
 		WHERE tenant_id = $1`
@@ -233,12 +243,12 @@ func (r *dynamicToolRepository) List(ctx context.Context, tenantID string, statu
 	var tools []*models.DynamicTool
 	for rows.Next() {
 		var tool models.DynamicTool
-		var configJSON, webhookConfigJSON, retryPolicyJSON, passthroughConfigJSON, healthStatusJSON []byte
+		var configJSON, webhookConfigJSON, retryPolicyJSON, passthroughConfigJSON, healthStatusJSON, authConfigJSON []byte
 
 		err := rows.Scan(
 			&tool.ID, &tool.ToolName, &tool.DisplayName, &tool.BaseURL, &tool.Provider,
 			&configJSON, &webhookConfigJSON, &retryPolicyJSON, &passthroughConfigJSON,
-			&tool.AuthType, &tool.CredentialsEncrypted, &tool.Status, &healthStatusJSON,
+			&tool.AuthType, &authConfigJSON, &tool.CredentialsEncrypted, &tool.Status, &healthStatusJSON,
 			&tool.LastHealthCheck, &tool.TenantID, &tool.CreatedAt, &tool.UpdatedAt,
 		)
 		if err != nil {
@@ -249,6 +259,11 @@ func (r *dynamicToolRepository) List(ctx context.Context, tenantID string, statu
 		if configJSON != nil {
 			if err := json.Unmarshal(configJSON, &tool.Config); err != nil {
 				return nil, fmt.Errorf("failed to unmarshal config: %w", err)
+			}
+		}
+		if authConfigJSON != nil {
+			if err := json.Unmarshal(authConfigJSON, &tool.AuthConfig); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal auth config: %w", err)
 			}
 		}
 		if webhookConfigJSON != nil {

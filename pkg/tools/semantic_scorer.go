@@ -331,9 +331,10 @@ func (s *SemanticScorer) scoreActionMatch(action string, chars *OperationCharact
 				score += 80
 			}
 		case "get", "read", "fetch", "retrieve":
-			if chars.CRUDType == "read" {
+			switch chars.CRUDType {
+			case "read":
 				score += 80
-			} else if chars.CRUDType == "list" {
+			case "list":
 				score += 30 // "get" might mean list in some contexts
 			}
 		case "create", "add", "new", "post":
@@ -531,7 +532,7 @@ func (s *SemanticScorer) scoreResponseType(operation *openapi3.Operation, action
 func (s *SemanticScorer) scoreTagRelevance(operation *openapi3.Operation, context map[string]interface{}) int {
 	score := 0
 
-	if operation.Tags == nil || len(operation.Tags) == 0 {
+	if len(operation.Tags) == 0 {
 		return score
 	}
 

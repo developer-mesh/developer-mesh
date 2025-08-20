@@ -450,7 +450,13 @@ func (l *ResolutionLearner) PruneOldHistory(ctx context.Context, olderThan time.
 	if err != nil {
 		return fmt.Errorf("failed to query tools: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			l.logger.Warn("Failed to close rows", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	pruned := 0
 	cutoff := time.Now().Add(-olderThan)
@@ -505,7 +511,12 @@ func (l *ResolutionLearner) PruneOldHistory(ctx context.Context, olderThan time.
 					SET metadata = $1
 					WHERE id = $2
 				`
-				l.db.ExecContext(ctx, updateQuery, updatedJSON, toolID)
+				if _, err := l.db.ExecContext(ctx, updateQuery, updatedJSON, toolID); err != nil {
+					l.logger.Warn("Failed to update resolution history", map[string]interface{}{
+						"error":  err.Error(),
+						"toolID": toolID,
+					})
+				}
 			}
 		}
 	}

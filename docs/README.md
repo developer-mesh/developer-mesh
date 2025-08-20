@@ -4,71 +4,92 @@ Welcome to the Developer Mesh documentation. This guide provides comprehensive i
 
 ## 📖 Documentation Overview
 
-### [Getting Started](getting-started/)
-Start here if you're new to Developer Mesh
-- [Quick Start Guide](getting-started/quick-start-guide.md) - Get up and running in minutes
-- [Organization Setup](getting-started/organization-setup.md) - Register your organization and invite users
-- [Authentication Quick Start](getting-started/authentication-quick-start.md) - Authentication setup
-- Installation & Configuration guides
+### 🚀 Quick Start
+- **[Getting Started](quickstart.md)** - Start here if you're new to Developer Mesh
 
-### [Architecture](architecture/)
-Understanding the system design
-- [System Overview](architecture/system-overview.md) - High-level architecture
-- [Go Workspace Structure](architecture/go-workspace-structure.md) - Multi-module organization
-- [Multi-Agent Embedding Architecture](architecture/multi-agent-embedding-architecture.md) - Embedding system design
-- [Package Dependencies](architecture/package-dependencies.md) - Module dependencies
+### 📂 Documentation by Domain
 
-### [API Reference](api-reference/)
-Complete API documentation
-- [REST API Reference](api-reference/rest-api-reference.md) - REST endpoints
-- [Organization & Auth API](api-reference/organization-auth-api.md) - Organization registration and user management
-- [MCP Server Reference](api-reference/mcp-server-reference.md) - WebSocket protocol
-- [Embedding API](api-reference/embedding-api-reference.md) - Multi-agent embedding endpoints
-- [Webhook API](api-reference/webhook-api-reference.md) - Webhook processing
-- [Authentication API](api-reference/authentication-api-reference.md) - Auth middleware and tokens
+#### Core Features
+- **[AI Agents](agents/)** - AI agent integration and orchestration
+- **[Authentication](authentication/)** - Security, auth, and access control
+- **[Dynamic Tools](dynamic-tools/)** - Zero-code tool integration
+- **[Embeddings](embeddings/)** - Vector embeddings and semantic search
+- **[MCP Protocol](mcp-protocol/)** - Model Context Protocol implementation
 
-### [Developer Guide](developer/)
-For contributors and developers
-- [Development Environment](developer/development-environment.md) - Setup instructions
-- [Debugging Guide](developer/debugging-guide.md) - Troubleshooting tips
+#### Platform
+- **[Organizations](organizations/)** - Organization and tenant management
+- **[API Reference](api/)** - Complete API documentation
+- **[Architecture](architecture/)** - System design and architecture
 
-### [Examples](examples/)
-Real-world integration examples
-- [GitHub Integration](examples/github-integration.md) - Using GitHub features
-- [AI Agent Integration](examples/ai-agent-integration.md) - Connecting AI assistants
-- [Custom Tools](examples/custom-tool-integration.md) - Adding new integrations
-- [IDE Integration](examples/ide-integration.md) - Using with Windsurf, Cursor, and other IDEs
-- [Binary WebSocket Protocol](examples/binary-websocket-protocol.md) - Binary protocol examples
-- [Embedding Examples](examples/embedding-examples.md) - Using embeddings
+#### Operations
+- **[Deployment](deployment/)** - Deployment and operations guide
+- **[Development](development/)** - Developer documentation
+- **[Integrations](integrations/)** - External integrations
+- **[Troubleshooting](troubleshooting/)** - Problem-solving guides
+
+### 🏗️ New Domain-Based Structure
+
+We've reorganized our documentation following 2025 best practices for domain-driven documentation:
+
+**Each domain includes:**
+- `README.md` - Overview and navigation
+- `quickstart/` - Getting started quickly
+- `guides/` - How-to guides
+- `examples/` - Code examples
+- `reference/` - API references
+- `troubleshooting/` - Problem solving
 
 ## 🚀 Quick Links
 
+### Tool Registration
+Quick access to tool-specific registration examples:
+- [Harness Registration](dynamic-tools/registration-guide.md#harnessio-registration) - CI/CD platform with x-api-key authentication
+- [Snyk Registration](dynamic-tools/registration-guide.md#snyk-registration) - Security scanning with required parameters
+- [SonarQube Registration](dynamic-tools/registration-guide.md#sonarqube-registration) - Code quality analysis
+- [Dynatrace Registration](dynamic-tools/registration-guide.md#dynatrace-registration) - Monitoring with Api-Token prefix
+- [Datadog Registration](dynamic-tools/registration-guide.md#datadog-registration) - Observability with dual-key auth
+- [Docker Hub Registration](dynamic-tools/registration-guide.md#docker-hub-registration) - Container registry with PAT/JWT auth
+- [Artifactory Registration](dynamic-tools/registration-guide.md#jfrog-artifactory-registration) - Artifact repository management
+- [Argo CD Registration](dynamic-tools/registration-guide.md#argo-cd-registration) - GitOps continuous delivery
+- [Istio Registration](dynamic-tools/registration-guide.md#istio-registration) - Service mesh (via Kubernetes API)
+- [GitHub Registration](dynamic-tools/registration-guide.md#github-registration) - Repository management
+- [GitLab Registration](dynamic-tools/registration-guide.md#gitlab-registration) - Alternative Git platform
+- [Jira Registration](dynamic-tools/registration-guide.md#jira-registration) - Issue tracking
+- [Kubernetes Registration](dynamic-tools/registration-guide.md#kubernetes-registration) - Container orchestration
+- [Prometheus Registration](dynamic-tools/registration-guide.md#prometheus-registration) - Metrics monitoring
+- [More Tools...](dynamic-tools/registration-guide.md#additional-tool-examples)
+
 ### For Users
-- [Quick Start Guide](getting-started/quick-start-guide.md)
-- [Organization Setup](getting-started/organization-setup.md)
-- [Examples](examples/README.md)
+- [Quick Start Guide](quickstart.md)
+- [AI Agents](agents/) - Agent integration
+- [Dynamic Tools](dynamic-tools/) - Tool registration
 
 ### For Developers
-- [Development Setup](developer/development-environment.md)
-- [Contributing Guide](../CONTRIBUTING.md)
-- [Architecture Overview](architecture/system-overview.md)
+- [Development Guide](development/) - Complete dev documentation
+- [Architecture](architecture/) - System design
+- [API Reference](api/) - API documentation
 
 ### For Operators
-- [Operations Runbook](operations/OPERATIONS_RUNBOOK.md)
-- [Monitoring](operations/MONITORING.md)
-- [Security](operations/SECURITY.md)
+- [Deployment Guide](deployment/) - Deployment and operations
+- [Monitoring](deployment/operations/monitoring.md)
+- [Security](deployment/operations/security.md)
 
-## 📚 Documentation Structure
+## 📚 Documentation Structure (2025 Domain-Driven)
 
 ```
 docs/
-├── architecture/           # System design and architecture
-├── api-reference/         # API documentation
-├── developer/             # Developer guides
-├── examples/              # Usage examples
-├── getting-started/       # Quick start and setup
-├── operations/            # Deployment and operations
-└── troubleshooting/       # Problem solving guides
+├── agents/                # AI agent domain
+├── authentication/        # Auth & security domain
+├── dynamic-tools/         # Tool integration domain
+├── embeddings/           # Embeddings domain
+├── mcp-protocol/         # MCP protocol domain
+├── organizations/        # Organization management
+├── deployment/           # Deployment & operations
+├── development/          # Developer resources
+├── api/                  # API documentation
+├── architecture/         # System architecture
+├── integrations/         # External integrations
+└── troubleshooting/      # Problem solving
 ```
 
 ## 🔍 Finding Information
@@ -76,34 +97,34 @@ docs/
 ### By Role
 
 **Application Developer**
-- Start with [Examples](examples/README.md)
-- Review [API Reference](api-reference/)
-- Check [Integration Patterns](examples/)
+- Start with [Quick Start](quickstart.md)
+- Explore [Dynamic Tools](dynamic-tools/)
+- Review [API Reference](api/)
 
 **Platform Developer**
-- Read [Architecture](architecture/system-overview.md)
-- Set up [Development Environment](developer/development-environment.md)
-- Follow [Contributing Guide](../CONTRIBUTING.md)
+- Read [Architecture](architecture/)
+- Set up [Development](development/)
+- Check [Contributing](development/contributing/guide.md)
 
 **DevOps Engineer**
-- Check [Operations Guide](operations/)
-- Review [Configuration Guide](operations/configuration-guide.md)
-- Understand [Monitoring](operations/MONITORING.md)
+- Check [Deployment](deployment/)
+- Review [Operations](deployment/operations/guide.md)
+- Understand [Monitoring](deployment/operations/monitoring.md)
 
 ### By Topic
 
 **Integration**
-- [GitHub Integration](examples/github-integration.md)
-- [AI Agent Setup](examples/ai-agent-integration.md)
-- [Custom Tools](examples/custom-tool-integration.md)
+- [GitHub Integration](integrations/github/)
+- [AI Agent Setup](agents/)
+- [Custom Tools](dynamic-tools/)
 
 **Embedding & Search**
-- [Embedding Examples](examples/embedding-examples.md)
-- [Embedding API Reference](api-reference/embedding-api-reference.md)
+- [Embeddings Documentation](embeddings/)
+- [Embedding API](embeddings/reference/api.md)
 
 **Troubleshooting**
-- [Troubleshooting Guide](troubleshooting/TROUBLESHOOTING.md)
-- [Debugging Guide](developer/debugging-guide.md)
+- [General Troubleshooting](troubleshooting/)
+- [Debugging Guide](development/debugging.md)
 
 ## 📝 Documentation Standards
 
@@ -134,4 +155,4 @@ Can't find what you need?
 
 ---
 
-*Last updated: January 2025*
+*Last updated: August 2025 - Added comprehensive Dynamic Tool Registration Guide with Docker Hub, JFrog Artifactory, Dynatrace, Datadog, Harness.io, Snyk, SonarQube, Kubernetes, Prometheus, Argo CD, and Istio examples*

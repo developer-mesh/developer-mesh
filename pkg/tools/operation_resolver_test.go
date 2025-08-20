@@ -216,7 +216,7 @@ func TestOperationResolverEdgeCases(t *testing.T) {
 
 		// The resolver can still work with operations without IDs
 		// It will create a synthetic ID based on method and path
-		resolved, err := resolver.ResolveOperation("get_test", nil)
+		resolved, _ := resolver.ResolveOperation("get_test", nil)
 		// It might not find it with just "get" since there's no operation ID
 		// but that's okay - we're testing edge cases
 		if resolved != nil {

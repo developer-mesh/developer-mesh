@@ -16,6 +16,7 @@
 | GitHub PRs | `mcp__devmesh__github_pulls` | `gh pr` |
 | GitHub actions | `mcp__devmesh__github_actions` | `gh workflow` |
 | Any GitHub operation | `mcp__devmesh__github_*` | `gh` CLI |
+| Snyk security scans | `mcp__devmesh__snyk` | `snyk` CLI, API calls |
 | API calls | MCP API tools | `curl`, `WebFetch` |
 | Database operations | MCP database tools | `psql` via Bash |
 
@@ -40,7 +41,7 @@ Developer Mesh is a production-ready platform for orchestrating multiple AI agen
 - **Shared Packages**: Common functionality in `/pkg`
 
 ## Architecture
-- **Language**: Go 1.24+ with workspace support
+- **Language**: Go 1.24.6+ with workspace support
 - **Databases**: PostgreSQL 14+ with pgvector, Redis 7+
 - **Message Queue**: Redis Streams (migrated from AWS SQS)
 - **Cloud**: AWS (Bedrock, S3)

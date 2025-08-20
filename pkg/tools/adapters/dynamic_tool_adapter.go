@@ -33,8 +33,9 @@ type DynamicToolAdapter struct {
 	operationResolver    *tools.OperationResolver
 	permissionDiscoverer *tools.PermissionDiscoverer
 	resourceResolver     *tools.ResourceScopeResolver
-	allowedOperations    map[string]bool      // Cache of allowed operations based on permissions
-	resourceScope        *tools.ResourceScope // Resource scope for this tool
+	schemaGenerator      *tools.SchemaGenerator // AI-enhanced schema generation
+	allowedOperations    map[string]bool        // Cache of allowed operations based on permissions
+	resourceScope        *tools.ResourceScope   // Resource scope for this tool
 }
 
 // NewDynamicToolAdapter creates a new adapter for a dynamic tool
@@ -60,6 +61,10 @@ func NewDynamicToolAdapter(
 	// Extract resource scope from tool name
 	resourceScope := resourceResolver.ExtractResourceScopeFromToolName(tool.ToolName)
 
+	// Create schema generator with AI enhancements
+	schemaGen := tools.NewSchemaGeneratorWithLogger(logger)
+	schemaGen.EnhanceForAI = true // Enable AI enhancements
+
 	return &DynamicToolAdapter{
 		tool:                 tool,
 		specCache:            specCache,
@@ -70,6 +75,7 @@ func NewDynamicToolAdapter(
 		operationResolver:    tools.NewOperationResolver(logger),
 		permissionDiscoverer: tools.NewPermissionDiscoverer(logger),
 		resourceResolver:     resourceResolver,
+		schemaGenerator:      schemaGen,
 		allowedOperations:    make(map[string]bool),
 		resourceScope:        resourceScope,
 	}, nil
@@ -343,6 +349,388 @@ func (a *DynamicToolAdapter) ExecuteWithPassthrough(
 	}
 
 	return response, nil
+}
+
+// GenerateEnhancedSchema generates an AI-enhanced schema for this tool
+// This provides rich metadata to help AI agents understand and use the tool
+func (a *DynamicToolAdapter) GenerateEnhancedSchema(ctx context.Context) (map[string]interface{}, error) {
+	// Get the OpenAPI spec
+	spec, err := a.getOpenAPISpec(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get OpenAPI spec: %w", err)
+	}
+
+	// Use the schema generator to create AI-enhanced schema
+	if a.schemaGenerator != nil {
+		return a.schemaGenerator.GenerateAIEnhancedSchema(spec, a.tool.ToolName)
+	}
+
+	// Fallback to basic schema if generator not available
+	return a.generateBasicSchema(spec), nil
+}
+
+// GenerateAIDocumentation generates comprehensive documentation for AI agents
+// This includes capabilities, examples, workflows, and semantic hints
+func (a *DynamicToolAdapter) GenerateAIDocumentation(ctx context.Context) (map[string]interface{}, error) {
+	// Get the OpenAPI spec
+	spec, err := a.getOpenAPISpec(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get OpenAPI spec: %w", err)
+	}
+
+	// Initialize documentation components
+	exampleGen := tools.NewUsageExampleGenerator(a.logger)
+	capabilityGen := tools.NewCapabilityInferencer(a.logger)
+
+	// Generate comprehensive documentation
+	doc := map[string]interface{}{
+		"name":        a.tool.ToolName,
+		"displayName": a.tool.DisplayName,
+		"description": a.tool.Description,
+		"baseURL":     a.tool.BaseURL,
+		"provider":    a.tool.Provider,
+	}
+
+	// Add version information
+	if spec.Info != nil && spec.Info.Version != "" {
+		doc["version"] = spec.Info.Version
+	}
+
+	// Infer and add capabilities
+	capabilities := capabilityGen.InferCapabilities(spec, a.tool.ToolName)
+	if len(capabilities) > 0 {
+		doc["capabilities"] = capabilities
+		doc["primaryCapability"] = capabilityGen.InferPrimaryCapability(capabilities, a.tool.ToolName)
+	}
+
+	// Generate usage examples
+	examples := exampleGen.GenerateExamples(spec, a.tool.ToolName)
+	if len(examples) > 0 {
+		doc["usageExamples"] = examples
+	}
+
+	// Generate workflow examples
+	workflows := exampleGen.GenerateWorkflowExamples(spec, a.tool.ToolName)
+	if len(workflows) > 0 {
+		doc["workflows"] = workflows
+	}
+
+	// Add available operations with enhanced descriptions
+	if actions, err := a.ListActions(ctx); err == nil && len(actions) > 0 {
+		doc["operations"] = a.enhanceOperationDescriptions(actions, capabilities)
+	}
+
+	// Add authentication information
+	if a.tool.AuthType != "" {
+		doc["authentication"] = map[string]interface{}{
+			"type":     a.tool.AuthType,
+			"required": true,
+			"setup":    a.generateAuthSetupInstructions(),
+		}
+	}
+
+	// Add semantic hints for better AI understanding
+	doc["semanticHints"] = a.generateSemanticHints(spec)
+
+	// Add best practices
+	doc["bestPractices"] = a.generateBestPractices()
+
+	// Add common error patterns
+	doc["commonErrors"] = a.generateCommonErrorPatterns()
+
+	return doc, nil
+}
+
+// enhanceOperationDescriptions enhances operation descriptions with capability context
+func (a *DynamicToolAdapter) enhanceOperationDescriptions(actions []models.ToolAction, capabilities []tools.ToolCapability) []map[string]interface{} {
+	enhanced := make([]map[string]interface{}, 0, len(actions))
+
+	for _, action := range actions {
+		opInfo := map[string]interface{}{
+			"id":          action.ID,
+			"name":        action.Name,
+			"description": action.Description,
+			"method":      action.Method,
+			"path":        action.Path,
+			"parameters":  action.Parameters,
+		}
+
+		// Find which capabilities this operation supports
+		relatedCaps := []string{}
+		for _, cap := range capabilities {
+			for _, opID := range cap.Operations {
+				if opID == action.ID {
+					relatedCaps = append(relatedCaps, cap.Name)
+					break
+				}
+			}
+		}
+
+		if len(relatedCaps) > 0 {
+			opInfo["capabilities"] = relatedCaps
+		}
+
+		// Add semantic purpose
+		opInfo["purpose"] = a.inferOperationPurpose(action.Method, action.Path, action.Name)
+
+		enhanced = append(enhanced, opInfo)
+	}
+
+	return enhanced
+}
+
+// inferOperationPurpose infers the semantic purpose of an operation
+func (a *DynamicToolAdapter) inferOperationPurpose(method, path, name string) string {
+	methodLower := strings.ToLower(method)
+	pathLower := strings.ToLower(path)
+	nameLower := strings.ToLower(name)
+
+	// Infer based on method and path patterns
+	switch methodLower {
+	case "get":
+		if strings.Contains(pathLower, "list") || !strings.Contains(path, "{") {
+			return "Retrieve multiple resources"
+		}
+		if strings.Contains(pathLower, "search") {
+			return "Search for resources"
+		}
+		return "Retrieve a specific resource"
+	case "post":
+		if strings.Contains(pathLower, "search") || strings.Contains(nameLower, "search") {
+			return "Perform a search operation"
+		}
+		if strings.Contains(pathLower, "action") || strings.Contains(pathLower, "execute") {
+			return "Execute an action"
+		}
+		return "Create a new resource"
+	case "put":
+		return "Replace an entire resource"
+	case "patch":
+		return "Update specific fields of a resource"
+	case "delete":
+		return "Remove a resource"
+	default:
+		return "Perform an operation"
+	}
+}
+
+// generateSemanticHints generates semantic hints for AI understanding
+func (a *DynamicToolAdapter) generateSemanticHints(spec *openapi3.T) map[string]interface{} {
+	hints := map[string]interface{}{
+		"domain": a.inferDomain(),
+	}
+
+	// Extract common patterns from paths
+	patterns := []string{}
+	if spec.Paths != nil {
+		pathParts := make(map[string]int)
+		for path := range spec.Paths.Map() {
+			parts := strings.Split(strings.Trim(path, "/"), "/")
+			for _, part := range parts {
+				if !strings.HasPrefix(part, "{") && part != "v1" && part != "v2" && part != "api" {
+					pathParts[part]++
+				}
+			}
+		}
+
+		// Find common patterns
+		for part, count := range pathParts {
+			if count > 2 {
+				patterns = append(patterns, part)
+			}
+		}
+	}
+
+	if len(patterns) > 0 {
+		hints["commonResources"] = patterns
+	}
+
+	// Add tool-specific hints
+	toolNameLower := strings.ToLower(a.tool.ToolName)
+	if strings.Contains(toolNameLower, "snyk") {
+		hints["terminology"] = map[string]string{
+			"vulnerability": "Security weakness in code or dependencies",
+			"CVE":           "Common Vulnerabilities and Exposures ID",
+			"CVSS":          "Common Vulnerability Scoring System",
+			"remediation":   "The process of fixing vulnerabilities",
+			"SBOM":          "Software Bill of Materials",
+		}
+		hints["importantConcepts"] = []string{
+			"Severity levels: critical, high, medium, low",
+			"Vulnerability lifecycle: discover, assess, remediate, verify",
+			"Dependency tree and transitive dependencies",
+		}
+	} else if strings.Contains(toolNameLower, "github") {
+		hints["terminology"] = map[string]string{
+			"pull_request": "Proposed code changes for review",
+			"issue":        "Bug report or feature request",
+			"commit":       "Saved code changes",
+			"branch":       "Parallel version of code",
+			"fork":         "Personal copy of a repository",
+		}
+		hints["importantConcepts"] = []string{
+			"Git workflow: branch, commit, push, pull request, merge",
+			"Collaboration: issues, discussions, reviews",
+			"CI/CD: actions, workflows, deployments",
+		}
+	}
+
+	return hints
+}
+
+// inferDomain infers the domain of the tool
+func (a *DynamicToolAdapter) inferDomain() string {
+	toolNameLower := strings.ToLower(a.tool.ToolName)
+
+	domains := map[string][]string{
+		"security":       {"snyk", "security", "vulnerability", "scan", "veracode", "sonar"},
+		"development":    {"github", "gitlab", "bitbucket", "git", "code", "repo"},
+		"infrastructure": {"aws", "azure", "gcp", "terraform", "kubernetes", "docker"},
+		"monitoring":     {"datadog", "newrelic", "prometheus", "grafana", "splunk"},
+		"communication":  {"slack", "teams", "discord", "email", "notify"},
+		"project":        {"jira", "asana", "trello", "linear", "notion"},
+		"ci_cd":          {"jenkins", "circleci", "travis", "buildkite", "actions"},
+	}
+
+	for domain, keywords := range domains {
+		for _, keyword := range keywords {
+			if strings.Contains(toolNameLower, keyword) {
+				return domain
+			}
+		}
+	}
+
+	return "general"
+}
+
+// generateAuthSetupInstructions generates authentication setup instructions
+func (a *DynamicToolAdapter) generateAuthSetupInstructions() []string {
+	instructions := []string{}
+
+	switch a.tool.AuthType {
+	case "api_key":
+		instructions = append(instructions,
+			"Obtain an API key from the service provider",
+			"Store the API key securely",
+			"Include the API key in requests as configured",
+		)
+	case "bearer":
+		instructions = append(instructions,
+			"Obtain a bearer token through authentication",
+			"Include token in Authorization header: 'Bearer <token>'",
+			"Refresh token before expiration",
+		)
+	case "oauth2":
+		instructions = append(instructions,
+			"Register your application to get client credentials",
+			"Implement OAuth2 flow to obtain access token",
+			"Use refresh token to get new access tokens",
+			"Include access token in Authorization header",
+		)
+	case "basic":
+		instructions = append(instructions,
+			"Obtain username and password",
+			"Encode credentials in Base64: base64(username:password)",
+			"Include in Authorization header: 'Basic <encoded>'",
+		)
+	default:
+		instructions = append(instructions,
+			"Configure authentication as required by the API",
+			"Refer to API documentation for specific requirements",
+		)
+	}
+
+	return instructions
+}
+
+// generateBestPractices generates best practices for using the tool
+func (a *DynamicToolAdapter) generateBestPractices() []string {
+	practices := []string{
+		"Always handle rate limiting with exponential backoff",
+		"Cache responses when appropriate to reduce API calls",
+		"Use pagination for large result sets",
+		"Include proper error handling for all API calls",
+		"Validate input parameters before making requests",
+		"Log API interactions for debugging and audit",
+	}
+
+	// Add tool-specific best practices
+	toolNameLower := strings.ToLower(a.tool.ToolName)
+	if strings.Contains(toolNameLower, "snyk") {
+		practices = append(practices,
+			"Run security scans regularly as part of CI/CD",
+			"Prioritize critical and high severity vulnerabilities",
+			"Monitor for new vulnerabilities continuously",
+			"Review remediation suggestions before applying",
+		)
+	} else if strings.Contains(toolNameLower, "github") {
+		practices = append(practices,
+			"Use webhooks for real-time event notifications",
+			"Batch API calls when possible to reduce rate limit usage",
+			"Cache repository metadata that changes infrequently",
+			"Use conditional requests with ETags when available",
+		)
+	}
+
+	return practices
+}
+
+// generateCommonErrorPatterns generates common error patterns and solutions
+func (a *DynamicToolAdapter) generateCommonErrorPatterns() []map[string]interface{} {
+	errors := []map[string]interface{}{
+		{
+			"code":        "401",
+			"description": "Authentication failed",
+			"causes":      []string{"Invalid or expired credentials", "Missing authentication header"},
+			"solutions":   []string{"Check API key/token validity", "Ensure proper authentication header format"},
+		},
+		{
+			"code":        "403",
+			"description": "Access forbidden",
+			"causes":      []string{"Insufficient permissions", "Resource access restricted"},
+			"solutions":   []string{"Verify API key has required scopes", "Check resource access permissions"},
+		},
+		{
+			"code":        "404",
+			"description": "Resource not found",
+			"causes":      []string{"Invalid resource ID", "Resource has been deleted"},
+			"solutions":   []string{"Verify resource exists", "Check ID format and validity"},
+		},
+		{
+			"code":        "429",
+			"description": "Rate limit exceeded",
+			"causes":      []string{"Too many requests in time window"},
+			"solutions":   []string{"Implement exponential backoff", "Check rate limit headers", "Reduce request frequency"},
+		},
+		{
+			"code":        "500",
+			"description": "Internal server error",
+			"causes":      []string{"Server-side issue", "Temporary service disruption"},
+			"solutions":   []string{"Retry with backoff", "Check service status page", "Contact support if persistent"},
+		},
+	}
+
+	return errors
+}
+
+// generateBasicSchema generates a basic schema without AI enhancements
+func (a *DynamicToolAdapter) generateBasicSchema(spec *openapi3.T) map[string]interface{} {
+	schema := map[string]interface{}{
+		"name":        a.tool.ToolName,
+		"description": a.tool.DisplayName,
+		"version":     "1.0.0",
+	}
+
+	if spec.Info != nil {
+		if spec.Info.Description != "" {
+			schema["description"] = spec.Info.Description
+		}
+		if spec.Info.Version != "" {
+			schema["version"] = spec.Info.Version
+		}
+	}
+
+	return schema
 }
 
 // applyAuthenticationWithPassthrough applies authentication with passthrough support
@@ -782,6 +1170,37 @@ func (a *DynamicToolAdapter) buildRequest(
 		baseURL = spec.Servers[0].URL
 	}
 
+	// Merge default parameters from tool config
+	mergedParams := make(map[string]interface{})
+
+	// First, add default parameters if they exist
+	if a.tool.Config != nil {
+		if defaultParams, ok := a.tool.Config["default_parameters"].(map[string]interface{}); ok {
+			a.logger.Info("Applying default parameters", map[string]interface{}{
+				"defaults": defaultParams,
+				"tool":     a.tool.ToolName,
+			})
+			for k, v := range defaultParams {
+				mergedParams[k] = v
+			}
+		}
+	}
+
+	// Then overlay the provided parameters (they take precedence)
+	for k, v := range params {
+		mergedParams[k] = v
+	}
+
+	// Log the merged parameters
+	a.logger.Debug("Merged parameters", map[string]interface{}{
+		"original": params,
+		"merged":   mergedParams,
+		"tool":     a.tool.ToolName,
+	})
+
+	// Use merged parameters for the rest of the function
+	params = mergedParams
+
 	// Build URL with path parameters
 	urlPath := path
 	queryParams := url.Values{}
@@ -794,15 +1213,43 @@ func (a *DynamicToolAdapter) buildRequest(
 		}
 		param := paramRef.Value
 
+		// Try to find the parameter value
+		// First check direct params, then check nested in "parameters" map
 		value, exists := params[param.Name]
+		if !exists {
+			// Check if parameter is nested in "parameters" map (common for MCP tools)
+			if paramsMap, ok := params["parameters"].(map[string]interface{}); ok {
+				value, exists = paramsMap[param.Name]
+			}
+		}
+
 		if !exists && param.Required {
+			// Intelligent parameter validation for creation operations
+			// Skip resource ID parameters for creation operations (POST/PUT for new resources)
+			if a.isCreationOperation(method, path, operation) && a.isResourceIDParameter(param.Name) {
+				// For creation operations, resource IDs like pull_number, issue_number are not required
+				// They are generated by the server after creation
+				a.logger.Debug("Skipping resource ID parameter for creation operation", map[string]interface{}{
+					"parameter": param.Name,
+					"method":    method,
+					"path":      path,
+				})
+				continue
+			}
 			return nil, fmt.Errorf("required parameter missing: %s", param.Name)
 		}
 
 		if exists {
 			switch param.In {
 			case "path":
-				urlPath = strings.ReplaceAll(urlPath, "{"+param.Name+"}", fmt.Sprintf("%v", value))
+				// For path parameters like {ref}, handle special encoding for Git refs
+				pathValue := fmt.Sprintf("%v", value)
+				// For Git refs, we need to URL encode but preserve the forward slashes
+				if param.Name == "ref" && strings.HasPrefix(pathValue, "refs/") {
+					// Remove "refs/" prefix for the path parameter
+					pathValue = strings.TrimPrefix(pathValue, "refs/")
+				}
+				urlPath = strings.ReplaceAll(urlPath, "{"+param.Name+"}", pathValue)
 			case "query":
 				queryParams.Set(param.Name, fmt.Sprintf("%v", value))
 			case "header":
@@ -924,6 +1371,48 @@ func (a *DynamicToolAdapter) applyAuthentication(req *http.Request) error {
 		}
 	}
 
+	// Merge auth_config from tool into credentials
+	// This allows tools to specify custom authentication formats (e.g., Snyk uses "token" prefix instead of "Bearer")
+	if creds != nil && a.tool.AuthConfig != nil {
+		// Apply header prefix if specified in auth_config
+		if headerPrefix, ok := a.tool.AuthConfig["header_prefix"].(string); ok && headerPrefix != "" {
+			creds.HeaderPrefix = headerPrefix
+			// If we have a custom header prefix, we need to use custom_header type
+			// unless it's already set to something else specific
+			if creds.Type == "" || creds.Type == "bearer" {
+				creds.Type = "custom_header"
+			}
+		}
+
+		// Apply header name if specified in auth_config
+		if headerName, ok := a.tool.AuthConfig["header_name"].(string); ok && headerName != "" {
+			creds.HeaderName = headerName
+			// If header name is not "Authorization", we need custom_header type
+			if headerName != "Authorization" && (creds.Type == "" || creds.Type == "bearer") {
+				creds.Type = "custom_header"
+			}
+		}
+
+		// Apply query param if specified in auth_config
+		if queryParam, ok := a.tool.AuthConfig["query_param"].(string); ok && queryParam != "" {
+			creds.QueryParam = queryParam
+			// If we're using query param, switch to api_key type
+			if creds.Type == "" || creds.Type == "bearer" {
+				creds.Type = "api_key"
+			}
+		}
+
+		// If auth_config explicitly specifies a type, use it (overrides above logic)
+		if authType, ok := a.tool.AuthConfig["type"].(string); ok && authType != "" {
+			creds.Type = authType
+		}
+
+		// Default header name for Authorization header if not specified
+		if creds.HeaderName == "" && (creds.Type == "bearer" || creds.Type == "custom_header") {
+			creds.HeaderName = "Authorization"
+		}
+	}
+
 	// Apply authentication
 	if creds != nil {
 		if err := a.authenticator.ApplyAuthentication(req, creds); err != nil {
@@ -1001,7 +1490,7 @@ func (a *DynamicToolAdapter) discoverAndCachePermissions(ctx context.Context, sp
 	}
 
 	// Only discover permissions if we have credentials
-	if a.tool.CredentialsEncrypted == nil || len(a.tool.CredentialsEncrypted) == 0 {
+	if len(a.tool.CredentialsEncrypted) == 0 {
 		a.logger.Debug("No credentials available for permission discovery", map[string]interface{}{})
 		return
 	}
@@ -1160,4 +1649,76 @@ func (a *DynamicToolAdapter) discoverPassthroughPermissions(
 		"allowed_count":    allowedCount,
 		"scopes":           discoveredPerms.Scopes,
 	})
+}
+
+// isCreationOperation determines if an operation is for creating a new resource
+func (a *DynamicToolAdapter) isCreationOperation(method string, path string, operation *openapi3.Operation) bool {
+	// POST operations are typically for creation
+	if strings.ToUpper(method) == "POST" {
+		// Check if the path doesn't contain a resource ID parameter at the end
+		// Creation endpoints typically don't have {id} or {number} at the end
+		pathParts := strings.Split(path, "/")
+		if len(pathParts) > 0 {
+			lastPart := pathParts[len(pathParts)-1]
+			// If the last part is not a parameter placeholder, it's likely a creation endpoint
+			if !strings.HasPrefix(lastPart, "{") || !strings.HasSuffix(lastPart, "}") {
+				return true
+			}
+		}
+	}
+
+	// PUT can also be used for creation (upsert operations)
+	if strings.ToUpper(method) == "PUT" && operation != nil {
+		// Check operation ID or summary for creation keywords
+		opIDLower := strings.ToLower(operation.OperationID)
+		summaryLower := strings.ToLower(operation.Summary)
+		creationKeywords := []string{"create", "add", "new", "register", "initialize"}
+
+		for _, keyword := range creationKeywords {
+			if strings.Contains(opIDLower, keyword) || strings.Contains(summaryLower, keyword) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// isResourceIDParameter determines if a parameter is a resource identifier
+func (a *DynamicToolAdapter) isResourceIDParameter(paramName string) bool {
+	// Common resource ID parameter patterns
+	resourceIDPatterns := []string{
+		"_id",
+		"_number",
+		"_slug",
+		"_key",
+		"_uuid",
+		"_identifier",
+	}
+
+	paramLower := strings.ToLower(paramName)
+
+	// Check for exact matches of common ID parameters
+	idParams := []string{
+		"id", "pull_number", "issue_number", "pr_number",
+		"comment_id", "review_id", "commit_sha", "workflow_id",
+		"run_id", "artifact_id", "release_id", "asset_id",
+		"gist_id", "hook_id", "key_id", "project_id",
+		"card_id", "column_id", "milestone_number", "label_id",
+	}
+
+	for _, idParam := range idParams {
+		if paramLower == idParam {
+			return true
+		}
+	}
+
+	// Check for patterns
+	for _, pattern := range resourceIDPatterns {
+		if strings.HasSuffix(paramLower, pattern) {
+			return true
+		}
+	}
+
+	return false
 }

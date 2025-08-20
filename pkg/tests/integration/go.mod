@@ -1,6 +1,6 @@
 module pkg-integration-tests
 
-go 1.24
+go 1.24.6
 
 require (
 	github.com/developer-mesh/developer-mesh v0.0.0

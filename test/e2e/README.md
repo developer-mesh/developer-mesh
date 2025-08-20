@@ -39,7 +39,7 @@ test/e2e/
 
 ## Prerequisites
 
-1. Go 1.24.3 or higher
+1. Go 1.24.6 or higher
 2. Ginkgo test framework
 3. Access to Developer Mesh production environment
 4. Valid API credentials

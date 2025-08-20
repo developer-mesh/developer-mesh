@@ -1,6 +1,6 @@
 module github.com/developer-mesh/developer-mesh/test/e2e
 
-go 1.24
+go 1.24.6
 
 require (
 	github.com/coder/websocket v1.8.13
