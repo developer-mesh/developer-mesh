@@ -3,7 +3,9 @@ package api
 import (
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	pkgservices "github.com/developer-mesh/developer-mesh/pkg/services"
+	"github.com/developer-mesh/developer-mesh/pkg/tools/providers/artifactory"
 	"github.com/developer-mesh/developer-mesh/pkg/tools/providers/github"
+	"github.com/developer-mesh/developer-mesh/pkg/tools/providers/gitlab"
 	"github.com/developer-mesh/developer-mesh/pkg/tools/providers/harness"
 )
 
@@ -44,8 +46,41 @@ func InitializeStandardProviders(registry *pkgservices.EnhancedToolRegistry, log
 		providersCount++
 	}
 
+	// Register Artifactory provider
+	artifactoryProvider := artifactory.NewArtifactoryProvider(logger)
+	if err := registry.RegisterProvider(artifactoryProvider); err != nil {
+		logger.Error("Failed to register Artifactory provider", map[string]interface{}{
+			"error": err.Error(),
+		})
+		// Don't fail initialization if one provider fails
+		// return err
+	} else {
+		logger.Info("Registered Artifactory provider", map[string]interface{}{
+			"provider": "artifactory",
+			"tools":    len(artifactoryProvider.GetToolDefinitions()),
+			"operations": len(artifactoryProvider.GetOperationMappings()),
+		})
+		providersCount++
+	}
+
+	// Register GitLab provider
+	gitlabProvider := gitlab.NewGitLabProvider(logger)
+	if err := registry.RegisterProvider(gitlabProvider); err != nil {
+		logger.Error("Failed to register GitLab provider", map[string]interface{}{
+			"error": err.Error(),
+		})
+		// Don't fail initialization if one provider fails
+		// return err
+	} else {
+		logger.Info("Registered GitLab provider", map[string]interface{}{
+			"provider":        "gitlab",
+			"tools":           len(gitlabProvider.GetToolDefinitions()),
+			"enabled_modules": gitlabProvider.GetEnabledModules(),
+		})
+		providersCount++
+	}
+
 	// TODO: Register additional providers
-	// - GitLab provider
 	// - Jira provider
 	// - Confluence provider
 	// - Azure DevOps provider
