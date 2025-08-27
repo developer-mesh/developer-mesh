@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Harness.io Provider Implementation**: Complete provider for Harness platform integration
+  - Full implementation of StandardToolProvider interface
+  - Support for all Harness modules (CI/CD, GitOps, CCM, STO, etc.)
+  - AI-optimized tool definitions with semantic tags
+  - Permission discovery and filtering based on API access
+  - Comprehensive test suite with 89.3% coverage
+  - Module-based tool filtering
+  - Operation normalization for consistent naming
+
+### Fixed
+- **BaseProvider Flexibility**: Enhanced configuration management
+  - Fixed `SetConfiguration` to properly update internal `baseURL` field
+  - Added provider-specific authentication header support (e.g., lowercase "x-api-key" for Harness)
+  - Improved URL parameter encoding for GET requests with proper URL encoding
+  - Enhanced query parameter handling for pagination and filtering
+
 ### Changed
 - **Unified Encryption Key**: Consolidated to single `ENCRYPTION_MASTER_KEY` for all services
   - Both REST API and MCP Server now use the same `ENCRYPTION_MASTER_KEY` environment variable
@@ -14,6 +31,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Removed `ENCRYPTION_KEY` and `CREDENTIAL_ENCRYPTION_KEY` variables
   - Simplifies key management and rotation in production
   - Updated all configuration files and documentation
+
+### Improved
+- **Test Infrastructure**: Enhanced testing capabilities for providers
+  - Proper httptest server usage in provider tests
+  - Configuration override support for test environments
+  - No longer requires real API access during tests
+  - Better error message validation in tests
+
+### Development
+- **Build Artifacts**: Updated .gitignore for Go binaries
+  - Added comprehensive exclusion rules for compiled binaries
+  - Prevents accidental commits of large executable files
+  - Preserves source files while excluding build outputs
 
 ### Documentation
 - **Encryption Documentation**: Clarified and corrected encryption key configuration
