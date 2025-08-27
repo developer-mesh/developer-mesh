@@ -84,6 +84,18 @@ DevOps teams struggle to integrate AI effectively - managing multiple models, co
 - **Binary Protocol Support**: Optional compressed messages for efficiency <!-- Source: pkg/models/websocket/binary.go -->
 - **Heartbeat Monitoring**: Automatic reconnection handling
 
+### Standard Industry Tools Integration
+- **Pre-Built Provider Templates**: GitHub, GitLab, Jira, Confluence, Harness.io ready to use
+- **Organization-Level Configuration**: Each organization configures their own tool instances
+- **Tool Expansion for AI**: Single provider expands into multiple granular MCP tools
+- **Production Resilience Patterns**:
+  - **Circuit Breaker**: Prevents cascading failures with automatic recovery
+  - **Bulkhead Pattern**: Isolates failures to prevent system-wide impact
+  - **Request Coalescing**: Deduplicates concurrent identical requests
+  - **Two-Tier Caching**: L1 in-memory + L2 Redis for <10ms response times
+- **Permission-Based Filtering**: Only expose operations the user's token can execute
+- **Comprehensive Metrics**: Track execution time, cache hits, circuit breaker states
+
 ### Dynamic Tool Integration with Advanced Operation Resolution
 - **Zero-Code Tool Addition**: Add any DevOps tool without writing adapters
 - **Intelligent Discovery System**:

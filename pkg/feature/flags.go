@@ -26,6 +26,27 @@ const (
 	UseNewObservability = "USE_NEW_OBSERVABILITY"
 )
 
+// Standard Tools feature flags
+const (
+	// EnableStandardTools controls whether standard tools (GitHub, GitLab, etc.) are enabled
+	EnableStandardTools = "ENABLE_STANDARD_TOOLS"
+
+	// EnablePermissionCaching controls whether permission caching is enabled
+	EnablePermissionCaching = "ENABLE_PERMISSION_CACHING"
+
+	// EnableToolExpansion controls whether single providers are expanded into multiple MCP tools
+	EnableToolExpansion = "ENABLE_TOOL_EXPANSION"
+
+	// EnableAsyncPermissionDiscovery controls whether permission discovery happens asynchronously
+	EnableAsyncPermissionDiscovery = "ENABLE_ASYNC_PERMISSION_DISCOVERY"
+
+	// EnableChaosEngineering controls whether chaos engineering hooks are enabled
+	EnableChaosEngineering = "ENABLE_CHAOS_ENGINEERING"
+
+	// EnableEnhancedMetrics controls whether enhanced metrics collection is enabled
+	EnableEnhancedMetrics = "ENABLE_ENHANCED_METRICS"
+)
+
 var (
 	// flags stores the current state of all feature flags
 	flags map[string]bool

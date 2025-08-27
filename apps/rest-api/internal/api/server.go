@@ -27,6 +27,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/database"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/security"
+	"github.com/developer-mesh/developer-mesh/pkg/tools"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 	"github.com/redis/go-redis/v9"
@@ -530,6 +531,47 @@ func (s *Server) setupRoutes(ctx context.Context) {
 		auth.NewAuditLogger(s.logger),
 	)
 	dynamicToolsAPI.RegisterRoutes(v1)
+
+	// Enhanced Tools API - Template-based tools with backward compatibility
+	// Create operation cache for enhanced tools
+	operationCache := tools.NewOperationCache(redisClient, s.logger)
+
+	// Create enhanced tool registry
+	enhancedToolRegistry := pkgservices.NewEnhancedToolRegistry(
+		s.db,
+		encryptionService,
+		operationCache,
+		s.logger,
+	)
+
+	// Initialize standard providers
+	if err := InitializeStandardProviders(enhancedToolRegistry, s.logger); err != nil {
+		s.logger.Warn("Failed to initialize some standard providers", map[string]interface{}{
+			"error": err.Error(),
+		})
+		// Continue anyway - providers can be registered later
+	}
+
+	// Create template repository for API access
+	templateRepo := pkgrepository.NewToolTemplateRepository(s.db)
+
+	// Create enhanced tools API
+	enhancedToolsAPI := NewEnhancedToolsAPI(
+		dynamicToolsAPI,
+		enhancedToolRegistry,
+		templateRepo,
+		s.db,
+		s.logger,
+		s.metrics,
+		auth.NewAuditLogger(s.logger),
+	)
+	enhancedToolsAPI.RegisterRoutes(v1)
+
+	// Wire the enhanced tools API back to dynamic tools API for unified listing
+	dynamicToolsAPI.SetEnhancedToolsAPI(enhancedToolsAPI)
+	s.logger.Info("Enhanced Tools API initialized with template support", map[string]interface{}{
+		"features": []string{"template-based tools", "backward compatibility", "AI optimization"},
+	})
 
 	// Session Management API - Edge MCP session handling
 	sessionRepo := pkgrepository.NewSessionRepository(s.db, s.logger)

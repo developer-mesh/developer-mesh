@@ -311,36 +311,53 @@ func (c *Client) createProxyHandler(toolName string, toolID string) tools.ToolHa
 			passthroughAuth, _ = auth.(*models.PassthroughAuthBundle)
 		}
 
-		// Parse arguments to extract action if present
-		var payload map[string]interface{}
+		// Parse arguments to extract action and parameters
 		var parsedArgs map[string]interface{}
+		var payload map[string]interface{}
 
 		if err := json.Unmarshal(args, &parsedArgs); err == nil {
 			// Check if action is in the arguments
 			if action, ok := parsedArgs["action"].(string); ok {
-				// Remove action from arguments and add it to payload
+				// Remove action from arguments  
 				delete(parsedArgs, "action")
-				payload = map[string]interface{}{
-					"tool":       toolName,
-					"action":     action,
-					"parameters": parsedArgs,
+				
+				// Check if parameters are nested
+				if params, ok := parsedArgs["parameters"].(map[string]interface{}); ok {
+					// Parameters are nested, use them directly
+					payload = map[string]interface{}{
+						"action":     action,
+						"parameters": params,
+					}
+				} else {
+					// Parameters are at top level
+					payload = map[string]interface{}{
+						"action":     action,
+						"parameters": parsedArgs,
+					}
 				}
+				
 				c.logger.Debug("Executing tool with action", map[string]interface{}{
 					"tool":   toolName,
 					"action": action,
 				})
 			} else {
-				// No action in arguments, use original format
-				payload = map[string]interface{}{
-					"tool":      toolName,
-					"arguments": args,
+				// No action in arguments, check for parameters key
+				if params, ok := parsedArgs["parameters"].(map[string]interface{}); ok {
+					// Parameters are nested
+					payload = map[string]interface{}{
+						"parameters": params,
+					}
+				} else {
+					// Use arguments as-is for parameters
+					payload = map[string]interface{}{
+						"parameters": parsedArgs,
+					}
 				}
 			}
 		} else {
-			// Failed to parse arguments, use original format
+			// Failed to parse arguments, use empty parameters
 			payload = map[string]interface{}{
-				"tool":      toolName,
-				"arguments": args,
+				"parameters": map[string]interface{}{},
 			}
 		}
 

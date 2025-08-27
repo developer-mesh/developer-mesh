@@ -19,10 +19,11 @@ import (
 
 // DynamicToolsAPI handles dynamic tool management endpoints
 type DynamicToolsAPI struct {
-	toolService   services.DynamicToolsServiceInterface
-	logger        observability.Logger
-	metricsClient observability.MetricsClient
-	auditLogger   *auth.AuditLogger
+	toolService      services.DynamicToolsServiceInterface
+	logger           observability.Logger
+	metricsClient    observability.MetricsClient
+	auditLogger      *auth.AuditLogger
+	enhancedToolsAPI *EnhancedToolsAPI // Optional enhanced tools integration
 }
 
 // NewDynamicToolsAPI creates a new dynamic tools API handler
@@ -38,6 +39,11 @@ func NewDynamicToolsAPI(
 		metricsClient: metricsClient,
 		auditLogger:   auditLogger,
 	}
+}
+
+// SetEnhancedToolsAPI sets the enhanced tools API for integration
+func (api *DynamicToolsAPI) SetEnhancedToolsAPI(enhancedAPI *EnhancedToolsAPI) {
+	api.enhancedToolsAPI = enhancedAPI
 }
 
 // RegisterRoutes registers all dynamic tool API routes
@@ -103,6 +109,7 @@ func (api *DynamicToolsAPI) ListTools(c *gin.Context) {
 	includeHealth := c.Query("include_health") == "true"
 	isEdgeMCP := c.Query("edge_mcp") == "true"
 
+	// Get dynamic tools
 	tools, err := api.toolService.ListTools(c.Request.Context(), tenantID, status)
 	if err != nil {
 		api.logger.Error("Failed to list tools", map[string]interface{}{
@@ -117,6 +124,57 @@ func (api *DynamicToolsAPI) ListTools(c *gin.Context) {
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list tools"})
 		return
+	}
+
+	// Also get organization tools if enhanced tools API is available
+	if api.enhancedToolsAPI != nil {
+		orgTools, err := api.enhancedToolsAPI.GetToolsForTenant(c.Request.Context(), tenantID)
+		if err != nil {
+			api.logger.Warn("Failed to get organization tools", map[string]interface{}{
+				"tenant_id": tenantID,
+				"error":     err.Error(),
+			})
+		} else {
+			api.logger.Info("Retrieved organization tools", map[string]interface{}{
+				"tenant_id": tenantID,
+				"count":     len(orgTools),
+			})
+
+			// Convert organization tools to dynamic tool format for consistency
+			for _, orgTool := range orgTools {
+				// Check if it's an OrganizationTool struct
+				if ot, ok := orgTool.(*models.OrganizationTool); ok {
+					// Check if we should expand this tool based on its template
+					if api.shouldExpandTool(ot) {
+						// Expand the organization tool into multiple operation-specific tools
+						expandedTools := api.expandOrganizationTool(c.Request.Context(), ot)
+						if len(expandedTools) > 0 {
+							tools = append(tools, expandedTools...)
+							api.logger.Info("Expanded organization tool into operations", map[string]interface{}{
+								"tool_id":         ot.ID,
+								"tool_name":       ot.InstanceName,
+								"template_id":     ot.TemplateID,
+								"operation_count": len(expandedTools),
+							})
+						} else {
+							// Fall back to single tool if expansion fails
+							api.logger.Warn("Failed to expand organization tool, using single tool", map[string]interface{}{
+								"tool_id":     ot.ID,
+								"tool_name":   ot.InstanceName,
+								"template_id": ot.TemplateID,
+							})
+							tools = append(tools, api.createSingleToolFromOrgTool(ot, tenantID))
+						}
+					} else {
+						// Create a single tool representation for non-expandable tools
+						tools = append(tools, api.createSingleToolFromOrgTool(ot, tenantID))
+					}
+				} else if dt, ok := orgTool.(*models.DynamicTool); ok {
+					// It's already a dynamic tool, just add it
+					tools = append(tools, dt)
+				}
+			}
+		}
 	}
 
 	// Record success metric
@@ -578,6 +636,32 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 		return
 	}
 
+	// Check if this is an expanded tool ID (format: parent_id_operation)
+	// If so, extract the parent tool ID and the operation
+	if strings.Contains(toolID, "_") {
+		parts := strings.SplitN(toolID, "_", 2)
+		if len(parts) == 2 {
+			// This is an expanded tool, use the parent ID for lookup
+			parentToolID := parts[0]
+			operation := parts[1]
+
+			// Override the action with the operation name if not provided
+			if action == "" || action == "execute" {
+				action = operation
+			}
+
+			// Use the parent tool ID for execution
+			toolID = parentToolID
+
+			api.logger.Debug("Handling expanded tool execution", map[string]interface{}{
+				"original_tool_id": c.Param("toolId"),
+				"parent_tool_id":   parentToolID,
+				"operation":        operation,
+				"action":           action,
+			})
+		}
+	}
+
 	var req models.ToolExecutionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -611,8 +695,38 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 	var result interface{}
 	var err error
 
-	if req.PassthroughAuth != nil {
-		// Use passthrough execution
+	// Check if this is an organization tool (expanded or not)
+	// Organization tools have IDs that aren't standard UUIDs when expanded
+	isOrganizationTool := false
+	if strings.Contains(toolID, "_") {
+		// This is an expanded organization tool
+		isOrganizationTool = true
+	} else if api.enhancedToolsAPI != nil {
+		// Check if this is a non-expanded organization tool
+		// Try to get it from the enhanced registry first
+		tools, getErr := api.enhancedToolsAPI.GetToolsForTenant(c.Request.Context(), tenantID)
+		if getErr == nil {
+			for _, t := range tools {
+				if orgTool, ok := t.(*models.OrganizationTool); ok && orgTool.ID == toolID {
+					isOrganizationTool = true
+					break
+				}
+			}
+		}
+	}
+
+	// Route to appropriate execution handler
+	if isOrganizationTool && api.enhancedToolsAPI != nil {
+		// Use the enhanced tool registry for organization tools
+		result, err = api.enhancedToolsAPI.ExecuteToolInternal(
+			c.Request.Context(),
+			tenantID,
+			toolID,
+			req.Action,
+			req.Parameters,
+		)
+	} else if req.PassthroughAuth != nil {
+		// Use passthrough execution for dynamic tools
 		result, err = api.toolService.ExecuteToolActionWithPassthrough(
 			c.Request.Context(),
 			tenantID,
@@ -622,7 +736,7 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 			req.PassthroughAuth,
 		)
 	} else {
-		// Use standard execution
+		// Use standard execution for dynamic tools
 		result, err = api.toolService.ExecuteToolAction(
 			c.Request.Context(),
 			tenantID,
@@ -1152,4 +1266,161 @@ type WebhookConfigResponse struct {
 	SignatureAlgorithm string   `json:"signature_algorithm,omitempty"`
 	SupportedEvents    []string `json:"supported_events,omitempty"`
 	SetupInstructions  []string `json:"setup_instructions,omitempty"`
+}
+
+// shouldExpandTool determines if an organization tool should be expanded into multiple operations
+func (api *DynamicToolsAPI) shouldExpandTool(ot *models.OrganizationTool) bool {
+	// For now, expand tools that have a template_id indicating they're from a standard provider
+	// In the future, we could check a feature flag or tool configuration
+	if ot.TemplateID != "" {
+		// Check if the template is for a known expandable provider
+		// For now, we'll expand GitHub tools
+		if ot.InstanceConfig != nil {
+			if provider, ok := ot.InstanceConfig["provider"].(string); ok {
+				return provider == "github" || provider == "gitlab" || provider == "jira"
+			}
+		}
+		// Also check by instance name patterns
+		instanceNameLower := strings.ToLower(ot.InstanceName)
+		return strings.Contains(instanceNameLower, "github") ||
+			strings.Contains(instanceNameLower, "gitlab") ||
+			strings.Contains(instanceNameLower, "jira")
+	}
+	return false
+}
+
+// expandOrganizationTool expands an organization tool into multiple operation-specific tools
+func (api *DynamicToolsAPI) expandOrganizationTool(ctx context.Context, ot *models.OrganizationTool) []*models.DynamicTool {
+	var expandedTools []*models.DynamicTool
+
+	// Determine the provider type
+	providerType := ""
+	if ot.InstanceConfig != nil {
+		if provider, ok := ot.InstanceConfig["provider"].(string); ok {
+			providerType = provider
+		}
+	}
+
+	// If provider not in config, try to detect from instance name
+	if providerType == "" {
+		instanceNameLower := strings.ToLower(ot.InstanceName)
+		if strings.Contains(instanceNameLower, "github") {
+			providerType = "github"
+		} else if strings.Contains(instanceNameLower, "gitlab") {
+			providerType = "gitlab"
+		} else if strings.Contains(instanceNameLower, "jira") {
+			providerType = "jira"
+		}
+	}
+
+	// Get the base URL
+	baseURL := "https://api.github.com" // Default
+	if ot.InstanceConfig != nil {
+		if url, ok := ot.InstanceConfig["base_url"].(string); ok {
+			baseURL = url
+		}
+	}
+
+	// Define operations based on provider type
+	// For now, we'll hardcode GitHub operations
+	// In a full implementation, we'd get these from the provider registry
+	if providerType == "github" {
+		operations := []struct {
+			name        string
+			displayName string
+			description string
+			category    string
+		}{
+			{"repos_list", "List Repositories", "List repositories for the authenticated user or organization", "version_control"},
+			{"repos_get", "Get Repository", "Get a specific repository", "version_control"},
+			{"repos_create", "Create Repository", "Create a new repository", "version_control"},
+			{"issues_list", "List Issues", "List issues in a repository", "issue_tracking"},
+			{"issues_create", "Create Issue", "Create a new issue", "issue_tracking"},
+			{"issues_get", "Get Issue", "Get a specific issue", "issue_tracking"},
+			{"pulls_list", "List Pull Requests", "List pull requests in a repository", "code_review"},
+			{"pulls_create", "Create Pull Request", "Create a new pull request", "code_review"},
+			{"pulls_get", "Get Pull Request", "Get a specific pull request", "code_review"},
+			{"actions_list", "List Workflows", "List GitHub Actions workflows", "ci_cd"},
+			{"actions_run", "Run Workflow", "Trigger a workflow run", "ci_cd"},
+			{"releases_list", "List Releases", "List releases for a repository", "version_control"},
+			{"releases_create", "Create Release", "Create a new release", "version_control"},
+		}
+
+		for _, op := range operations {
+			// Create cleaner tool names without redundant prefixes
+			toolName := op.name
+			displayName := op.displayName
+
+			// If the instance name is generic like "github", use operation name directly
+			// Otherwise, prefix with instance name for clarity
+			if ot.InstanceName != "" && ot.InstanceName != providerType {
+				toolName = fmt.Sprintf("%s_%s", ot.InstanceName, op.name)
+				displayName = fmt.Sprintf("%s - %s", ot.DisplayName, op.displayName)
+			}
+
+			tool := &models.DynamicTool{
+				ID:          fmt.Sprintf("%s_%s", ot.ID, op.name),
+				TenantID:    ot.TenantID,
+				ToolName:    toolName,
+				DisplayName: displayName,
+				BaseURL:     baseURL,
+				Status:      ot.Status,
+				ToolType:    "organization_tool_operation",
+				Config: map[string]interface{}{
+					"type":           "organization_tool_operation",
+					"parent_tool_id": ot.ID,
+					"template_id":    ot.TemplateID,
+					"org_id":         ot.OrganizationID,
+					"operation":      op.name,
+					"category":       op.category,
+				},
+				IsActive:    ot.IsActive,
+				Description: &op.description,
+			}
+
+			// Add encrypted credentials if present
+			if len(ot.CredentialsEncrypted) > 0 {
+				tool.CredentialsEncrypted = ot.CredentialsEncrypted
+			}
+
+			expandedTools = append(expandedTools, tool)
+		}
+	}
+
+	return expandedTools
+}
+
+// createSingleToolFromOrgTool creates a single dynamic tool representation from an organization tool
+func (api *DynamicToolsAPI) createSingleToolFromOrgTool(ot *models.OrganizationTool, tenantID string) *models.DynamicTool {
+	// Extract base URL from instance config if available
+	baseURL := "https://api.github.com" // Default for now
+	if ot.InstanceConfig != nil {
+		if url, ok := ot.InstanceConfig["base_url"].(string); ok {
+			baseURL = url
+		}
+	}
+
+	// Create a dynamic tool representation
+	tool := &models.DynamicTool{
+		ID:          ot.ID,
+		TenantID:    tenantID,
+		ToolName:    ot.InstanceName,
+		DisplayName: ot.DisplayName,
+		BaseURL:     baseURL,
+		Status:      ot.Status,
+		ToolType:    "organization_tool",
+		Config: map[string]interface{}{
+			"type":        "organization_tool",
+			"template_id": ot.TemplateID,
+			"org_id":      ot.OrganizationID,
+		},
+		IsActive: ot.IsActive,
+	}
+
+	// Add encrypted credentials if present
+	if len(ot.CredentialsEncrypted) > 0 {
+		tool.CredentialsEncrypted = ot.CredentialsEncrypted
+	}
+
+	return tool
 }

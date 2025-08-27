@@ -13,6 +13,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/adapters/mcp"
 	"github.com/developer-mesh/developer-mesh/pkg/adapters/mcp/resources"
 	"github.com/developer-mesh/developer-mesh/pkg/clients"
+	"github.com/developer-mesh/developer-mesh/pkg/feature"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
@@ -335,15 +336,25 @@ func (h *MCPProtocolHandler) handleToolsList(conn *websocket.Conn, connID, tenan
 	}
 
 	// Skip legacy adapter tools - we've fully migrated to MCP
-	// Only use dynamic tools from REST API
+	// Get both dynamic tools and organization tools from REST API
 	tools, err := h.restAPIClient.ListTools(ctx, tenantID)
 	if err != nil {
-		h.logger.Error("Failed to list tools", map[string]interface{}{
+		h.logger.Error("Failed to list dynamic tools", map[string]interface{}{
 			"error":     err.Error(),
 			"tenant_id": tenantID,
 		})
 		// Don't fail completely - continue with DevMesh tools
 		tools = nil
+	}
+
+	// Also get organization tools if standard tools are enabled
+	if feature.IsEnabled(feature.EnableStandardTools) {
+		// TODO: Call organization tools endpoint when available
+		// For now, this is a placeholder for the expanded organization tools
+		// We'll need to extract organization ID from the connection context
+		h.logger.Debug("Standard tools enabled", map[string]interface{}{
+			"tenant_id": tenantID,
+		})
 	}
 
 	// Create tools list with just DevMesh tools and dynamic tools
