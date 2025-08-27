@@ -18,6 +18,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Operation normalization for consistent naming
 
 ### Fixed
+- **Edge-MCP GitHub Integration**: Resolved critical P0 issues preventing proper tool execution
+  - Fixed parameter extraction failure in Edge-MCP client preventing organization tool operations
+  - Corrected tool routing so MCP tools properly route through enhanced registry
+  - Added pagination defaults (per_page: 30) to prevent response size limit errors
+  - Fixed operation misrouting where issues operations incorrectly routed to repository endpoints
+  - Extracted operation from tool ID (e.g., `tool_id_issues_list`) now correctly used for execution
+  - GitHub provider normalization now preserves resource prefixes (issues/*, pulls/*, etc.)
+  - Query parameters properly encoded and passed for GET requests in base provider
+
 - **BaseProvider Flexibility**: Enhanced configuration management
   - Fixed `SetConfiguration` to properly update internal `baseURL` field
   - Added provider-specific authentication header support (e.g., lowercase "x-api-key" for Harness)
