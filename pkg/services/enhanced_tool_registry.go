@@ -220,22 +220,26 @@ func (r *EnhancedToolRegistry) ExecuteTool(
 	operation string,
 	params map[string]interface{},
 ) (interface{}, error) {
-	// Check if this is an expanded tool ID (format: parent_id_operation)
+	// The toolID may have already been processed by the API layer
+	// If operation is provided and toolID doesn't contain underscore, 
+	// it means the API layer already extracted it
 	actualToolID := toolID
-	if strings.Contains(toolID, "_") {
-		parts := strings.SplitN(toolID, "_", 2)
-		if len(parts) == 2 {
-			// This is an expanded tool, use the parent ID for lookup
-			actualToolID = parts[0]
-			// Use the operation from the ID if not explicitly provided
-			if operation == "" || operation == "execute" {
+	
+	// Only process if we haven't already extracted the operation
+	if operation == "" || operation == "execute" {
+		// Check if this is an expanded tool ID (format: parent_id_operation)
+		if strings.Contains(toolID, "_") {
+			parts := strings.SplitN(toolID, "_", 2)
+			if len(parts) == 2 {
+				// This is an expanded tool, use the parent ID for lookup
+				actualToolID = parts[0]
 				operation = parts[1]
+				r.logger.Debug("Extracted operation from tool ID", map[string]interface{}{
+					"original_tool_id": toolID,
+					"parent_tool_id":   actualToolID,
+					"operation":        operation,
+				})
 			}
-			r.logger.Debug("Handling expanded tool execution", map[string]interface{}{
-				"original_tool_id": toolID,
-				"parent_tool_id":   actualToolID,
-				"operation":        operation,
-			})
 		}
 	}
 

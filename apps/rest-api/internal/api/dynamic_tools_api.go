@@ -636,6 +636,12 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 		return
 	}
 
+	// Store the original tool ID for organization tool detection
+	originalToolID := toolID
+	
+	// Variable to store extracted operation (defined at function scope)
+	var extractedOperation string
+	
 	// Check if this is an expanded tool ID (format: parent_id_operation)
 	// If so, extract the parent tool ID and the operation
 	if strings.Contains(toolID, "_") {
@@ -643,20 +649,20 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 		if len(parts) == 2 {
 			// This is an expanded tool, use the parent ID for lookup
 			parentToolID := parts[0]
-			operation := parts[1]
+			extractedOperation = parts[1]
 
 			// Override the action with the operation name if not provided
 			if action == "" || action == "execute" {
-				action = operation
+				action = extractedOperation
 			}
 
 			// Use the parent tool ID for execution
 			toolID = parentToolID
 
 			api.logger.Debug("Handling expanded tool execution", map[string]interface{}{
-				"original_tool_id": c.Param("toolId"),
+				"original_tool_id": originalToolID,
 				"parent_tool_id":   parentToolID,
-				"operation":        operation,
+				"operation":        extractedOperation,
 				"action":           action,
 			})
 		}
@@ -671,6 +677,28 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 	// Use action from URL if not in body
 	if req.Action == "" {
 		req.Action = action
+	}
+
+	// Add pagination defaults for list operations to prevent large responses
+	if strings.Contains(req.Action, "list") || strings.Contains(req.Action, "_list") || 
+	   strings.Contains(req.Action, "-list") || strings.HasSuffix(req.Action, "list") {
+		if req.Parameters == nil {
+			req.Parameters = make(map[string]interface{})
+		}
+		
+		// Set reasonable defaults for MCP clients to prevent token limit issues
+		if _, hasPerPage := req.Parameters["per_page"]; !hasPerPage {
+			req.Parameters["per_page"] = 30 // GitHub API default that works well
+		}
+		if _, hasPage := req.Parameters["page"]; !hasPage {
+			req.Parameters["page"] = 1
+		}
+		
+		api.logger.Info("Added pagination defaults for list operation", map[string]interface{}{
+			"action":   req.Action,
+			"per_page": req.Parameters["per_page"],
+			"page":     req.Parameters["page"],
+		})
 	}
 
 	// Log what we received
@@ -696,9 +724,9 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 	var err error
 
 	// Check if this is an organization tool (expanded or not)
-	// Organization tools have IDs that aren't standard UUIDs when expanded
+	// Use the original tool ID for detection since we may have modified toolID
 	isOrganizationTool := false
-	if strings.Contains(toolID, "_") {
+	if strings.Contains(originalToolID, "_") {
 		// This is an expanded organization tool
 		isOrganizationTool = true
 	} else if api.enhancedToolsAPI != nil {
@@ -717,12 +745,24 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 
 	// Route to appropriate execution handler
 	if isOrganizationTool && api.enhancedToolsAPI != nil {
+		// Use the extracted operation if available, otherwise use req.Action
+		actionToUse := req.Action
+		if extractedOperation != "" && extractedOperation != "execute" {
+			// We extracted a specific operation from the tool ID (e.g., "issues_list")
+			actionToUse = extractedOperation
+			api.logger.Info("Using extracted operation for organization tool", map[string]interface{}{
+				"original_action": req.Action,
+				"extracted_operation": extractedOperation,
+				"tool_id": toolID,
+			})
+		}
+		
 		// Use the enhanced tool registry for organization tools
 		result, err = api.enhancedToolsAPI.ExecuteToolInternal(
 			c.Request.Context(),
 			tenantID,
 			toolID,
-			req.Action,
+			actionToUse,
 			req.Parameters,
 		)
 	} else if req.PassthroughAuth != nil {
@@ -1347,17 +1387,20 @@ func (api *DynamicToolsAPI) expandOrganizationTool(ctx context.Context, ot *mode
 		}
 
 		for _, op := range operations {
-			// Create cleaner tool names without redundant prefixes
+			// Create consistent tool names with hyphens
+			// Format: instance-name-operation-name (e.g., github-devmesh-repos-list)
 			toolName := op.name
 			displayName := op.displayName
 
-			// If the instance name is generic like "github", use operation name directly
-			// Otherwise, prefix with instance name for clarity
-			if ot.InstanceName != "" && ot.InstanceName != providerType {
-				toolName = fmt.Sprintf("%s_%s", ot.InstanceName, op.name)
+			// Always prefix with instance name for clarity and consistency
+			if ot.InstanceName != "" {
+				// Convert operation name underscores to hyphens for consistency
+				operationName := strings.ReplaceAll(op.name, "_", "-")
+				toolName = fmt.Sprintf("%s-%s", ot.InstanceName, operationName)
 				displayName = fmt.Sprintf("%s - %s", ot.DisplayName, op.displayName)
 			}
 
+			// Keep the ID with underscores for backward compatibility
 			tool := &models.DynamicTool{
 				ID:          fmt.Sprintf("%s_%s", ot.ID, op.name),
 				TenantID:    ot.TenantID,

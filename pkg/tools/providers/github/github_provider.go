@@ -246,7 +246,7 @@ func (p *GitHubProvider) GetOperationMappings() map[string]providers.OperationMa
 			Method:         "GET",
 			PathTemplate:   "/repos/{owner}/{repo}/issues",
 			RequiredParams: []string{"owner", "repo"},
-			OptionalParams: []string{"state", "labels", "sort", "direction", "since"},
+			OptionalParams: []string{"state", "labels", "sort", "direction", "since", "per_page", "page"},
 		},
 		"issues/get": {
 			OperationID:    "getIssue",
@@ -275,7 +275,7 @@ func (p *GitHubProvider) GetOperationMappings() map[string]providers.OperationMa
 			Method:         "GET",
 			PathTemplate:   "/repos/{owner}/{repo}/pulls",
 			RequiredParams: []string{"owner", "repo"},
-			OptionalParams: []string{"state", "head", "base", "sort", "direction"},
+			OptionalParams: []string{"state", "head", "base", "sort", "direction", "per_page", "page"},
 		},
 		"pulls/get": {
 			OperationID:    "getPull",
@@ -304,6 +304,7 @@ func (p *GitHubProvider) GetOperationMappings() map[string]providers.OperationMa
 			Method:         "GET",
 			PathTemplate:   "/repos/{owner}/{repo}/actions/workflows",
 			RequiredParams: []string{"owner", "repo"},
+			OptionalParams: []string{"per_page", "page"},
 		},
 		"actions/trigger-workflow": {
 			OperationID:    "triggerWorkflow",
@@ -480,7 +481,16 @@ func (p *GitHubProvider) ExecuteOperation(ctx context.Context, operation string,
 
 // normalizeOperationName normalizes operation names to handle different formats
 func (p *GitHubProvider) normalizeOperationName(operation string) string {
-	// Handle simple action names
+	// First, handle different separators to normalize format
+	normalized := strings.ReplaceAll(operation, "-", "/")
+	normalized = strings.ReplaceAll(normalized, "_", "/")
+	
+	// If it already has a resource prefix (e.g., "issues/create"), return it
+	if strings.Contains(normalized, "/") {
+		return normalized
+	}
+	
+	// Only apply simple action defaults if no resource is specified
 	simpleActions := map[string]string{
 		"list":   "repos/list",
 		"get":    "repos/get",
@@ -489,15 +499,11 @@ func (p *GitHubProvider) normalizeOperationName(operation string) string {
 		"delete": "repos/delete",
 	}
 
-	if normalized, ok := simpleActions[operation]; ok {
-		return normalized
+	if defaultOp, ok := simpleActions[normalized]; ok {
+		return defaultOp
 	}
 
-	// Handle different separators (-, _, /)
-	operation = strings.ReplaceAll(operation, "-", "/")
-	operation = strings.ReplaceAll(operation, "_", "/")
-
-	return operation
+	return normalized
 }
 
 // GetOpenAPISpec returns the OpenAPI specification for GitHub

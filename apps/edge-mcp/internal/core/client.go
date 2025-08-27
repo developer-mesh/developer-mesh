@@ -22,6 +22,15 @@ type contextKey string
 // PassthroughAuthKey is the context key for passthrough authentication
 const PassthroughAuthKey contextKey = "passthrough-auth"
 
+// getMapKeys returns the keys of a string map as a slice
+func getMapKeys(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
 // normalizeClientType maps various client type inputs to allowed database values
 func normalizeClientType(clientName, clientType string) string {
 	// Database accepts: 'claude-code', 'ide', 'agent', 'cli'
@@ -313,52 +322,69 @@ func (c *Client) createProxyHandler(toolName string, toolID string) tools.ToolHa
 
 		// Parse arguments to extract action and parameters
 		var parsedArgs map[string]interface{}
-		var payload map[string]interface{}
+		if err := json.Unmarshal(args, &parsedArgs); err != nil {
+			c.logger.Warn("Failed to parse arguments, using empty parameters", map[string]interface{}{
+				"error": err.Error(),
+			})
+			parsedArgs = make(map[string]interface{})
+		}
 
-		if err := json.Unmarshal(args, &parsedArgs); err == nil {
-			// Check if action is in the arguments
-			if action, ok := parsedArgs["action"].(string); ok {
-				// Remove action from arguments  
+		// For organization tools, the action might be derived from the tool name
+		// Tool names are in format: github-devmesh_repos_list or github-devmesh-repos-list
+		var action string
+		var parameters map[string]interface{}
+
+		// First, try to extract operation from expanded tool name
+		if strings.Contains(toolName, "_") || strings.Contains(toolName, "-") {
+			// Try to extract the operation part from the tool name
+			// Look for common operation prefixes
+			operationPrefixes := []string{"repos_", "issues_", "pulls_", "actions_", "releases_", "repos-", "issues-", "pulls-", "actions-", "releases-"}
+			for _, prefix := range operationPrefixes {
+				if idx := strings.LastIndex(toolName, prefix); idx != -1 {
+					action = toolName[idx:]
+					// Convert hyphens to underscores for consistency with backend
+					action = strings.ReplaceAll(action, "-", "_")
+					break
+				}
+			}
+		}
+		
+		// If action wasn't extracted from tool name, check arguments
+		if action == "" {
+			if actionArg, ok := parsedArgs["action"].(string); ok {
+				action = actionArg
 				delete(parsedArgs, "action")
-				
-				// Check if parameters are nested
-				if params, ok := parsedArgs["parameters"].(map[string]interface{}); ok {
-					// Parameters are nested, use them directly
-					payload = map[string]interface{}{
-						"action":     action,
-						"parameters": params,
-					}
-				} else {
-					// Parameters are at top level
-					payload = map[string]interface{}{
-						"action":     action,
-						"parameters": parsedArgs,
-					}
-				}
-				
-				c.logger.Debug("Executing tool with action", map[string]interface{}{
-					"tool":   toolName,
-					"action": action,
-				})
-			} else {
-				// No action in arguments, check for parameters key
-				if params, ok := parsedArgs["parameters"].(map[string]interface{}); ok {
-					// Parameters are nested
-					payload = map[string]interface{}{
-						"parameters": params,
-					}
-				} else {
-					// Use arguments as-is for parameters
-					payload = map[string]interface{}{
-						"parameters": parsedArgs,
-					}
-				}
 			}
+		}
+
+		// Handle parameters
+		if params, ok := parsedArgs["parameters"].(map[string]interface{}); ok {
+			parameters = params
 		} else {
-			// Failed to parse arguments, use empty parameters
-			payload = map[string]interface{}{
-				"parameters": map[string]interface{}{},
-			}
+			// Use all arguments as parameters (action was already removed if present)
+			parameters = parsedArgs
+		}
+
+		// Build the payload
+		payload := map[string]interface{}{
+			"parameters": parameters,
+		}
+		
+		// Only add action if we have one
+		if action != "" {
+			payload["action"] = action
+			c.logger.Debug("Executing tool with extracted action", map[string]interface{}{
+				"tool":       toolName,
+				"tool_id":    toolID,
+				"action":     action,
+				"param_keys": getMapKeys(parameters),
+			})
+		} else {
+			c.logger.Debug("Executing tool without explicit action", map[string]interface{}{
+				"tool":       toolName,
+				"tool_id":    toolID,
+				"param_keys": getMapKeys(parameters),
+			})
 		}
 
 		// Include passthrough auth if available

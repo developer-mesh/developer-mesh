@@ -169,10 +169,30 @@ func (r *OperationResolver) resolveWithContext(action string, context map[string
 	// Check for resource hints in context
 	resourceHints := []string{}
 
+	// First check if parameters are nested
+	var params map[string]interface{}
+	if p, ok := context["parameters"].(map[string]interface{}); ok {
+		params = p
+	} else {
+		params = context
+	}
+
 	// Check for common parameter names that indicate resource type
-	for _, param := range []string{"owner", "repo", "org", "user", "issue_number", "pull_number"} {
-		if _, exists := context[param]; exists {
-			resourceHints = append(resourceHints, r.inferResourceFromParam(param))
+	paramNamesToCheck := []string{"owner", "repo", "org", "user", "issue_number", "pull_number", "repository"}
+	for _, param := range paramNamesToCheck {
+		if _, exists := params[param]; exists {
+			resource := r.inferResourceFromParam(param)
+			if resource != "" && !contains(resourceHints, resource) {
+				resourceHints = append(resourceHints, resource)
+			}
+		}
+	}
+
+	// Special handling for issues_create which needs both repo context
+	if action == "create" && hasParam(params, "title") && hasParam(params, "body") {
+		if hasParam(params, "owner") && hasParam(params, "repo") {
+			// This is likely an issue creation
+			resourceHints = append([]string{"issues"}, resourceHints...)
 		}
 	}
 
@@ -193,6 +213,7 @@ func (r *OperationResolver) resolveWithContext(action string, context map[string
 					"action":       action,
 					"resource":     resource,
 					"operation_id": info.OperationID,
+					"params":       params,
 				})
 				return info
 			}
@@ -200,6 +221,22 @@ func (r *OperationResolver) resolveWithContext(action string, context map[string
 	}
 
 	return nil
+}
+
+// contains checks if a string slice contains a value
+func contains(slice []string, value string) bool {
+	for _, v := range slice {
+		if v == value {
+			return true
+		}
+	}
+	return false
+}
+
+// hasParam checks if a parameter exists in a map
+func hasParam(params map[string]interface{}, key string) bool {
+	_, exists := params[key]
+	return exists
 }
 
 // disambiguateWithContext selects the best operation from multiple candidates using context

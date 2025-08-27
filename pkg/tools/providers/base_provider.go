@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -117,10 +118,41 @@ func (p *BaseProvider) Execute(ctx context.Context, operation string, params map
 
 	// Build path with parameters
 	path := mapping.PathTemplate
+	queryParams := make(map[string]string)
+	
+	// Replace path parameters
 	for _, param := range mapping.RequiredParams {
 		if value, ok := params[param]; ok {
 			placeholder := "{" + param + "}"
-			path = strings.ReplaceAll(path, placeholder, fmt.Sprintf("%v", value))
+			if strings.Contains(path, placeholder) {
+				path = strings.ReplaceAll(path, placeholder, fmt.Sprintf("%v", value))
+			}
+		}
+	}
+	
+	// For GET requests, collect query parameters
+	if mapping.Method == "GET" || mapping.Method == "HEAD" {
+		// Add optional parameters as query params
+		for _, param := range mapping.OptionalParams {
+			if value, ok := params[param]; ok {
+				queryParams[param] = fmt.Sprintf("%v", value)
+			}
+		}
+		
+		// Also check for common pagination parameters even if not in OptionalParams
+		for _, param := range []string{"per_page", "page", "limit", "offset", "sort", "direction"} {
+			if value, ok := params[param]; ok {
+				queryParams[param] = fmt.Sprintf("%v", value)
+			}
+		}
+		
+		// Build query string with proper URL encoding
+		if len(queryParams) > 0 {
+			values := url.Values{}
+			for k, v := range queryParams {
+				values.Add(k, v)
+			}
+			path = path + "?" + values.Encode()
 		}
 	}
 
