@@ -523,6 +523,18 @@ func (p *GitLabProvider) ValidateCredentials(ctx context.Context, creds map[stri
 
 // GetOperationMappings returns GitLab-specific operation mappings
 func (p *GitLabProvider) GetOperationMappings() map[string]providers.OperationMapping {
+	// Get basic mappings
+	basicMappings := p.getBasicOperationMappings()
+	
+	// Get extended mappings from gitlab_operations.go
+	extendedMappings := getExtendedOperationMappings()
+	
+	// Merge them together
+	return mergeOperationMappings(basicMappings, extendedMappings)
+}
+
+// getBasicOperationMappings returns the basic set of GitLab operations
+func (p *GitLabProvider) getBasicOperationMappings() map[string]providers.OperationMapping {
 	mappings := make(map[string]providers.OperationMapping)
 
 	// Projects mappings
@@ -688,7 +700,41 @@ func (p *GitLabProvider) ExecuteOperation(ctx context.Context, operation string,
 		return nil, fmt.Errorf("unknown operation: %s", operation)
 	}
 
-	// Use base provider's execution
+	// Handle special operations that need parameter injection
+	switch operation {
+	case "issues/close":
+		// Inject state_event parameter for closing issue
+		if params == nil {
+			params = make(map[string]interface{})
+		}
+		params["state_event"] = "close"
+		operation = "issues/update" // Use update endpoint with state_event
+	
+	case "issues/reopen":
+		// Inject state_event parameter for reopening issue
+		if params == nil {
+			params = make(map[string]interface{})
+		}
+		params["state_event"] = "reopen"
+		operation = "issues/update" // Use update endpoint with state_event
+	
+	case "merge_requests/close":
+		// Inject state_event parameter for closing merge request
+		if params == nil {
+			params = make(map[string]interface{})
+		}
+		params["state_event"] = "close"
+		operation = "merge_requests/update" // Use update endpoint with state_event
+	}
+
+	// Ensure pass-through authentication is maintained
+	// The context should already have credentials from ValidateCredentials
+	pctx, ok := providers.FromContext(ctx)
+	if !ok || pctx.Credentials == nil {
+		return nil, fmt.Errorf("no credentials found in context for pass-through authentication")
+	}
+
+	// Use base provider's execution which handles auth from context
 	return p.Execute(ctx, operation, params)
 }
 
@@ -911,6 +957,229 @@ func (p *GitLabProvider) HealthCheck(ctx context.Context) error {
 func (p *GitLabProvider) Close() error {
 	// Currently no resources to clean up
 	return nil
+}
+
+// FilterOperationsByPermissions filters operations based on user's permissions
+func (p *GitLabProvider) FilterOperationsByPermissions(operations []string, permissions map[string]interface{}) []string {
+	if permissions == nil {
+		// If no permissions provided, return read-only operations
+		return p.filterReadOnlyOperations(operations)
+	}
+
+	// Extract scopes and access level from permissions
+	scopes := p.extractScopes(permissions)
+	accessLevel := p.extractAccessLevel(permissions)
+
+	filtered := []string{}
+	for _, op := range operations {
+		if p.isOperationAllowed(op, scopes, accessLevel) {
+			filtered = append(filtered, op)
+		}
+	}
+
+	return filtered
+}
+
+// extractScopes extracts OAuth scopes from permissions
+func (p *GitLabProvider) extractScopes(permissions map[string]interface{}) []string {
+	scopes := []string{}
+	
+	if scopesRaw, ok := permissions["scopes"]; ok {
+		switch v := scopesRaw.(type) {
+		case []string:
+			scopes = v
+		case []interface{}:
+			for _, s := range v {
+				if str, ok := s.(string); ok {
+					scopes = append(scopes, str)
+				}
+			}
+		case string:
+			// Single scope as string
+			scopes = []string{v}
+		}
+	}
+	
+	return scopes
+}
+
+// extractAccessLevel extracts the user's access level from permissions
+func (p *GitLabProvider) extractAccessLevel(permissions map[string]interface{}) int {
+	if accessLevelRaw, ok := permissions["access_level"]; ok {
+		switch v := accessLevelRaw.(type) {
+		case int:
+			return v
+		case float64:
+			return int(v)
+		case string:
+			// Map string access levels to numeric values
+			switch v {
+			case "owner":
+				return 50
+			case "maintainer", "master":
+				return 40
+			case "developer":
+				return 30
+			case "reporter":
+				return 20
+			case "guest":
+				return 10
+			default:
+				return 0
+			}
+		}
+	}
+	return 0 // No access by default
+}
+
+// isOperationAllowed checks if an operation is allowed based on scopes and access level
+func (p *GitLabProvider) isOperationAllowed(operation string, scopes []string, accessLevel int) bool {
+	// Define operation requirements
+	operationRequirements := map[string]struct {
+		minAccessLevel int
+		requiredScopes []string
+	}{
+		// Project operations
+		"projects/list":      {0, []string{"read_api", "api"}},
+		"projects/get":       {0, []string{"read_api", "api"}},
+		"projects/create":    {0, []string{"api"}},
+		"projects/update":    {30, []string{"api"}}, // Developer
+		"projects/delete":    {50, []string{"api"}}, // Owner
+		"projects/fork":      {0, []string{"api"}},
+		"projects/star":      {0, []string{"api"}},
+		"projects/unstar":    {0, []string{"api"}},
+		"projects/archive":   {40, []string{"api"}}, // Maintainer
+		"projects/unarchive": {40, []string{"api"}}, // Maintainer
+		
+		// Issue operations
+		"issues/list":   {0, []string{"read_api", "api"}},
+		"issues/get":    {0, []string{"read_api", "api"}},
+		"issues/create": {10, []string{"api"}}, // Guest
+		"issues/update": {20, []string{"api"}}, // Reporter
+		"issues/close":  {20, []string{"api"}}, // Reporter
+		"issues/reopen": {20, []string{"api"}}, // Reporter
+		"issues/delete": {40, []string{"api"}}, // Maintainer
+		
+		// Merge Request operations
+		"merge_requests/list":      {0, []string{"read_api", "api"}},
+		"merge_requests/get":       {0, []string{"read_api", "api"}},
+		"merge_requests/create":    {30, []string{"api"}}, // Developer
+		"merge_requests/update":    {30, []string{"api"}}, // Developer
+		"merge_requests/approve":   {30, []string{"api"}}, // Developer
+		"merge_requests/unapprove": {30, []string{"api"}}, // Developer
+		"merge_requests/merge":     {30, []string{"api"}}, // Developer (with merge permissions)
+		"merge_requests/close":     {30, []string{"api"}}, // Developer
+		"merge_requests/rebase":    {30, []string{"api"}}, // Developer
+		"merge_requests/delete":    {40, []string{"api"}}, // Maintainer
+		
+		// Pipeline operations
+		"pipelines/list":    {0, []string{"read_api", "api"}},
+		"pipelines/get":     {0, []string{"read_api", "api"}},
+		"pipelines/trigger": {30, []string{"api"}}, // Developer
+		"pipelines/cancel":  {30, []string{"api"}}, // Developer
+		"pipelines/retry":   {30, []string{"api"}}, // Developer
+		"pipelines/delete":  {40, []string{"api"}}, // Maintainer
+		
+		// Job operations
+		"jobs/list":      {0, []string{"read_api", "api"}},
+		"jobs/get":       {0, []string{"read_api", "api"}},
+		"jobs/cancel":    {30, []string{"api"}}, // Developer
+		"jobs/retry":     {30, []string{"api"}}, // Developer
+		"jobs/play":      {30, []string{"api"}}, // Developer
+		"jobs/artifacts": {20, []string{"read_api", "api"}}, // Reporter
+		"jobs/erase":     {40, []string{"api"}}, // Maintainer
+		
+		// Repository operations
+		"branches/list":      {0, []string{"read_repository", "api"}},
+		"branches/get":       {0, []string{"read_repository", "api"}},
+		"branches/create":    {30, []string{"write_repository", "api"}}, // Developer
+		"branches/delete":    {40, []string{"api"}}, // Maintainer
+		"branches/protect":   {40, []string{"api"}}, // Maintainer
+		"branches/unprotect": {40, []string{"api"}}, // Maintainer
+		
+		"commits/list": {0, []string{"read_repository", "api"}},
+		"commits/get":  {0, []string{"read_repository", "api"}},
+		"commits/create": {30, []string{"write_repository", "api"}}, // Developer
+		"commits/diff":  {0, []string{"read_repository", "api"}},
+		"commits/comments": {0, []string{"read_repository", "api"}},
+		"commits/comment": {20, []string{"api"}}, // Reporter
+		
+		"tags/list":   {0, []string{"read_repository", "api"}},
+		"tags/get":    {0, []string{"read_repository", "api"}},
+		"tags/create": {30, []string{"write_repository", "api"}}, // Developer
+		"tags/delete": {40, []string{"api"}}, // Maintainer
+		
+		"files/get":    {0, []string{"read_repository", "api"}},
+		"files/raw":    {0, []string{"read_repository", "api"}},
+		"files/create": {30, []string{"write_repository", "api"}}, // Developer
+		"files/update": {30, []string{"write_repository", "api"}}, // Developer
+		"files/delete": {30, []string{"write_repository", "api"}}, // Developer
+		
+		// Group operations
+		"groups/list":   {0, []string{"read_api", "api"}},
+		"groups/get":    {0, []string{"read_api", "api"}},
+		"groups/create": {0, []string{"api"}}, // Any authenticated user can create groups
+		"groups/update": {50, []string{"api"}}, // Owner
+		"groups/delete": {50, []string{"api"}}, // Owner
+		
+		// Wiki operations
+		"wikis/list":   {0, []string{"read_wiki", "api"}},
+		"wikis/get":    {0, []string{"read_wiki", "api"}},
+		"wikis/create": {30, []string{"api"}}, // Developer
+		"wikis/update": {30, []string{"api"}}, // Developer
+		"wikis/delete": {30, []string{"api"}}, // Developer
+		
+		// Snippet operations
+		"snippets/list":   {0, []string{"read_api", "api"}},
+		"snippets/get":    {0, []string{"read_api", "api"}},
+		"snippets/create": {20, []string{"api"}}, // Reporter
+		"snippets/update": {20, []string{"api"}}, // Reporter
+		"snippets/delete": {20, []string{"api"}}, // Reporter
+		
+		// User operations
+		"users/current": {0, []string{"read_user", "api"}},
+	}
+	
+	req, exists := operationRequirements[operation]
+	if !exists {
+		// Default: allow read operations with read scopes
+		if strings.Contains(operation, "/list") || strings.Contains(operation, "/get") {
+			return p.hasAnyScope(scopes, []string{"read_api", "api"})
+		}
+		return false
+	}
+	
+	// Check access level
+	if accessLevel < req.minAccessLevel {
+		return false
+	}
+	
+	// Check scopes
+	return p.hasAnyScope(scopes, req.requiredScopes)
+}
+
+// hasAnyScope checks if the user has any of the required scopes
+func (p *GitLabProvider) hasAnyScope(userScopes []string, requiredScopes []string) bool {
+	for _, required := range requiredScopes {
+		for _, userScope := range userScopes {
+			if userScope == required {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// filterReadOnlyOperations filters to only read operations
+func (p *GitLabProvider) filterReadOnlyOperations(operations []string) []string {
+	readOnly := []string{}
+	for _, op := range operations {
+		if strings.Contains(op, "/list") || strings.Contains(op, "/get") || 
+		   op == "users/current" {
+			readOnly = append(readOnly, op)
+		}
+	}
+	return readOnly
 }
 
 // SetEnabledModules configures which GitLab modules are enabled

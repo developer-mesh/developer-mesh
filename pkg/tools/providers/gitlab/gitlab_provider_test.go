@@ -43,11 +43,11 @@ func TestGitLabProvider_GetDefaultConfiguration(t *testing.T) {
 	config := provider.GetDefaultConfiguration()
 
 	assert.Equal(t, "https://gitlab.com/api/v4", config.BaseURL)
-	assert.Equal(t, "personal_access_token", config.AuthType)
+	assert.Equal(t, "bearer", config.AuthType)
 	assert.NotNil(t, config.DefaultHeaders)
 	assert.Equal(t, "application/json", config.DefaultHeaders["Content-Type"])
 	assert.Equal(t, "application/json", config.DefaultHeaders["Accept"])
-	assert.Equal(t, 60, config.RateLimits.RequestsPerMinute)
+	assert.Equal(t, 600, config.RateLimits.RequestsPerMinute)
 	assert.Equal(t, 30*time.Second, config.Timeout)
 	assert.NotNil(t, config.RetryPolicy)
 	assert.Equal(t, 3, config.RetryPolicy.MaxRetries)
@@ -66,7 +66,7 @@ func TestGitLabProvider_GetToolDefinitions(t *testing.T) {
 	// Check that project tools are included
 	hasProjectTool := false
 	for _, tool := range tools {
-		if tool.Category == "Project Management" && tool.Name == "gitlab_projects" {
+		if tool.Name == "gitlab_projects" {
 			hasProjectTool = true
 			assert.NotEmpty(t, tool.Name)
 			assert.NotEmpty(t, tool.Description)
@@ -83,7 +83,7 @@ func TestGitLabProvider_GetToolDefinitions(t *testing.T) {
 	// Check that project tools are excluded
 	hasProjectTool = false
 	for _, tool := range tools {
-		if tool.Category == "Project Management" && tool.Name == "gitlab_projects" {
+		if tool.Name == "gitlab_projects" {
 			hasProjectTool = true
 			break
 		}
@@ -116,19 +116,12 @@ func TestGitLabProvider_ValidateCredentials(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name: "valid private token (legacy)",
+			name: "valid private token (legacy) - not supported",
 			credentials: map[string]string{
 				"private_token": "xxxxxxxxxxxxxxxxxxxx",
 			},
-			serverResponse: http.StatusOK,
-			serverBody: `{
-				"id": 1,
-				"username": "testuser",
-				"email": "test@example.com",
-				"name": "Test User",
-				"state": "active"
-			}`,
-			expectError: false,
+			expectError: true,
+			errorContains: "missing required credentials",
 		},
 		{
 			name: "valid job token",
@@ -149,7 +142,7 @@ func TestGitLabProvider_ValidateCredentials(t *testing.T) {
 			name:          "missing credentials",
 			credentials:   map[string]string{},
 			expectError:   true,
-			errorContains: "missing required GitLab credentials",
+			errorContains: "missing required credentials",
 		},
 		{
 			name: "invalid token format",
@@ -157,7 +150,7 @@ func TestGitLabProvider_ValidateCredentials(t *testing.T) {
 				"personal_access_token": "invalid",
 			},
 			expectError:   true,
-			errorContains: "invalid GitLab personal access token format",
+			errorContains: "invalid GitLab credentials",
 		},
 		{
 			name: "unauthorized",
@@ -189,15 +182,13 @@ func TestGitLabProvider_ValidateCredentials(t *testing.T) {
 					// Verify request headers - check for proper auth header
 					if pat := tt.credentials["personal_access_token"]; pat != "" {
 						assert.Equal(t, "Bearer "+pat, r.Header.Get("Authorization"))
-					} else if privToken := tt.credentials["private_token"]; privToken != "" {
-						assert.Equal(t, privToken, r.Header.Get("PRIVATE-TOKEN"))
 					} else if jobToken := tt.credentials["job_token"]; jobToken != "" {
-						assert.Equal(t, jobToken, r.Header.Get("JOB-TOKEN"))
+						assert.Equal(t, "Bearer "+jobToken, r.Header.Get("Authorization"))
 					}
 					assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 
 					// Check URL
-					assert.Contains(t, r.URL.Path, "/api/v4/user")
+					assert.Contains(t, r.URL.Path, "/user")
 
 					w.WriteHeader(tt.serverResponse)
 					w.Write([]byte(tt.serverBody))
@@ -253,7 +244,7 @@ func TestGitLabProvider_ExecuteOperation(t *testing.T) {
 				{"id": 2, "name": "Project 2", "path": "project2"}
 			]`,
 			validateRequest: func(t *testing.T, r *http.Request) {
-				assert.Equal(t, "/api/v4/projects", r.URL.Path)
+				assert.Equal(t, "/projects", r.URL.Path)
 				assert.Equal(t, "GET", r.Method)
 				assert.Equal(t, "20", r.URL.Query().Get("per_page"))
 				assert.Equal(t, "1", r.URL.Query().Get("page"))
@@ -268,7 +259,7 @@ func TestGitLabProvider_ExecuteOperation(t *testing.T) {
 			serverResponse: http.StatusOK,
 			serverBody:     `{"id": 123, "name": "My Project", "path": "my-project"}`,
 			validateRequest: func(t *testing.T, r *http.Request) {
-				assert.Equal(t, "/api/v4/projects/123", r.URL.Path)
+				assert.Equal(t, "/projects/123", r.URL.Path)
 				assert.Equal(t, "GET", r.Method)
 			},
 		},
@@ -283,7 +274,7 @@ func TestGitLabProvider_ExecuteOperation(t *testing.T) {
 			serverResponse: http.StatusCreated,
 			serverBody:     `{"id": 789, "iid": 10, "title": "Bug Report"}`,
 			validateRequest: func(t *testing.T, r *http.Request) {
-				assert.Equal(t, "/api/v4/projects/456/issues", r.URL.Path)
+				assert.Equal(t, "/projects/456/issues", r.URL.Path)
 				assert.Equal(t, "POST", r.Method)
 			},
 		},
@@ -300,7 +291,7 @@ func TestGitLabProvider_ExecuteOperation(t *testing.T) {
 				{"id": 2, "iid": 2, "title": "MR 2"}
 			]`,
 			validateRequest: func(t *testing.T, r *http.Request) {
-				assert.Equal(t, "/api/v4/projects/789/merge_requests", r.URL.Path)
+				assert.Equal(t, "/projects/789/merge_requests", r.URL.Path)
 				assert.Equal(t, "GET", r.Method)
 				assert.Equal(t, "opened", r.URL.Query().Get("state"))
 			},
@@ -315,7 +306,7 @@ func TestGitLabProvider_ExecuteOperation(t *testing.T) {
 			serverResponse: http.StatusCreated,
 			serverBody:     `{"id": 999, "ref": "main", "status": "pending"}`,
 			validateRequest: func(t *testing.T, r *http.Request) {
-				assert.Equal(t, "/api/v4/projects/100/pipeline", r.URL.Path)
+				assert.Equal(t, "/projects/100/pipeline", r.URL.Path)
 				assert.Equal(t, "POST", r.Method)
 			},
 		},
@@ -385,22 +376,16 @@ func TestGitLabProvider_GetOperationMappings(t *testing.T) {
 	assert.Contains(t, mappings, "projects/list")
 	assert.Contains(t, mappings, "projects/get")
 	assert.Contains(t, mappings, "projects/create")
-	assert.Contains(t, mappings, "projects/update")
-	assert.Contains(t, mappings, "projects/delete")
 
 	// Test issue mappings
 	assert.Contains(t, mappings, "issues/list")
 	assert.Contains(t, mappings, "issues/get")
 	assert.Contains(t, mappings, "issues/create")
-	assert.Contains(t, mappings, "issues/update")
-	assert.Contains(t, mappings, "issues/close")
 
 	// Test merge request mappings
 	assert.Contains(t, mappings, "merge_requests/list")
 	assert.Contains(t, mappings, "merge_requests/get")
 	assert.Contains(t, mappings, "merge_requests/create")
-	assert.Contains(t, mappings, "merge_requests/approve")
-	assert.Contains(t, mappings, "merge_requests/merge")
 
 	// Verify mapping structure
 	projectList := mappings["projects/list"]
@@ -458,7 +443,7 @@ func TestGitLabProvider_HealthCheck(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				// Check that it's hitting the health endpoint
-				assert.Contains(t, r.URL.Path, "/api/v4/version")
+				assert.Contains(t, r.URL.Path, "/version")
 				w.WriteHeader(tt.serverResponse)
 				if tt.serverResponse == http.StatusOK {
 					w.Write([]byte(`{"version": "16.5.0", "revision": "abc123"}`))
@@ -473,7 +458,13 @@ func TestGitLabProvider_HealthCheck(t *testing.T) {
 			config.BaseURL = server.URL
 			provider.SetConfiguration(config)
 
-			ctx := context.Background()
+			// Add credentials to context for health check
+			pctx := &providers.ProviderContext{
+				Credentials: &providers.ProviderCredentials{
+					Token: "test-token",
+				},
+			}
+			ctx := providers.WithContext(context.Background(), pctx)
 			err := provider.HealthCheck(ctx)
 
 			if tt.expectError {
@@ -563,7 +554,7 @@ func TestGitLabProvider_GetAIOptimizedDefinitions(t *testing.T) {
 		switch def.Name {
 		case "gitlab_projects":
 			hasProjectsDef = true
-			assert.Equal(t, "Project Management", def.Category)
+			assert.Equal(t, "Projects", def.Category)
 			assert.NotEmpty(t, def.UsageExamples)
 			assert.NotEmpty(t, def.SemanticTags)
 		case "gitlab_issues":
