@@ -638,10 +638,10 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 
 	// Store the original tool ID for organization tool detection
 	originalToolID := toolID
-	
+
 	// Variable to store extracted operation (defined at function scope)
 	var extractedOperation string
-	
+
 	// Check if this is an expanded tool ID (format: parent_id_operation)
 	// If so, extract the parent tool ID and the operation
 	if strings.Contains(toolID, "_") {
@@ -680,12 +680,12 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 	}
 
 	// Add pagination defaults for list operations to prevent large responses
-	if strings.Contains(req.Action, "list") || strings.Contains(req.Action, "_list") || 
-	   strings.Contains(req.Action, "-list") || strings.HasSuffix(req.Action, "list") {
+	if strings.Contains(req.Action, "list") || strings.Contains(req.Action, "_list") ||
+		strings.Contains(req.Action, "-list") || strings.HasSuffix(req.Action, "list") {
 		if req.Parameters == nil {
 			req.Parameters = make(map[string]interface{})
 		}
-		
+
 		// Set reasonable defaults for MCP clients to prevent token limit issues
 		if _, hasPerPage := req.Parameters["per_page"]; !hasPerPage {
 			req.Parameters["per_page"] = 30 // GitHub API default that works well
@@ -693,7 +693,7 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 		if _, hasPage := req.Parameters["page"]; !hasPage {
 			req.Parameters["page"] = 1
 		}
-		
+
 		api.logger.Info("Added pagination defaults for list operation", map[string]interface{}{
 			"action":   req.Action,
 			"per_page": req.Parameters["per_page"],
@@ -751,12 +751,12 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 			// We extracted a specific operation from the tool ID (e.g., "issues_list")
 			actionToUse = extractedOperation
 			api.logger.Info("Using extracted operation for organization tool", map[string]interface{}{
-				"original_action": req.Action,
+				"original_action":     req.Action,
 				"extracted_operation": extractedOperation,
-				"tool_id": toolID,
+				"tool_id":             toolID,
 			})
 		}
-		
+
 		// Use the enhanced tool registry for organization tools
 		result, err = api.enhancedToolsAPI.ExecuteToolInternal(
 			c.Request.Context(),

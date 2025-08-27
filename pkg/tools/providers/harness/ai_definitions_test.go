@@ -25,19 +25,19 @@ func TestHarnessProvider_GetAIOptimizedDefinitions(t *testing.T) {
 
 	// Should have pipeline definitions
 	assert.Contains(t, categories, "CI/CD", "Should have CI/CD category")
-	
+
 	// Should have project definitions
 	assert.Contains(t, categories, "Platform", "Should have Platform category")
-	
+
 	// Should have connector definitions
 	assert.Contains(t, categories, "Integration", "Should have Integration category")
-	
+
 	// Should have GitOps definitions
 	assert.Contains(t, categories, "GitOps", "Should have GitOps category")
-	
+
 	// Should have security definitions
 	assert.Contains(t, categories, "Security", "Should have Security category")
-	
+
 	// Should have cost management definitions
 	assert.Contains(t, categories, "FinOps", "Should have FinOps category")
 
@@ -63,9 +63,9 @@ func TestHarnessProvider_GetAIOptimizedDefinitions(t *testing.T) {
 		assert.NotEmpty(t, pipelineDef.InputSchema)
 
 		// Check usage examples
-		assert.GreaterOrEqual(t, len(pipelineDef.UsageExamples), 3, 
+		assert.GreaterOrEqual(t, len(pipelineDef.UsageExamples), 3,
 			"Should have at least 3 usage examples")
-		
+
 		for _, example := range pipelineDef.UsageExamples {
 			assert.NotEmpty(t, example.Scenario)
 			assert.NotEmpty(t, example.Input)
@@ -119,7 +119,7 @@ func TestHarnessProvider_GetAIOptimizedDefinitions_AllCategories(t *testing.T) {
 	}
 
 	// Should have multiple categories
-	assert.GreaterOrEqual(t, len(categoryMap), 4, 
+	assert.GreaterOrEqual(t, len(categoryMap), 4,
 		"Should have at least 4 different categories")
 }
 
@@ -136,19 +136,19 @@ func TestHarnessProvider_GetAIOptimizedDefinitions_Consistency(t *testing.T) {
 			assert.NotEmpty(t, def.DisplayName, "DisplayName should not be empty")
 			assert.NotEmpty(t, def.Category, "Category should not be empty")
 			assert.NotEmpty(t, def.Description, "Description should not be empty")
-			
+
 			// Should have at least some semantic tags
 			assert.NotEmpty(t, def.SemanticTags, "Should have semantic tags")
-			
+
 			// Should have at least one usage example
 			assert.NotEmpty(t, def.UsageExamples, "Should have at least one usage example")
-			
+
 			// Each usage example should be complete
 			for i, example := range def.UsageExamples {
 				assert.NotEmpty(t, example.Scenario, "Example %d should have scenario", i)
 				assert.NotEmpty(t, example.Input, "Example %d should have input", i)
 			}
-			
+
 			// Input schema validation - some definitions may not have complex schemas
 			if def.InputSchema.Type != "" {
 				assert.NotEmpty(t, def.InputSchema.Type, "Input schema should have type if defined")

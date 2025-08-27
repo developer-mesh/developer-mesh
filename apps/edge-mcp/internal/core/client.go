@@ -348,7 +348,7 @@ func (c *Client) createProxyHandler(toolName string, toolID string) tools.ToolHa
 				}
 			}
 		}
-		
+
 		// If action wasn't extracted from tool name, check arguments
 		if action == "" {
 			if actionArg, ok := parsedArgs["action"].(string); ok {
@@ -369,7 +369,7 @@ func (c *Client) createProxyHandler(toolName string, toolID string) tools.ToolHa
 		payload := map[string]interface{}{
 			"parameters": parameters,
 		}
-		
+
 		// Only add action if we have one
 		if action != "" {
 			payload["action"] = action

@@ -103,16 +103,16 @@ func TestNormalizeOperationName(t *testing.T) {
 		{"Simple upload", "upload", "artifacts/upload"},
 		{"Simple download", "download", "artifacts/download"},
 		{"Simple search", "search", "search/artifacts"},
-		
+
 		// Already normalized
 		{"Repos list", "repos/list", "repos/list"},
 		{"Artifacts upload", "artifacts/upload", "artifacts/upload"},
-		
+
 		// Different separators
 		{"Hyphen separator", "repos-list", "repos/list"},
 		{"Underscore separator", "repos_list", "repos/list"},
 		{"Mixed separators", "artifacts-properties_set", "artifacts/properties/set"},
-		
+
 		// Unknown operations pass through
 		{"Unknown operation", "unknown/operation", "unknown/operation"},
 	}
@@ -130,7 +130,7 @@ func TestGetDefaultConfiguration(t *testing.T) {
 	provider := NewArtifactoryProvider(logger)
 
 	config := provider.GetDefaultConfiguration()
-	
+
 	assert.Equal(t, "bearer", config.AuthType)
 	assert.Equal(t, "/api/system/ping", config.HealthEndpoint)
 	assert.Contains(t, config.DefaultHeaders, "X-JFrog-Art-Api-Version")
@@ -183,19 +183,19 @@ func TestHealthCheck(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/system/ping", r.URL.Path)
 		assert.Equal(t, "GET", r.Method)
-		
+
 		// Check auth header
 		authHeader := r.Header.Get("Authorization")
 		assert.NotEmpty(t, authHeader)
-		
+
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, _ = w.Write([]byte("OK"))
 	}))
 	defer server.Close()
 
 	logger := &observability.NoopLogger{}
 	provider := NewArtifactoryProvider(logger)
-	
+
 	// Override the base URL
 	config := provider.GetDefaultConfiguration()
 	config.BaseURL = server.URL
@@ -233,15 +233,17 @@ func TestExecuteOperation_ListRepos(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/repositories", r.URL.Path)
 		assert.Equal(t, "GET", r.Method)
-		
+
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(mockRepos)
+		if err := json.NewEncoder(w).Encode(mockRepos); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	}))
 	defer server.Close()
 
 	logger := &observability.NoopLogger{}
 	provider := NewArtifactoryProvider(logger)
-	
+
 	// Override the base URL
 	config := provider.GetDefaultConfiguration()
 	config.BaseURL = server.URL
@@ -270,21 +272,24 @@ func TestExecuteOperation_CreateUser(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/security/users/john.doe", r.URL.Path)
 		assert.Equal(t, "PUT", r.Method)
-		
+
 		// Check request body
 		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		assert.Equal(t, "john.doe", body["userName"])
 		assert.Equal(t, "john.doe@example.com", body["email"])
-		
+
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte(`{"name":"john.doe","email":"john.doe@example.com","admin":false}`))
+		_, _ = w.Write([]byte(`{"name":"john.doe","email":"john.doe@example.com","admin":false}`))
 	}))
 	defer server.Close()
 
 	logger := &observability.NoopLogger{}
 	provider := NewArtifactoryProvider(logger)
-	
+
 	// Override the base URL
 	config := provider.GetDefaultConfiguration()
 	config.BaseURL = server.URL
@@ -304,7 +309,7 @@ func TestExecuteOperation_CreateUser(t *testing.T) {
 		"password": "SecurePass123!",
 		"admin":    false,
 	}
-	
+
 	result, err := provider.ExecuteOperation(ctx, "users/create", params)
 	require.NoError(t, err)
 	assert.NotNil(t, result)
@@ -315,15 +320,15 @@ func TestExecuteOperation_SearchArtifacts(t *testing.T) {
 	mockResults := map[string]interface{}{
 		"results": []map[string]interface{}{
 			{
-				"repo":       "libs-release-local",
-				"path":       "com/mycompany/myapp/1.0.0",
-				"name":       "myapp-1.0.0.jar",
-				"type":       "file",
-				"size":       12345,
-				"created":    "2025-01-27T10:00:00Z",
-				"modified":   "2025-01-27T10:00:00Z",
-				"sha1":       "abc123def456",
-				"md5":        "123456789abc",
+				"repo":     "libs-release-local",
+				"path":     "com/mycompany/myapp/1.0.0",
+				"name":     "myapp-1.0.0.jar",
+				"type":     "file",
+				"size":     12345,
+				"created":  "2025-01-27T10:00:00Z",
+				"modified": "2025-01-27T10:00:00Z",
+				"sha1":     "abc123def456",
+				"md5":      "123456789abc",
 			},
 		},
 	}
@@ -332,19 +337,21 @@ func TestExecuteOperation_SearchArtifacts(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/search/artifact", r.URL.Path)
 		assert.Equal(t, "GET", r.Method)
-		
+
 		// Check query parameters
 		assert.Equal(t, "*.jar", r.URL.Query().Get("name"))
 		assert.Equal(t, "libs-release-local", r.URL.Query().Get("repos"))
-		
+
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(mockResults)
+		if err := json.NewEncoder(w).Encode(mockResults); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	}))
 	defer server.Close()
 
 	logger := &observability.NoopLogger{}
 	provider := NewArtifactoryProvider(logger)
-	
+
 	// Override the base URL
 	config := provider.GetDefaultConfiguration()
 	config.BaseURL = server.URL
@@ -362,7 +369,7 @@ func TestExecuteOperation_SearchArtifacts(t *testing.T) {
 		"name":  "*.jar",
 		"repos": "libs-release-local",
 	}
-	
+
 	result, err := provider.ExecuteOperation(ctx, "search/artifacts", params)
 	require.NoError(t, err)
 	assert.NotNil(t, result)
@@ -393,21 +400,24 @@ func TestExecuteOperation_BuildPromote(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/build/promote/myapp/123", r.URL.Path)
 		assert.Equal(t, "POST", r.Method)
-		
+
 		// Check request body
 		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		assert.Equal(t, "libs-prod-local", body["targetRepo"])
 		assert.Equal(t, "Released", body["status"])
-		
+
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"messages":[{"level":"info","message":"Promotion completed successfully"}]}`))
+		_, _ = w.Write([]byte(`{"messages":[{"level":"info","message":"Promotion completed successfully"}]}`))
 	}))
 	defer server.Close()
 
 	logger := &observability.NoopLogger{}
 	provider := NewArtifactoryProvider(logger)
-	
+
 	// Override the base URL
 	config := provider.GetDefaultConfiguration()
 	config.BaseURL = server.URL
@@ -428,7 +438,7 @@ func TestExecuteOperation_BuildPromote(t *testing.T) {
 		"status":      "Released",
 		"comment":     "Promoted to production",
 	}
-	
+
 	result, err := provider.ExecuteOperation(ctx, "builds/promote", params)
 	require.NoError(t, err)
 	assert.NotNil(t, result)

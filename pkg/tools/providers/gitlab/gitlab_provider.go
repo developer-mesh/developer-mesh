@@ -485,7 +485,7 @@ func (p *GitLabProvider) ValidateCredentials(ctx context.Context, creds map[stri
 	ctx = providers.WithContext(ctx, pctx)
 
 	// Use ExecuteHTTPRequest which handles base URL properly
-	resp, err := p.BaseProvider.ExecuteHTTPRequest(ctx, "GET", testPath, nil, nil)
+	resp, err := p.ExecuteHTTPRequest(ctx, "GET", testPath, nil, nil)
 
 	if err != nil {
 		return fmt.Errorf("failed to validate credentials: %w", err)
@@ -689,7 +689,7 @@ func (p *GitLabProvider) ExecuteOperation(ctx context.Context, operation string,
 	}
 
 	// Use base provider's execution
-	return p.BaseProvider.Execute(ctx, operation, params)
+	return p.Execute(ctx, operation, params)
 }
 
 // GetDefaultConfiguration returns the default GitLab configuration
@@ -891,7 +891,7 @@ func (p *GitLabProvider) SetConfiguration(config providers.ProviderConfig) {
 // HealthCheck verifies the GitLab API is accessible
 func (p *GitLabProvider) HealthCheck(ctx context.Context) error {
 	// Use ExecuteHTTPRequest which properly handles the base URL
-	resp, err := p.BaseProvider.ExecuteHTTPRequest(ctx, "GET", "version", nil, nil)
+	resp, err := p.ExecuteHTTPRequest(ctx, "GET", "version", nil, nil)
 	if err != nil {
 		return fmt.Errorf("GitLab API health check failed: %w", err)
 	}
@@ -942,7 +942,6 @@ func (p *GitLabProvider) normalizeOperationName(op string) string {
 	// Replace hyphens and underscores with forward slashes
 	normalized := strings.ReplaceAll(op, "-", "/")
 	normalized = strings.ReplaceAll(normalized, "_", "/")
-	
+
 	return normalized
 }
-

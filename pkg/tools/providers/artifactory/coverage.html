@@ -1,0 +1,937 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>artifactory: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/developer-mesh/developer-mesh/pkg/tools/providers/artifactory/artifactory_provider.go (70.7%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package artifactory
+
+import (
+        "context"
+        "fmt"
+        "net/http"
+        "strings"
+        "time"
+
+        "github.com/developer-mesh/developer-mesh/pkg/observability"
+        "github.com/developer-mesh/developer-mesh/pkg/repository"
+        "github.com/developer-mesh/developer-mesh/pkg/tools/providers"
+        "github.com/getkin/kin-openapi/openapi3"
+)
+
+// ArtifactoryProvider implements the StandardToolProvider interface for JFrog Artifactory
+type ArtifactoryProvider struct {
+        *providers.BaseProvider
+        specCache  repository.OpenAPICacheRepository // For caching the OpenAPI spec
+        httpClient *http.Client
+}
+
+// NewArtifactoryProvider creates a new Artifactory provider instance
+func NewArtifactoryProvider(logger observability.Logger) *ArtifactoryProvider <span class="cov8" title="1">{
+        // Default to cloud instance, can be overridden via configuration
+        base := providers.NewBaseProvider("artifactory", "v2", "https://mycompany.jfrog.io/artifactory", logger)
+
+        provider := &amp;ArtifactoryProvider{
+                BaseProvider: base,
+                httpClient: &amp;http.Client{
+                        Timeout: 60 * time.Second, // Longer timeout for large artifact operations
+                },
+        }
+        
+        // Set operation mappings in base provider
+        provider.SetOperationMappings(provider.GetOperationMappings())
+        // Set configuration to ensure auth type is configured
+        provider.SetConfiguration(provider.GetDefaultConfiguration())
+        return provider
+}</span>
+
+// NewArtifactoryProviderWithCache creates a new Artifactory provider with spec caching
+func NewArtifactoryProviderWithCache(logger observability.Logger, specCache repository.OpenAPICacheRepository) *ArtifactoryProvider <span class="cov0" title="0">{
+        provider := NewArtifactoryProvider(logger)
+        provider.specCache = specCache
+        return provider
+}</span>
+
+// GetProviderName returns the provider name
+func (p *ArtifactoryProvider) GetProviderName() string <span class="cov8" title="1">{
+        return "artifactory"
+}</span>
+
+// GetSupportedVersions returns supported Artifactory API versions
+func (p *ArtifactoryProvider) GetSupportedVersions() []string <span class="cov8" title="1">{
+        return []string{"v1", "v2"}
+}</span>
+
+// GetToolDefinitions returns Artifactory-specific tool definitions
+func (p *ArtifactoryProvider) GetToolDefinitions() []providers.ToolDefinition <span class="cov8" title="1">{
+        return []providers.ToolDefinition{
+                {
+                        Name:        "artifactory_repositories",
+                        DisplayName: "Artifactory Repositories",
+                        Description: "Manage Artifactory repositories",
+                        Category:    "repository_management",
+                },
+                {
+                        Name:        "artifactory_artifacts",
+                        DisplayName: "Artifactory Artifacts",
+                        Description: "Manage artifacts and packages",
+                        Category:    "artifact_management",
+                },
+                {
+                        Name:        "artifactory_builds",
+                        DisplayName: "Artifactory Builds",
+                        Description: "Manage build information",
+                        Category:    "ci_cd",
+                },
+                {
+                        Name:        "artifactory_users",
+                        DisplayName: "Artifactory Users",
+                        Description: "Manage users and permissions",
+                        Category:    "security",
+                },
+        }
+}</span>
+
+// GetOperationMappings returns Artifactory-specific operation mappings
+func (p *ArtifactoryProvider) GetOperationMappings() map[string]providers.OperationMapping <span class="cov8" title="1">{
+        return map[string]providers.OperationMapping{
+                // Repository operations
+                "repos/list": {
+                        OperationID:    "listRepositories",
+                        Method:         "GET",
+                        PathTemplate:   "/api/repositories",
+                        RequiredParams: []string{},
+                        OptionalParams: []string{"type", "packageType"},
+                },
+                "repos/get": {
+                        OperationID:    "getRepository",
+                        Method:         "GET",
+                        PathTemplate:   "/api/repositories/{repoKey}",
+                        RequiredParams: []string{"repoKey"},
+                },
+                "repos/create": {
+                        OperationID:    "createRepository",
+                        Method:         "PUT",
+                        PathTemplate:   "/api/repositories/{repoKey}",
+                        RequiredParams: []string{"repoKey", "rclass"},
+                        OptionalParams: []string{"packageType", "description", "notes", "includesPattern", "excludesPattern", "repoLayoutRef"},
+                },
+                "repos/update": {
+                        OperationID:    "updateRepository",
+                        Method:         "POST",
+                        PathTemplate:   "/api/repositories/{repoKey}",
+                        RequiredParams: []string{"repoKey"},
+                        OptionalParams: []string{"description", "notes", "includesPattern", "excludesPattern"},
+                },
+                "repos/delete": {
+                        OperationID:    "deleteRepository",
+                        Method:         "DELETE",
+                        PathTemplate:   "/api/repositories/{repoKey}",
+                        RequiredParams: []string{"repoKey"},
+                },
+
+                // Artifact operations
+                "artifacts/upload": {
+                        OperationID:    "uploadArtifact",
+                        Method:         "PUT",
+                        PathTemplate:   "/{repoKey}/{itemPath}",
+                        RequiredParams: []string{"repoKey", "itemPath"},
+                        OptionalParams: []string{"properties"},
+                },
+                "artifacts/download": {
+                        OperationID:    "downloadArtifact",
+                        Method:         "GET",
+                        PathTemplate:   "/{repoKey}/{itemPath}",
+                        RequiredParams: []string{"repoKey", "itemPath"},
+                },
+                "artifacts/info": {
+                        OperationID:    "getArtifactInfo",
+                        Method:         "GET",
+                        PathTemplate:   "/api/storage/{repoKey}/{itemPath}",
+                        RequiredParams: []string{"repoKey", "itemPath"},
+                },
+                "artifacts/copy": {
+                        OperationID:    "copyArtifact",
+                        Method:         "POST",
+                        PathTemplate:   "/api/copy/{srcRepoKey}/{srcItemPath}?to={targetRepoKey}/{targetItemPath}",
+                        RequiredParams: []string{"srcRepoKey", "srcItemPath", "targetRepoKey", "targetItemPath"},
+                        OptionalParams: []string{"dry", "suppressLayouts", "failFast"},
+                },
+                "artifacts/move": {
+                        OperationID:    "moveArtifact",
+                        Method:         "POST",
+                        PathTemplate:   "/api/move/{srcRepoKey}/{srcItemPath}?to={targetRepoKey}/{targetItemPath}",
+                        RequiredParams: []string{"srcRepoKey", "srcItemPath", "targetRepoKey", "targetItemPath"},
+                        OptionalParams: []string{"dry", "suppressLayouts", "failFast"},
+                },
+                "artifacts/delete": {
+                        OperationID:    "deleteArtifact",
+                        Method:         "DELETE",
+                        PathTemplate:   "/{repoKey}/{itemPath}",
+                        RequiredParams: []string{"repoKey", "itemPath"},
+                },
+                "artifacts/properties/set": {
+                        OperationID:    "setArtifactProperties",
+                        Method:         "PUT",
+                        PathTemplate:   "/api/storage/{repoKey}/{itemPath}?properties={properties}",
+                        RequiredParams: []string{"repoKey", "itemPath", "properties"},
+                        OptionalParams: []string{"recursive"},
+                },
+                "artifacts/properties/delete": {
+                        OperationID:    "deleteArtifactProperties",
+                        Method:         "DELETE",
+                        PathTemplate:   "/api/storage/{repoKey}/{itemPath}?properties={properties}",
+                        RequiredParams: []string{"repoKey", "itemPath", "properties"},
+                        OptionalParams: []string{"recursive"},
+                },
+
+                // Search operations
+                "search/artifacts": {
+                        OperationID:    "searchArtifacts",
+                        Method:         "GET",
+                        PathTemplate:   "/api/search/artifact",
+                        RequiredParams: []string{},
+                        OptionalParams: []string{"name", "repos", "includeRemote"},
+                },
+                "search/aql": {
+                        OperationID:    "searchAQL",
+                        Method:         "POST",
+                        PathTemplate:   "/api/search/aql",
+                        RequiredParams: []string{"query"},
+                },
+                "search/gavc": {
+                        OperationID:    "searchGAVC",
+                        Method:         "GET",
+                        PathTemplate:   "/api/search/gavc",
+                        RequiredParams: []string{},
+                        OptionalParams: []string{"g", "a", "v", "c", "repos"},
+                },
+                "search/property": {
+                        OperationID:    "searchByProperty",
+                        Method:         "GET",
+                        PathTemplate:   "/api/search/prop",
+                        RequiredParams: []string{},
+                        OptionalParams: []string{"repos"},
+                },
+                "search/checksum": {
+                        OperationID:    "searchByChecksum",
+                        Method:         "GET",
+                        PathTemplate:   "/api/search/checksum",
+                        RequiredParams: []string{},
+                        OptionalParams: []string{"md5", "sha1", "sha256", "repos"},
+                },
+                "search/pattern": {
+                        OperationID:    "searchByPattern",
+                        Method:         "GET",
+                        PathTemplate:   "/api/search/pattern",
+                        RequiredParams: []string{"pattern"},
+                        OptionalParams: []string{"repos"},
+                },
+
+                // Build operations
+                "builds/list": {
+                        OperationID:    "listBuilds",
+                        Method:         "GET",
+                        PathTemplate:   "/api/build",
+                        RequiredParams: []string{},
+                        OptionalParams: []string{"project"},
+                },
+                "builds/get": {
+                        OperationID:    "getBuildInfo",
+                        Method:         "GET",
+                        PathTemplate:   "/api/build/{buildName}/{buildNumber}",
+                        RequiredParams: []string{"buildName", "buildNumber"},
+                        OptionalParams: []string{"project"},
+                },
+                "builds/runs": {
+                        OperationID:    "getBuildRuns",
+                        Method:         "GET",
+                        PathTemplate:   "/api/build/{buildName}",
+                        RequiredParams: []string{"buildName"},
+                        OptionalParams: []string{"project"},
+                },
+                "builds/upload": {
+                        OperationID:    "uploadBuildInfo",
+                        Method:         "PUT",
+                        PathTemplate:   "/api/build",
+                        RequiredParams: []string{"buildInfo"},
+                        OptionalParams: []string{"project"},
+                },
+                "builds/promote": {
+                        OperationID:    "promoteBuild",
+                        Method:         "POST",
+                        PathTemplate:   "/api/build/promote/{buildName}/{buildNumber}",
+                        RequiredParams: []string{"buildName", "buildNumber", "targetRepo"},
+                        OptionalParams: []string{"status", "comment", "ciUser", "timestamp", "copy", "dependencies", "scopes", "properties", "failFast", "project"},
+                },
+                "builds/delete": {
+                        OperationID:    "deleteBuild",
+                        Method:         "DELETE",
+                        PathTemplate:   "/api/build/{buildName}",
+                        RequiredParams: []string{"buildName"},
+                        OptionalParams: []string{"buildNumbers", "artifacts", "project", "deleteAll"},
+                },
+
+                // User operations
+                "users/list": {
+                        OperationID:    "listUsers",
+                        Method:         "GET",
+                        PathTemplate:   "/api/security/users",
+                        RequiredParams: []string{},
+                },
+                "users/get": {
+                        OperationID:    "getUser",
+                        Method:         "GET",
+                        PathTemplate:   "/api/security/users/{userName}",
+                        RequiredParams: []string{"userName"},
+                },
+                "users/create": {
+                        OperationID:    "createUser",
+                        Method:         "PUT",
+                        PathTemplate:   "/api/security/users/{userName}",
+                        RequiredParams: []string{"userName", "email"},
+                        OptionalParams: []string{"password", "admin", "profileUpdatable", "disableUIAccess", "internalPasswordDisabled", "groups"},
+                },
+                "users/update": {
+                        OperationID:    "updateUser",
+                        Method:         "POST",
+                        PathTemplate:   "/api/security/users/{userName}",
+                        RequiredParams: []string{"userName"},
+                        OptionalParams: []string{"email", "admin", "profileUpdatable", "disableUIAccess", "groups"},
+                },
+                "users/delete": {
+                        OperationID:    "deleteUser",
+                        Method:         "DELETE",
+                        PathTemplate:   "/api/security/users/{userName}",
+                        RequiredParams: []string{"userName"},
+                },
+                "users/unlock": {
+                        OperationID:    "unlockUser",
+                        Method:         "POST",
+                        PathTemplate:   "/api/security/unlockUsers/{userName}",
+                        RequiredParams: []string{"userName"},
+                },
+
+                // Group operations
+                "groups/list": {
+                        OperationID:    "listGroups",
+                        Method:         "GET",
+                        PathTemplate:   "/api/security/groups",
+                        RequiredParams: []string{},
+                },
+                "groups/get": {
+                        OperationID:    "getGroup",
+                        Method:         "GET",
+                        PathTemplate:   "/api/security/groups/{groupName}",
+                        RequiredParams: []string{"groupName"},
+                },
+                "groups/create": {
+                        OperationID:    "createGroup",
+                        Method:         "PUT",
+                        PathTemplate:   "/api/security/groups/{groupName}",
+                        RequiredParams: []string{"groupName"},
+                        OptionalParams: []string{"description", "autoJoin", "adminPrivileges", "realm", "realmAttributes"},
+                },
+                "groups/update": {
+                        OperationID:    "updateGroup",
+                        Method:         "POST",
+                        PathTemplate:   "/api/security/groups/{groupName}",
+                        RequiredParams: []string{"groupName"},
+                        OptionalParams: []string{"description", "autoJoin", "adminPrivileges"},
+                },
+                "groups/delete": {
+                        OperationID:    "deleteGroup",
+                        Method:         "DELETE",
+                        PathTemplate:   "/api/security/groups/{groupName}",
+                        RequiredParams: []string{"groupName"},
+                },
+
+                // Permission operations
+                "permissions/list": {
+                        OperationID:    "listPermissions",
+                        Method:         "GET",
+                        PathTemplate:   "/api/v2/security/permissions",
+                        RequiredParams: []string{},
+                },
+                "permissions/get": {
+                        OperationID:    "getPermission",
+                        Method:         "GET",
+                        PathTemplate:   "/api/v2/security/permissions/{permissionName}",
+                        RequiredParams: []string{"permissionName"},
+                },
+                "permissions/create": {
+                        OperationID:    "createPermission",
+                        Method:         "POST",
+                        PathTemplate:   "/api/v2/security/permissions",
+                        RequiredParams: []string{"name"},
+                        OptionalParams: []string{"repositories", "users", "groups", "actions"},
+                },
+                "permissions/update": {
+                        OperationID:    "updatePermission",
+                        Method:         "PUT",
+                        PathTemplate:   "/api/v2/security/permissions/{permissionName}",
+                        RequiredParams: []string{"permissionName"},
+                        OptionalParams: []string{"repositories", "users", "groups", "actions"},
+                },
+                "permissions/delete": {
+                        OperationID:    "deletePermission",
+                        Method:         "DELETE",
+                        PathTemplate:   "/api/v2/security/permissions/{permissionName}",
+                        RequiredParams: []string{"permissionName"},
+                },
+
+                // Token operations
+                "tokens/create": {
+                        OperationID:    "createAccessToken",
+                        Method:         "POST",
+                        PathTemplate:   "/api/security/token",
+                        RequiredParams: []string{"username"},
+                        OptionalParams: []string{"scope", "expires_in", "refreshable", "audience"},
+                },
+                "tokens/revoke": {
+                        OperationID:    "revokeToken",
+                        Method:         "POST",
+                        PathTemplate:   "/api/security/token/revoke",
+                        RequiredParams: []string{"token"},
+                },
+                "tokens/refresh": {
+                        OperationID:    "refreshToken",
+                        Method:         "POST",
+                        PathTemplate:   "/api/security/token/refresh",
+                        RequiredParams: []string{"grant_type", "refresh_token"},
+                        OptionalParams: []string{"access_token"},
+                },
+
+                // System operations
+                "system/info": {
+                        OperationID:    "getSystemInfo",
+                        Method:         "GET",
+                        PathTemplate:   "/api/system",
+                        RequiredParams: []string{},
+                },
+                "system/version": {
+                        OperationID:    "getVersion",
+                        Method:         "GET",
+                        PathTemplate:   "/api/system/version",
+                        RequiredParams: []string{},
+                },
+                "system/storage": {
+                        OperationID:    "getStorageInfo",
+                        Method:         "GET",
+                        PathTemplate:   "/api/storageinfo",
+                        RequiredParams: []string{},
+                },
+                "system/ping": {
+                        OperationID:    "ping",
+                        Method:         "GET",
+                        PathTemplate:   "/api/system/ping",
+                        RequiredParams: []string{},
+                },
+                "system/configuration": {
+                        OperationID:    "getConfiguration",
+                        Method:         "GET",
+                        PathTemplate:   "/api/system/configuration",
+                        RequiredParams: []string{},
+                },
+
+                // Docker operations
+                "docker/repositories": {
+                        OperationID:    "listDockerRepositories",
+                        Method:         "GET",
+                        PathTemplate:   "/api/docker/{repoKey}/v2/_catalog",
+                        RequiredParams: []string{"repoKey"},
+                        OptionalParams: []string{"n", "last"},
+                },
+                "docker/tags": {
+                        OperationID:    "listDockerTags",
+                        Method:         "GET",
+                        PathTemplate:   "/api/docker/{repoKey}/v2/{imagePath}/tags/list",
+                        RequiredParams: []string{"repoKey", "imagePath"},
+                        OptionalParams: []string{"n", "last"},
+                },
+        }
+}</span>
+
+// GetDefaultConfiguration returns default Artifactory configuration
+func (p *ArtifactoryProvider) GetDefaultConfiguration() providers.ProviderConfig <span class="cov8" title="1">{
+        return providers.ProviderConfig{
+                BaseURL:        "https://mycompany.jfrog.io/artifactory",
+                AuthType:       "bearer", // Supports bearer tokens and API keys
+                HealthEndpoint: "/api/system/ping",
+                DefaultHeaders: map[string]string{
+                        "Accept":       "application/json",
+                        "Content-Type": "application/json",
+                        "X-JFrog-Art-Api-Version": "2",
+                },
+                RateLimits: providers.RateLimitConfig{
+                        RequestsPerMinute: 600, // Artifactory typically has higher rate limits
+                },
+                Timeout: 60 * time.Second, // Longer timeout for artifact operations
+                RetryPolicy: &amp;providers.RetryPolicy{
+                        MaxRetries:       3,
+                        InitialDelay:     1 * time.Second,
+                        MaxDelay:         10 * time.Second,
+                        Multiplier:       2.0,
+                        RetryOnRateLimit: true,
+                },
+                OperationGroups: []providers.OperationGroup{
+                        {
+                                Name:        "repositories",
+                                DisplayName: "Repository Management",
+                                Description: "Operations for managing Artifactory repositories",
+                                Operations:  []string{"repos/list", "repos/get", "repos/create", "repos/update", "repos/delete"},
+                        },
+                        {
+                                Name:        "artifacts",
+                                DisplayName: "Artifact Management",
+                                Description: "Operations for managing artifacts and packages",
+                                Operations: []string{
+                                        "artifacts/upload", "artifacts/download", "artifacts/info",
+                                        "artifacts/copy", "artifacts/move", "artifacts/delete",
+                                        "artifacts/properties/set", "artifacts/properties/delete",
+                                },
+                        },
+                        {
+                                Name:        "search",
+                                DisplayName: "Search Operations",
+                                Description: "Various search capabilities",
+                                Operations: []string{
+                                        "search/artifacts", "search/aql", "search/gavc",
+                                        "search/property", "search/checksum", "search/pattern",
+                                },
+                        },
+                        {
+                                Name:        "builds",
+                                DisplayName: "Build Management",
+                                Description: "Operations for managing build information",
+                                Operations: []string{
+                                        "builds/list", "builds/get", "builds/runs",
+                                        "builds/upload", "builds/promote", "builds/delete",
+                                },
+                        },
+                        {
+                                Name:        "security",
+                                DisplayName: "Security Management",
+                                Description: "User, group, and permission management",
+                                Operations: []string{
+                                        "users/list", "users/get", "users/create", "users/update", "users/delete", "users/unlock",
+                                        "groups/list", "groups/get", "groups/create", "groups/update", "groups/delete",
+                                        "permissions/list", "permissions/get", "permissions/create", "permissions/update", "permissions/delete",
+                                        "tokens/create", "tokens/revoke", "tokens/refresh",
+                                },
+                        },
+                        {
+                                Name:        "system",
+                                DisplayName: "System Operations",
+                                Description: "System information and configuration",
+                                Operations:  []string{"system/info", "system/version", "system/storage", "system/ping", "system/configuration"},
+                        },
+                        {
+                                Name:        "docker",
+                                DisplayName: "Docker Registry",
+                                Description: "Docker-specific operations",
+                                Operations:  []string{"docker/repositories", "docker/tags"},
+                        },
+                },
+        }
+}</span>
+
+// GetAIOptimizedDefinitions returns AI-friendly tool definitions
+func (p *ArtifactoryProvider) GetAIOptimizedDefinitions() []providers.AIOptimizedToolDefinition <span class="cov8" title="1">{
+        return []providers.AIOptimizedToolDefinition{
+                {
+                        Name:        "artifactory_repositories",
+                        Description: "Manage Artifactory repositories including local, remote, virtual, and federated repositories",
+                        UsageExamples: []providers.Example{
+                                {
+                                        Scenario: "List all repositories",
+                                        Input: map[string]interface{}{
+                                                "action": "list",
+                                        },
+                                },
+                                {
+                                        Scenario: "Create a new Maven repository",
+                                        Input: map[string]interface{}{
+                                                "action": "create",
+                                                "parameters": map[string]interface{}{
+                                                        "repoKey":     "my-maven-local",
+                                                        "rclass":      "local",
+                                                        "packageType": "maven",
+                                                        "description": "Local Maven repository",
+                                                },
+                                        },
+                                },
+                                {
+                                        Scenario: "Get repository configuration",
+                                        Input: map[string]interface{}{
+                                                "action":  "get",
+                                                "repoKey": "my-maven-local",
+                                        },
+                                },
+                        },
+                        SemanticTags: []string{
+                                "repository", "storage", "package-management", "maven", "npm", "docker",
+                                "pypi", "nuget", "helm", "go", "rpm", "debian", "generic",
+                        },
+                },
+                {
+                        Name:        "artifactory_artifacts",
+                        Description: "Upload, download, copy, move, and manage artifacts with properties and metadata",
+                        UsageExamples: []providers.Example{
+                                {
+                                        Scenario: "Upload an artifact",
+                                        Input: map[string]interface{}{
+                                                "action": "upload",
+                                                "parameters": map[string]interface{}{
+                                                        "repoKey":  "libs-release-local",
+                                                        "itemPath": "com/mycompany/myapp/1.0.0/myapp-1.0.0.jar",
+                                                        "file":     "@/path/to/myapp-1.0.0.jar",
+                                                },
+                                        },
+                                },
+                                {
+                                        Scenario: "Download an artifact",
+                                        Input: map[string]interface{}{
+                                                "action": "download",
+                                                "parameters": map[string]interface{}{
+                                                        "repoKey":  "libs-release-local",
+                                                        "itemPath": "com/mycompany/myapp/1.0.0/myapp-1.0.0.jar",
+                                                },
+                                        },
+                                },
+                                {
+                                        Scenario: "Set artifact properties",
+                                        Input: map[string]interface{}{
+                                                "action": "properties/set",
+                                                "parameters": map[string]interface{}{
+                                                        "repoKey":    "libs-release-local",
+                                                        "itemPath":   "com/mycompany/myapp/1.0.0/",
+                                                        "properties": "build.number=123;build.name=myapp",
+                                                        "recursive":  true,
+                                                },
+                                        },
+                                },
+                        },
+                        SemanticTags: []string{
+                                "artifact", "package", "binary", "upload", "download", "properties",
+                                "metadata", "copy", "move", "promote",
+                        },
+                },
+                {
+                        Name:        "artifactory_search",
+                        Description: "Search artifacts using various criteria including AQL, GAVC, properties, checksums, and patterns",
+                        UsageExamples: []providers.Example{
+                                {
+                                        Scenario: "Search artifacts by name",
+                                        Input: map[string]interface{}{
+                                                "action": "artifacts",
+                                                "parameters": map[string]interface{}{
+                                                        "name":  "*.jar",
+                                                        "repos": "libs-release-local,libs-snapshot-local",
+                                                },
+                                        },
+                                },
+                                {
+                                        Scenario: "Advanced AQL search",
+                                        Input: map[string]interface{}{
+                                                "action": "aql",
+                                                "parameters": map[string]interface{}{
+                                                        "query": `items.find({
+                                                                "repo": "libs-release-local",
+                                                                "created": {"$gt": "2025-01-01"},
+                                                                "size": {"$gt": 10000}
+                                                        })`,
+                                                },
+                                        },
+                                },
+                                {
+                                        Scenario: "Search by Maven coordinates (GAVC)",
+                                        Input: map[string]interface{}{
+                                                "action": "gavc",
+                                                "parameters": map[string]interface{}{
+                                                        "g":     "com.mycompany",
+                                                        "a":     "myapp",
+                                                        "v":     "1.0.*",
+                                                        "repos": "libs-release-local",
+                                                },
+                                        },
+                                },
+                        },
+                        SemanticTags: []string{
+                                "search", "query", "aql", "find", "locate", "discover",
+                                "gavc", "maven", "checksum", "sha256", "properties",
+                        },
+                },
+                {
+                        Name:        "artifactory_builds",
+                        Description: "Manage CI/CD build information, promote builds, and track build artifacts",
+                        UsageExamples: []providers.Example{
+                                {
+                                        Scenario: "List all builds",
+                                        Input: map[string]interface{}{
+                                                "action": "list",
+                                        },
+                                },
+                                {
+                                        Scenario: "Get specific build info",
+                                        Input: map[string]interface{}{
+                                                "action": "get",
+                                                "parameters": map[string]interface{}{
+                                                        "buildName":   "myapp",
+                                                        "buildNumber": "123",
+                                                },
+                                        },
+                                },
+                                {
+                                        Scenario: "Promote build to production",
+                                        Input: map[string]interface{}{
+                                                "action": "promote",
+                                                "parameters": map[string]interface{}{
+                                                        "buildName":   "myapp",
+                                                        "buildNumber": "123",
+                                                        "targetRepo":  "libs-prod-local",
+                                                        "status":      "Released",
+                                                        "comment":     "Promoted to production",
+                                                },
+                                        },
+                                },
+                        },
+                        SemanticTags: []string{
+                                "build", "ci", "cd", "pipeline", "jenkins", "promote",
+                                "release", "deployment", "build-info",
+                        },
+                },
+                {
+                        Name:        "artifactory_security",
+                        Description: "Manage users, groups, permissions, and access tokens for secure repository access",
+                        UsageExamples: []providers.Example{
+                                {
+                                        Scenario: "Create a new user",
+                                        Input: map[string]interface{}{
+                                                "action": "users/create",
+                                                "parameters": map[string]interface{}{
+                                                        "userName": "john.doe",
+                                                        "email":    "john.doe@company.com",
+                                                        "password": "SecurePass123!",
+                                                        "groups":   []string{"developers", "readers"},
+                                                },
+                                        },
+                                },
+                                {
+                                        Scenario: "Create an access token",
+                                        Input: map[string]interface{}{
+                                                "action": "tokens/create",
+                                                "parameters": map[string]interface{}{
+                                                        "username":    "ci-user",
+                                                        "scope":       "applied-permissions/user",
+                                                        "expires_in":  7776000, // 90 days
+                                                        "refreshable": true,
+                                                },
+                                        },
+                                },
+                                {
+                                        Scenario: "Create repository permission",
+                                        Input: map[string]interface{}{
+                                                "action": "permissions/create",
+                                                "parameters": map[string]interface{}{
+                                                        "name": "dev-team-permission",
+                                                        "repositories": map[string]interface{}{
+                                                                "libs-snapshot-local": []string{"read", "write", "delete"},
+                                                        },
+                                                        "groups": map[string]interface{}{
+                                                                "developers": []string{"read", "write"},
+                                                        },
+                                                },
+                                        },
+                                },
+                        },
+                        SemanticTags: []string{
+                                "security", "user", "group", "permission", "access", "token",
+                                "authentication", "authorization", "rbac", "acl",
+                        },
+                },
+        }
+}</span>
+
+// HealthCheck performs a health check on the Artifactory instance
+func (p *ArtifactoryProvider) HealthCheck(ctx context.Context) error <span class="cov8" title="1">{
+        // Use the ping endpoint for health check
+        resp, err := p.ExecuteHTTPRequest(ctx, "GET", "/api/system/ping", nil, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("health check failed: %w", err)
+        }</span>
+        <span class="cov8" title="1">defer func() </span><span class="cov8" title="1">{
+                _ = resp.Body.Close()
+        }</span>()
+
+        <span class="cov8" title="1">if resp.StatusCode != http.StatusOK </span><span class="cov0" title="0">{
+                return fmt.Errorf("health check returned status %d", resp.StatusCode)
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// ExecuteOperation executes an Artifactory operation
+func (p *ArtifactoryProvider) ExecuteOperation(ctx context.Context, operation string, params map[string]interface{}) (interface{}, error) <span class="cov8" title="1">{
+        // Normalize operation name (handle different formats)
+        operation = p.normalizeOperationName(operation)
+
+        // Get operation mapping
+        _, exists := p.GetOperationMappings()[operation]
+        if !exists </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("unknown operation: %s", operation)
+        }</span>
+
+        // Use base provider's execution with Artifactory-specific handling
+        <span class="cov8" title="1">return p.Execute(ctx, operation, params)</span>
+}
+
+// normalizeOperationName normalizes operation names to handle different formats
+func (p *ArtifactoryProvider) normalizeOperationName(operation string) string <span class="cov8" title="1">{
+        // First, handle different separators to normalize format
+        normalized := strings.ReplaceAll(operation, "-", "/")
+        normalized = strings.ReplaceAll(normalized, "_", "/")
+        
+        // If it already has a resource prefix (e.g., "repos/create"), return it
+        if strings.Contains(normalized, "/") </span><span class="cov8" title="1">{
+                return normalized
+        }</span>
+        
+        // Only apply simple action defaults if no resource is specified
+        <span class="cov8" title="1">simpleActions := map[string]string{
+                "list":   "repos/list",
+                "get":    "repos/get",
+                "create": "repos/create",
+                "update": "repos/update",
+                "delete": "repos/delete",
+                "upload": "artifacts/upload",
+                "download": "artifacts/download",
+                "search": "search/artifacts",
+        }
+
+        if defaultOp, ok := simpleActions[normalized]; ok </span><span class="cov8" title="1">{
+                return defaultOp
+        }</span>
+
+        <span class="cov0" title="0">return normalized</span>
+}
+
+// GetOpenAPISpec returns the OpenAPI specification for Artifactory
+// Note: Artifactory doesn't provide a public OpenAPI spec, so this returns nil
+func (p *ArtifactoryProvider) GetOpenAPISpec() (*openapi3.T, error) <span class="cov0" title="0">{
+        // Artifactory doesn't provide a public OpenAPI specification
+        // Operations are defined manually based on documentation
+        return nil, fmt.Errorf("artifactory does not provide a public OpenAPI specification")
+}</span>
+
+// discoverOperations discovers available operations based on user permissions
+func (p *ArtifactoryProvider) discoverOperations(ctx context.Context) ([]providers.OperationMapping, error) <span class="cov0" title="0">{
+        // This could be implemented to discover available operations based on:
+        // 1. User permissions
+        // 2. Artifactory version
+        // 3. Enabled features/modules
+        
+        // For now, return all operations
+        mappings := p.GetOperationMappings()
+        result := make([]providers.OperationMapping, 0, len(mappings))
+        for _, mapping := range mappings </span><span class="cov0" title="0">{
+                result = append(result, mapping)
+        }</span>
+        <span class="cov0" title="0">return result, nil</span>
+}</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

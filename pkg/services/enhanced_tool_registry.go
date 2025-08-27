@@ -221,10 +221,10 @@ func (r *EnhancedToolRegistry) ExecuteTool(
 	params map[string]interface{},
 ) (interface{}, error) {
 	// The toolID may have already been processed by the API layer
-	// If operation is provided and toolID doesn't contain underscore, 
+	// If operation is provided and toolID doesn't contain underscore,
 	// it means the API layer already extracted it
 	actualToolID := toolID
-	
+
 	// Only process if we haven't already extracted the operation
 	if operation == "" || operation == "execute" {
 		// Check if this is an expanded tool ID (format: parent_id_operation)
@@ -285,13 +285,13 @@ func (r *EnhancedToolRegistry) executeOrganizationTool(
 
 	// Log decrypted credentials for debugging (without exposing the actual values)
 	r.logger.Info("Decrypted credentials", map[string]interface{}{
-		"tool_id":      orgTool.ID,
-		"has_token":    credentials["token"] != "",
-		"has_apikey":   credentials["api_key"] != "",
-		"token_len":    len(credentials["token"]),
-		"apikey_len":   len(credentials["api_key"]),
-		"cred_keys":    getMapKeys(credentials),
-		"tenant_id":    orgTool.TenantID,
+		"tool_id":    orgTool.ID,
+		"has_token":  credentials["token"] != "",
+		"has_apikey": credentials["api_key"] != "",
+		"token_len":  len(credentials["token"]),
+		"apikey_len": len(credentials["api_key"]),
+		"cred_keys":  getMapKeys(credentials),
+		"tenant_id":  orgTool.TenantID,
 	})
 
 	// Create provider context

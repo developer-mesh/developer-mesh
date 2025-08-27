@@ -80,7 +80,7 @@ func TestHarnessProvider_GetToolDefinitions(t *testing.T) {
 	// Test with modules disabled
 	provider.SetEnabledModules([]HarnessModule{})
 	tools = provider.GetToolDefinitions()
-	
+
 	// Check that pipeline tools are excluded
 	hasPipelineTool = false
 	for _, tool := range tools {
@@ -207,12 +207,12 @@ func TestHarnessProvider_ValidateCredentials(t *testing.T) {
 
 func TestHarnessProvider_ExecuteOperation(t *testing.T) {
 	tests := []struct {
-		name           string
-		operation      string
-		params         map[string]interface{}
-		serverResponse int
-		serverBody     string
-		expectError    bool
+		name            string
+		operation       string
+		params          map[string]interface{}
+		serverResponse  int
+		serverBody      string
+		expectError     bool
 		validateRequest func(*testing.T, *http.Request)
 	}{
 		{
@@ -254,10 +254,10 @@ func TestHarnessProvider_ExecuteOperation(t *testing.T) {
 			name:      "execute pipeline",
 			operation: "pipelines/execute",
 			params: map[string]interface{}{
-				"identifier":         "my-pipeline",
-				"accountIdentifier":  "account123",
-				"orgIdentifier":      "my-org",
-				"projectIdentifier":  "my-project",
+				"identifier":        "my-pipeline",
+				"accountIdentifier": "account123",
+				"orgIdentifier":     "my-org",
+				"projectIdentifier": "my-project",
 			},
 			serverResponse: http.StatusOK,
 			serverBody:     `{"planExecutionId": "exec-123", "status": "Running"}`,
@@ -267,9 +267,9 @@ func TestHarnessProvider_ExecuteOperation(t *testing.T) {
 			},
 		},
 		{
-			name:      "unknown operation",
-			operation: "unknown/operation",
-			params:    map[string]interface{}{},
+			name:        "unknown operation",
+			operation:   "unknown/operation",
+			params:      map[string]interface{}{},
 			expectError: true,
 		},
 	}
@@ -281,7 +281,7 @@ func TestHarnessProvider_ExecuteOperation(t *testing.T) {
 				server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					// Verify authentication header
 					assert.Equal(t, "test-api-key", r.Header.Get("X-API-Key"))
-					
+
 					if tt.validateRequest != nil {
 						tt.validateRequest(t, r)
 					}
@@ -327,7 +327,7 @@ func TestHarnessProvider_GetOperationMappings(t *testing.T) {
 	mappings := provider.GetOperationMappings()
 
 	assert.NotEmpty(t, mappings)
-	
+
 	// Test pipeline mappings
 	assert.Contains(t, mappings, "pipelines/list")
 	assert.Contains(t, mappings, "pipelines/get")
@@ -350,7 +350,7 @@ func TestHarnessProvider_GetOpenAPISpec(t *testing.T) {
 
 	t.Run("with embedded spec", func(t *testing.T) {
 		provider := NewHarnessProvider(logger)
-		
+
 		spec, err := provider.GetOpenAPISpec()
 		assert.NoError(t, err)
 		assert.NotNil(t, spec)
@@ -398,7 +398,7 @@ func TestHarnessProvider_HealthCheck(t *testing.T) {
 
 			logger := &observability.NoopLogger{}
 			provider := NewHarnessProvider(logger)
-			
+
 			config := provider.GetDefaultConfiguration()
 			config.BaseURL = server.URL
 			provider.SetConfiguration(config)

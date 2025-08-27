@@ -56,8 +56,8 @@ func InitializeStandardProviders(registry *pkgservices.EnhancedToolRegistry, log
 		// return err
 	} else {
 		logger.Info("Registered Artifactory provider", map[string]interface{}{
-			"provider": "artifactory",
-			"tools":    len(artifactoryProvider.GetToolDefinitions()),
+			"provider":   "artifactory",
+			"tools":      len(artifactoryProvider.GetToolDefinitions()),
 			"operations": len(artifactoryProvider.GetOperationMappings()),
 		})
 		providersCount++

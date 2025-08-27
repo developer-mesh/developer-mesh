@@ -22,6 +22,12 @@ type ArtifactoryProvider struct {
 
 // NewArtifactoryProvider creates a new Artifactory provider instance
 func NewArtifactoryProvider(logger observability.Logger) *ArtifactoryProvider {
+	// Defensive nil check for logger
+	if logger == nil {
+		// Create a no-op logger if none provided
+		logger = &observability.NoopLogger{}
+	}
+
 	// Default to cloud instance, can be overridden via configuration
 	base := providers.NewBaseProvider("artifactory", "v2", "https://mycompany.jfrog.io/artifactory", logger)
 
@@ -31,7 +37,7 @@ func NewArtifactoryProvider(logger observability.Logger) *ArtifactoryProvider {
 			Timeout: 60 * time.Second, // Longer timeout for large artifact operations
 		},
 	}
-	
+
 	// Set operation mappings in base provider
 	provider.SetOperationMappings(provider.GetOperationMappings())
 	// Set configuration to ensure auth type is configured
@@ -41,7 +47,9 @@ func NewArtifactoryProvider(logger observability.Logger) *ArtifactoryProvider {
 
 // NewArtifactoryProviderWithCache creates a new Artifactory provider with spec caching
 func NewArtifactoryProviderWithCache(logger observability.Logger, specCache repository.OpenAPICacheRepository) *ArtifactoryProvider {
+	// NewArtifactoryProvider handles nil logger check
 	provider := NewArtifactoryProvider(logger)
+	// Allow nil specCache - it's optional
 	provider.specCache = specCache
 	return provider
 }
@@ -58,6 +66,11 @@ func (p *ArtifactoryProvider) GetSupportedVersions() []string {
 
 // GetToolDefinitions returns Artifactory-specific tool definitions
 func (p *ArtifactoryProvider) GetToolDefinitions() []providers.ToolDefinition {
+	// Defensive nil check
+	if p == nil {
+		return nil
+	}
+
 	return []providers.ToolDefinition{
 		{
 			Name:        "artifactory_repositories",
@@ -88,6 +101,11 @@ func (p *ArtifactoryProvider) GetToolDefinitions() []providers.ToolDefinition {
 
 // GetOperationMappings returns Artifactory-specific operation mappings
 func (p *ArtifactoryProvider) GetOperationMappings() map[string]providers.OperationMapping {
+	// Defensive nil check
+	if p == nil {
+		return nil
+	}
+
 	return map[string]providers.OperationMapping{
 		// Repository operations
 		"repos/list": {
@@ -448,13 +466,22 @@ func (p *ArtifactoryProvider) GetOperationMappings() map[string]providers.Operat
 
 // GetDefaultConfiguration returns default Artifactory configuration
 func (p *ArtifactoryProvider) GetDefaultConfiguration() providers.ProviderConfig {
+	// This method returns static config, but we add defensive check for consistency
+	if p == nil {
+		// Return minimal valid config if provider is nil
+		return providers.ProviderConfig{
+			BaseURL:  "https://mycompany.jfrog.io/artifactory",
+			AuthType: "bearer",
+		}
+	}
+
 	return providers.ProviderConfig{
 		BaseURL:        "https://mycompany.jfrog.io/artifactory",
 		AuthType:       "bearer", // Supports bearer tokens and API keys
 		HealthEndpoint: "/api/system/ping",
 		DefaultHeaders: map[string]string{
-			"Accept":       "application/json",
-			"Content-Type": "application/json",
+			"Accept":                  "application/json",
+			"Content-Type":            "application/json",
 			"X-JFrog-Art-Api-Version": "2",
 		},
 		RateLimits: providers.RateLimitConfig{
@@ -532,6 +559,11 @@ func (p *ArtifactoryProvider) GetDefaultConfiguration() providers.ProviderConfig
 
 // GetAIOptimizedDefinitions returns AI-friendly tool definitions
 func (p *ArtifactoryProvider) GetAIOptimizedDefinitions() []providers.AIOptimizedToolDefinition {
+	// Defensive nil check
+	if p == nil {
+		return nil
+	}
+
 	return []providers.AIOptimizedToolDefinition{
 		{
 			Name:        "artifactory_repositories",
@@ -749,17 +781,30 @@ func (p *ArtifactoryProvider) GetAIOptimizedDefinitions() []providers.AIOptimize
 
 // HealthCheck performs a health check on the Artifactory instance
 func (p *ArtifactoryProvider) HealthCheck(ctx context.Context) error {
+	// Defensive nil checks
+	if ctx == nil {
+		return fmt.Errorf("artifactory health check: context cannot be nil")
+	}
+	if p == nil || p.BaseProvider == nil {
+		return fmt.Errorf("artifactory health check: provider not properly initialized")
+	}
+
 	// Use the ping endpoint for health check
+	baseURL := p.BaseProvider.GetDefaultConfiguration().BaseURL
+	if baseURL == "" {
+		baseURL = "<not configured>"
+	}
+
 	resp, err := p.ExecuteHTTPRequest(ctx, "GET", "/api/system/ping", nil, nil)
 	if err != nil {
-		return fmt.Errorf("health check failed: %w", err)
+		return fmt.Errorf("artifactory health check failed for %s: %w", baseURL, err)
 	}
 	defer func() {
 		_ = resp.Body.Close()
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("health check returned status %d", resp.StatusCode)
+		return fmt.Errorf("artifactory health check for %s returned unexpected status %d (expected 200 OK)", baseURL, resp.StatusCode)
 	}
 
 	return nil
@@ -767,13 +812,34 @@ func (p *ArtifactoryProvider) HealthCheck(ctx context.Context) error {
 
 // ExecuteOperation executes an Artifactory operation
 func (p *ArtifactoryProvider) ExecuteOperation(ctx context.Context, operation string, params map[string]interface{}) (interface{}, error) {
+	// Defensive nil checks
+	if ctx == nil {
+		return nil, fmt.Errorf("artifactory execute operation: context cannot be nil")
+	}
+	if p == nil || p.BaseProvider == nil {
+		return nil, fmt.Errorf("artifactory execute operation: provider not properly initialized")
+	}
+	if params == nil {
+		params = make(map[string]interface{})
+	}
+
 	// Normalize operation name (handle different formats)
 	operation = p.normalizeOperationName(operation)
 
 	// Get operation mapping
-	_, exists := p.GetOperationMappings()[operation]
+	mappings := p.GetOperationMappings()
+	_, exists := mappings[operation]
 	if !exists {
-		return nil, fmt.Errorf("unknown operation: %s", operation)
+		// Build list of available operations for better error message
+		availableOps := make([]string, 0, len(mappings))
+		for op := range mappings {
+			availableOps = append(availableOps, op)
+		}
+		// Limit to first 10 operations for readability
+		if len(availableOps) > 10 {
+			availableOps = append(availableOps[:10], "...")
+		}
+		return nil, fmt.Errorf("artifactory: unknown operation '%s'. Available operations include: %v", operation, availableOps)
 	}
 
 	// Use base provider's execution with Artifactory-specific handling
@@ -782,25 +848,30 @@ func (p *ArtifactoryProvider) ExecuteOperation(ctx context.Context, operation st
 
 // normalizeOperationName normalizes operation names to handle different formats
 func (p *ArtifactoryProvider) normalizeOperationName(operation string) string {
+	// Defensive check
+	if operation == "" {
+		return ""
+	}
+
 	// First, handle different separators to normalize format
 	normalized := strings.ReplaceAll(operation, "-", "/")
 	normalized = strings.ReplaceAll(normalized, "_", "/")
-	
+
 	// If it already has a resource prefix (e.g., "repos/create"), return it
 	if strings.Contains(normalized, "/") {
 		return normalized
 	}
-	
+
 	// Only apply simple action defaults if no resource is specified
 	simpleActions := map[string]string{
-		"list":   "repos/list",
-		"get":    "repos/get",
-		"create": "repos/create",
-		"update": "repos/update",
-		"delete": "repos/delete",
-		"upload": "artifacts/upload",
+		"list":     "repos/list",
+		"get":      "repos/get",
+		"create":   "repos/create",
+		"update":   "repos/update",
+		"delete":   "repos/delete",
+		"upload":   "artifacts/upload",
 		"download": "artifacts/download",
-		"search": "search/artifacts",
+		"search":   "search/artifacts",
 	}
 
 	if defaultOp, ok := simpleActions[normalized]; ok {
@@ -813,18 +884,33 @@ func (p *ArtifactoryProvider) normalizeOperationName(operation string) string {
 // GetOpenAPISpec returns the OpenAPI specification for Artifactory
 // Note: Artifactory doesn't provide a public OpenAPI spec, so this returns nil
 func (p *ArtifactoryProvider) GetOpenAPISpec() (*openapi3.T, error) {
+	// Defensive nil check
+	if p == nil {
+		return nil, fmt.Errorf("artifactory GetOpenAPISpec: provider not initialized")
+	}
+
 	// Artifactory doesn't provide a public OpenAPI specification
 	// Operations are defined manually based on documentation
-	return nil, fmt.Errorf("artifactory does not provide a public OpenAPI specification")
+	return nil, fmt.Errorf("artifactory provider: OpenAPI specification not available (operations are defined manually based on JFrog documentation)")
 }
 
 // discoverOperations discovers available operations based on user permissions
+// Currently unused but kept for future implementation of dynamic operation discovery
+//nolint:unused // Reserved for future use when we implement dynamic operation discovery
 func (p *ArtifactoryProvider) discoverOperations(ctx context.Context) ([]providers.OperationMapping, error) {
+	// Defensive nil checks
+	if ctx == nil {
+		return nil, fmt.Errorf("artifactory discoverOperations: context cannot be nil")
+	}
+	if p == nil {
+		return nil, fmt.Errorf("artifactory discoverOperations: provider not initialized")
+	}
+
 	// This could be implemented to discover available operations based on:
 	// 1. User permissions
 	// 2. Artifactory version
 	// 3. Enabled features/modules
-	
+
 	// For now, return all operations
 	mappings := p.GetOperationMappings()
 	result := make([]providers.OperationMapping, 0, len(mappings))

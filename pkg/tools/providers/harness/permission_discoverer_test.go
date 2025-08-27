@@ -23,10 +23,10 @@ func TestNewHarnessPermissionDiscoverer(t *testing.T) {
 
 func TestHarnessPermissionDiscoverer_DiscoverPermissions(t *testing.T) {
 	tests := []struct {
-		name       string
-		apiKey     string
-		responses  map[string]*httpResponse
-		wantScopes []string
+		name        string
+		apiKey      string
+		responses   map[string]*httpResponse
+		wantScopes  []string
 		wantModules map[string]bool
 	}{
 		{
@@ -117,7 +117,7 @@ func TestHarnessPermissionDiscoverer_DiscoverPermissions(t *testing.T) {
 
 			logger := &observability.NoopLogger{}
 			discoverer := NewHarnessPermissionDiscoverer(logger)
-			
+
 			// Override the HTTP client to use test server
 			discoverer.httpClient = &http.Client{
 				Transport: &testTransport{
@@ -141,7 +141,7 @@ func TestHarnessPermissionDiscoverer_DiscoverPermissions(t *testing.T) {
 			// Check enabled modules
 			if tt.wantModules != nil {
 				for module, enabled := range tt.wantModules {
-					assert.Equal(t, enabled, perms.EnabledModules[module], 
+					assert.Equal(t, enabled, perms.EnabledModules[module],
 						"Module %s should be enabled=%v", module, enabled)
 				}
 			}
@@ -260,7 +260,7 @@ func TestHarnessPermissionDiscoverer_probeEndpoint(t *testing.T) {
 
 			logger := &observability.NoopLogger{}
 			discoverer := NewHarnessPermissionDiscoverer(logger)
-			
+
 			// Override the HTTP client to use test server
 			discoverer.httpClient = &http.Client{
 				Transport: &testTransport{
@@ -271,7 +271,7 @@ func TestHarnessPermissionDiscoverer_probeEndpoint(t *testing.T) {
 			ctx := context.Background()
 			hasAccess := discoverer.probeEndpoint(ctx, tt.endpoint, tt.method, "test-api-key", "account123")
 
-			assert.Equal(t, tt.expectAccess, hasAccess, 
+			assert.Equal(t, tt.expectAccess, hasAccess,
 				"Expected access=%v for status %d", tt.expectAccess, tt.responseCode)
 		})
 	}
@@ -296,10 +296,10 @@ func (t *testTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func containsString(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && 
-		(s[len(s)-len(substr):] == substr || 
-		 s[:len(substr)] == substr ||
-		 len(s) > len(substr) && containsMiddle(s, substr)))
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) &&
+		(s[len(s)-len(substr):] == substr ||
+			s[:len(substr)] == substr ||
+			len(s) > len(substr) && containsMiddle(s, substr)))
 }
 
 func containsMiddle(s, substr string) bool {

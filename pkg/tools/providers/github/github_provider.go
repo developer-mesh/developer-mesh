@@ -484,12 +484,12 @@ func (p *GitHubProvider) normalizeOperationName(operation string) string {
 	// First, handle different separators to normalize format
 	normalized := strings.ReplaceAll(operation, "-", "/")
 	normalized = strings.ReplaceAll(normalized, "_", "/")
-	
+
 	// If it already has a resource prefix (e.g., "issues/create"), return it
 	if strings.Contains(normalized, "/") {
 		return normalized
 	}
-	
+
 	// Only apply simple action defaults if no resource is specified
 	simpleActions := map[string]string{
 		"list":   "repos/list",

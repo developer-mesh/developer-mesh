@@ -243,14 +243,14 @@ func (api *EnhancedToolsAPI) DeleteOrganizationTool(c *gin.Context) {
 
 	// Create organization tool repository
 	orgToolRepo := repository.NewOrganizationToolRepository(api.db)
-	
+
 	// Try to delete as organization tool first
 	err := orgToolRepo.Delete(c.Request.Context(), toolID)
 	if err == nil {
 		c.Status(http.StatusNoContent)
 		return
 	}
-	
+
 	// If not found in organization tools, try dynamic tools
 	err = api.dynamicToolsAPI.toolService.DeleteTool(c.Request.Context(), tenantID, toolID)
 	if err != nil {

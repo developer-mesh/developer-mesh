@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -25,37 +24,37 @@ type GitLabPermissionDiscoverer struct {
 type GitLabPermissions struct {
 	*tools.DiscoveredPermissions
 	// GitLab-specific fields
-	UserID         int                 `json:"user_id,omitempty"`
-	Username       string              `json:"username,omitempty"`
-	Email          string              `json:"email,omitempty"`
-	IsAdmin        bool                `json:"is_admin"`
-	CanCreateGroup bool                `json:"can_create_group"`
-	CanCreateProject bool              `json:"can_create_project"`
-	TokenScopes    []string            `json:"token_scopes"`
-	ProjectAccess  map[string]AccessLevel `json:"project_access"`  // project path -> access level
-	GroupAccess    map[string]AccessLevel `json:"group_access"`     // group path -> access level
-	EnabledModules map[string]bool     `json:"enabled_modules"`
+	UserID           int                    `json:"user_id,omitempty"`
+	Username         string                 `json:"username,omitempty"`
+	Email            string                 `json:"email,omitempty"`
+	IsAdmin          bool                   `json:"is_admin"`
+	CanCreateGroup   bool                   `json:"can_create_group"`
+	CanCreateProject bool                   `json:"can_create_project"`
+	TokenScopes      []string               `json:"token_scopes"`
+	ProjectAccess    map[string]AccessLevel `json:"project_access"` // project path -> access level
+	GroupAccess      map[string]AccessLevel `json:"group_access"`   // group path -> access level
+	EnabledModules   map[string]bool        `json:"enabled_modules"`
 }
 
 // AccessLevel represents GitLab access levels
 type AccessLevel struct {
-	Level       int    `json:"level"`
-	Name        string `json:"name"`
-	CanPush     bool   `json:"can_push"`
-	CanMerge    bool   `json:"can_merge"`
-	CanDelete   bool   `json:"can_delete"`
-	CanAdmin    bool   `json:"can_admin"`
+	Level     int    `json:"level"`
+	Name      string `json:"name"`
+	CanPush   bool   `json:"can_push"`
+	CanMerge  bool   `json:"can_merge"`
+	CanDelete bool   `json:"can_delete"`
+	CanAdmin  bool   `json:"can_admin"`
 }
 
 // GitLab access level constants
 const (
-	NoAccess          = 0
-	MinimalAccess     = 5
-	GuestAccess       = 10
-	ReporterAccess    = 20
-	DeveloperAccess   = 30
-	MaintainerAccess  = 40
-	OwnerAccess       = 50
+	NoAccess         = 0
+	MinimalAccess    = 5
+	GuestAccess      = 10
+	ReporterAccess   = 20
+	DeveloperAccess  = 30
+	MaintainerAccess = 40
+	OwnerAccess      = 50
 )
 
 // NewGitLabPermissionDiscoverer creates a new GitLab permission discoverer
@@ -181,19 +180,19 @@ func (d *GitLabPermissionDiscoverer) getUserInfo(ctx context.Context, token stri
 func (d *GitLabPermissionDiscoverer) checkModuleAccess(perms *GitLabPermissions) {
 	// Map token scopes to modules
 	scopeModuleMap := map[string][]string{
-		"api":            {"projects", "issues", "merge_requests", "pipelines", "jobs", "repositories", "groups", "users"},
-		"read_api":       {"projects", "issues", "merge_requests", "pipelines", "jobs", "repositories", "groups", "users"},
-		"read_user":      {"users"},
-		"read_repository": {"repositories"},
+		"api":              {"projects", "issues", "merge_requests", "pipelines", "jobs", "repositories", "groups", "users"},
+		"read_api":         {"projects", "issues", "merge_requests", "pipelines", "jobs", "repositories", "groups", "users"},
+		"read_user":        {"users"},
+		"read_repository":  {"repositories"},
 		"write_repository": {"repositories"},
-		"read_registry":   {"container_registry", "packages"},
-		"write_registry":  {"container_registry", "packages"},
-		"read_wiki":       {"wikis"},
-		"write_wiki":      {"wikis"},
-		"create_runner":   {"runners"},
-		"manage_runner":   {"runners"},
-		"ai_features":     {"ai"},
-		"k8s_proxy":       {"kubernetes"},
+		"read_registry":    {"container_registry", "packages"},
+		"write_registry":   {"container_registry", "packages"},
+		"read_wiki":        {"wikis"},
+		"write_wiki":       {"wikis"},
+		"create_runner":    {"runners"},
+		"manage_runner":    {"runners"},
+		"ai_features":      {"ai"},
+		"k8s_proxy":        {"kubernetes"},
 	}
 
 	// Initialize all modules as disabled
@@ -338,7 +337,7 @@ func (d *GitLabPermissionDiscoverer) discoverGroupAccess(ctx context.Context, to
 		// Try to get detailed group info to check permissions
 		groupURL := fmt.Sprintf("%s/groups/%d", d.baseURL, group.ID)
 		req, _ := http.NewRequestWithContext(ctx, "GET", groupURL, nil)
-		
+
 		if strings.HasPrefix(token, "glpat-") || strings.HasPrefix(token, "gldt-") {
 			req.Header.Set("PRIVATE-TOKEN", token)
 		} else {
@@ -375,7 +374,11 @@ func (d *GitLabPermissionDiscoverer) discoverGroupAccess(ctx context.Context, to
 			perms.Scopes = append(perms.Scopes, fmt.Sprintf("group:%s:%s",
 				group.FullPath, getAccessLevelName(accessLevel)))
 		}
-		resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				d.logger.Warn("Failed to close response body", map[string]interface{}{"error": err.Error()})
+			}
+		}()
 	}
 }
 
@@ -473,7 +476,7 @@ func (d *GitLabPermissionDiscoverer) FilterOperationsByPermissions(
 		// Check write operations require write scopes
 		if allowed && (strings.Contains(opID, "create") || strings.Contains(opID, "update") ||
 			strings.Contains(opID, "delete") || strings.Contains(opID, "trigger")) {
-			
+
 			// Check if we have write permissions
 			hasWriteScope := false
 			for _, scope := range permissions.TokenScopes {
@@ -482,7 +485,7 @@ func (d *GitLabPermissionDiscoverer) FilterOperationsByPermissions(
 					break
 				}
 			}
-			
+
 			if !hasWriteScope {
 				allowed = false
 			}
