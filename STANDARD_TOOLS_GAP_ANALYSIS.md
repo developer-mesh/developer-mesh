@@ -1,7 +1,7 @@
 # Standard Tools Integration - Gap Analysis
 
 ## Executive Summary
-The standard tools integration for Developer Mesh has been successfully implemented, enabling organizations to use GitHub and other standard industry tools as first-class citizens within the platform. The system now supports tool expansion, where a single provider (like GitHub) expands into multiple operation-specific tools for better AI agent comprehension.
+The standard tools integration has been successfully implemented with GitHub as the first provider. Core functionality works through the REST API, but there are critical routing and integration issues when accessed through Edge-MCP that prevent full functionality.
 
 ## Implementation Status
 
@@ -11,8 +11,8 @@ The standard tools integration for Developer Mesh has been successfully implemen
 - **Database Schema**: Complete multi-tenant schema with `tool_templates` and `organization_tools` tables
 - **Provider Registry**: Extensible system for registering standard tool providers
 - **Tool Expansion**: Single provider expands into multiple operation-specific tools
-- **Credential Management**: Secure encryption/decryption using EncryptionService
-- **Permission Filtering**: Token-based permission checking (placeholder for full implementation)
+- **Credential Management**: Secure encryption/decryption with proper tenant ID resolution
+- **Operation Resolver**: Intelligent mapping between action names and OpenAPI operations
 
 #### 2. GitHub Provider
 - **13 Operations Implemented**:
@@ -24,28 +24,34 @@ The standard tools integration for Developer Mesh has been successfully implemen
 - **Authentication**: Bearer token support with GitHub Personal Access Tokens
 - **Base URL Configuration**: Support for GitHub Enterprise instances
 
-#### 3. API Integration
+#### 3. REST API Integration
 - **Enhanced Tools API**: New API layer for template-based tools
 - **Backward Compatibility**: Maintains compatibility with existing dynamic tools
 - **Unified Tool Listing**: Organization tools appear alongside dynamic tools
-- **Tool Execution Routing**: Intelligent routing between dynamic and organization tools
+- **Tool Execution**: Working execution via direct REST API with tool ID
+- **Authentication**: Properly validates API keys and retrieves tenant context
 
-#### 4. MCP Protocol Support
-- **Tool Discovery**: Tools are properly exposed via MCP `tools/list`
-- **Tool Execution**: Supports execution through standard MCP `tools/call`
-- **Clean Naming**: Tools appear with intuitive names (e.g., `repos_list` instead of `github-prod-v2_repos_list`)
+#### 4. Validation Results
+- **Repository Creation**: Successfully created `S-Corkum/standard-tools-test-repo` ✅
+- **Issue Creation**: Created issue #1 via REST API ✅
+- **GitHub Authentication**: PAT authentication working ✅
+- **Credential Encryption**: Working with proper tenant ID ✅
 
 ### 🚧 Partially Implemented
 
-#### 1. Resilience Patterns
-- **Circuit Breaker**: Structure in place but needs configuration tuning
-- **Bulkhead Pattern**: Implemented but needs testing under load
-- **Request Coalescing**: Using singleflight but needs optimization
+#### 1. Edge-MCP Integration
+- **Tool Discovery**: MCP tools are discovered and listed correctly
+- **Basic Operations**: Simple operations (repos_get) work
+- **Critical Issues**:
+  - Tool name routing problems (github-devmesh_issues_create fails)
+  - Response size limits causing errors on list operations (25000 token limit)
+  - Action parameter extraction failures for organization tools
+  - Incorrect operation routing (issues_create routes to repos/create)
 
-#### 2. Permission System
-- **Token Validation**: Basic structure exists but needs full GitHub scope checking
-- **Operation Filtering**: Placeholder implementation needs completion
-- **Async Discovery**: Framework exists but not fully implemented
+#### 2. MCP Protocol Support
+- **Tool Discovery**: Tools exposed via `tools/list` but with naming issues
+- **Tool Execution**: Basic execution works but complex operations fail
+- **Naming Convention**: Inconsistent between REST API and MCP layers
 
 ### ❌ Not Implemented
 
@@ -67,13 +73,19 @@ The standard tools integration for Developer Mesh has been successfully implemen
 - **Audit Logging**: Basic logging but needs structured audit trail
 - **Migration Tools**: No tools for migrating from dynamic to templated tools
 
-## Technical Debt
+## Known Bugs
 
-### High Priority
-1. **Error Handling**: Need consistent error wrapping and user-friendly messages
-2. **Testing**: Minimal test coverage for new components
-3. **Documentation**: API documentation needs updating for new endpoints
-4. **Configuration**: Many hardcoded values need to be configurable
+### Critical (P0)
+1. **Edge-MCP Parameter Extraction**: Action parameter not properly extracted for organization tools
+2. **MCP Tool Routing**: Tool names not routing to correct REST API endpoints  
+3. **Response Size Limits**: List operations exceed 25000 token limit with no pagination
+4. **Operation Misrouting**: Some operations route to wrong endpoints (issues_create → repos/create)
+
+### High Priority (P1)
+1. **Tool Naming**: Inconsistent naming between layers (github-devmesh vs github)
+2. **Error Messages**: Unclear error messages when operations fail
+3. **Pagination**: No automatic pagination at MCP layer
+4. **Testing**: Minimal test coverage for Edge-MCP integration
 
 ### Medium Priority
 1. **Caching**: Operation results caching needs optimization
@@ -129,17 +141,17 @@ The standard tools integration for Developer Mesh has been successfully implemen
 
 ## Recommended Next Steps
 
-### Immediate (Week 1)
-1. **Add comprehensive tests** for GitHub provider operations
-2. **Implement proper token scope checking** for GitHub
-3. **Add health monitoring** for organization tools
-4. **Fix error handling** to provide actionable messages
+### Immediate (P0 - This Week)
+1. **Fix Edge-MCP parameter extraction** in `/apps/edge-mcp/internal/core/client.go`
+2. **Fix MCP tool routing** to correctly map tool names to REST endpoints
+3. **Implement response pagination** to prevent token limit errors
+4. **Fix operation routing** to ensure correct endpoint mapping
 
-### Short Term (Weeks 2-3)
-1. **Implement GitLab provider** using existing pattern
-2. **Add webhook support** for organization tools
-3. **Implement usage analytics** and reporting
-4. **Add operation-level rate limiting**
+### Short Term (P1 - Next Sprint)
+1. **Standardize tool naming** across all layers
+2. **Add comprehensive E2E tests** for Edge-MCP integration
+3. **Improve error messages** with actionable information
+4. **Add health monitoring** for organization tools
 
 ### Medium Term (Month 2)
 1. **Implement Jira/Confluence providers**
@@ -199,18 +211,25 @@ The standard tools integration for Developer Mesh has been successfully implemen
 
 ## Conclusion
 
-The standard tools integration is functionally complete for the MVP phase, with GitHub working as the reference implementation. The architecture is solid and extensible, making it straightforward to add new providers. 
+The standard tools integration foundation is solid at the REST API level, with GitHub successfully implemented as the reference provider. However, critical issues in the Edge-MCP integration layer prevent full functionality through the MCP protocol.
 
 **Key Achievements:**
-- Clean separation between dynamic and templated tools
-- Successful tool expansion for AI comprehension  
-- Working execution through MCP protocol
-- Secure credential management
+- ✅ Working provider framework with GitHub implementation
+- ✅ Secure credential encryption with tenant isolation
+- ✅ Successful REST API execution (validated with test repo and issue creation)
+- ✅ Clean separation between dynamic and templated tools
+- ✅ Intelligent operation resolution
 
-**Critical Gaps:**
-- Limited test coverage
-- No production monitoring
-- Missing providers (GitLab, Jira, etc.)
-- Incomplete permission system
+**Critical Issues:**
+- ❌ Edge-MCP parameter extraction failures
+- ❌ Incorrect tool routing in MCP layer
+- ❌ Response size limits breaking list operations
+- ❌ Operation misrouting (issues_create → repos/create)
 
-**Overall Assessment:** The implementation is **70% complete** for production readiness. The remaining 30% focuses on operational excellence, security hardening, and provider expansion.
+**Overall Assessment:** The implementation is **60% complete** for production readiness:
+- REST API layer: 90% complete ✅
+- Provider framework: 85% complete ✅
+- Edge-MCP integration: 30% complete ❌
+- Testing & monitoring: 20% complete ❌
+
+The system works well when accessed directly via REST API but requires significant fixes to the Edge-MCP integration before AI agents can effectively use the standard tools through the MCP protocol.
