@@ -894,6 +894,83 @@ func (p *ArtifactoryProvider) GetOpenAPISpec() (*openapi3.T, error) {
 	return nil, fmt.Errorf("artifactory provider: OpenAPI specification not available (operations are defined manually based on JFrog documentation)")
 }
 
+// GetEmbeddedSpecVersion returns the version of the embedded OpenAPI spec
+// Since Artifactory doesn't provide a public OpenAPI spec, we return the API version
+func (p *ArtifactoryProvider) GetEmbeddedSpecVersion() string {
+	// Defensive nil check
+	if p == nil {
+		return "v2"
+	}
+	// Return the Artifactory API version we're implementing
+	return "v2-7.x"
+}
+
+// ValidateCredentials validates Artifactory credentials
+func (p *ArtifactoryProvider) ValidateCredentials(ctx context.Context, creds map[string]string) error {
+	// Defensive nil checks
+	if ctx == nil {
+		return fmt.Errorf("artifactory validate credentials: context cannot be nil")
+	}
+	if p == nil || p.BaseProvider == nil {
+		return fmt.Errorf("artifactory validate credentials: provider not properly initialized")
+	}
+	if creds == nil {
+		return fmt.Errorf("artifactory validate credentials: credentials cannot be nil")
+	}
+	
+	// Check for required credentials
+	token, hasToken := creds["token"]
+	apiKey, hasAPIKey := creds["api_key"]
+	username, hasUsername := creds["username"]
+	password, hasPassword := creds["password"]
+	
+	// Artifactory supports multiple auth methods
+	if !hasToken && !hasAPIKey && !(hasUsername && hasPassword) {
+		return fmt.Errorf("artifactory validate credentials: no valid credentials provided (requires token, api_key, or username/password)")
+	}
+	
+	// Create a temporary context with the provided credentials
+	providerCreds := &providers.ProviderCredentials{}
+	
+	// Store the current auth type and temporarily change it if needed
+	originalAuthType := p.BaseProvider.GetDefaultConfiguration().AuthType
+	tempConfig := p.BaseProvider.GetDefaultConfiguration()
+	
+	if hasToken {
+		providerCreds.Token = token
+		tempConfig.AuthType = "bearer"
+	} else if hasAPIKey {
+		providerCreds.APIKey = apiKey
+		tempConfig.AuthType = "bearer" // Artifactory uses Bearer auth for API keys too
+	} else if hasUsername && hasPassword {
+		providerCreds.Username = username
+		providerCreds.Password = password
+		tempConfig.AuthType = "basic"
+	}
+	
+	// Temporarily set the auth type
+	p.BaseProvider.SetConfiguration(tempConfig)
+	// Restore original auth type after validation
+	defer func() {
+		restoreConfig := p.BaseProvider.GetDefaultConfiguration()
+		restoreConfig.AuthType = originalAuthType
+		p.BaseProvider.SetConfiguration(restoreConfig)
+	}()
+	
+	// Use the context with credentials
+	ctx = providers.WithContext(ctx, &providers.ProviderContext{
+		Credentials: providerCreds,
+	})
+	
+	// Validate by performing a health check
+	err := p.HealthCheck(ctx)
+	if err != nil {
+		return fmt.Errorf("artifactory validate credentials failed: %w", err)
+	}
+	
+	return nil
+}
+
 // discoverOperations discovers available operations based on user permissions
 // Currently unused but kept for future implementation of dynamic operation discovery
 //nolint:unused // Reserved for future use when we implement dynamic operation discovery

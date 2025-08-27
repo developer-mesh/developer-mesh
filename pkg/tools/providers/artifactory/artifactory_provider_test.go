@@ -140,6 +140,104 @@ func TestGetDefaultConfiguration(t *testing.T) {
 	assert.True(t, config.RetryPolicy.RetryOnRateLimit)
 }
 
+func TestGetEmbeddedSpecVersion(t *testing.T) {
+	logger := &observability.NoopLogger{}
+	provider := NewArtifactoryProvider(logger)
+
+	version := provider.GetEmbeddedSpecVersion()
+	assert.Equal(t, "v2-7.x", version)
+	
+	// Test with nil provider (shouldn't panic)
+	var nilProvider *ArtifactoryProvider
+	version = nilProvider.GetEmbeddedSpecVersion()
+	assert.Equal(t, "v2", version)
+}
+
+func TestValidateCredentials(t *testing.T) {
+	tests := []struct {
+		name      string
+		creds     map[string]string
+		wantError bool
+		errorMsg string
+	}{
+		{
+			name: "Valid token credentials",
+			creds: map[string]string{
+				"token": "test-token",
+			},
+			wantError: false,
+		},
+		{
+			name: "Valid API key credentials",
+			creds: map[string]string{
+				"api_key": "test-api-key",
+			},
+			wantError: false,
+		},
+		{
+			name: "Valid username/password credentials",
+			creds: map[string]string{
+				"username": "testuser",
+				"password": "testpass",
+			},
+			wantError: false,
+		},
+		{
+			name:      "No credentials provided",
+			creds:     map[string]string{},
+			wantError: true,
+			errorMsg: "no valid credentials provided",
+		},
+		{
+			name:      "Nil credentials",
+			creds:     nil,
+			wantError: true,
+			errorMsg: "credentials cannot be nil",
+		},
+		{
+			name: "Only username without password",
+			creds: map[string]string{
+				"username": "testuser",
+			},
+			wantError: true,
+			errorMsg: "no valid credentials provided",
+		},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a mock server for successful validation
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/api/system/ping" {
+					w.WriteHeader(http.StatusOK)
+					_, _ = w.Write([]byte("OK"))
+				} else {
+					w.WriteHeader(http.StatusNotFound)
+				}
+			}))
+			defer server.Close()
+			
+			logger := &observability.NoopLogger{}
+			provider := NewArtifactoryProvider(logger)
+			
+			config := provider.GetDefaultConfiguration()
+			config.BaseURL = server.URL
+			provider.SetConfiguration(config)
+			
+			err := provider.ValidateCredentials(context.Background(), tt.creds)
+			
+			if tt.wantError {
+				assert.Error(t, err)
+				if tt.errorMsg != "" {
+					assert.Contains(t, err.Error(), tt.errorMsg)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestGetAIOptimizedDefinitions(t *testing.T) {
 	logger := &observability.NoopLogger{}
 	provider := NewArtifactoryProvider(logger)
