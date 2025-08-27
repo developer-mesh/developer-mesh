@@ -15,7 +15,7 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/lib/pq v1.10.9
-	github.com/mattn/go-sqlite3 v1.14.22
+	github.com/mattn/go-sqlite3 v1.14.32
 	github.com/prometheus/client_golang v1.22.0
 	github.com/redis/go-redis/v9 v9.12.0
 	github.com/stretchr/testify v1.10.0
