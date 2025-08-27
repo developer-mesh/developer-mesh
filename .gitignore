@@ -53,6 +53,20 @@ configs/config.*.local.yaml
 !/apps/*/Dockerfile
 !/apps/*/Makefile
 
+# Compiled binaries in any location
+# This catches binaries with no extension (common for Go builds)
+/apps/*/main
+/apps/*/*/main
+/apps/edge-mcp/bin/edge-mcp
+/apps/rest-api/bin/rest-api
+/apps/worker/bin/worker
+/apps/mcp-server/bin/mcp-server
+
+# Any file named 'main' without extension (Go default binary name)
+main
+!*/main.go
+!**/main.go
+
 
 # Log files
 *.log
