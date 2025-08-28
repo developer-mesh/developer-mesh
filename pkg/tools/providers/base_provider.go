@@ -276,10 +276,14 @@ func (p *BaseProvider) applyAuthentication(ctx context.Context, req *http.Reques
 	case "api_key":
 		if pctx.Credentials.APIKey != "" {
 			// Some APIs use X-API-Key, others use different headers
-			// Harness uses lowercase x-api-key
-			if p.name == "harness" {
+			switch p.name {
+			case "harness":
+				// Harness uses lowercase x-api-key
 				req.Header.Set("x-api-key", pctx.Credentials.APIKey)
-			} else {
+			case "nexus":
+				// Nexus uses NX-APIKEY
+				req.Header.Set("Authorization", "NX-APIKEY "+pctx.Credentials.APIKey)
+			default:
 				req.Header.Set("X-API-Key", pctx.Credentials.APIKey)
 			}
 		} else {

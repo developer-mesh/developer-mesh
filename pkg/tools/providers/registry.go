@@ -196,6 +196,12 @@ func (r *Registry) GetProviderForURL(url string) (StandardToolProvider, bool) {
 		}
 	}
 
+	if strings.Contains(url, "nexus") || strings.Contains(url, ":8081") {
+		if provider, exists := r.providers["nexus"]; exists {
+			return provider, true
+		}
+	}
+
 	return nil, false
 }
 
