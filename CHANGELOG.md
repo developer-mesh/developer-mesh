@@ -8,6 +8,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Confluence Cloud Provider Implementation** (2025-08-28): Production-ready provider for Atlassian Confluence Cloud integration
+  - Full StandardToolProvider interface implementation with BaseProvider inheritance
+  - Support for 90+ Confluence operations across all major modules:
+    - Content Management: pages, blog posts, search (CQL), versions, restore
+    - Space Management: list, CRUD, permissions, content browsing
+    - Attachments: upload, download, update, delete on pages
+    - Comments: create, read, update, delete, inline comments
+    - Labels: add, remove, search labeled content
+    - Users & Groups: user management, group members, watch/unwatch content
+    - Permissions: check, add, remove restrictions, space permissions
+    - Templates: page/blog templates, CRUD operations
+    - Macros: retrieve macro bodies by hash
+    - Settings: themes, look and feel configuration
+    - Audit: audit logs, retention policies
+  - Multiple authentication methods:
+    - Basic authentication (email + API token) - recommended for Confluence Cloud
+    - Legacy username/password support
+    - Automatic auth header construction
+  - Confluence-specific features:
+    - CQL (Confluence Query Language) support for powerful content searches
+    - Hierarchical content organization (parent-child relationships)
+    - Space-based content management
+    - Content versioning and restore
+    - Rich text content with storage format
+    - Watch/unwatch content for notifications
+  - Intelligent operation resolution:
+    - Context-aware operation mapping
+    - Multiple format support (content/create, content-create, content_create)
+    - Simple verb mapping with defaults to content operations
+    - Automatic resource type detection
+  - AI-optimized tool definitions:
+    - Rich semantic tags (documentation, wiki, knowledge-base, collaboration)
+    - Comprehensive usage examples with CQL queries
+    - Detailed capability declarations with limitations
+    - Data access patterns (pagination, CQL filtering, sorting)
+  - Flexible domain configuration for multi-tenant setups
+  - Rate limiting (5000 requests/hour, 100/minute) with retry logic
+  - Comprehensive test suite with 61.2% coverage including health checks
+  - Embedded OpenAPI spec with dynamic fetching from developer.atlassian.com
+  - Health check implementation supporting both authenticated and public APIs
+  - Zero linting issues and full StandardToolProvider compliance
+
 - **Cloud Jira Provider Implementation** (2025-08-28): Enterprise-ready provider for Atlassian Jira Cloud integration
   - Full StandardToolProvider interface implementation with BaseProvider inheritance
   - Support for 60+ Jira operations across all major modules:

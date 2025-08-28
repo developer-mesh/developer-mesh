@@ -120,7 +120,7 @@ func TestGitLabProvider_ValidateCredentials(t *testing.T) {
 			credentials: map[string]string{
 				"private_token": "xxxxxxxxxxxxxxxxxxxx",
 			},
-			expectError: true,
+			expectError:   true,
 			errorContains: "missing required credentials",
 		},
 		{

@@ -4,6 +4,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	pkgservices "github.com/developer-mesh/developer-mesh/pkg/services"
 	"github.com/developer-mesh/developer-mesh/pkg/tools/providers/artifactory"
+	"github.com/developer-mesh/developer-mesh/pkg/tools/providers/confluence"
 	"github.com/developer-mesh/developer-mesh/pkg/tools/providers/github"
 	"github.com/developer-mesh/developer-mesh/pkg/tools/providers/gitlab"
 	"github.com/developer-mesh/developer-mesh/pkg/tools/providers/harness"
@@ -118,8 +119,26 @@ func InitializeStandardProviders(registry *pkgservices.EnhancedToolRegistry, log
 		providersCount++
 	}
 
+	// Register Confluence provider
+	// Default domain can be overridden via configuration
+	confluenceProvider := confluence.NewConfluenceProvider(logger, "devmesh")
+	if err := registry.RegisterProvider(confluenceProvider); err != nil {
+		logger.Error("Failed to register Confluence provider", map[string]interface{}{
+			"error": err.Error(),
+		})
+		// Don't fail initialization if one provider fails
+		// return err
+	} else {
+		logger.Info("Registered Confluence provider", map[string]interface{}{
+			"provider":        "confluence",
+			"tools":           len(confluenceProvider.GetToolDefinitions()),
+			"enabled_modules": confluenceProvider.GetEnabledModules(),
+			"operations":      len(confluenceProvider.GetOperationMappings()),
+		})
+		providersCount++
+	}
+
 	// TODO: Register additional providers
-	// - Confluence provider
 	// - Azure DevOps provider
 	// - CircleCI provider
 	// - Jenkins provider

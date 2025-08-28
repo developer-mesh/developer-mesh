@@ -917,25 +917,25 @@ func (p *ArtifactoryProvider) ValidateCredentials(ctx context.Context, creds map
 	if creds == nil {
 		return fmt.Errorf("artifactory validate credentials: credentials cannot be nil")
 	}
-	
+
 	// Check for required credentials
 	token, hasToken := creds["token"]
 	apiKey, hasAPIKey := creds["api_key"]
 	username, hasUsername := creds["username"]
 	password, hasPassword := creds["password"]
-	
+
 	// Artifactory supports multiple auth methods
 	if !hasToken && !hasAPIKey && !(hasUsername && hasPassword) {
 		return fmt.Errorf("artifactory validate credentials: no valid credentials provided (requires token, api_key, or username/password)")
 	}
-	
+
 	// Create a temporary context with the provided credentials
 	providerCreds := &providers.ProviderCredentials{}
-	
+
 	// Store the current auth type and temporarily change it if needed
 	originalAuthType := p.BaseProvider.GetDefaultConfiguration().AuthType
 	tempConfig := p.BaseProvider.GetDefaultConfiguration()
-	
+
 	if hasToken {
 		providerCreds.Token = token
 		tempConfig.AuthType = "bearer"
@@ -947,7 +947,7 @@ func (p *ArtifactoryProvider) ValidateCredentials(ctx context.Context, creds map
 		providerCreds.Password = password
 		tempConfig.AuthType = "basic"
 	}
-	
+
 	// Temporarily set the auth type
 	p.BaseProvider.SetConfiguration(tempConfig)
 	// Restore original auth type after validation
@@ -956,23 +956,24 @@ func (p *ArtifactoryProvider) ValidateCredentials(ctx context.Context, creds map
 		restoreConfig.AuthType = originalAuthType
 		p.BaseProvider.SetConfiguration(restoreConfig)
 	}()
-	
+
 	// Use the context with credentials
 	ctx = providers.WithContext(ctx, &providers.ProviderContext{
 		Credentials: providerCreds,
 	})
-	
+
 	// Validate by performing a health check
 	err := p.HealthCheck(ctx)
 	if err != nil {
 		return fmt.Errorf("artifactory validate credentials failed: %w", err)
 	}
-	
+
 	return nil
 }
 
 // discoverOperations discovers available operations based on user permissions
 // Currently unused but kept for future implementation of dynamic operation discovery
+//
 //nolint:unused // Reserved for future use when we implement dynamic operation discovery
 func (p *ArtifactoryProvider) discoverOperations(ctx context.Context) ([]providers.OperationMapping, error) {
 	// Defensive nil checks

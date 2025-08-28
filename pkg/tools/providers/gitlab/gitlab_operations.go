@@ -10,18 +10,18 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 	mappings := make(map[string]providers.OperationMapping)
 
 	// === PROJECT OPERATIONS ===
-	
+
 	// Update project
 	mappings["projects/update"] = providers.OperationMapping{
 		OperationID:    "updateProject",
 		Method:         "PUT",
 		PathTemplate:   "/projects/{id}",
 		RequiredParams: []string{"id"},
-		OptionalParams: []string{"name", "path", "description", "visibility", "default_branch", 
+		OptionalParams: []string{"name", "path", "description", "visibility", "default_branch",
 			"issues_enabled", "merge_requests_enabled", "wiki_enabled", "snippets_enabled",
 			"container_registry_enabled", "shared_runners_enabled", "public_builds"},
 	}
-	
+
 	// Delete project
 	mappings["projects/delete"] = providers.OperationMapping{
 		OperationID:    "deleteProject",
@@ -30,7 +30,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id"},
 		OptionalParams: []string{},
 	}
-	
+
 	// Fork project
 	mappings["projects/fork"] = providers.OperationMapping{
 		OperationID:    "forkProject",
@@ -39,7 +39,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id"},
 		OptionalParams: []string{"namespace", "path", "name", "description", "visibility"},
 	}
-	
+
 	// Star project
 	mappings["projects/star"] = providers.OperationMapping{
 		OperationID:    "starProject",
@@ -48,7 +48,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id"},
 		OptionalParams: []string{},
 	}
-	
+
 	// Unstar project
 	mappings["projects/unstar"] = providers.OperationMapping{
 		OperationID:    "unstarProject",
@@ -57,7 +57,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id"},
 		OptionalParams: []string{},
 	}
-	
+
 	// Archive project
 	mappings["projects/archive"] = providers.OperationMapping{
 		OperationID:    "archiveProject",
@@ -66,7 +66,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id"},
 		OptionalParams: []string{},
 	}
-	
+
 	// Unarchive project
 	mappings["projects/unarchive"] = providers.OperationMapping{
 		OperationID:    "unarchiveProject",
@@ -77,17 +77,17 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 	}
 
 	// === ISSUE OPERATIONS ===
-	
+
 	// Update issue
 	mappings["issues/update"] = providers.OperationMapping{
 		OperationID:    "updateIssue",
 		Method:         "PUT",
 		PathTemplate:   "/projects/{id}/issues/{issue_iid}",
 		RequiredParams: []string{"id", "issue_iid"},
-		OptionalParams: []string{"title", "description", "state_event", "assignee_ids", 
+		OptionalParams: []string{"title", "description", "state_event", "assignee_ids",
 			"milestone_id", "labels", "due_date", "weight", "confidential"},
 	}
-	
+
 	// Delete issue
 	mappings["issues/delete"] = providers.OperationMapping{
 		OperationID:    "deleteIssue",
@@ -96,7 +96,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "issue_iid"},
 		OptionalParams: []string{},
 	}
-	
+
 	// Close issue (convenience operation)
 	mappings["issues/close"] = providers.OperationMapping{
 		OperationID:    "closeIssue",
@@ -106,7 +106,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		OptionalParams: []string{},
 		// Note: Implementation should add {"state_event": "close"} to body
 	}
-	
+
 	// Reopen issue (convenience operation)
 	mappings["issues/reopen"] = providers.OperationMapping{
 		OperationID:    "reopenIssue",
@@ -118,7 +118,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 	}
 
 	// === MERGE REQUEST OPERATIONS ===
-	
+
 	// Update merge request
 	mappings["merge_requests/update"] = providers.OperationMapping{
 		OperationID:    "updateMergeRequest",
@@ -128,7 +128,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		OptionalParams: []string{"title", "description", "state_event", "assignee_ids",
 			"milestone_id", "labels", "target_branch", "squash", "remove_source_branch"},
 	}
-	
+
 	// Approve merge request
 	mappings["merge_requests/approve"] = providers.OperationMapping{
 		OperationID:    "approveMergeRequest",
@@ -137,7 +137,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "merge_request_iid"},
 		OptionalParams: []string{"approval_password"},
 	}
-	
+
 	// Unapprove merge request
 	mappings["merge_requests/unapprove"] = providers.OperationMapping{
 		OperationID:    "unapproveMergeRequest",
@@ -146,17 +146,17 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "merge_request_iid"},
 		OptionalParams: []string{},
 	}
-	
+
 	// Merge merge request
 	mappings["merge_requests/merge"] = providers.OperationMapping{
 		OperationID:    "mergeMergeRequest",
 		Method:         "PUT",
 		PathTemplate:   "/projects/{id}/merge_requests/{merge_request_iid}/merge",
 		RequiredParams: []string{"id", "merge_request_iid"},
-		OptionalParams: []string{"merge_commit_message", "squash_commit_message", 
+		OptionalParams: []string{"merge_commit_message", "squash_commit_message",
 			"squash", "should_remove_source_branch", "merge_when_pipeline_succeeds", "sha"},
 	}
-	
+
 	// Close merge request
 	mappings["merge_requests/close"] = providers.OperationMapping{
 		OperationID:    "closeMergeRequest",
@@ -166,7 +166,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		OptionalParams: []string{},
 		// Note: Implementation should add {"state_event": "close"} to body
 	}
-	
+
 	// Rebase merge request
 	mappings["merge_requests/rebase"] = providers.OperationMapping{
 		OperationID:    "rebaseMergeRequest",
@@ -175,7 +175,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "merge_request_iid"},
 		OptionalParams: []string{"skip_ci"},
 	}
-	
+
 	// Delete merge request
 	mappings["merge_requests/delete"] = providers.OperationMapping{
 		OperationID:    "deleteMergeRequest",
@@ -186,7 +186,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 	}
 
 	// === PIPELINE OPERATIONS ===
-	
+
 	// Cancel pipeline
 	mappings["pipelines/cancel"] = providers.OperationMapping{
 		OperationID:    "cancelPipeline",
@@ -195,7 +195,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "pipeline_id"},
 		OptionalParams: []string{},
 	}
-	
+
 	// Retry pipeline
 	mappings["pipelines/retry"] = providers.OperationMapping{
 		OperationID:    "retryPipeline",
@@ -204,7 +204,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "pipeline_id"},
 		OptionalParams: []string{},
 	}
-	
+
 	// Delete pipeline
 	mappings["pipelines/delete"] = providers.OperationMapping{
 		OperationID:    "deletePipeline",
@@ -215,7 +215,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 	}
 
 	// === JOB OPERATIONS ===
-	
+
 	// Get job
 	mappings["jobs/get"] = providers.OperationMapping{
 		OperationID:    "getJob",
@@ -224,7 +224,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "job_id"},
 		OptionalParams: []string{},
 	}
-	
+
 	// Cancel job
 	mappings["jobs/cancel"] = providers.OperationMapping{
 		OperationID:    "cancelJob",
@@ -233,7 +233,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "job_id"},
 		OptionalParams: []string{},
 	}
-	
+
 	// Retry job
 	mappings["jobs/retry"] = providers.OperationMapping{
 		OperationID:    "retryJob",
@@ -242,7 +242,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "job_id"},
 		OptionalParams: []string{},
 	}
-	
+
 	// Play job (for manual jobs)
 	mappings["jobs/play"] = providers.OperationMapping{
 		OperationID:    "playJob",
@@ -251,7 +251,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "job_id"},
 		OptionalParams: []string{"job_variables_attributes"},
 	}
-	
+
 	// Get job artifacts
 	mappings["jobs/artifacts"] = providers.OperationMapping{
 		OperationID:    "getJobArtifacts",
@@ -260,7 +260,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "job_id"},
 		OptionalParams: []string{},
 	}
-	
+
 	// Erase job
 	mappings["jobs/erase"] = providers.OperationMapping{
 		OperationID:    "eraseJob",
@@ -271,7 +271,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 	}
 
 	// === REPOSITORY FILE OPERATIONS ===
-	
+
 	// Get file
 	mappings["files/get"] = providers.OperationMapping{
 		OperationID:    "getFile",
@@ -280,7 +280,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "file_path", "ref"},
 		OptionalParams: []string{},
 	}
-	
+
 	// Get raw file content
 	mappings["files/raw"] = providers.OperationMapping{
 		OperationID:    "getRawFile",
@@ -289,7 +289,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "file_path", "ref"},
 		OptionalParams: []string{"lfs"},
 	}
-	
+
 	// Create file
 	mappings["files/create"] = providers.OperationMapping{
 		OperationID:    "createFile",
@@ -298,17 +298,17 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "file_path", "branch", "content", "commit_message"},
 		OptionalParams: []string{"start_branch", "author_email", "author_name", "encoding"},
 	}
-	
+
 	// Update file
 	mappings["files/update"] = providers.OperationMapping{
 		OperationID:    "updateFile",
 		Method:         "PUT",
 		PathTemplate:   "/projects/{id}/repository/files/{file_path}",
 		RequiredParams: []string{"id", "file_path", "branch", "content", "commit_message"},
-		OptionalParams: []string{"start_branch", "author_email", "author_name", 
+		OptionalParams: []string{"start_branch", "author_email", "author_name",
 			"last_commit_id", "encoding"},
 	}
-	
+
 	// Delete file
 	mappings["files/delete"] = providers.OperationMapping{
 		OperationID:    "deleteFile",
@@ -319,7 +319,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 	}
 
 	// === BRANCH OPERATIONS ===
-	
+
 	// Get branch
 	mappings["branches/get"] = providers.OperationMapping{
 		OperationID:    "getBranch",
@@ -328,7 +328,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "branch"},
 		OptionalParams: []string{},
 	}
-	
+
 	// Create branch
 	mappings["branches/create"] = providers.OperationMapping{
 		OperationID:    "createBranch",
@@ -337,7 +337,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "branch", "ref"},
 		OptionalParams: []string{},
 	}
-	
+
 	// Delete branch
 	mappings["branches/delete"] = providers.OperationMapping{
 		OperationID:    "deleteBranch",
@@ -346,17 +346,17 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "branch"},
 		OptionalParams: []string{},
 	}
-	
+
 	// Protect branch
 	mappings["branches/protect"] = providers.OperationMapping{
 		OperationID:    "protectBranch",
 		Method:         "POST",
 		PathTemplate:   "/projects/{id}/protected_branches",
 		RequiredParams: []string{"id", "name"},
-		OptionalParams: []string{"push_access_level", "merge_access_level", 
+		OptionalParams: []string{"push_access_level", "merge_access_level",
 			"unprotect_access_level", "allow_force_push", "code_owner_approval_required"},
 	}
-	
+
 	// Unprotect branch
 	mappings["branches/unprotect"] = providers.OperationMapping{
 		OperationID:    "unprotectBranch",
@@ -367,7 +367,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 	}
 
 	// === TAG OPERATIONS ===
-	
+
 	// Get tag
 	mappings["tags/get"] = providers.OperationMapping{
 		OperationID:    "getTag",
@@ -376,7 +376,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "tag_name"},
 		OptionalParams: []string{},
 	}
-	
+
 	// Create tag
 	mappings["tags/create"] = providers.OperationMapping{
 		OperationID:    "createTag",
@@ -385,7 +385,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "tag_name", "ref"},
 		OptionalParams: []string{"message", "release_description"},
 	}
-	
+
 	// Delete tag
 	mappings["tags/delete"] = providers.OperationMapping{
 		OperationID:    "deleteTag",
@@ -396,7 +396,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 	}
 
 	// === COMMIT OPERATIONS ===
-	
+
 	// Get commit
 	mappings["commits/get"] = providers.OperationMapping{
 		OperationID:    "getCommit",
@@ -405,17 +405,17 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "sha"},
 		OptionalParams: []string{"stats"},
 	}
-	
+
 	// Create commit
 	mappings["commits/create"] = providers.OperationMapping{
 		OperationID:    "createCommit",
 		Method:         "POST",
 		PathTemplate:   "/projects/{id}/repository/commits",
 		RequiredParams: []string{"id", "branch", "commit_message", "actions"},
-		OptionalParams: []string{"start_branch", "author_email", "author_name", 
+		OptionalParams: []string{"start_branch", "author_email", "author_name",
 			"stats", "force"},
 	}
-	
+
 	// Get commit diff
 	mappings["commits/diff"] = providers.OperationMapping{
 		OperationID:    "getCommitDiff",
@@ -424,7 +424,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "sha"},
 		OptionalParams: []string{},
 	}
-	
+
 	// Get commit comments
 	mappings["commits/comments"] = providers.OperationMapping{
 		OperationID:    "getCommitComments",
@@ -433,7 +433,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "sha"},
 		OptionalParams: []string{},
 	}
-	
+
 	// Create commit comment
 	mappings["commits/comment"] = providers.OperationMapping{
 		OperationID:    "createCommitComment",
@@ -444,17 +444,17 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 	}
 
 	// === GROUP OPERATIONS ===
-	
+
 	// Create group
 	mappings["groups/create"] = providers.OperationMapping{
 		OperationID:    "createGroup",
 		Method:         "POST",
 		PathTemplate:   "/groups",
 		RequiredParams: []string{"name", "path"},
-		OptionalParams: []string{"description", "visibility", "parent_id", 
+		OptionalParams: []string{"description", "visibility", "parent_id",
 			"auto_devops_enabled", "emails_disabled"},
 	}
-	
+
 	// Update group
 	mappings["groups/update"] = providers.OperationMapping{
 		OperationID:    "updateGroup",
@@ -464,7 +464,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		OptionalParams: []string{"name", "path", "description", "visibility",
 			"auto_devops_enabled", "emails_disabled"},
 	}
-	
+
 	// Delete group
 	mappings["groups/delete"] = providers.OperationMapping{
 		OperationID:    "deleteGroup",
@@ -475,7 +475,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 	}
 
 	// === WIKI OPERATIONS ===
-	
+
 	// List wiki pages
 	mappings["wikis/list"] = providers.OperationMapping{
 		OperationID:    "listWikiPages",
@@ -484,7 +484,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id"},
 		OptionalParams: []string{"with_content"},
 	}
-	
+
 	// Get wiki page
 	mappings["wikis/get"] = providers.OperationMapping{
 		OperationID:    "getWikiPage",
@@ -493,7 +493,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "slug"},
 		OptionalParams: []string{"render_html", "version"},
 	}
-	
+
 	// Create wiki page
 	mappings["wikis/create"] = providers.OperationMapping{
 		OperationID:    "createWikiPage",
@@ -502,7 +502,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "title", "content"},
 		OptionalParams: []string{"format", "slug"},
 	}
-	
+
 	// Update wiki page
 	mappings["wikis/update"] = providers.OperationMapping{
 		OperationID:    "updateWikiPage",
@@ -511,7 +511,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "slug"},
 		OptionalParams: []string{"title", "content", "format"},
 	}
-	
+
 	// Delete wiki page
 	mappings["wikis/delete"] = providers.OperationMapping{
 		OperationID:    "deleteWikiPage",
@@ -522,7 +522,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 	}
 
 	// === SNIPPET OPERATIONS ===
-	
+
 	// List project snippets
 	mappings["snippets/list"] = providers.OperationMapping{
 		OperationID:    "listSnippets",
@@ -531,7 +531,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id"},
 		OptionalParams: []string{},
 	}
-	
+
 	// Get snippet
 	mappings["snippets/get"] = providers.OperationMapping{
 		OperationID:    "getSnippet",
@@ -540,7 +540,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "snippet_id"},
 		OptionalParams: []string{},
 	}
-	
+
 	// Create snippet
 	mappings["snippets/create"] = providers.OperationMapping{
 		OperationID:    "createSnippet",
@@ -549,7 +549,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "title", "content", "visibility"},
 		OptionalParams: []string{"description", "file_name"},
 	}
-	
+
 	// Update snippet
 	mappings["snippets/update"] = providers.OperationMapping{
 		OperationID:    "updateSnippet",
@@ -558,7 +558,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "snippet_id"},
 		OptionalParams: []string{"title", "content", "visibility", "description", "file_name"},
 	}
-	
+
 	// Delete snippet
 	mappings["snippets/delete"] = providers.OperationMapping{
 		OperationID:    "deleteSnippet",
@@ -569,7 +569,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 	}
 
 	// === DEPLOYMENT OPERATIONS ===
-	
+
 	// List deployments
 	mappings["deployments/list"] = providers.OperationMapping{
 		OperationID:    "listDeployments",
@@ -578,7 +578,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id"},
 		OptionalParams: []string{"environment", "status", "updated_after", "updated_before"},
 	}
-	
+
 	// Get deployment
 	mappings["deployments/get"] = providers.OperationMapping{
 		OperationID:    "getDeployment",
@@ -587,7 +587,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "deployment_id"},
 		OptionalParams: []string{},
 	}
-	
+
 	// Create deployment
 	mappings["deployments/create"] = providers.OperationMapping{
 		OperationID:    "createDeployment",
@@ -596,7 +596,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "environment", "sha", "ref"},
 		OptionalParams: []string{"tag", "status"},
 	}
-	
+
 	// Update deployment
 	mappings["deployments/update"] = providers.OperationMapping{
 		OperationID:    "updateDeployment",
@@ -607,7 +607,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 	}
 
 	// === MEMBER OPERATIONS ===
-	
+
 	// List project members
 	mappings["members/list"] = providers.OperationMapping{
 		OperationID:    "listProjectMembers",
@@ -616,7 +616,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id"},
 		OptionalParams: []string{"query", "user_ids"},
 	}
-	
+
 	// Get project member
 	mappings["members/get"] = providers.OperationMapping{
 		OperationID:    "getProjectMember",
@@ -625,7 +625,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "user_id"},
 		OptionalParams: []string{},
 	}
-	
+
 	// Add project member
 	mappings["members/add"] = providers.OperationMapping{
 		OperationID:    "addProjectMember",
@@ -634,7 +634,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "user_id", "access_level"},
 		OptionalParams: []string{"expires_at"},
 	}
-	
+
 	// Update project member
 	mappings["members/update"] = providers.OperationMapping{
 		OperationID:    "updateProjectMember",
@@ -643,7 +643,7 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "user_id", "access_level"},
 		OptionalParams: []string{"expires_at"},
 	}
-	
+
 	// Remove project member
 	mappings["members/remove"] = providers.OperationMapping{
 		OperationID:    "removeProjectMember",
@@ -659,16 +659,16 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 // mergeOperationMappings combines basic and extended operations
 func mergeOperationMappings(basic, extended map[string]providers.OperationMapping) map[string]providers.OperationMapping {
 	merged := make(map[string]providers.OperationMapping)
-	
+
 	// Copy basic operations
 	for k, v := range basic {
 		merged[k] = v
 	}
-	
+
 	// Add/override with extended operations
 	for k, v := range extended {
 		merged[k] = v
 	}
-	
+
 	return merged
 }

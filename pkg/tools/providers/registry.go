@@ -185,6 +185,17 @@ func (r *Registry) GetProviderForURL(url string) (StandardToolProvider, bool) {
 	}
 
 	if strings.Contains(url, "atlassian.net") {
+		// Check if it's Confluence or Jira based on the URL
+		if strings.Contains(url, "/wiki/") || strings.Contains(url, "confluence") {
+			if provider, exists := r.providers["confluence"]; exists {
+				return provider, true
+			}
+		} else if strings.Contains(url, "/jira/") || strings.Contains(url, "jira") {
+			if provider, exists := r.providers["jira"]; exists {
+				return provider, true
+			}
+		}
+		// Default to Jira if can't determine
 		if provider, exists := r.providers["jira"]; exists {
 			return provider, true
 		}

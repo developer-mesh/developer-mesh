@@ -1,0 +1,114 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Confluence Cloud REST API",
+    "version": "2.0.0",
+    "description": "This is the reference for the Confluence Cloud REST API"
+  },
+  "servers": [
+    {
+      "url": "https://{domain}.atlassian.net/wiki/rest/api",
+      "variables": {
+        "domain": {
+          "default": "your-domain",
+          "description": "Your Atlassian domain"
+        }
+      }
+    }
+  ],
+  "paths": {
+    "/content": {
+      "get": {
+        "operationId": "getContent",
+        "summary": "Get content",
+        "parameters": [
+          {
+            "name": "spaceKey",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["page", "blogpost"]
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "createContent",
+        "summary": "Create content"
+      }
+    },
+    "/content/{id}": {
+      "get": {
+        "operationId": "getContentById",
+        "summary": "Get content by ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "put": {
+        "operationId": "updateContent",
+        "summary": "Update content"
+      },
+      "delete": {
+        "operationId": "deleteContent",
+        "summary": "Delete content"
+      }
+    },
+    "/search": {
+      "get": {
+        "operationId": "searchContent",
+        "summary": "Search using CQL",
+        "parameters": [
+          {
+            "name": "cql",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/space": {
+      "get": {
+        "operationId": "getSpaces",
+        "summary": "Get spaces"
+      },
+      "post": {
+        "operationId": "createSpace",
+        "summary": "Create space"
+      }
+    },
+    "/space/{spaceKey}": {
+      "get": {
+        "operationId": "getSpace",
+        "summary": "Get space",
+        "parameters": [
+          {
+            "name": "spaceKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

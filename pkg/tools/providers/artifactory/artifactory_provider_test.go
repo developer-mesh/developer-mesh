@@ -146,7 +146,7 @@ func TestGetEmbeddedSpecVersion(t *testing.T) {
 
 	version := provider.GetEmbeddedSpecVersion()
 	assert.Equal(t, "v2-7.x", version)
-	
+
 	// Test with nil provider (shouldn't panic)
 	var nilProvider *ArtifactoryProvider
 	version = nilProvider.GetEmbeddedSpecVersion()
@@ -158,7 +158,7 @@ func TestValidateCredentials(t *testing.T) {
 		name      string
 		creds     map[string]string
 		wantError bool
-		errorMsg string
+		errorMsg  string
 	}{
 		{
 			name: "Valid token credentials",
@@ -186,13 +186,13 @@ func TestValidateCredentials(t *testing.T) {
 			name:      "No credentials provided",
 			creds:     map[string]string{},
 			wantError: true,
-			errorMsg: "no valid credentials provided",
+			errorMsg:  "no valid credentials provided",
 		},
 		{
 			name:      "Nil credentials",
 			creds:     nil,
 			wantError: true,
-			errorMsg: "credentials cannot be nil",
+			errorMsg:  "credentials cannot be nil",
 		},
 		{
 			name: "Only username without password",
@@ -200,10 +200,10 @@ func TestValidateCredentials(t *testing.T) {
 				"username": "testuser",
 			},
 			wantError: true,
-			errorMsg: "no valid credentials provided",
+			errorMsg:  "no valid credentials provided",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a mock server for successful validation
@@ -216,16 +216,16 @@ func TestValidateCredentials(t *testing.T) {
 				}
 			}))
 			defer server.Close()
-			
+
 			logger := &observability.NoopLogger{}
 			provider := NewArtifactoryProvider(logger)
-			
+
 			config := provider.GetDefaultConfiguration()
 			config.BaseURL = server.URL
 			provider.SetConfiguration(config)
-			
+
 			err := provider.ValidateCredentials(context.Background(), tt.creds)
-			
+
 			if tt.wantError {
 				assert.Error(t, err)
 				if tt.errorMsg != "" {

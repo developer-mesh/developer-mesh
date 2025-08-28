@@ -16,13 +16,13 @@ import (
 // TestGitLabProvider_ExtendedOperations tests all the new CRUD operations
 func TestGitLabProvider_ExtendedOperations(t *testing.T) {
 	tests := []struct {
-		name            string
-		operation       string
-		params          map[string]interface{}
-		expectedMethod  string
-		expectedPath    string
-		mockResponse    interface{}
-		expectedError   bool
+		name           string
+		operation      string
+		params         map[string]interface{}
+		expectedMethod string
+		expectedPath   string
+		mockResponse   interface{}
+		expectedError  bool
 	}{
 		// Project operations
 		{
@@ -78,9 +78,9 @@ func TestGitLabProvider_ExtendedOperations(t *testing.T) {
 			name:      "update issue",
 			operation: "issues/update",
 			params: map[string]interface{}{
-				"id":         "123",
-				"issue_iid":  "45",
-				"title":      "Updated title",
+				"id":          "123",
+				"issue_iid":   "45",
+				"title":       "Updated title",
 				"state_event": "close",
 			},
 			expectedMethod: "PUT",
@@ -115,9 +115,9 @@ func TestGitLabProvider_ExtendedOperations(t *testing.T) {
 			name:      "merge merge request",
 			operation: "merge_requests/merge",
 			params: map[string]interface{}{
-				"id":                     "123",
-				"merge_request_iid":      "67",
-				"merge_commit_message":   "Merging MR",
+				"id":                          "123",
+				"merge_request_iid":           "67",
+				"merge_commit_message":        "Merging MR",
 				"should_remove_source_branch": true,
 			},
 			expectedMethod: "PUT",
@@ -189,7 +189,7 @@ func TestGitLabProvider_ExtendedOperations(t *testing.T) {
 
 		// File operations
 		{
-			name: "create file",
+			name:      "create file",
 			operation: "files/create",
 			params: map[string]interface{}{
 				"id":             "123",
@@ -203,7 +203,7 @@ func TestGitLabProvider_ExtendedOperations(t *testing.T) {
 			mockResponse:   map[string]interface{}{"file_path": "README.md"},
 		},
 		{
-			name: "update file",
+			name:      "update file",
 			operation: "files/update",
 			params: map[string]interface{}{
 				"id":             "123",
@@ -217,7 +217,7 @@ func TestGitLabProvider_ExtendedOperations(t *testing.T) {
 			mockResponse:   map[string]interface{}{"file_path": "README.md"},
 		},
 		{
-			name: "delete file",
+			name:      "delete file",
 			operation: "files/delete",
 			params: map[string]interface{}{
 				"id":             "123",
@@ -231,7 +231,7 @@ func TestGitLabProvider_ExtendedOperations(t *testing.T) {
 
 		// Branch operations
 		{
-			name: "create branch",
+			name:      "create branch",
 			operation: "branches/create",
 			params: map[string]interface{}{
 				"id":     "123",
@@ -250,7 +250,7 @@ func TestGitLabProvider_ExtendedOperations(t *testing.T) {
 			expectedPath:   "/projects/123/repository/branches/feature/old",
 		},
 		{
-			name: "protect branch",
+			name:      "protect branch",
 			operation: "branches/protect",
 			params: map[string]interface{}{
 				"id":                "123",
@@ -264,7 +264,7 @@ func TestGitLabProvider_ExtendedOperations(t *testing.T) {
 
 		// Tag operations
 		{
-			name: "create tag",
+			name:      "create tag",
 			operation: "tags/create",
 			params: map[string]interface{}{
 				"id":       "123",
@@ -285,7 +285,7 @@ func TestGitLabProvider_ExtendedOperations(t *testing.T) {
 
 		// Wiki operations
 		{
-			name: "create wiki page",
+			name:      "create wiki page",
 			operation: "wikis/create",
 			params: map[string]interface{}{
 				"id":      "123",
@@ -297,7 +297,7 @@ func TestGitLabProvider_ExtendedOperations(t *testing.T) {
 			mockResponse:   map[string]interface{}{"slug": "home"},
 		},
 		{
-			name: "update wiki page",
+			name:      "update wiki page",
 			operation: "wikis/update",
 			params: map[string]interface{}{
 				"id":      "123",
@@ -311,7 +311,7 @@ func TestGitLabProvider_ExtendedOperations(t *testing.T) {
 
 		// Member operations
 		{
-			name: "add project member",
+			name:      "add project member",
 			operation: "members/add",
 			params: map[string]interface{}{
 				"id":           "123",
@@ -383,11 +383,11 @@ func TestGitLabProvider_ExtendedOperations(t *testing.T) {
 // TestGitLabProvider_SpecialOperations tests operations that require special handling
 func TestGitLabProvider_SpecialOperations(t *testing.T) {
 	tests := []struct {
-		name               string
-		operation          string
-		params             map[string]interface{}
-		expectedOperation  string
-		expectedParams     map[string]interface{}
+		name              string
+		operation         string
+		params            map[string]interface{}
+		expectedOperation string
+		expectedParams    map[string]interface{}
 	}{
 		{
 			name:      "close issue",
@@ -443,7 +443,7 @@ func TestGitLabProvider_SpecialOperations(t *testing.T) {
 				if tt.expectedOperation == "issues/update" {
 					assert.Contains(t, r.URL.Path, "/issues/")
 					assert.Equal(t, "PUT", r.Method)
-					
+
 					// Check that state_event was injected
 					var body map[string]interface{}
 					json.NewDecoder(r.Body).Decode(&body)
@@ -451,13 +451,13 @@ func TestGitLabProvider_SpecialOperations(t *testing.T) {
 				} else if tt.expectedOperation == "merge_requests/update" {
 					assert.Contains(t, r.URL.Path, "/merge_requests/")
 					assert.Equal(t, "PUT", r.Method)
-					
+
 					// Check that state_event was injected
 					var body map[string]interface{}
 					json.NewDecoder(r.Body).Decode(&body)
 					assert.Equal(t, tt.expectedParams["state_event"], body["state_event"])
 				}
-				
+
 				w.WriteHeader(http.StatusOK)
 				json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
 			}))
@@ -477,7 +477,7 @@ func TestGitLabProvider_SpecialOperations(t *testing.T) {
 
 			_, err := provider.ExecuteOperation(ctx, tt.operation, tt.params)
 			assert.NoError(t, err)
-			
+
 			// The special operations should have been transformed
 			_ = actualOperation
 			_ = actualParams
@@ -671,11 +671,11 @@ func TestGitLabProvider_PassThroughAuthentication(t *testing.T) {
 			operation: "merge_requests/list",
 		},
 		{
-			name: "no credentials",
+			name:        "no credentials",
 			credentials: map[string]string{},
-			operation: "projects/create",
+			operation:   "projects/create",
 			expectError: true,
-			errorMsg: "no credentials found in context",
+			errorMsg:    "no credentials found in context",
 		},
 	}
 
@@ -689,7 +689,7 @@ func TestGitLabProvider_PassThroughAuthentication(t *testing.T) {
 					capturedAuth = r.Header.Get("Authorization")
 					authCaptured = true
 				}
-				
+
 				// For validation endpoint
 				if r.URL.Path == "/user" {
 					w.WriteHeader(http.StatusOK)
@@ -699,7 +699,7 @@ func TestGitLabProvider_PassThroughAuthentication(t *testing.T) {
 					})
 					return
 				}
-				
+
 				// For other endpoints
 				w.WriteHeader(http.StatusOK)
 				json.NewEncoder(w).Encode([]interface{}{})
@@ -729,7 +729,7 @@ func TestGitLabProvider_PassThroughAuthentication(t *testing.T) {
 				} else if t := tt.credentials["token"]; t != "" {
 					token = t
 				}
-				
+
 				ctx = providers.WithContext(context.Background(), &providers.ProviderContext{
 					Credentials: &providers.ProviderCredentials{
 						Token:  token,
@@ -770,7 +770,7 @@ func TestGitLabProvider_GetExtendedOperationMappings(t *testing.T) {
 		// Projects
 		"projects/update", "projects/delete", "projects/fork", "projects/star",
 		"projects/unstar", "projects/archive", "projects/unarchive",
-		// Issues  
+		// Issues
 		"issues/update", "issues/delete", "issues/close", "issues/reopen",
 		// Merge Requests
 		"merge_requests/update", "merge_requests/approve", "merge_requests/unapprove",
