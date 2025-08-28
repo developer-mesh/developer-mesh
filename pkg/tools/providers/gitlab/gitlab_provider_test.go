@@ -527,7 +527,7 @@ func TestGitLabProvider_normalizeOperationName(t *testing.T) {
 		{"projects/list", "projects/list"},
 		{"PROJECTS/LIST", "PROJECTS/LIST"},
 		{"merge-requests-approve", "merge/requests/approve"},
-		{"merge_requests_approve", "merge/requests/approve"},
+		{"merge_requests_approve", "merge_requests/approve"}, // merge_requests is preserved as a single entity
 	}
 
 	for _, tt := range tests {

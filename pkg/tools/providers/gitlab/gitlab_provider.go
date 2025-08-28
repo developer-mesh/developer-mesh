@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -738,6 +739,100 @@ func (p *GitLabProvider) ExecuteOperation(ctx context.Context, operation string,
 	return p.Execute(ctx, operation, params)
 }
 
+// Execute overrides BaseProvider's Execute to handle GitLab-specific responses like 204 No Content
+func (p *GitLabProvider) Execute(ctx context.Context, operation string, params map[string]interface{}) (interface{}, error) {
+	mappings := p.GetOperationMappings()
+	mapping, exists := mappings[operation]
+	if !exists {
+		return nil, fmt.Errorf("operation %s not found", operation)
+	}
+
+	// Build path with parameters
+	path := mapping.PathTemplate
+	queryParams := make(map[string]string)
+
+	// Replace path parameters
+	for _, param := range mapping.RequiredParams {
+		if value, ok := params[param]; ok {
+			placeholder := "{" + param + "}"
+			if strings.Contains(path, placeholder) {
+				path = strings.ReplaceAll(path, placeholder, fmt.Sprintf("%v", value))
+			}
+		}
+	}
+
+	// For GET requests, collect query parameters
+	if mapping.Method == "GET" || mapping.Method == "HEAD" {
+		// Add optional parameters as query params
+		for _, param := range mapping.OptionalParams {
+			if value, ok := params[param]; ok {
+				queryParams[param] = fmt.Sprintf("%v", value)
+			}
+		}
+
+		// Also check for common pagination parameters even if not in OptionalParams
+		for _, param := range []string{"per_page", "page", "limit", "offset", "sort", "direction"} {
+			if value, ok := params[param]; ok {
+				queryParams[param] = fmt.Sprintf("%v", value)
+			}
+		}
+
+		// Build query string with proper URL encoding
+		if len(queryParams) > 0 {
+			values := url.Values{}
+			for k, v := range queryParams {
+				values.Add(k, v)
+			}
+			path = path + "?" + values.Encode()
+		}
+	}
+
+	// Prepare body for POST/PUT/PATCH methods
+	var body interface{}
+	if mapping.Method == "POST" || mapping.Method == "PUT" || mapping.Method == "PATCH" {
+		body = params
+	}
+
+	// Execute HTTP request
+	resp, err := p.ExecuteHTTPRequest(ctx, mapping.Method, path, body, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	// Handle 204 No Content responses
+	if resp.StatusCode == http.StatusNoContent {
+		return map[string]interface{}{"success": true, "status": 204}, nil
+	}
+
+	// Check for error status codes
+	if resp.StatusCode >= 400 {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	// Read response
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	// Handle empty response body (some operations return empty 200 OK)
+	if len(responseBody) == 0 {
+		return map[string]interface{}{"success": true, "status": resp.StatusCode}, nil
+	}
+
+	// Parse JSON response
+	var result interface{}
+	if err := json.Unmarshal(responseBody, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return result, nil
+}
+
 // GetDefaultConfiguration returns the default GitLab configuration
 func (p *GitLabProvider) GetDefaultConfiguration() providers.ProviderConfig {
 	return providers.ProviderConfig{
@@ -1208,9 +1303,39 @@ func (p *GitLabProvider) GetEnabledModules() []GitLabModule {
 
 // normalizeOperationName normalizes operation names to handle various formats
 func (p *GitLabProvider) normalizeOperationName(op string) string {
-	// Replace hyphens and underscores with forward slashes
+	// GitLab uses specific naming patterns like "merge_requests" as a single entity
+	// We need to preserve these while normalizing the operation format
+	
+	// First, handle known GitLab entities that should not be split
+	// These are compound words that represent single resources in GitLab
+	preservedEntities := []string{
+		"merge_requests",
+		"project_members",
+		"group_members",
+		"protected_branches",
+		"protected_tags",
+		"container_registry",
+		"security_reports",
+	}
+	
+	// Temporarily replace preserved entities with placeholders
+	placeholders := make(map[string]string)
+	for i, entity := range preservedEntities {
+		placeholder := fmt.Sprintf("§PLACEHOLDER%d§", i) // Use § to avoid conflicts
+		if strings.Contains(op, entity) {
+			op = strings.ReplaceAll(op, entity, placeholder)
+			placeholders[placeholder] = entity
+		}
+	}
+	
+	// Now normalize: replace hyphens and remaining underscores with forward slashes
 	normalized := strings.ReplaceAll(op, "-", "/")
 	normalized = strings.ReplaceAll(normalized, "_", "/")
-
+	
+	// Restore preserved entities
+	for placeholder, entity := range placeholders {
+		normalized = strings.ReplaceAll(normalized, placeholder, entity)
+	}
+	
 	return normalized
 }
