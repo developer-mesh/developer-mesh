@@ -7,6 +7,8 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/tools/providers/github"
 	"github.com/developer-mesh/developer-mesh/pkg/tools/providers/gitlab"
 	"github.com/developer-mesh/developer-mesh/pkg/tools/providers/harness"
+	"github.com/developer-mesh/developer-mesh/pkg/tools/providers/jira"
+	"github.com/developer-mesh/developer-mesh/pkg/tools/providers/nexus"
 )
 
 // InitializeStandardProviders registers all standard tool providers with the enhanced registry
@@ -80,8 +82,43 @@ func InitializeStandardProviders(registry *pkgservices.EnhancedToolRegistry, log
 		providersCount++
 	}
 
+	// Register Nexus provider
+	nexusProvider := nexus.NewNexusProvider(logger)
+	if err := registry.RegisterProvider(nexusProvider); err != nil {
+		logger.Error("Failed to register Nexus provider", map[string]interface{}{
+			"error": err.Error(),
+		})
+		// Don't fail initialization if one provider fails
+		// return err
+	} else {
+		logger.Info("Registered Nexus provider", map[string]interface{}{
+			"provider":        "nexus",
+			"tools":           len(nexusProvider.GetToolDefinitions()),
+			"enabled_modules": nexusProvider.GetEnabledModules(),
+			"operations":      len(nexusProvider.GetOperationMappings()),
+		})
+		providersCount++
+	}
+
+	// Register Jira provider
+	// Default domain can be overridden via configuration
+	jiraProvider := jira.NewJiraProvider(logger, "devmesh")
+	if err := registry.RegisterProvider(jiraProvider); err != nil {
+		logger.Error("Failed to register Jira provider", map[string]interface{}{
+			"error": err.Error(),
+		})
+		// Don't fail initialization if one provider fails
+		// return err
+	} else {
+		logger.Info("Registered Jira provider", map[string]interface{}{
+			"provider":   "jira",
+			"tools":      len(jiraProvider.GetToolDefinitions()),
+			"operations": len(jiraProvider.GetOperationMappings()),
+		})
+		providersCount++
+	}
+
 	// TODO: Register additional providers
-	// - Jira provider
 	// - Confluence provider
 	// - Azure DevOps provider
 	// - CircleCI provider

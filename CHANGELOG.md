@@ -8,6 +8,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Cloud Jira Provider Implementation** (2025-08-28): Enterprise-ready provider for Atlassian Jira Cloud integration
+  - Full StandardToolProvider interface implementation with BaseProvider inheritance
+  - Support for 60+ Jira operations across all major modules:
+    - Issues: search (JQL), CRUD, transitions, comments, attachments, watchers, assignment
+    - Projects: list, CRUD, versions, components
+    - Agile Boards: Scrum/Kanban boards, sprints, backlogs, issues
+    - Sprints: CRUD, sprint issues, active sprint management
+    - Users: search, get, groups, current user
+    - Workflows: list, get, transitions
+    - Fields: list, custom field creation
+    - Filters: list, get, create with JQL
+  - Multiple authentication methods:
+    - Basic authentication (email + API token) - recommended for Jira Cloud
+    - OAuth 2.0 bearer token support
+    - Automatic auth header construction
+  - Intelligent operation resolution:
+    - Context-aware operation mapping based on parameters
+    - Multiple format support (issues/create, issues-create, issues_create)
+    - Simple verb mapping (get, create, update, delete, search)
+    - Automatic resource type detection from parameters
+  - AI-optimized tool definitions:
+    - Rich semantic tags (issue, ticket, bug, story, task, epic, JQL, sprint, board)
+    - Comprehensive usage examples with JQL queries
+    - Detailed capability declarations with rate limits
+    - Data access patterns (pagination, JQL filtering, sorting)
+  - Jira-specific features:
+    - JQL (Jira Query Language) support for powerful searches
+    - Issue transitions with workflow state management
+    - Agile board and sprint operations
+    - Attachment and comment management
+    - Custom field support
+  - Flexible domain configuration (supports "mycompany" and "mycompany.atlassian.net")
+  - Rate limiting (60 requests/minute) with retry logic
+  - Comprehensive test suite with 12 test functions and mock server
+  - Embedded OpenAPI spec with dynamic fetching fallback
+  - Health check support for API availability monitoring
+
+- **Sonatype Nexus Provider Implementation**: Complete provider for Nexus Repository Manager integration
+  - Full StandardToolProvider interface implementation with BaseProvider inheritance
+  - Support for 325+ Nexus operations across all major modules:
+    - Repositories (Maven, npm, Docker, NuGet, PyPI, raw, RubyGems, Helm, apt, yum)
+    - Components and Assets management
+    - Search functionality across repositories
+    - Security management (users, roles, privileges)
+    - Blob stores and cleanup policies
+    - Tasks and system administration
+  - Multiple authentication methods:
+    - NX-APIKEY authentication for API keys
+    - Bearer token support
+    - Basic authentication (username/password)
+  - Permission-based operation filtering:
+    - Repository view/admin privileges
+    - Security admin privileges
+    - Full admin access control
+  - Pass-through authentication for enhanced security (credentials never stored)
+  - AI-optimized tool definitions with semantic tags for LLM comprehension
+  - Smart operation name normalization for intuitive usage
+  - Format-specific repository operations (Maven hosted, npm proxy, Docker group, etc.)
+  - Comprehensive test suite covering:
+    - All CRUD operations
+    - Multiple authentication methods
+    - Permission-based filtering
+    - Operation normalization
+  - Embedded OpenAPI spec (3MB+) for offline resilience
+  - Module-based feature enablement for granular control
+
 - **GitLab Provider Implementation**: Enterprise-ready provider for GitLab platform integration
   - Full StandardToolProvider interface implementation with BaseProvider inheritance
   - Support for 100+ GitLab operations across all major modules:
@@ -51,6 +117,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Operation normalization supporting multiple formats (slash/hyphen/underscore)
 
 ### Fixed
+- **Jira Provider Linting and Build Issues** (2025-08-28): Resolved all code quality issues
+  - Fixed unused `cloudID` field in JiraProvider struct
+  - Corrected error string capitalization (Jira -> jira) per Go conventions
+  - Added proper error checking for all `w.Write()` calls in tests
+  - Resolved base URL configuration issues for proper domain handling
+  - Fixed authentication context passing for Basic auth with email/API token
+
+- **Nexus Provider Authentication**: Enhanced authentication handling
+  - Added NX-APIKEY header support for Nexus API key authentication
+  - BaseProvider now correctly handles Nexus-specific auth headers
+  - Fixed authentication type detection for multiple auth methods
+
 - **GitLab Provider Response Handling**: Enhanced HTTP response processing
   - Properly handle 204 No Content responses from DELETE operations
   - Override Execute method to handle GitLab-specific response patterns

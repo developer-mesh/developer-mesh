@@ -1,0 +1,99 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Jira Cloud Platform REST API",
+    "description": "Jira Cloud Platform REST API documentation",
+    "version": "1001.0.0-SNAPSHOT",
+    "x-atlassian-connect-version": "1000.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://{domain}.atlassian.net",
+      "variables": {
+        "domain": {
+          "default": "your-domain",
+          "description": "Your Atlassian domain"
+        }
+      }
+    }
+  ],
+  "security": [
+    {
+      "basicAuth": []
+    },
+    {
+      "OAuth2": ["read:jira-work", "write:jira-work", "manage:jira-project"]
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic",
+        "description": "Basic authentication with email and API token"
+      },
+      "OAuth2": {
+        "type": "oauth2",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://auth.atlassian.com/authorize",
+            "tokenUrl": "https://auth.atlassian.com/oauth/token",
+            "scopes": {
+              "read:jira-work": "View Jira issue data",
+              "write:jira-work": "Create and edit issues",
+              "manage:jira-project": "Administer projects",
+              "read:jira-user": "View user details",
+              "manage:jira-webhook": "Manage webhooks",
+              "manage:jira-configuration": "Manage Jira configuration"
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/rest/api/3/issue": {
+      "post": {
+        "operationId": "createIssue",
+        "summary": "Create issue",
+        "tags": ["Issues"]
+      }
+    },
+    "/rest/api/3/issue/{issueIdOrKey}": {
+      "get": {
+        "operationId": "getIssue",
+        "summary": "Get issue",
+        "tags": ["Issues"]
+      },
+      "put": {
+        "operationId": "updateIssue",
+        "summary": "Edit issue",
+        "tags": ["Issues"]
+      },
+      "delete": {
+        "operationId": "deleteIssue",
+        "summary": "Delete issue",
+        "tags": ["Issues"]
+      }
+    },
+    "/rest/api/3/search": {
+      "get": {
+        "operationId": "searchForIssuesUsingJql",
+        "summary": "Search for issues using JQL",
+        "tags": ["Issue search"]
+      }
+    },
+    "/rest/api/3/project": {
+      "get": {
+        "operationId": "getAllProjects",
+        "summary": "Get all projects",
+        "tags": ["Projects"]
+      },
+      "post": {
+        "operationId": "createProject",
+        "summary": "Create project",
+        "tags": ["Projects"]
+      }
+    }
+  }
+}
