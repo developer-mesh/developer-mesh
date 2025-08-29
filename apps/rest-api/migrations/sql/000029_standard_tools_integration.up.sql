@@ -529,7 +529,7 @@ INSERT INTO mcp.tool_templates (
     '1.0.0',
     'Harness Platform',
     'Harness Platform integration for CI/CD, Feature Flags, Cloud Cost Management, and Security Testing',
-    'devops_platform',
+    'ci_cd',
     '{
         "baseUrl": "https://app.harness.io",
         "authType": "api_key",
