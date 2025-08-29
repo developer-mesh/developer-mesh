@@ -118,7 +118,7 @@ func (p *HarnessProvider) GetToolDefinitions() []providers.ToolDefinition {
 			Name:        "harness_pipelines",
 			DisplayName: "Harness Pipelines",
 			Description: "Manage CI/CD pipelines in Harness",
-			Category:    "CI/CD",
+			Category:    "ci_cd",
 			Operation: providers.OperationDef{
 				ID:           "pipelines",
 				Method:       "GET",

@@ -128,7 +128,7 @@ func (p *GitHubProvider) GetToolDefinitions() []providers.ToolDefinition {
 			Name:        "github_actions",
 			DisplayName: "GitHub Actions",
 			Description: "Manage GitHub Actions workflows",
-			Category:    "CI/CD",
+			Category:    "ci_cd",
 			Operation: providers.OperationDef{
 				ID:           "actions",
 				Method:       "GET",

@@ -129,7 +129,7 @@ func (p *GitLabProvider) GetToolDefinitions() []providers.ToolDefinition {
 			Name:        "gitlab_projects",
 			DisplayName: "GitLab Projects",
 			Description: "Manage GitLab projects",
-			Category:    "Projects",
+			Category:    "projects",
 			Operation: providers.OperationDef{
 				ID:           "projects",
 				Method:       "GET",
@@ -144,7 +144,7 @@ func (p *GitLabProvider) GetToolDefinitions() []providers.ToolDefinition {
 			Name:        "gitlab_projects_list",
 			DisplayName: "List GitLab Projects",
 			Description: "List all GitLab projects accessible to the user",
-			Category:    "Projects",
+			Category:    "projects",
 			Operation: providers.OperationDef{
 				ID:           "projects/list",
 				Method:       "GET",
@@ -280,7 +280,7 @@ func (p *GitLabProvider) GetToolDefinitions() []providers.ToolDefinition {
 			Name:        "gitlab_pipelines",
 			DisplayName: "GitLab Pipelines",
 			Description: "Manage GitLab CI/CD pipelines",
-			Category:    "CI/CD",
+			Category:    "ci_cd",
 			Operation: providers.OperationDef{
 				ID:           "pipelines",
 				Method:       "GET",
@@ -296,7 +296,7 @@ func (p *GitLabProvider) GetToolDefinitions() []providers.ToolDefinition {
 			Name:        "gitlab_pipelines_list",
 			DisplayName: "List GitLab Pipelines",
 			Description: "List pipelines in a project",
-			Category:    "CI/CD",
+			Category:    "ci_cd",
 			Operation: providers.OperationDef{
 				ID:           "pipelines/list",
 				Method:       "GET",
@@ -314,7 +314,7 @@ func (p *GitLabProvider) GetToolDefinitions() []providers.ToolDefinition {
 			Name:        "gitlab_pipelines_trigger",
 			DisplayName: "Trigger GitLab Pipeline",
 			Description: "Trigger a new pipeline",
-			Category:    "CI/CD",
+			Category:    "ci_cd",
 			Operation: providers.OperationDef{
 				ID:           "pipelines/trigger",
 				Method:       "POST",
@@ -334,7 +334,7 @@ func (p *GitLabProvider) GetToolDefinitions() []providers.ToolDefinition {
 			Name:        "gitlab_jobs_list",
 			DisplayName: "List GitLab Jobs",
 			Description: "List jobs in a project",
-			Category:    "CI/CD",
+			Category:    "ci_cd",
 			Operation: providers.OperationDef{
 				ID:           "jobs/list",
 				Method:       "GET",

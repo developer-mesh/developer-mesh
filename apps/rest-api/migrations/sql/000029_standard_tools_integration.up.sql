@@ -69,7 +69,8 @@ CREATE TABLE IF NOT EXISTS mcp.tool_templates (
     CONSTRAINT chk_provider_name CHECK (provider_name ~ '^[a-z][a-z0-9_-]*$'),
     CONSTRAINT chk_category CHECK (category IS NULL OR category IN (
         'version_control', 'issue_tracking', 'ci_cd', 'monitoring',
-        'collaboration', 'cloud', 'security', 'documentation', 'custom'
+        'collaboration', 'cloud', 'security', 'documentation', 
+        'artifact_management', 'repository_management', 'projects', 'custom'
     ))
 );
 
