@@ -82,6 +82,12 @@ func NewHarnessProvider(logger observability.Logger) *HarnessProvider {
 
 	// Set operation mappings in base provider
 	provider.SetOperationMappings(provider.GetOperationMappings())
+
+	// Configure authentication type
+	config := base.GetDefaultConfiguration()
+	config.AuthType = "api_key"
+	base.SetConfiguration(config)
+
 	return provider
 }
 

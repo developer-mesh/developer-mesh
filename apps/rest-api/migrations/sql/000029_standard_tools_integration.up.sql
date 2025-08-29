@@ -509,4 +509,215 @@ INSERT INTO mcp.tool_templates (
     'https://developer.atlassian.com/cloud/jira/platform/rest/v3/'
 ) ON CONFLICT (provider_name, provider_version) DO NOTHING;
 
+-- Insert Harness template
+INSERT INTO mcp.tool_templates (
+    provider_name,
+    provider_version,
+    display_name,
+    description,
+    category,
+    default_config,
+    operation_groups,
+    required_credentials,
+    optional_credentials,
+    tags,
+    documentation_url,
+    features
+) VALUES (
+    'harness',
+    '1.0.0',
+    'Harness Platform',
+    'Harness Platform integration for CI/CD, Feature Flags, Cloud Cost Management, and Security Testing',
+    'devops_platform',
+    '{
+        "baseUrl": "https://app.harness.io",
+        "authType": "api_key",
+        "rateLimits": {"requestsPerMinute": 100, "requestsPerHour": 1000},
+        "modules": ["ci", "cd", "ff", "ccm", "sto"]
+    }'::jsonb,
+    '[
+        {"name": "ci", "displayName": "Continuous Integration", "operations": ["pipelines", "builds", "execute", "logs"]},
+        {"name": "cd", "displayName": "Continuous Delivery", "operations": ["services", "environments", "deployments", "rollback"]},
+        {"name": "ff", "displayName": "Feature Flags", "operations": ["flags", "targets", "segments", "toggle"]},
+        {"name": "ccm", "displayName": "Cloud Cost Management", "operations": ["perspectives", "budgets", "anomalies", "recommendations"]},
+        {"name": "sto", "displayName": "Security Testing", "operations": ["scans", "targets", "baselines", "exemptions"]},
+        {"name": "platform", "displayName": "Platform", "operations": ["projects", "organizations", "secrets", "connectors", "delegates"]}
+    ]'::jsonb,
+    ARRAY['api_key', 'account_id'],
+    ARRAY['org_identifier', 'project_identifier'],
+    ARRAY['harness', 'ci-cd', 'devops', 'pipelines', 'feature-flags', 'cost-management', 'security'],
+    'https://developer.harness.io/docs',
+    '{
+        "supportsWebhooks": true,
+        "supportsPagination": true,
+        "supportsRateLimit": true,
+        "supportsBatchOps": true,
+        "supportsAsync": true,
+        "supportsSearch": true,
+        "supportsFiltering": true,
+        "supportsSorting": true,
+        "supportsGraphQL": true
+    }'::jsonb
+) ON CONFLICT (provider_name, provider_version) DO NOTHING;
+
+-- Insert Confluence template
+INSERT INTO mcp.tool_templates (
+    provider_name,
+    provider_version,
+    display_name,
+    description,
+    category,
+    default_config,
+    operation_groups,
+    required_credentials,
+    tags,
+    documentation_url,
+    features
+) VALUES (
+    'confluence',
+    '1.0.0',
+    'Confluence Cloud',
+    'Atlassian Confluence Cloud integration for documentation, knowledge management, and collaboration',
+    'documentation',
+    '{
+        "authType": "basic",
+        "rateLimits": {"requestsPerMinute": 100, "requestsPerHour": 5000},
+        "apiVersion": "v2",
+        "requiredScopes": ["read:confluence-content.all", "write:confluence-content.all"]
+    }'::jsonb,
+    '[
+        {"name": "content", "displayName": "Content Management", "operations": ["list", "get", "create", "update", "delete", "search", "versions"]},
+        {"name": "space", "displayName": "Spaces", "operations": ["list", "get", "create", "update", "delete", "permissions"]},
+        {"name": "attachment", "displayName": "Attachments", "operations": ["list", "get", "create", "update", "delete", "download"]},
+        {"name": "comment", "displayName": "Comments", "operations": ["list", "get", "create", "update", "delete"]},
+        {"name": "label", "displayName": "Labels", "operations": ["list", "add", "remove", "search"]},
+        {"name": "permission", "displayName": "Permissions", "operations": ["check", "list", "add", "remove"]},
+        {"name": "template", "displayName": "Templates", "operations": ["list", "get", "create", "update", "delete"]}
+    ]'::jsonb,
+    ARRAY['email', 'api_token'],
+    ARRAY['confluence', 'wiki', 'documentation', 'knowledge-base', 'collaboration', 'atlassian'],
+    'https://developer.atlassian.com/cloud/confluence/rest/v2/',
+    '{
+        "supportsWebhooks": true,
+        "supportsPagination": true,
+        "supportsRateLimit": true,
+        "supportsBatchOps": false,
+        "supportsAsync": false,
+        "supportsSearch": true,
+        "supportsFiltering": true,
+        "supportsSorting": true,
+        "supportsCQL": true,
+        "supportsVersioning": true
+    }'::jsonb
+) ON CONFLICT (provider_name, provider_version) DO NOTHING;
+
+-- Insert Artifactory template
+INSERT INTO mcp.tool_templates (
+    provider_name,
+    provider_version,
+    display_name,
+    description,
+    category,
+    default_config,
+    operation_groups,
+    required_credentials,
+    optional_credentials,
+    tags,
+    documentation_url,
+    features
+) VALUES (
+    'artifactory',
+    '1.0.0',
+    'JFrog Artifactory',
+    'JFrog Artifactory integration for artifact management, build promotion, and dependency management',
+    'artifact_management',
+    '{
+        "baseUrl": "https://artifactory.example.com/artifactory",
+        "authType": "api_key",
+        "rateLimits": {"requestsPerMinute": 1000, "requestsPerHour": 10000},
+        "apiVersion": "7"
+    }'::jsonb,
+    '[
+        {"name": "repositories", "displayName": "Repositories", "operations": ["list", "get", "create", "update", "delete", "replicate"]},
+        {"name": "artifacts", "displayName": "Artifacts", "operations": ["search", "download", "upload", "delete", "properties", "copy", "move"]},
+        {"name": "builds", "displayName": "Builds", "operations": ["list", "get", "create", "promote", "distribute", "delete"]},
+        {"name": "packages", "displayName": "Packages", "operations": ["search", "get", "version", "dependencies", "scan"]},
+        {"name": "security", "displayName": "Security", "operations": ["xray_scan", "vulnerabilities", "licenses", "policies"]},
+        {"name": "replication", "displayName": "Replication", "operations": ["configure", "status", "execute"]},
+        {"name": "permissions", "displayName": "Permissions", "operations": ["list", "get", "create", "update", "delete"]}
+    ]'::jsonb,
+    ARRAY['api_key'],
+    ARRAY['username', 'password', 'token'],
+    ARRAY['artifactory', 'jfrog', 'artifacts', 'packages', 'docker', 'maven', 'npm', 'nuget', 'pypi', 'helm'],
+    'https://www.jfrog.com/confluence/display/JFROG/Artifactory+REST+API',
+    '{
+        "supportsWebhooks": true,
+        "supportsPagination": true,
+        "supportsRateLimit": true,
+        "supportsBatchOps": true,
+        "supportsAsync": true,
+        "supportsSearch": true,
+        "supportsFiltering": true,
+        "supportsSorting": true,
+        "supportsAQL": true,
+        "supportsXray": true
+    }'::jsonb
+) ON CONFLICT (provider_name, provider_version) DO NOTHING;
+
+-- Insert Nexus template
+INSERT INTO mcp.tool_templates (
+    provider_name,
+    provider_version,
+    display_name,
+    description,
+    category,
+    default_config,
+    operation_groups,
+    required_credentials,
+    optional_credentials,
+    tags,
+    documentation_url,
+    features
+) VALUES (
+    'nexus',
+    '1.0.0',
+    'Sonatype Nexus',
+    'Sonatype Nexus Repository Manager integration for artifact storage, component management, and security scanning',
+    'artifact_management',
+    '{
+        "baseUrl": "https://nexus.example.com",
+        "authType": "api_key",
+        "rateLimits": {"requestsPerMinute": 500, "requestsPerHour": 5000},
+        "apiVersion": "3"
+    }'::jsonb,
+    '[
+        {"name": "repositories", "displayName": "Repositories", "operations": ["list", "get", "create", "update", "delete", "browse"]},
+        {"name": "components", "displayName": "Components", "operations": ["search", "get", "upload", "delete", "list"]},
+        {"name": "assets", "displayName": "Assets", "operations": ["list", "get", "download", "upload", "delete"]},
+        {"name": "formats", "displayName": "Format Specific", "operations": ["maven", "npm", "docker", "nuget", "pypi", "raw", "rubygems", "helm", "apt", "yum"]},
+        {"name": "search", "displayName": "Search", "operations": ["components", "assets", "advanced"]},
+        {"name": "security", "displayName": "Security", "operations": ["users", "roles", "privileges", "realms", "ldap", "certificates"]},
+        {"name": "blobstores", "displayName": "Blob Stores", "operations": ["list", "get", "create", "update", "delete", "quota"]},
+        {"name": "cleanup", "displayName": "Cleanup Policies", "operations": ["list", "get", "create", "update", "delete", "preview"]},
+        {"name": "tasks", "displayName": "Tasks", "operations": ["list", "get", "create", "run", "stop", "delete"]},
+        {"name": "lifecycle", "displayName": "Lifecycle", "operations": ["status", "health", "metrics", "support"]}
+    ]'::jsonb,
+    ARRAY['api_key'],
+    ARRAY['username', 'password'],
+    ARRAY['nexus', 'sonatype', 'artifacts', 'maven', 'npm', 'docker', 'nuget', 'pypi', 'repository-manager'],
+    'https://help.sonatype.com/repomanager3/rest-and-integration-api',
+    '{
+        "supportsWebhooks": true,
+        "supportsPagination": true,
+        "supportsRateLimit": true,
+        "supportsBatchOps": true,
+        "supportsAsync": true,
+        "supportsSearch": true,
+        "supportsFiltering": true,
+        "supportsSorting": true,
+        "supportsCleanup": true,
+        "supportsProxying": true
+    }'::jsonb
+) ON CONFLICT (provider_name, provider_version) DO NOTHING;
+
 COMMIT;

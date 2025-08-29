@@ -13,6 +13,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/auth"
 	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	pkgrepository "github.com/developer-mesh/developer-mesh/pkg/repository"
 	"github.com/developer-mesh/developer-mesh/pkg/tools"
 	"github.com/gin-gonic/gin"
 )
@@ -23,7 +24,8 @@ type DynamicToolsAPI struct {
 	logger           observability.Logger
 	metricsClient    observability.MetricsClient
 	auditLogger      *auth.AuditLogger
-	enhancedToolsAPI *EnhancedToolsAPI // Optional enhanced tools integration
+	enhancedToolsAPI *EnhancedToolsAPI                    // Optional enhanced tools integration
+	templateRepo     pkgrepository.ToolTemplateRepository // For expanding organization tools
 }
 
 // NewDynamicToolsAPI creates a new dynamic tools API handler
@@ -32,12 +34,14 @@ func NewDynamicToolsAPI(
 	logger observability.Logger,
 	metricsClient observability.MetricsClient,
 	auditLogger *auth.AuditLogger,
+	templateRepo pkgrepository.ToolTemplateRepository,
 ) *DynamicToolsAPI {
 	return &DynamicToolsAPI{
 		toolService:   toolService,
 		logger:        logger,
 		metricsClient: metricsClient,
 		auditLogger:   auditLogger,
+		templateRepo:  templateRepo,
 	}
 }
 
@@ -1310,124 +1314,137 @@ type WebhookConfigResponse struct {
 
 // shouldExpandTool determines if an organization tool should be expanded into multiple operations
 func (api *DynamicToolsAPI) shouldExpandTool(ot *models.OrganizationTool) bool {
-	// For now, expand tools that have a template_id indicating they're from a standard provider
-	// In the future, we could check a feature flag or tool configuration
-	if ot.TemplateID != "" {
-		// Check if the template is for a known expandable provider
-		// For now, we'll expand GitHub tools
-		if ot.InstanceConfig != nil {
-			if provider, ok := ot.InstanceConfig["provider"].(string); ok {
-				return provider == "github" || provider == "gitlab" || provider == "jira"
-			}
-		}
-		// Also check by instance name patterns
-		instanceNameLower := strings.ToLower(ot.InstanceName)
-		return strings.Contains(instanceNameLower, "github") ||
-			strings.Contains(instanceNameLower, "gitlab") ||
-			strings.Contains(instanceNameLower, "jira")
-	}
-	return false
+	// Expand any organization tool that has a template
+	// Templates contain operation mappings that define individual tools
+	return ot.TemplateID != ""
 }
 
 // expandOrganizationTool expands an organization tool into multiple operation-specific tools
 func (api *DynamicToolsAPI) expandOrganizationTool(ctx context.Context, ot *models.OrganizationTool) []*models.DynamicTool {
 	var expandedTools []*models.DynamicTool
 
-	// Determine the provider type
-	providerType := ""
-	if ot.InstanceConfig != nil {
-		if provider, ok := ot.InstanceConfig["provider"].(string); ok {
-			providerType = provider
-		}
+	// Skip if no template ID
+	if ot.TemplateID == "" {
+		return expandedTools
 	}
 
-	// If provider not in config, try to detect from instance name
-	if providerType == "" {
-		instanceNameLower := strings.ToLower(ot.InstanceName)
-		if strings.Contains(instanceNameLower, "github") {
-			providerType = "github"
-		} else if strings.Contains(instanceNameLower, "gitlab") {
-			providerType = "gitlab"
-		} else if strings.Contains(instanceNameLower, "jira") {
-			providerType = "jira"
-		}
+	// Fetch the template to get operation mappings
+	template, err := api.templateRepo.GetByID(ctx, ot.TemplateID)
+	if err != nil {
+		api.logger.Warn("Failed to fetch template for organization tool", map[string]interface{}{
+			"tool_id":     ot.ID,
+			"template_id": ot.TemplateID,
+			"error":       err.Error(),
+		})
+		return expandedTools
 	}
 
-	// Get the base URL
-	baseURL := "https://api.github.com" // Default
+	// Get the base URL - prefer instance config over template default
+	baseURL := ""
 	if ot.InstanceConfig != nil {
 		if url, ok := ot.InstanceConfig["base_url"].(string); ok {
 			baseURL = url
 		}
 	}
+	// Fall back to template default if not in instance config
+	if baseURL == "" && template.DefaultConfig.BaseURL != "" {
+		baseURL = template.DefaultConfig.BaseURL
+	}
 
-	// Define operations based on provider type
-	// For now, we'll hardcode GitHub operations
-	// In a full implementation, we'd get these from the provider registry
-	if providerType == "github" {
-		operations := []struct {
-			name        string
-			displayName string
-			description string
-			category    string
-		}{
-			{"repos_list", "List Repositories", "List repositories for the authenticated user or organization", "version_control"},
-			{"repos_get", "Get Repository", "Get a specific repository", "version_control"},
-			{"repos_create", "Create Repository", "Create a new repository", "version_control"},
-			{"issues_list", "List Issues", "List issues in a repository", "issue_tracking"},
-			{"issues_create", "Create Issue", "Create a new issue", "issue_tracking"},
-			{"issues_get", "Get Issue", "Get a specific issue", "issue_tracking"},
-			{"pulls_list", "List Pull Requests", "List pull requests in a repository", "code_review"},
-			{"pulls_create", "Create Pull Request", "Create a new pull request", "code_review"},
-			{"pulls_get", "Get Pull Request", "Get a specific pull request", "code_review"},
-			{"actions_list", "List Workflows", "List GitHub Actions workflows", "ci_cd"},
-			{"actions_run", "Run Workflow", "Trigger a workflow run", "ci_cd"},
-			{"releases_list", "List Releases", "List releases for a repository", "version_control"},
-			{"releases_create", "Create Release", "Create a new release", "version_control"},
+	// Extract tool definitions from AI definitions if available
+	toolDefs := make(map[string]struct {
+		displayName string
+		description string
+		category    string
+	})
+
+	// Parse AI definitions to get descriptive info for each operation
+	if template.AIDefinitions != nil {
+		var aiDefs struct {
+			Tools []struct {
+				Name        string `json:"name"`
+				Description string `json:"description"`
+				Category    string `json:"category"`
+			} `json:"tools"`
+		}
+		if err := json.Unmarshal(*template.AIDefinitions, &aiDefs); err == nil {
+			// Map operation names to their definitions
+			for _, tool := range aiDefs.Tools {
+				// Convert tool name to operation format (e.g., "harness_ci_pipelines" -> "ci/pipelines")
+				// This is a heuristic - we'll need to match based on the operation mappings
+				toolDefs[tool.Name] = struct {
+					displayName string
+					description string
+					category    string
+				}{
+					displayName: tool.Name,
+					description: tool.Description,
+					category:    tool.Category,
+				}
+			}
+		}
+	}
+
+	// Create a tool for each operation in the template
+	for operationName, mapping := range template.OperationMappings {
+		// Generate display name from operation name
+		displayName := operationName
+		description := fmt.Sprintf("Execute %s operation", operationName)
+		category := "general"
+
+		// Try to extract better names from operation groups
+		for _, group := range template.OperationGroups {
+			for _, op := range group.Operations {
+				if op == operationName {
+					category = strings.ToLower(strings.ReplaceAll(group.Name, " ", "_"))
+					break
+				}
+			}
 		}
 
-		for _, op := range operations {
-			// Create consistent tool names with hyphens
-			// Format: instance-name-operation-name (e.g., github-devmesh-repos-list)
-			toolName := op.name
-			displayName := op.displayName
+		// Format the operation name for tool naming
+		// Convert slashes to hyphens for consistency (e.g., "ci/pipelines/list" -> "ci-pipelines-list")
+		operationNameForTool := strings.ReplaceAll(operationName, "/", "-")
+		operationNameForTool = strings.ReplaceAll(operationNameForTool, "_", "-")
 
-			// Always prefix with instance name for clarity and consistency
-			if ot.InstanceName != "" {
-				// Convert operation name underscores to hyphens for consistency
-				operationName := strings.ReplaceAll(op.name, "_", "-")
-				toolName = fmt.Sprintf("%s-%s", ot.InstanceName, operationName)
-				displayName = fmt.Sprintf("%s - %s", ot.DisplayName, op.displayName)
-			}
+		// Create tool name with instance prefix
+		toolName := fmt.Sprintf("%s-%s", ot.InstanceName, operationNameForTool)
 
-			// Keep the ID with underscores for backward compatibility
-			tool := &models.DynamicTool{
-				ID:          fmt.Sprintf("%s_%s", ot.ID, op.name),
-				TenantID:    ot.TenantID,
-				ToolName:    toolName,
-				DisplayName: displayName,
-				BaseURL:     baseURL,
-				Status:      ot.Status,
-				ToolType:    "organization_tool_operation",
-				Config: map[string]interface{}{
-					"type":           "organization_tool_operation",
-					"parent_tool_id": ot.ID,
-					"template_id":    ot.TemplateID,
-					"org_id":         ot.OrganizationID,
-					"operation":      op.name,
-					"category":       op.category,
-				},
-				IsActive:    ot.IsActive,
-				Description: &op.description,
-			}
-
-			// Add encrypted credentials if present
-			if len(ot.CredentialsEncrypted) > 0 {
-				tool.CredentialsEncrypted = ot.CredentialsEncrypted
-			}
-
-			expandedTools = append(expandedTools, tool)
+		// Create display name
+		if ot.DisplayName != "" {
+			displayName = fmt.Sprintf("%s - %s", ot.DisplayName, operationName)
 		}
+
+		// Create the dynamic tool
+		tool := &models.DynamicTool{
+			ID:          fmt.Sprintf("%s_%s", ot.ID, strings.ReplaceAll(operationName, "/", "_")),
+			TenantID:    ot.TenantID,
+			ToolName:    toolName,
+			DisplayName: displayName,
+			BaseURL:     baseURL,
+			Status:      ot.Status,
+			ToolType:    "organization_tool_operation",
+			Config: map[string]interface{}{
+				"type":           "organization_tool_operation",
+				"parent_tool_id": ot.ID,
+				"template_id":    ot.TemplateID,
+				"org_id":         ot.OrganizationID,
+				"operation":      operationName,
+				"category":       category,
+				"method":         mapping.Method,
+				"path":           mapping.PathTemplate,
+				"provider":       template.ProviderName,
+			},
+			IsActive:    ot.IsActive,
+			Description: &description,
+		}
+
+		// Add encrypted credentials if present
+		if len(ot.CredentialsEncrypted) > 0 {
+			tool.CredentialsEncrypted = ot.CredentialsEncrypted
+		}
+
+		expandedTools = append(expandedTools, tool)
 	}
 
 	return expandedTools

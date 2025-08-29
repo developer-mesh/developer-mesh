@@ -524,13 +524,6 @@ func (s *Server) setupRoutes(ctx context.Context) {
 		c.Next()
 	})
 	webhooks.POST("/tools/:toolId", dynamicWebhookHandler.HandleDynamicWebhook)
-	dynamicToolsAPI := NewDynamicToolsAPI(
-		dynamicToolsService,
-		s.logger,
-		s.metrics,
-		auth.NewAuditLogger(s.logger),
-	)
-	dynamicToolsAPI.RegisterRoutes(v1)
 
 	// Enhanced Tools API - Template-based tools with backward compatibility
 	// Create operation cache for enhanced tools
@@ -554,6 +547,16 @@ func (s *Server) setupRoutes(ctx context.Context) {
 
 	// Create template repository for API access
 	templateRepo := pkgrepository.NewToolTemplateRepository(s.db)
+
+	// Create dynamic tools API with template repository
+	dynamicToolsAPI := NewDynamicToolsAPI(
+		dynamicToolsService,
+		s.logger,
+		s.metrics,
+		auth.NewAuditLogger(s.logger),
+		templateRepo,
+	)
+	dynamicToolsAPI.RegisterRoutes(v1)
 
 	// Create enhanced tools API
 	enhancedToolsAPI := NewEnhancedToolsAPI(
