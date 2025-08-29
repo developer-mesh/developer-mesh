@@ -8,6 +8,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+- **Template-Based Tool Expansion for All Providers** (2025-08-29): Universal tool expansion system
+  - Implemented generic template-based tool expansion in DynamicToolsAPI
+  - Removed all hardcoded provider checks (GitHub, GitLab, Jira, Harness)
+  - Organization tools with templates now automatically expand into individual operation tools
+  - Each operation in a template's OperationMappings becomes a separate MCP-accessible tool
+  - Benefits:
+    - Works for ALL providers with templates (current and future)
+    - Zero performance impact - uses simple database query
+    - No provider instantiation required for tool listing
+    - Stateless operation - no credential requirements for expansion
+    - Data-driven from templates - single source of truth
+  - Example: Registering Harness organization tool now exposes:
+    - `harness-devmesh-ci-pipelines-list`
+    - `harness-devmesh-ci-pipelines-create`
+    - `harness-devmesh-cd-services-list`
+    - `harness-devmesh-ff-flags-toggle`
+    - And all other operations defined in the Harness template
+  - Added comprehensive test suite with 518 lines covering:
+    - Successful expansion with multiple providers
+    - Error handling for missing templates
+    - Credential and configuration preservation
+    - Order-independent tool verification
+    - Backward compatibility with existing tools
+  - Migration includes seed templates for Harness and Confluence providers
 - **Confluence Cloud Provider Implementation** (2025-08-28): Production-ready provider for Atlassian Confluence Cloud integration
   - Full StandardToolProvider interface implementation with BaseProvider inheritance
   - Support for 90+ Confluence operations across all major modules:
@@ -166,6 +191,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Operation normalization supporting multiple formats (slash/hyphen/underscore)
 
 ### Fixed
+
+- **Harness Provider Authentication Configuration** (2025-08-29): Fixed authentication setup
+  - Added missing AuthType configuration in Harness provider initialization
+  - Provider now correctly sets `config.AuthType = "api_key"` before BaseProvider setup
+  - Resolves "invalid Harness credentials" error when registering organization tools
+  - Ensures proper authentication header construction for API requests
+
 - **Jira Provider Linting and Build Issues** (2025-08-28): Resolved all code quality issues
   - Fixed unused `cloudID` field in JiraProvider struct
   - Corrected error string capitalization (Jira -> jira) per Go conventions
