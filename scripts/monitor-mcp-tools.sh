@@ -138,16 +138,16 @@ show_config_status() {
     fi
     
     # Check environment variables
-    if [ -n "$CORE_PLATFORM_URL" ]; then
-        echo -e "${GREEN}✓${NC} CORE_PLATFORM_URL is set: $CORE_PLATFORM_URL"
+    if [ -n "$DEV_MESH_URL" ]; then
+        echo -e "${GREEN}✓${NC} DEV_MESH_URL is set: $DEV_MESH_URL"
     else
-        echo -e "${YELLOW}⚠${NC} CORE_PLATFORM_URL not set"
+        echo -e "${YELLOW}⚠${NC} DEV_MESH_URL not set"
     fi
     
-    if [ -n "$CORE_PLATFORM_API_KEY" ]; then
-        echo -e "${GREEN}✓${NC} CORE_PLATFORM_API_KEY is set"
+    if [ -n "$DEV_MESH_API_KEY" ]; then
+        echo -e "${GREEN}✓${NC} DEV_MESH_API_KEY is set"
     else
-        echo -e "${YELLOW}⚠${NC} CORE_PLATFORM_API_KEY not set"
+        echo -e "${YELLOW}⚠${NC} DEV_MESH_API_KEY not set"
     fi
 }
 

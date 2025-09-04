@@ -47,8 +47,8 @@ func Default() *Config {
 			APIKey: getEnv("EDGE_MCP_API_KEY", ""),
 		},
 		Core: CoreConfig{
-			URL:       getEnv("CORE_PLATFORM_URL", ""),
-			APIKey:    getEnv("CORE_PLATFORM_API_KEY", ""),
+			URL:       getEnv("DEV_MESH_URL", ""),
+			APIKey:    getEnv("DEV_MESH_API_KEY", ""),
 			EdgeMCPID: getEnv("EDGE_MCP_ID", generateEdgeMCPID()),
 		},
 	}

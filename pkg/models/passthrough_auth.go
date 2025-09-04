@@ -1,7 +1,6 @@
 package models
 
 import (
-	"encoding/json"
 	"strings"
 	"time"
 )
@@ -177,18 +176,28 @@ func (o *OAuthToken) ShouldRefresh() bool {
 	return lifetime < (lifetime * 20 / 100) // Less than 20% remaining
 }
 
-// MarshalJSON implements custom JSON marshaling to handle sensitive data
-func (p *PassthroughCredential) MarshalJSON() ([]byte, error) {
-	type Alias PassthroughCredential
-	return json.Marshal(&struct {
-		*Alias
-		Token    string `json:"token,omitempty"`
-		Password string `json:"password,omitempty"`
-	}{
-		Alias:    (*Alias)(p),
-		Token:    maskSensitive(p.Token),
-		Password: maskSensitive(p.Password),
-	})
+// MarshalJSON removed - tokens should not be masked during API calls
+// Masking should only be done explicitly for logging/display purposes
+
+// MaskedToken returns a masked version of the token for logging
+func (p *PassthroughCredential) MaskedToken() string {
+	return maskSensitive(p.Token)
+}
+
+// MaskedPassword returns a masked version of the password for logging
+func (p *PassthroughCredential) MaskedPassword() string {
+	return maskSensitive(p.Password)
+}
+
+// SafeForLogging returns a copy with masked sensitive data for logging
+func (p *PassthroughCredential) SafeForLogging() PassthroughCredential {
+	safe := *p
+	safe.Token = maskSensitive(p.Token)
+	safe.Password = maskSensitive(p.Password)
+	if safe.KeyValue != "" {
+		safe.KeyValue = maskSensitive(p.KeyValue)
+	}
+	return safe
 }
 
 // Helper functions

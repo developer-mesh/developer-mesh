@@ -28,8 +28,8 @@ go build -o edge-mcp ./cmd/server
 
 ```bash
 # Required: DevMesh credentials
-export CORE_PLATFORM_URL="https://api.devmesh.io"
-export CORE_PLATFORM_API_KEY="devmesh_xxx..."  # Your API key from organization registration
+export DEV_MESH_URL="https://api.devmesh.io"
+export DEV_MESH_API_KEY="devmesh_xxx..."  # Your API key from organization registration
 # Note: Tenant ID is automatically determined from your API key
 
 # Your personal tokens
@@ -76,8 +76,8 @@ DEBUG: Including passthrough auth in tool execution {"tool": "github.create_pr",
       "command": "./edge-mcp",
       "args": ["--port", "8082", "--log-level", "debug"],
       "env": {
-        "CORE_PLATFORM_URL": "${CORE_PLATFORM_URL}",
-        "CORE_PLATFORM_API_KEY": "${CORE_PLATFORM_API_KEY}",
+        "DEV_MESH_URL": "${DEV_MESH_URL}",
+        "DEV_MESH_API_KEY": "${DEV_MESH_API_KEY}",
         "GITHUB_TOKEN": "${GITHUB_TOKEN}"
       }
     }

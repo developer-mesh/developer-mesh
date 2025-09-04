@@ -18,8 +18,8 @@ claude mcp remove devmesh
 
 # Add the DevMesh MCP server with your credentials
 claude mcp add devmesh \
-  --env CORE_PLATFORM_URL=http://localhost:8081 \
-  --env CORE_PLATFORM_API_KEY=devmesh_YOUR_API_KEY_HERE \
+  --env DEV_MESH_URL=http://localhost:8081 \
+  --env DEV_MESH_API_KEY=devmesh_YOUR_API_KEY_HERE \
   --env GITHUB_TOKEN=ghp_YOUR_GITHUB_TOKEN_HERE \
   -- edge-mcp --stdio
 ```
@@ -29,7 +29,7 @@ Replace the placeholders:
 - `YOUR_GITHUB_TOKEN_HERE`: Your GitHub personal access token (optional)
 
 For production environments, use:
-- `CORE_PLATFORM_URL=https://api.devmesh.io`
+- `DEV_MESH_URL=https://api.devmesh.io`
 
 ### Method 2: Manual Configuration (Alternative)
 
@@ -43,8 +43,8 @@ If you prefer manual configuration, the Claude Code CLI command above will creat
       "command": "edge-mcp",
       "args": ["--stdio"],
       "env": {
-        "CORE_PLATFORM_URL": "http://localhost:8081",
-        "CORE_PLATFORM_API_KEY": "devmesh_YOUR_API_KEY_HERE",
+        "DEV_MESH_URL": "http://localhost:8081",
+        "DEV_MESH_API_KEY": "devmesh_YOUR_API_KEY_HERE",
         "GITHUB_TOKEN": "ghp_YOUR_GITHUB_TOKEN_HERE"
       }
     }
@@ -79,8 +79,8 @@ Set these environment variables before starting Claude Code:
 
 ### Required: DevMesh Platform Credentials
 ```bash
-export CORE_PLATFORM_URL="https://api.devmesh.io"
-export CORE_PLATFORM_API_KEY="devmesh_xxx..."  # Your API key from organization registration
+export DEV_MESH_URL="https://api.devmesh.io"
+export DEV_MESH_API_KEY="devmesh_xxx..."  # Your API key from organization registration
 ```
 
 **Note**: Your organization's tenant ID is automatically determined from your API key. You no longer need to provide it separately.
@@ -121,7 +121,7 @@ curl -X POST https://api.devmesh.io/api/v1/auth/register/organization \
   }'
 ```
 
-2. Save the `api_key` from the response - this is your `CORE_PLATFORM_API_KEY`
+2. Save the `api_key` from the response - this is your `DEV_MESH_API_KEY`
 
 If you already have an account, you can find your API key in the DevMesh dashboard or contact your organization admin.
 
@@ -172,7 +172,7 @@ Tools are dynamically discovered from your organization's DevMesh configuration.
 - Ensure token has required scopes (repo, write, etc.)
 
 ### "Authentication failed with Core Platform"
-- Verify your API key is correct: `echo $CORE_PLATFORM_API_KEY`
+- Verify your API key is correct: `echo $DEV_MESH_API_KEY`
 - Ensure your API key starts with `devmesh_`
 - Check that your organization account is active
 - Your API key automatically identifies your organization - no tenant ID needed

@@ -109,8 +109,8 @@ Save the `api_key` from the response - this is your authentication credential.
 
 ```bash
 # Set your DevMesh credentials
-export CORE_PLATFORM_URL=https://api.devmesh.io
-export CORE_PLATFORM_API_KEY=devmesh_xxx...   # Your API key from registration
+export DEV_MESH_URL=https://api.devmesh.io
+export DEV_MESH_API_KEY=devmesh_xxx...   # Your API key from registration
 # Note: Tenant ID is automatically determined from your API key
 
 # Run Edge MCP
@@ -255,7 +255,7 @@ Edge MCP automatically detects tokens for these services:
 Edge MCP uses a **three-tier authentication model**:
 
 1. **IDE → Edge MCP**: Optional authentication using `EDGE_MCP_API_KEY`
-2. **Edge MCP → DevMesh**: Required authentication using `CORE_PLATFORM_API_KEY`
+2. **Edge MCP → DevMesh**: Required authentication using `DEV_MESH_API_KEY`
 3. **DevMesh → Services**: DevMesh uses stored credentials for each service
 
 ```
@@ -312,8 +312,8 @@ Edge MCP uses a **three-tier authentication model**:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `CORE_PLATFORM_URL` | Yes | DevMesh Platform endpoint (usually `https://api.devmesh.ai`) |
-| `CORE_PLATFORM_API_KEY` | Yes | Your DevMesh API key from dashboard (contains tenant information) |
+| `DEV_MESH_URL` | Yes | DevMesh Platform endpoint (usually `https://api.devmesh.ai`) |
+| `DEV_MESH_API_KEY` | Yes | Your DevMesh API key from dashboard (contains tenant information) |
 | `EDGE_MCP_API_KEY` | No | Optional API key to secure IDE→Edge connection |
 | `EDGE_MCP_ID` | No | Unique identifier for this Edge instance (auto-generated) |
 

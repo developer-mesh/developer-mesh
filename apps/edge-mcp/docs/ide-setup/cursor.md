@@ -14,8 +14,8 @@ Cursor requires Edge MCP to be running separately.
 
 ```bash
 # Set DevMesh credentials
-export CORE_PLATFORM_URL="https://api.devmesh.io"
-export CORE_PLATFORM_API_KEY="devmesh_xxx..."  # Your API key from organization registration
+export DEV_MESH_URL="https://api.devmesh.io"
+export DEV_MESH_API_KEY="devmesh_xxx..."  # Your API key from organization registration
 
 # Optional: Set personal access tokens for pass-through auth
 export GITHUB_TOKEN="ghp_your_personal_access_token"
@@ -82,8 +82,8 @@ To have Cursor automatically start Edge MCP, create a task:
       "args": ["--port", "8082"],
       "options": {
         "env": {
-          "CORE_PLATFORM_URL": "https://api.devmesh.ai",
-          "CORE_PLATFORM_API_KEY": "your-api-key",
+          "DEV_MESH_URL": "https://api.devmesh.ai",
+          "DEV_MESH_API_KEY": "your-api-key",
           "TENANT_ID": "your-tenant-id"
         }
       },

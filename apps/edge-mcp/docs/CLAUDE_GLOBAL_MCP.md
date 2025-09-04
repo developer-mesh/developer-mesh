@@ -52,8 +52,8 @@ Configure Edge MCP as a global MCP server that's always available:
       "command": "edge-mcp",
       "args": ["--stdio"],
       "env": {
-        "CORE_PLATFORM_URL": "https://api.devmesh.io",
-        "CORE_PLATFORM_API_KEY": "${DEVMESH_API_KEY}",
+        "DEV_MESH_URL": "https://api.devmesh.io",
+        "DEV_MESH_API_KEY": "${DEVMESH_API_KEY}",
         "GITHUB_TOKEN": "${GITHUB_TOKEN}",
         "AWS_ACCESS_KEY_ID": "${AWS_ACCESS_KEY_ID}",
         "AWS_SECRET_ACCESS_KEY": "${AWS_SECRET_ACCESS_KEY}"

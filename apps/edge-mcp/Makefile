@@ -49,7 +49,8 @@ docker-run: docker-build
 	@echo "Running Docker container..."
 	@docker run -p 8082:8082 \
 		-e EDGE_MCP_API_KEY=${EDGE_MCP_API_KEY} \
-		-e CORE_PLATFORM_URL=${CORE_PLATFORM_URL} \
+		-e DEV_MESH_URL=${DEV_MESH_URL} \
+		-e DEV_MESH_API_KEY=${DEV_MESH_API_KEY} \
 		edge-mcp:latest
 
 # Install dependencies

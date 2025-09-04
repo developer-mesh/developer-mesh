@@ -220,6 +220,19 @@ func (r *EnhancedToolRegistry) ExecuteTool(
 	operation string,
 	params map[string]interface{},
 ) (interface{}, error) {
+	// Call the passthrough version with nil auth
+	return r.ExecuteToolWithPassthrough(ctx, tenantID, toolID, operation, params, nil)
+}
+
+// ExecuteToolWithPassthrough executes a tool operation with optional passthrough authentication
+func (r *EnhancedToolRegistry) ExecuteToolWithPassthrough(
+	ctx context.Context,
+	tenantID string,
+	toolID string,
+	operation string,
+	params map[string]interface{},
+	passthroughAuth *models.PassthroughAuthBundle,
+) (interface{}, error) {
 	// The toolID may have already been processed by the API layer
 	// If operation is provided and toolID doesn't contain underscore,
 	// it means the API layer already extracted it
@@ -246,13 +259,13 @@ func (r *EnhancedToolRegistry) ExecuteTool(
 	// Check if it's an organization tool
 	orgTool, err := r.orgToolRepo.GetByID(ctx, actualToolID)
 	if err == nil && orgTool != nil {
-		return r.executeOrganizationTool(ctx, orgTool, operation, params)
+		return r.executeOrganizationTool(ctx, orgTool, operation, params, passthroughAuth)
 	}
 
 	// Check if it's a dynamic tool
 	dynamicTool, err := r.dynamicToolRepo.GetByID(ctx, actualToolID)
 	if err == nil && dynamicTool != nil {
-		return r.executeDynamicTool(ctx, dynamicTool, operation, params)
+		return r.executeDynamicTool(ctx, dynamicTool, operation, params, passthroughAuth)
 	}
 
 	return nil, fmt.Errorf("tool %s not found", actualToolID)
@@ -264,6 +277,7 @@ func (r *EnhancedToolRegistry) executeOrganizationTool(
 	orgTool *models.OrganizationTool,
 	operation string,
 	params map[string]interface{},
+	passthroughAuth *models.PassthroughAuthBundle,
 ) (interface{}, error) {
 	// Get the template
 	template, err := r.templateRepo.GetByID(ctx, orgTool.TemplateID)
@@ -277,22 +291,65 @@ func (r *EnhancedToolRegistry) executeOrganizationTool(
 		return nil, fmt.Errorf("provider %s not found: %w", template.ProviderName, err)
 	}
 
-	// Decrypt credentials using the tool's tenant ID
-	credentials, err := r.decryptCredentials(orgTool.CredentialsEncrypted, orgTool.TenantID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt credentials: %w", err)
+	// Determine credentials to use
+	var credentials map[string]string
+	var usingPassthrough bool
+
+	// Check if we have passthrough auth for this provider
+	if passthroughAuth != nil && passthroughAuth.Credentials != nil {
+		// Check if we have credentials for this provider
+		providerCred, hasProviderCred := passthroughAuth.Credentials[template.ProviderName]
+		if hasProviderCred && providerCred != nil {
+			// Use passthrough credentials
+			credentials = map[string]string{
+				"token": providerCred.Token,
+			}
+			usingPassthrough = true
+			r.logger.Info("Using passthrough authentication", map[string]interface{}{
+				"tool_id":       orgTool.ID,
+				"provider":      template.ProviderName,
+				"has_token":     providerCred.Token != "",
+				"token_len":     len(providerCred.Token),
+				"auth_type":     providerCred.Type,
+			})
+		}
 	}
 
-	// Log decrypted credentials for debugging (without exposing the actual values)
-	r.logger.Info("Decrypted credentials", map[string]interface{}{
-		"tool_id":    orgTool.ID,
-		"has_token":  credentials["token"] != "",
-		"has_apikey": credentials["api_key"] != "",
-		"token_len":  len(credentials["token"]),
-		"apikey_len": len(credentials["api_key"]),
-		"cred_keys":  getMapKeys(credentials),
-		"tenant_id":  orgTool.TenantID,
-	})
+	// If no passthrough auth or not applicable, decrypt stored credentials
+	if !usingPassthrough {
+		// Check if we have stored credentials
+		if orgTool.CredentialsEncrypted == nil || len(orgTool.CredentialsEncrypted) == 0 {
+			// Check template's default_config metadata for passthrough mode
+			var passthroughMode string
+			if template.DefaultConfig.Metadata != nil {
+				if pc, ok := template.DefaultConfig.Metadata["passthrough"].(map[string]interface{}); ok {
+					passthroughMode, _ = pc["mode"].(string)
+				}
+			}
+			
+			// If passthrough is optional or required, and we don't have creds, that's an error
+			if passthroughMode == "required" || (passthroughMode == "optional" && passthroughAuth == nil) {
+				return nil, fmt.Errorf("no credentials available for tool %s (passthrough mode: %s)", orgTool.ID, passthroughMode)
+			}
+			return nil, fmt.Errorf("no credentials available for tool %s", orgTool.ID)
+		}
+
+		credentials, err = r.decryptCredentials(orgTool.CredentialsEncrypted, orgTool.TenantID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decrypt credentials: %w", err)
+		}
+
+		// Log decrypted credentials for debugging (without exposing the actual values)
+		r.logger.Info("Using stored credentials", map[string]interface{}{
+			"tool_id":    orgTool.ID,
+			"has_token":  credentials["token"] != "",
+			"has_apikey": credentials["api_key"] != "",
+			"token_len":  len(credentials["token"]),
+			"apikey_len": len(credentials["api_key"]),
+			"cred_keys":  getMapKeys(credentials),
+			"tenant_id":  orgTool.TenantID,
+		})
+	}
 
 	// Create provider context
 	pctx := &providers.ProviderContext{
@@ -328,6 +385,7 @@ func (r *EnhancedToolRegistry) executeDynamicTool(
 	tool *models.DynamicTool,
 	operation string,
 	params map[string]interface{},
+	passthroughAuth *models.PassthroughAuthBundle,
 ) (interface{}, error) {
 	// This would use the existing dynamic tool execution logic
 	// For now, return a placeholder

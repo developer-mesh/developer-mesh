@@ -21,8 +21,8 @@ if [ ! -f "./edge-mcp" ] && [ ! -f "./bin/edge-mcp" ]; then
 fi
 
 # Set test environment variables
-export CORE_PLATFORM_URL="https://api.devmesh.ai"
-export CORE_PLATFORM_API_KEY="test-api-key"
+export DEV_MESH_URL="https://api.devmesh.ai"
+export DEV_MESH_API_KEY="test-api-key"
 export TENANT_ID="test-tenant"
 
 # Set test passthrough tokens

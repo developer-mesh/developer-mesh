@@ -86,6 +86,16 @@ func (api *EnhancedToolsAPI) ExecuteToolInternal(ctx context.Context, tenantID, 
 	return api.toolRegistry.ExecuteTool(ctx, tenantID, toolID, action, params)
 }
 
+// ExecuteToolInternalWithPassthrough executes a tool operation with passthrough auth (used internally by DynamicToolsAPI)
+func (api *EnhancedToolsAPI) ExecuteToolInternalWithPassthrough(
+	ctx context.Context,
+	tenantID, toolID, action string,
+	params map[string]interface{},
+	passthroughAuth *models.PassthroughAuthBundle,
+) (interface{}, error) {
+	return api.toolRegistry.ExecuteToolWithPassthrough(ctx, tenantID, toolID, action, params, passthroughAuth)
+}
+
 // ListOrganizationTools lists all tools for an organization
 func (api *EnhancedToolsAPI) ListOrganizationTools(c *gin.Context) {
 	orgID := c.Param("orgId")

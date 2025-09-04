@@ -10,11 +10,9 @@ auth:
 
 core:
   # Connection to Core Platform (optional)
-  # Set via CORE_PLATFORM_URL environment variable
+  # Set via DEV_MESH_URL environment variable
   url: ""
-  # Set via CORE_PLATFORM_API_KEY environment variable
+  # Set via DEV_MESH_API_KEY environment variable
   api_key: ""
-  # Set via TENANT_ID environment variable
-  tenant_id: ""
   # Set via EDGE_MCP_ID environment variable (auto-generated if not set)
   edge_mcp_id: ""

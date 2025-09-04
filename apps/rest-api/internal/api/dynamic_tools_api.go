@@ -710,13 +710,38 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 	for k := range req.Parameters {
 		paramKeys = append(paramKeys, k)
 	}
-	api.logger.Info("Executing tool action with passthrough", map[string]interface{}{
-		"tenant_id":  tenantID,
-		"tool_id":    toolID,
-		"action":     req.Action,
-		"params":     req.Parameters,
-		"param_keys": paramKeys,
-	})
+	// Log passthrough auth details if present
+	if req.PassthroughAuth != nil {
+		authInfo := map[string]interface{}{
+			"tenant_id":  tenantID,
+			"tool_id":    toolID,
+			"action":     req.Action,
+			"params":     req.Parameters,
+			"param_keys": paramKeys,
+		}
+		
+		// Log credential details
+		if req.PassthroughAuth.Credentials != nil {
+			for provider, cred := range req.PassthroughAuth.Credentials {
+				if cred != nil {
+					authInfo[provider+"_token_len"] = len(cred.Token)
+					if len(cred.Token) > 0 {
+						authInfo[provider+"_preview"] = cred.Token[:min(10, len(cred.Token))] + "..."
+					}
+				}
+			}
+		}
+		
+		api.logger.Info("Executing tool action with passthrough", authInfo)
+	} else {
+		api.logger.Info("Executing tool action without passthrough", map[string]interface{}{
+			"tenant_id":  tenantID,
+			"tool_id":    toolID,
+			"action":     req.Action,
+			"params":     req.Parameters,
+			"param_keys": paramKeys,
+		})
+	}
 
 	// Extract passthrough authentication from headers if not in body
 	if req.PassthroughAuth == nil {
@@ -761,14 +786,27 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 			})
 		}
 
-		// Use the enhanced tool registry for organization tools
-		result, err = api.enhancedToolsAPI.ExecuteToolInternal(
-			c.Request.Context(),
-			tenantID,
-			toolID,
-			actionToUse,
-			req.Parameters,
-		)
+		// Check if we have passthrough auth for organization tools
+		if req.PassthroughAuth != nil {
+			// Use passthrough execution for organization tools
+			result, err = api.enhancedToolsAPI.ExecuteToolInternalWithPassthrough(
+				c.Request.Context(),
+				tenantID,
+				toolID,
+				actionToUse,
+				req.Parameters,
+				req.PassthroughAuth,
+			)
+		} else {
+			// Use standard execution for organization tools
+			result, err = api.enhancedToolsAPI.ExecuteToolInternal(
+				c.Request.Context(),
+				tenantID,
+				toolID,
+				actionToUse,
+				req.Parameters,
+			)
+		}
 	} else if req.PassthroughAuth != nil {
 		// Use passthrough execution for dynamic tools
 		result, err = api.toolService.ExecuteToolActionWithPassthrough(

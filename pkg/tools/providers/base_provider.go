@@ -244,22 +244,46 @@ func (p *BaseProvider) applyAuthentication(ctx context.Context, req *http.Reques
 	if !ok || pctx.Credentials == nil {
 		if p.logger != nil {
 			p.logger.Error("No credentials in context", map[string]interface{}{
-				"has_context": ok,
-				"context_nil": pctx == nil,
+				"has_context":     ok,
+				"context_nil":     pctx == nil,
+				"provider":        p.name,
+				"auth_type":       p.config.AuthType,
 			})
 		}
 		return fmt.Errorf("no credentials found in context")
+	}
+	
+	// Log credential status
+	if p.logger != nil {
+		p.logger.Info("Applying authentication", map[string]interface{}{
+			"provider":        p.name,
+			"auth_type":       p.config.AuthType,
+			"has_token":       pctx.Credentials.Token != "",
+			"token_len":       len(pctx.Credentials.Token),
+			"has_api_key":     pctx.Credentials.APIKey != "",
+			"has_username":    pctx.Credentials.Username != "",
+			"url":             req.URL.String(),
+		})
 	}
 
 	switch p.config.AuthType {
 	case "bearer":
 		if pctx.Credentials.Token != "" {
-			req.Header.Set("Authorization", "Bearer "+pctx.Credentials.Token)
-			// Debug log (without exposing token)
+			authHeader := "Bearer " + pctx.Credentials.Token
+			req.Header.Set("Authorization", authHeader)
+			// Log more details (without exposing full token)
 			if p.logger != nil {
-				p.logger.Debug("Applied bearer token auth", map[string]interface{}{
-					"token_len": len(pctx.Credentials.Token),
-					"url":       req.URL.String(),
+				tokenPreview := ""
+				if len(pctx.Credentials.Token) > 10 {
+					tokenPreview = pctx.Credentials.Token[:10] + "..."
+				}
+				p.logger.Info("Applied bearer token auth", map[string]interface{}{
+					"provider":      p.name,
+					"token_len":     len(pctx.Credentials.Token),
+					"token_preview": tokenPreview,
+					"auth_len":      len(authHeader),
+					"url":           req.URL.String(),
+					"method":        req.Method,
 				})
 			}
 		} else if pctx.Credentials.APIKey != "" {

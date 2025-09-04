@@ -46,8 +46,8 @@ Add Edge MCP as a global server in `~/.claude/settings.local.json`:
       "command": "edge-mcp",
       "args": ["--stdio"],
       "env": {
-        "CORE_PLATFORM_URL": "${CORE_PLATFORM_URL:-http://localhost:8081}",
-        "CORE_PLATFORM_API_KEY": "${CORE_PLATFORM_API_KEY}",
+        "DEV_MESH_URL": "${DEV_MESH_URL:-http://localhost:8081}",
+        "DEV_MESH_API_KEY": "${DEV_MESH_API_KEY}",
         "GITHUB_TOKEN": "${GITHUB_TOKEN}",
         "AWS_ACCESS_KEY_ID": "${AWS_ACCESS_KEY_ID}",
         "AWS_SECRET_ACCESS_KEY": "${AWS_SECRET_ACCESS_KEY}"
@@ -63,8 +63,8 @@ Add to your shell profile (`~/.zshrc` or `~/.bashrc`):
 
 ```bash
 # DevMesh MCP Configuration
-export CORE_PLATFORM_URL="http://localhost:8081"  # or https://api.devmesh.io
-export CORE_PLATFORM_API_KEY="devmesh_your_api_key_here"
+export DEV_MESH_URL="http://localhost:8081"  # or https://api.devmesh.io
+export DEV_MESH_API_KEY="devmesh_your_api_key_here"
 
 # Pass-through Authentication (optional but recommended)
 export GITHUB_TOKEN="ghp_your_github_token"
@@ -118,8 +118,8 @@ For critical projects, add `.claude.json` in the project root:
       "command": "edge-mcp",
       "args": ["--stdio", "--log-level", "debug"],
       "env": {
-        "CORE_PLATFORM_URL": "${CORE_PLATFORM_URL}",
-        "CORE_PLATFORM_API_KEY": "${CORE_PLATFORM_API_KEY}",
+        "DEV_MESH_URL": "${DEV_MESH_URL}",
+        "DEV_MESH_API_KEY": "${DEV_MESH_API_KEY}",
         "TOOL_PRIORITY": "mcp-only"
       }
     }

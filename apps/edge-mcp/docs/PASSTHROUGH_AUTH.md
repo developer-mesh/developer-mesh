@@ -191,8 +191,8 @@ func (h *Handler) handleToolCall(sessionID string, msg *MCPMessage) (*MCPMessage
       "command": "edge-mcp",
       "args": ["--port", "8082"],
       "env": {
-        "CORE_PLATFORM_URL": "${CORE_PLATFORM_URL}",
-        "CORE_PLATFORM_API_KEY": "${CORE_PLATFORM_API_KEY}"
+        "DEV_MESH_URL": "${DEV_MESH_URL}",
+        "DEV_MESH_API_KEY": "${DEV_MESH_API_KEY}"
       },
       "headers": {
         "X-GitHub-Token": "${GITHUB_TOKEN}",
@@ -208,8 +208,8 @@ func (h *Handler) handleToolCall(sessionID string, msg *MCPMessage) (*MCPMessage
 
 ```bash
 # Core Platform credentials (required)
-export CORE_PLATFORM_URL="https://api.devmesh.io"
-export CORE_PLATFORM_API_KEY="devmesh_xxx..."  # Your API key from organization registration
+export DEV_MESH_URL="https://api.devmesh.io"
+export DEV_MESH_API_KEY="devmesh_xxx..."  # Your API key from organization registration
 # Note: Tenant ID is automatically determined from your API key
 
 # User-specific tokens for passthrough (optional but recommended)

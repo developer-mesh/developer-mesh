@@ -19,8 +19,8 @@ Create `.windsurf/mcp-config.json` in your project root:
       "executable": "edge-mcp",
       "arguments": ["--port=8082"],
       "environment": {
-        "CORE_PLATFORM_URL": "https://api.devmesh.io",
-        "CORE_PLATFORM_API_KEY": "devmesh_xxx...",
+        "DEV_MESH_URL": "https://api.devmesh.io",
+        "DEV_MESH_API_KEY": "devmesh_xxx...",
         
         // Optional: Personal access tokens for pass-through auth
         "GITHUB_TOKEN": "ghp_your_personal_access_token",
@@ -77,8 +77,8 @@ If you prefer not to hardcode credentials, use environment variables:
       "executable": "edge-mcp",
       "arguments": ["--port=8082"],
       "environment": {
-        "CORE_PLATFORM_URL": "${env:CORE_PLATFORM_URL}",
-        "CORE_PLATFORM_API_KEY": "${env:CORE_PLATFORM_API_KEY}"
+        "DEV_MESH_URL": "${env:DEV_MESH_URL}",
+        "DEV_MESH_API_KEY": "${env:DEV_MESH_API_KEY}"
       }
     }
   },
@@ -89,8 +89,8 @@ If you prefer not to hardcode credentials, use environment variables:
 Then set environment variables before starting Windsurf:
 
 ```bash
-export CORE_PLATFORM_URL="https://api.devmesh.ai"
-export CORE_PLATFORM_API_KEY="devmesh_xxx..."  # Your API key from registration
+export DEV_MESH_URL="https://api.devmesh.ai"
+export DEV_MESH_API_KEY="devmesh_xxx..."  # Your API key from registration
 ```
 
 ## Troubleshooting

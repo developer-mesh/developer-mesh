@@ -301,7 +301,9 @@ func (h *Handler) extractPassthroughAuthFromEnv() *models.PassthroughAuthBundle 
 			Type:  "bearer",
 			Token: token,
 		}
-		h.logger.Debug("Found GitHub passthrough token in environment", nil)
+		h.logger.Info("Found GitHub passthrough token in environment", map[string]interface{}{
+			"token_len": len(token),
+		})
 	}
 
 	if accessKey := os.Getenv("AWS_ACCESS_KEY_ID"); accessKey != "" {
@@ -318,6 +320,21 @@ func (h *Handler) extractPassthroughAuthFromEnv() *models.PassthroughAuthBundle 
 			}
 			h.logger.Debug("Found AWS passthrough credentials in environment", nil)
 		}
+	}
+
+	// Check for Harness token (try both possible env var names)
+	harnessToken := os.Getenv("HARNESS_TOKEN")
+	if harnessToken == "" {
+		harnessToken = os.Getenv("HARNESS_API_KEY")
+	}
+	if harnessToken != "" {
+		bundle.Credentials["harness"] = &models.PassthroughCredential{
+			Type:  "api_key",
+			Token: harnessToken,
+		}
+		h.logger.Info("Found Harness passthrough token in environment", map[string]interface{}{
+			"token_len": len(harnessToken),
+		})
 	}
 
 	if len(bundle.Credentials) == 0 {
