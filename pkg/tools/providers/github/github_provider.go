@@ -298,16 +298,16 @@ func (p *GitHubProvider) GetOperationMappings() map[string]providers.OperationMa
 			OptionalParams: []string{"commit_title", "commit_message", "merge_method"},
 		},
 
-		// Actions operations
-		"actions/list-workflows": {
-			OperationID:    "listWorkflows",
+		// Actions operations - using GitHub's actual operation IDs
+		"actions/list-repo-workflows": {
+			OperationID:    "actions/list-repo-workflows",
 			Method:         "GET",
 			PathTemplate:   "/repos/{owner}/{repo}/actions/workflows",
 			RequiredParams: []string{"owner", "repo"},
 			OptionalParams: []string{"per_page", "page"},
 		},
-		"actions/trigger-workflow": {
-			OperationID:    "triggerWorkflow",
+		"actions/create-workflow-dispatch": {
+			OperationID:    "actions/create-workflow-dispatch",
 			Method:         "POST",
 			PathTemplate:   "/repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches",
 			RequiredParams: []string{"owner", "repo", "workflow_id", "ref"},
@@ -358,7 +358,7 @@ func (p *GitHubProvider) GetDefaultConfiguration() providers.ProviderConfig {
 				Name:        "actions",
 				DisplayName: "GitHub Actions",
 				Description: "Operations for GitHub Actions workflows",
-				Operations:  []string{"actions/list-workflows", "actions/trigger-workflow"},
+				Operations:  []string{"actions/list-repo-workflows", "actions/create-workflow-dispatch"},
 			},
 		},
 	}
@@ -481,9 +481,54 @@ func (p *GitHubProvider) ExecuteOperation(ctx context.Context, operation string,
 
 // normalizeOperationName normalizes operation names to handle different formats
 func (p *GitHubProvider) normalizeOperationName(operation string) string {
-	// First, handle different separators to normalize format
-	normalized := strings.ReplaceAll(operation, "-", "/")
-	normalized = strings.ReplaceAll(normalized, "_", "/")
+	// Check if it's already a known operation (exact match)
+	if _, exists := p.GetOperationMappings()[operation]; exists {
+		return operation
+	}
+	
+	// Handle GitHub Actions operations specially
+	// Map our simplified names to GitHub's actual operation IDs
+	actionsOperations := map[string]string{
+		"list-workflows":    "actions/list-repo-workflows",
+		"trigger-workflow":  "actions/create-workflow-dispatch",
+		"list_workflows":    "actions/list-repo-workflows",
+		"trigger_workflow": "actions/create-workflow-dispatch",
+	}
+	
+	// Check if operation starts with "actions-" and strip it to check the map
+	if strings.HasPrefix(operation, "actions-") {
+		shortOp := strings.TrimPrefix(operation, "actions-")
+		if actionOp, ok := actionsOperations[shortOp]; ok {
+			return actionOp
+		}
+	}
+	
+	if actionOp, ok := actionsOperations[operation]; ok {
+		return actionOp
+	}
+
+	// Handle different separators to normalize format for other operations
+	// Be careful not to over-transform operations with multiple hyphens
+	normalized := operation
+	
+	// For operations with underscores, replace with slashes
+	if strings.Contains(operation, "_") {
+		normalized = strings.ReplaceAll(operation, "_", "/")
+	} else if strings.Contains(operation, "-") {
+		// For hyphenated operations, be smarter about replacement
+		hyphenCount := strings.Count(operation, "-")
+		if hyphenCount == 1 {
+			// Single hyphen: safe to replace (e.g., "repos-get" -> "repos/get")
+			normalized = strings.ReplaceAll(operation, "-", "/")
+		} else {
+			// Multiple hyphens: only replace the first one to avoid over-transformation
+			// (e.g., "repos-list-for-user" -> "repos/list-for-user")
+			idx := strings.Index(operation, "-")
+			if idx > 0 {
+				normalized = operation[:idx] + "/" + operation[idx+1:]
+			}
+		}
+	}
 
 	// If it already has a resource prefix (e.g., "issues/create"), return it
 	if strings.Contains(normalized, "/") {

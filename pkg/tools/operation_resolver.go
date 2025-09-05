@@ -359,12 +359,50 @@ func (r *OperationResolver) scoreOperation(info *ResolvedOperation, context map[
 // fuzzyMatch attempts to find an operation using fuzzy matching
 func (r *OperationResolver) fuzzyMatch(action string) *ResolvedOperation {
 	// Try common variations
-	variations := []string{
-		action,
-		strings.ReplaceAll(action, "_", "-"),
-		strings.ReplaceAll(action, "-", "_"),
-		strings.ReplaceAll(action, "_", "/"),
-		strings.ReplaceAll(action, "-", "/"),
+	// Special handling for GitHub Actions operations to preserve hyphenated action names
+	var variations []string
+	if strings.HasPrefix(action, "actions-") || strings.HasPrefix(action, "actions/") {
+		// For actions operations, only replace the first separator
+		// e.g., "actions-list-repo-workflows" -> "actions/list-repo-workflows"
+		if strings.HasPrefix(action, "actions-") {
+			variations = []string{
+				action,
+				strings.Replace(action, "actions-", "actions/", 1),
+			}
+		} else {
+			variations = []string{
+				action,
+				strings.Replace(action, "actions/", "actions-", 1),
+			}
+		}
+	} else {
+		// Standard variations for other operations
+		// Be more conservative with replacements to avoid over-transformation
+		variations = []string{
+			action,
+			strings.ReplaceAll(action, "_", "-"),
+			strings.ReplaceAll(action, "-", "_"),
+			strings.ReplaceAll(action, "_", "/"),
+		}
+		
+		// For hyphenated operations, try replacing just the first hyphen with slash
+		// This handles cases like "repos-get" -> "repos/get" without breaking
+		// compound names like "list-repo-workflows"
+		if strings.Contains(action, "-") {
+			// Count hyphens to decide replacement strategy
+			hyphenCount := strings.Count(action, "-")
+			if hyphenCount == 1 {
+				// Single hyphen: replace with slash (e.g., "repos-get" -> "repos/get")
+				variations = append(variations, strings.ReplaceAll(action, "-", "/"))
+			} else {
+				// Multiple hyphens: only replace the first one
+				// (e.g., "repos-list-for-user" -> "repos/list-for-user")
+				idx := strings.Index(action, "-")
+				if idx > 0 {
+					variations = append(variations, action[:idx]+"/"+action[idx+1:])
+				}
+			}
+		}
 	}
 
 	for _, variation := range variations {

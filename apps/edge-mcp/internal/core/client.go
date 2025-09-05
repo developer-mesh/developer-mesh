@@ -342,8 +342,21 @@ func (c *Client) createProxyHandler(toolName string, toolID string) tools.ToolHa
 			for _, prefix := range operationPrefixes {
 				if idx := strings.LastIndex(toolName, prefix); idx != -1 {
 					action = toolName[idx:]
-					// Convert hyphens to underscores for consistency with backend
-					action = strings.ReplaceAll(action, "-", "_")
+					// For GitHub Actions operations, preserve the full action with prefix
+					// The provider will handle the normalization
+					if strings.HasPrefix(action, "actions-") || strings.HasPrefix(action, "actions_") {
+						// Keep the full action including the "actions-" prefix
+						// Just normalize underscores to hyphens if present
+						if strings.HasPrefix(action, "actions_") {
+							action = strings.Replace(action, "actions_", "actions-", 1)
+						}
+						// Keep action as-is: "actions-list-workflows" or "actions-trigger-workflow"
+					} else {
+						// For other operations, convert to slash format
+						// e.g., "repos-list" -> "repos/list"
+						action = strings.Replace(action, "-", "/", 1)
+						action = strings.Replace(action, "_", "/", 1)
+					}
 					break
 				}
 			}

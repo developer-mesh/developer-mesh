@@ -631,6 +631,38 @@ func (a *DynamicToolAdapter) findOperation(spec *openapi3.T, actionID string, co
 		"tool_name": a.tool.ToolName,
 	})
 
+	// Check direct mapping first for known problematic cases
+	// This bypasses the OperationResolver's transformations
+	// Now all operations come with consistent hyphen formatting
+	directMap := map[string]string{
+		"actions-list-repo-workflows":      "actions/list-repo-workflows",
+		"actions-create-workflow-dispatch": "actions/create-workflow-dispatch",
+	}
+	
+	a.logger.Info("Checking direct mapping", map[string]interface{}{
+		"action_id": actionID,
+		"has_match": directMap[actionID] != "",
+	})
+	
+	if mapped, ok := directMap[actionID]; ok {
+		// Try the mapped operation ID
+		if spec.Paths != nil {
+			for path, pathItem := range spec.Paths.Map() {
+				for method, operation := range pathItem.Operations() {
+					if operation != nil && operation.OperationID == mapped {
+						a.logger.Debug("Found operation by direct mapping", map[string]interface{}{
+							"original":     actionID,
+							"mapped":       mapped,
+							"path":         path,
+							"method":       method,
+						})
+						return operation, path, method, nil
+					}
+				}
+			}
+		}
+	}
+
 	// Use the OperationResolver for intelligent operation resolution
 	if a.operationResolver != nil {
 		// Add resource type to context if we have it
@@ -689,13 +721,8 @@ func (a *DynamicToolAdapter) findOperation(spec *openapi3.T, actionID string, co
 		}
 	}
 
-	// Fallback to basic matching for backward compatibility
-	// Normalize action ID - handle both slash and hyphen formats
-	// e.g., "repos/get-content" or "repos-get-content"
-	normalizedID := strings.ReplaceAll(actionID, "/", "-")
-	alternativeID := strings.ReplaceAll(actionID, "-", "/")
 
-	// First try by operation ID (exact match and normalized variants)
+	// Try exact match first
 	if spec.Paths != nil {
 		for path, pathItem := range spec.Paths.Map() {
 			for method, operation := range pathItem.Operations() {
@@ -703,15 +730,6 @@ func (a *DynamicToolAdapter) findOperation(spec *openapi3.T, actionID string, co
 					// Try exact match
 					if operation.OperationID == actionID {
 						a.logger.Debug("Found operation by exact ID", map[string]interface{}{
-							"operation_id": operation.OperationID,
-							"path":         path,
-							"method":       method,
-						})
-						return operation, path, method, nil
-					}
-					// Try normalized match
-					if operation.OperationID == normalizedID || operation.OperationID == alternativeID {
-						a.logger.Debug("Found operation by normalized ID", map[string]interface{}{
 							"operation_id": operation.OperationID,
 							"path":         path,
 							"method":       method,

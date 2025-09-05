@@ -647,29 +647,27 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 	var extractedOperation string
 
 	// Check if this is an expanded tool ID (format: parent_id_operation)
-	// If so, extract the parent tool ID and the operation
-	if strings.Contains(toolID, "_") {
-		parts := strings.SplitN(toolID, "_", 2)
-		if len(parts) == 2 {
-			// This is an expanded tool, use the parent ID for lookup
-			parentToolID := parts[0]
-			extractedOperation = parts[1]
+	// Check if this is an expanded tool (has UUID followed by operation)
+	// Format: {uuid}-{operation} where uuid is 36 chars
+	if len(toolID) > 36 && toolID[36] == '-' {
+		// This is an expanded tool, extract the parent ID and operation
+		parentToolID := toolID[:36]
+		extractedOperation = toolID[37:]
 
-			// Override the action with the operation name if not provided
-			if action == "" || action == "execute" {
-				action = extractedOperation
-			}
-
-			// Use the parent tool ID for execution
-			toolID = parentToolID
-
-			api.logger.Debug("Handling expanded tool execution", map[string]interface{}{
-				"original_tool_id": originalToolID,
-				"parent_tool_id":   parentToolID,
-				"operation":        extractedOperation,
-				"action":           action,
-			})
+		// Override the action with the operation name if not provided
+		if action == "" || action == "execute" {
+			action = extractedOperation
 		}
+
+		// Use the parent tool ID for execution
+		toolID = parentToolID
+
+		api.logger.Debug("Handling expanded tool execution", map[string]interface{}{
+			"original_tool_id": originalToolID,
+			"parent_tool_id":   parentToolID,
+			"operation":        extractedOperation,
+			"action":           action,
+		})
 	}
 
 	var req models.ToolExecutionRequest
@@ -1455,7 +1453,7 @@ func (api *DynamicToolsAPI) expandOrganizationTool(ctx context.Context, ot *mode
 
 		// Create the dynamic tool
 		tool := &models.DynamicTool{
-			ID:          fmt.Sprintf("%s_%s", ot.ID, strings.ReplaceAll(operationName, "/", "_")),
+			ID:          fmt.Sprintf("%s-%s", ot.ID, operationNameForTool),
 			TenantID:    ot.TenantID,
 			ToolName:    toolName,
 			DisplayName: displayName,
