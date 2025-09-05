@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Operation Name Transformation for GitHub Actions** (2025-09-05): Fixed incorrect operation ID transformation
+  - Resolved issue where GitHub Actions operations were being over-transformed
+  - Changed tool ID generation to use hyphens consistently instead of mix of underscores/hyphens
+  - Fixed aggressive hyphen-to-slash replacement in OperationResolver fuzzy matching
+  - Updated GitHub provider to handle multi-hyphen operations intelligently
+  - Operations like 'actions-list-repo-workflows' now correctly map to 'actions/list-repo-workflows'
+    instead of incorrectly transforming to 'actions/list/repo/workflows'
+  - Implemented smart replacement strategy based on hyphen count:
+    - Single hyphen: full replacement (e.g., 'repos-get' → 'repos/get')
+    - Multiple hyphens: first hyphen only (e.g., 'actions-list-repo-workflows' → 'actions/list-repo-workflows')
+  - Root cause: Multiple layers were doing blanket string replacements without coordination
+
 ### Added
 
 - **Template-Based Tool Expansion for All Providers** (2025-08-29): Universal tool expansion system
