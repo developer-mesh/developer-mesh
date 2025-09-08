@@ -485,16 +485,16 @@ func (p *GitHubProvider) normalizeOperationName(operation string) string {
 	if _, exists := p.GetOperationMappings()[operation]; exists {
 		return operation
 	}
-	
+
 	// Handle GitHub Actions operations specially
 	// Map our simplified names to GitHub's actual operation IDs
 	actionsOperations := map[string]string{
-		"list-workflows":    "actions/list-repo-workflows",
-		"trigger-workflow":  "actions/create-workflow-dispatch",
-		"list_workflows":    "actions/list-repo-workflows",
+		"list-workflows":   "actions/list-repo-workflows",
+		"trigger-workflow": "actions/create-workflow-dispatch",
+		"list_workflows":   "actions/list-repo-workflows",
 		"trigger_workflow": "actions/create-workflow-dispatch",
 	}
-	
+
 	// Check if operation starts with "actions-" and strip it to check the map
 	if strings.HasPrefix(operation, "actions-") {
 		shortOp := strings.TrimPrefix(operation, "actions-")
@@ -502,7 +502,7 @@ func (p *GitHubProvider) normalizeOperationName(operation string) string {
 			return actionOp
 		}
 	}
-	
+
 	if actionOp, ok := actionsOperations[operation]; ok {
 		return actionOp
 	}
@@ -510,7 +510,7 @@ func (p *GitHubProvider) normalizeOperationName(operation string) string {
 	// Handle different separators to normalize format for other operations
 	// Be careful not to over-transform operations with multiple hyphens
 	normalized := operation
-	
+
 	// For operations with underscores, replace with slashes
 	if strings.Contains(operation, "_") {
 		normalized = strings.ReplaceAll(operation, "_", "/")

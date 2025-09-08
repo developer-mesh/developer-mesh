@@ -384,7 +384,7 @@ func (r *OperationResolver) fuzzyMatch(action string) *ResolvedOperation {
 			strings.ReplaceAll(action, "-", "_"),
 			strings.ReplaceAll(action, "_", "/"),
 		}
-		
+
 		// For hyphenated operations, try replacing just the first hyphen with slash
 		// This handles cases like "repos-get" -> "repos/get" without breaking
 		// compound names like "list-repo-workflows"

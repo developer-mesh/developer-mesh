@@ -346,7 +346,9 @@ func TestGitLabProvider_ExtendedOperations(t *testing.T) {
 				// Return mock response
 				w.WriteHeader(http.StatusOK)
 				if tt.mockResponse != nil {
-					json.NewEncoder(w).Encode(tt.mockResponse)
+					if err := json.NewEncoder(w).Encode(tt.mockResponse); err != nil {
+						t.Errorf("Failed to encode response: %v", err)
+					}
 				}
 			}))
 			defer server.Close()
@@ -440,26 +442,33 @@ func TestGitLabProvider_SpecialOperations(t *testing.T) {
 
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				// Capture the actual request
-				if tt.expectedOperation == "issues/update" {
+				switch tt.expectedOperation {
+				case "issues/update":
 					assert.Contains(t, r.URL.Path, "/issues/")
 					assert.Equal(t, "PUT", r.Method)
 
 					// Check that state_event was injected
 					var body map[string]interface{}
-					json.NewDecoder(r.Body).Decode(&body)
+					if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+						t.Errorf("Failed to decode request body: %v", err)
+					}
 					assert.Equal(t, tt.expectedParams["state_event"], body["state_event"])
-				} else if tt.expectedOperation == "merge_requests/update" {
+				case "merge_requests/update":
 					assert.Contains(t, r.URL.Path, "/merge_requests/")
 					assert.Equal(t, "PUT", r.Method)
 
 					// Check that state_event was injected
 					var body map[string]interface{}
-					json.NewDecoder(r.Body).Decode(&body)
+					if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+						t.Errorf("Failed to decode request body: %v", err)
+					}
 					assert.Equal(t, tt.expectedParams["state_event"], body["state_event"])
 				}
 
 				w.WriteHeader(http.StatusOK)
-				json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+				if err := json.NewEncoder(w).Encode(map[string]interface{}{"success": true}); err != nil {
+					t.Errorf("Failed to encode response: %v", err)
+				}
 			}))
 			defer server.Close()
 
@@ -693,16 +702,20 @@ func TestGitLabProvider_PassThroughAuthentication(t *testing.T) {
 				// For validation endpoint
 				if r.URL.Path == "/user" {
 					w.WriteHeader(http.StatusOK)
-					json.NewEncoder(w).Encode(map[string]interface{}{
+					if err := json.NewEncoder(w).Encode(map[string]interface{}{
 						"id":       1,
 						"username": "testuser",
-					})
+					}); err != nil {
+						t.Errorf("Failed to encode response: %v", err)
+					}
 					return
 				}
 
 				// For other endpoints
 				w.WriteHeader(http.StatusOK)
-				json.NewEncoder(w).Encode([]interface{}{})
+				if err := json.NewEncoder(w).Encode([]interface{}{}); err != nil {
+					t.Errorf("Failed to encode response: %v", err)
+				}
 			}))
 			defer server.Close()
 

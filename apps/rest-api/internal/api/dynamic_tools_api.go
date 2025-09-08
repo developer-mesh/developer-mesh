@@ -717,7 +717,7 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 			"params":     req.Parameters,
 			"param_keys": paramKeys,
 		}
-		
+
 		// Log credential details
 		if req.PassthroughAuth.Credentials != nil {
 			for provider, cred := range req.PassthroughAuth.Credentials {
@@ -729,7 +729,7 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 				}
 			}
 		}
-		
+
 		api.logger.Info("Executing tool action with passthrough", authInfo)
 	} else {
 		api.logger.Info("Executing tool action without passthrough", map[string]interface{}{

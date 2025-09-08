@@ -207,13 +207,13 @@ func (h *Handler) HandleStdio() {
 	fmt.Fprintf(os.Stderr, "  AWS_ACCESS_KEY_ID: %v\n", os.Getenv("AWS_ACCESS_KEY_ID") != "")
 	fmt.Fprintf(os.Stderr, "  DEV_MESH_URL: %s\n", os.Getenv("DEV_MESH_URL"))
 	fmt.Fprintf(os.Stderr, "  DEV_MESH_API_KEY: %v\n", os.Getenv("DEV_MESH_API_KEY") != "")
-	
+
 	h.logger.Info("Checking environment variables for tokens", map[string]interface{}{
-		"has_HARNESS_TOKEN":  os.Getenv("HARNESS_TOKEN") != "",
-		"has_HARNESS_API_KEY": os.Getenv("HARNESS_API_KEY") != "",
-		"has_GITHUB_TOKEN":   os.Getenv("GITHUB_TOKEN") != "",
-		"has_AWS_ACCESS_KEY": os.Getenv("AWS_ACCESS_KEY_ID") != "",
-		"has_DEV_MESH_URL":   os.Getenv("DEV_MESH_URL") != "",
+		"has_HARNESS_TOKEN":    os.Getenv("HARNESS_TOKEN") != "",
+		"has_HARNESS_API_KEY":  os.Getenv("HARNESS_API_KEY") != "",
+		"has_GITHUB_TOKEN":     os.Getenv("GITHUB_TOKEN") != "",
+		"has_AWS_ACCESS_KEY":   os.Getenv("AWS_ACCESS_KEY_ID") != "",
+		"has_DEV_MESH_URL":     os.Getenv("DEV_MESH_URL") != "",
 		"has_DEV_MESH_API_KEY": os.Getenv("DEV_MESH_API_KEY") != "",
 	})
 

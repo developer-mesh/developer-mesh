@@ -403,21 +403,21 @@ func (c *Client) createProxyHandler(toolName string, toolID string) tools.ToolHa
 		// Include passthrough auth if available
 		if passthroughAuth != nil {
 			payload["passthrough_auth"] = passthroughAuth
-			
+
 			// Log detailed passthrough auth info
 			authInfo := map[string]interface{}{
 				"tool":             toolName,
 				"has_passthrough":  true,
 				"credential_count": len(passthroughAuth.Credentials),
 			}
-			
+
 			// Log each credential provider and token length (without exposing tokens)
 			for provider, cred := range passthroughAuth.Credentials {
 				if cred != nil {
 					authInfo[provider+"_token_len"] = len(cred.Token)
 				}
 			}
-			
+
 			c.logger.Info("Including passthrough auth in tool execution", authInfo)
 		}
 

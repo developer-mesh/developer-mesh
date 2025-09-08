@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Code Quality and Linting Issues** (2025-09-08): Resolved all golangci-lint errors across the codebase
+  - Fixed 8 errcheck errors: Added proper error handling for JSON encode/decode operations and HTTP writes
+  - Fixed 7 staticcheck issues: Removed unnecessary nil checks, applied De Morgan's law, removed embedded field selectors
+  - Converted if-else chains to switch statements for better readability (QF1003)
+  - Affected files: enhanced_tool_registry.go, gitlab tests, artifactory provider, harness provider and tests
+  - Result: 0 linting issues remaining (was 15)
+
 - **Harness Provider Authentication and Parameter Handling** (2025-09-08): Fixed multiple issues with Harness integration
   - Fixed credential mapping: Changed from always setting "token" to proper key mapping based on auth type (api_key vs bearer)
   - Added automatic accountIdentifier extraction from PAT token format (pat.ACCOUNT_ID.xxx)

@@ -175,7 +175,9 @@ func TestHarnessProvider_ValidateCredentials(t *testing.T) {
 					assert.Contains(t, r.URL.Path, "/api/user/currentUser")
 
 					w.WriteHeader(tt.serverResponse)
-					w.Write([]byte(tt.serverBody))
+					if _, err := w.Write([]byte(tt.serverBody)); err != nil {
+						t.Errorf("Failed to write response: %v", err)
+					}
 				}))
 				defer server.Close()
 			}
@@ -286,7 +288,9 @@ func TestHarnessProvider_ExecuteOperation(t *testing.T) {
 						tt.validateRequest(t, r)
 					}
 					w.WriteHeader(tt.serverResponse)
-					w.Write([]byte(tt.serverBody))
+					if _, err := w.Write([]byte(tt.serverBody)); err != nil {
+						t.Errorf("Failed to write response: %v", err)
+					}
 				}))
 				defer server.Close()
 			}

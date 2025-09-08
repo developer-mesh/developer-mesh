@@ -382,11 +382,12 @@ func (d *HarnessPermissionDiscoverer) FilterOperationsByPermissions(
 		if allowed && len(permissions.ResourceAccess) > 0 {
 			// Map the module name to resource key (e.g., "pipelines" -> "pipeline")
 			resourceKey := module
-			if module == "pipelines" {
+			switch module {
+			case "pipelines":
 				resourceKey = "pipeline"
-			} else if module == "projects" || module == "orgs" {
+			case "projects", "orgs":
 				resourceKey = "project"
-			} else if module == "connectors" {
+			case "connectors":
 				resourceKey = "connector"
 			}
 			resourcePerms, hasPerms := permissions.ResourceAccess[resourceKey]

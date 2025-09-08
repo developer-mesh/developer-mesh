@@ -638,12 +638,12 @@ func (a *DynamicToolAdapter) findOperation(spec *openapi3.T, actionID string, co
 		"actions-list-repo-workflows":      "actions/list-repo-workflows",
 		"actions-create-workflow-dispatch": "actions/create-workflow-dispatch",
 	}
-	
+
 	a.logger.Info("Checking direct mapping", map[string]interface{}{
 		"action_id": actionID,
 		"has_match": directMap[actionID] != "",
 	})
-	
+
 	if mapped, ok := directMap[actionID]; ok {
 		// Try the mapped operation ID
 		if spec.Paths != nil {
@@ -651,10 +651,10 @@ func (a *DynamicToolAdapter) findOperation(spec *openapi3.T, actionID string, co
 				for method, operation := range pathItem.Operations() {
 					if operation != nil && operation.OperationID == mapped {
 						a.logger.Debug("Found operation by direct mapping", map[string]interface{}{
-							"original":     actionID,
-							"mapped":       mapped,
-							"path":         path,
-							"method":       method,
+							"original": actionID,
+							"mapped":   mapped,
+							"path":     path,
+							"method":   method,
 						})
 						return operation, path, method, nil
 					}
@@ -720,7 +720,6 @@ func (a *DynamicToolAdapter) findOperation(spec *openapi3.T, actionID string, co
 			}
 		}
 	}
-
 
 	// Try exact match first
 	if spec.Paths != nil {

@@ -925,7 +925,7 @@ func (p *ArtifactoryProvider) ValidateCredentials(ctx context.Context, creds map
 	password, hasPassword := creds["password"]
 
 	// Artifactory supports multiple auth methods
-	if !hasToken && !hasAPIKey && !(hasUsername && hasPassword) {
+	if !hasToken && !hasAPIKey && (!hasUsername || !hasPassword) {
 		return fmt.Errorf("artifactory validate credentials: no valid credentials provided (requires token, api_key, or username/password)")
 	}
 
@@ -949,12 +949,12 @@ func (p *ArtifactoryProvider) ValidateCredentials(ctx context.Context, creds map
 	}
 
 	// Temporarily set the auth type
-	p.BaseProvider.SetConfiguration(tempConfig)
+	p.SetConfiguration(tempConfig)
 	// Restore original auth type after validation
 	defer func() {
-		restoreConfig := p.BaseProvider.GetDefaultConfiguration()
+		restoreConfig := p.GetDefaultConfiguration()
 		restoreConfig.AuthType = originalAuthType
-		p.BaseProvider.SetConfiguration(restoreConfig)
+		p.SetConfiguration(restoreConfig)
 	}()
 
 	// Use the context with credentials

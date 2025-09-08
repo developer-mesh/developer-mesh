@@ -283,7 +283,7 @@ func (p *HarnessProvider) ValidateCredentials(ctx context.Context, creds map[str
 	ctx = providers.WithContext(ctx, pctx)
 
 	// Use ExecuteHTTPRequest which handles base URL properly
-	resp, err := p.BaseProvider.ExecuteHTTPRequest(ctx, "GET", testPath, nil, nil)
+	resp, err := p.ExecuteHTTPRequest(ctx, "GET", testPath, nil, nil)
 
 	if err != nil {
 		return fmt.Errorf("failed to validate credentials: %w", err)

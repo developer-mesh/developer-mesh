@@ -314,11 +314,11 @@ func (r *EnhancedToolRegistry) executeOrganizationTool(
 			}
 			usingPassthrough = true
 			r.logger.Info("Using passthrough authentication", map[string]interface{}{
-				"tool_id":       orgTool.ID,
-				"provider":      template.ProviderName,
-				"has_token":     providerCred.Token != "",
-				"token_len":     len(providerCred.Token),
-				"auth_type":     providerCred.Type,
+				"tool_id":   orgTool.ID,
+				"provider":  template.ProviderName,
+				"has_token": providerCred.Token != "",
+				"token_len": len(providerCred.Token),
+				"auth_type": providerCred.Type,
 			})
 		}
 	}
@@ -326,7 +326,7 @@ func (r *EnhancedToolRegistry) executeOrganizationTool(
 	// If no passthrough auth or not applicable, decrypt stored credentials
 	if !usingPassthrough {
 		// Check if we have stored credentials
-		if orgTool.CredentialsEncrypted == nil || len(orgTool.CredentialsEncrypted) == 0 {
+		if len(orgTool.CredentialsEncrypted) == 0 {
 			// Check template's default_config metadata for passthrough mode
 			var passthroughMode string
 			if template.DefaultConfig.Metadata != nil {
@@ -334,7 +334,7 @@ func (r *EnhancedToolRegistry) executeOrganizationTool(
 					passthroughMode, _ = pc["mode"].(string)
 				}
 			}
-			
+
 			// If passthrough is optional or required, and we don't have creds, that's an error
 			if passthroughMode == "required" || (passthroughMode == "optional" && passthroughAuth == nil) {
 				return nil, fmt.Errorf("no credentials available for tool %s (passthrough mode: %s)", orgTool.ID, passthroughMode)

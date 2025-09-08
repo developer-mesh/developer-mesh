@@ -191,7 +191,9 @@ func TestGitLabProvider_ValidateCredentials(t *testing.T) {
 					assert.Contains(t, r.URL.Path, "/user")
 
 					w.WriteHeader(tt.serverResponse)
-					w.Write([]byte(tt.serverBody))
+					if _, err := w.Write([]byte(tt.serverBody)); err != nil {
+						t.Errorf("Failed to write response: %v", err)
+					}
 				}))
 				defer server.Close()
 			}
@@ -330,7 +332,9 @@ func TestGitLabProvider_ExecuteOperation(t *testing.T) {
 						tt.validateRequest(t, r)
 					}
 					w.WriteHeader(tt.serverResponse)
-					w.Write([]byte(tt.serverBody))
+					if _, err := w.Write([]byte(tt.serverBody)); err != nil {
+						t.Errorf("Failed to write response: %v", err)
+					}
 				}))
 				defer server.Close()
 			}
@@ -446,7 +450,9 @@ func TestGitLabProvider_HealthCheck(t *testing.T) {
 				assert.Contains(t, r.URL.Path, "/version")
 				w.WriteHeader(tt.serverResponse)
 				if tt.serverResponse == http.StatusOK {
-					w.Write([]byte(`{"version": "16.5.0", "revision": "abc123"}`))
+					if _, err := w.Write([]byte(`{"version": "16.5.0", "revision": "abc123"}`)); err != nil {
+						t.Errorf("Failed to write response: %v", err)
+					}
 				}
 			}))
 			defer server.Close()

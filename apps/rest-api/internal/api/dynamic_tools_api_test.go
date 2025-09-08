@@ -408,13 +408,13 @@ func TestExpandOrganizationTool(t *testing.T) {
 
 		// Assert
 		assert.Len(t, expandedTools, 3, "Should expand GitHub operations")
-		
+
 		// Create a map for order-independent checking
 		toolNames := make(map[string]bool)
 		for _, tool := range expandedTools {
 			toolNames[tool.ToolName] = true
 		}
-		
+
 		// Check tool names follow expected format
 		assert.True(t, toolNames["github-devmesh-repos-list"], "Should have repos-list tool")
 		assert.True(t, toolNames["github-devmesh-issues-create"], "Should have issues-create tool")
@@ -488,9 +488,9 @@ func TestCreateSingleToolFromOrgTool(t *testing.T) {
 			"base_url": "https://api.example.com",
 			"provider": "test",
 		},
-		Status:   "active",
-		IsActive: true,
-		Tags:     []string{"test", "example"},
+		Status:    "active",
+		IsActive:  true,
+		Tags:      []string{"test", "example"},
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}

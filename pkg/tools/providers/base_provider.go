@@ -229,7 +229,7 @@ func (p *BaseProvider) Execute(ctx context.Context, operation string, params map
 			// Default behavior for other endpoints
 			body = params
 		}
-		
+
 		// Build query string for POST requests that need query params
 		if len(queryParams) > 0 {
 			values := url.Values{}
@@ -344,25 +344,25 @@ func (p *BaseProvider) applyAuthentication(ctx context.Context, req *http.Reques
 	if !ok || pctx.Credentials == nil {
 		if p.logger != nil {
 			p.logger.Error("No credentials in context", map[string]interface{}{
-				"has_context":     ok,
-				"context_nil":     pctx == nil,
-				"provider":        p.name,
-				"auth_type":       p.config.AuthType,
+				"has_context": ok,
+				"context_nil": pctx == nil,
+				"provider":    p.name,
+				"auth_type":   p.config.AuthType,
 			})
 		}
 		return fmt.Errorf("no credentials found in context")
 	}
-	
+
 	// Log credential status
 	if p.logger != nil {
 		p.logger.Info("Applying authentication", map[string]interface{}{
-			"provider":        p.name,
-			"auth_type":       p.config.AuthType,
-			"has_token":       pctx.Credentials.Token != "",
-			"token_len":       len(pctx.Credentials.Token),
-			"has_api_key":     pctx.Credentials.APIKey != "",
-			"has_username":    pctx.Credentials.Username != "",
-			"url":             req.URL.String(),
+			"provider":     p.name,
+			"auth_type":    p.config.AuthType,
+			"has_token":    pctx.Credentials.Token != "",
+			"token_len":    len(pctx.Credentials.Token),
+			"has_api_key":  pctx.Credentials.APIKey != "",
+			"has_username": pctx.Credentials.Username != "",
+			"url":          req.URL.String(),
 		})
 	}
 

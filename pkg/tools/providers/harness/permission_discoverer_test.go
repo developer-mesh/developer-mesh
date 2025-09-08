@@ -104,14 +104,18 @@ func TestHarnessPermissionDiscoverer_DiscoverPermissions(t *testing.T) {
 				for path, resp := range tt.responses {
 					if r.URL.Path == path || containsString(r.URL.String(), path) {
 						w.WriteHeader(resp.status)
-						w.Write([]byte(resp.body))
+						if _, err := w.Write([]byte(resp.body)); err != nil {
+							t.Errorf("Failed to write response: %v", err)
+						}
 						return
 					}
 				}
 
 				// Default response
 				w.WriteHeader(http.StatusNotFound)
-				w.Write([]byte(`{"message": "Not found"}`))
+				if _, err := w.Write([]byte(`{"message": "Not found"}`)); err != nil {
+					t.Errorf("Failed to write response: %v", err)
+				}
 			}))
 			defer server.Close()
 
@@ -254,7 +258,9 @@ func TestHarnessPermissionDiscoverer_probeEndpoint(t *testing.T) {
 				assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 
 				w.WriteHeader(tt.responseCode)
-				w.Write([]byte(`{}`))
+				if _, err := w.Write([]byte(`{}`)); err != nil {
+					t.Errorf("Failed to write response: %v", err)
+				}
 			}))
 			defer server.Close()
 
