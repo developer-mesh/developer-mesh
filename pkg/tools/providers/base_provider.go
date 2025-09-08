@@ -120,12 +120,52 @@ func (p *BaseProvider) Execute(ctx context.Context, operation string, params map
 	path := mapping.PathTemplate
 	queryParams := make(map[string]string)
 
+	// For Harness provider, try to extract accountIdentifier from PAT token if missing
+	if p.name == "harness" {
+		if _, hasAccount := params["accountIdentifier"]; !hasAccount {
+			// Try to extract from context credentials
+			if pctx, ok := FromContext(ctx); ok && pctx.Credentials != nil {
+				apiKey := pctx.Credentials.APIKey
+				if apiKey == "" {
+					apiKey = pctx.Credentials.Token
+				}
+				// Check if it's a PAT token format: pat.ACCOUNT_ID.xxx
+				if strings.HasPrefix(apiKey, "pat.") {
+					parts := strings.Split(apiKey, ".")
+					if len(parts) >= 3 {
+						params["accountIdentifier"] = parts[1]
+						if p.logger != nil {
+							p.logger.Debug("Extracted account ID from PAT token", map[string]interface{}{
+								"account_id": parts[1],
+							})
+						}
+					}
+				}
+			}
+		}
+	}
+
 	// Replace path parameters
 	for _, param := range mapping.RequiredParams {
+		placeholder := "{" + param + "}"
 		if value, ok := params[param]; ok {
-			placeholder := "{" + param + "}"
 			if strings.Contains(path, placeholder) {
 				path = strings.ReplaceAll(path, placeholder, fmt.Sprintf("%v", value))
+			}
+		} else if strings.Contains(path, placeholder) {
+			// For Harness, provide sensible defaults for common parameters
+			switch param {
+			case "org":
+				// Try "default" as a fallback for org
+				path = strings.ReplaceAll(path, placeholder, "default")
+				params[param] = "default" // Add to params for body if needed
+			case "project":
+				// Try "default" as a fallback for project
+				path = strings.ReplaceAll(path, placeholder, "default")
+				params[param] = "default" // Add to params for body if needed
+			default:
+				// Return error for other missing required params
+				return nil, fmt.Errorf("required parameter '%s' not provided for operation", param)
 			}
 		}
 	}
@@ -159,7 +199,45 @@ func (p *BaseProvider) Execute(ctx context.Context, operation string, params map
 	// Prepare body for POST/PUT/PATCH methods
 	var body interface{}
 	if mapping.Method == "POST" || mapping.Method == "PUT" || mapping.Method == "PATCH" {
-		body = params
+		// Special handling for certain endpoints that need specific body structures
+		if strings.Contains(mapping.PathTemplate, "/recommendation/overview/list") {
+			// CCM recommendations endpoint expects a CCMRecommendationFilterProperties object
+			// Send a properly structured filter to get all recommendations
+			body = map[string]interface{}{
+				"perspectiveFilters": []interface{}{},
+			}
+			// accountIdentifier is a required query parameter for this endpoint
+			if accountID, ok := params["accountIdentifier"]; ok {
+				queryParams["accountIdentifier"] = fmt.Sprintf("%v", accountID)
+				// Remove from body params since it goes in query
+				delete(params, "accountIdentifier")
+			} else {
+				// Check if it's in the required params list
+				for _, reqParam := range mapping.RequiredParams {
+					if reqParam == "accountIdentifier" {
+						return nil, fmt.Errorf("accountIdentifier is required for CCM recommendations")
+					}
+				}
+			}
+		} else if strings.Contains(mapping.PathTemplate, "/anomaly") {
+			// CCM anomalies endpoint also expects a specific structure
+			body = map[string]interface{}{}
+			if accountID, ok := params["accountIdentifier"]; ok {
+				queryParams["accountIdentifier"] = fmt.Sprintf("%v", accountID)
+			}
+		} else {
+			// Default behavior for other endpoints
+			body = params
+		}
+		
+		// Build query string for POST requests that need query params
+		if len(queryParams) > 0 {
+			values := url.Values{}
+			for k, v := range queryParams {
+				values.Add(k, v)
+			}
+			path = path + "?" + values.Encode()
+		}
 	}
 
 	// Execute HTTP request
@@ -177,10 +255,32 @@ func (p *BaseProvider) Execute(ctx context.Context, operation string, params map
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
+	// Check for non-2xx status codes
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		// Try to parse error response
+		var errorResult map[string]interface{}
+		if err := json.Unmarshal(responseBody, &errorResult); err != nil {
+			// If not JSON, return the raw response
+			return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(responseBody))
+		}
+		// Return the parsed error
+		return errorResult, nil
+	}
+
 	// Parse JSON response
 	var result interface{}
 	if err := json.Unmarshal(responseBody, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+		// Check if it's an HTML error page
+		bodyStr := string(responseBody)
+		if strings.Contains(bodyStr, "<html") || strings.Contains(bodyStr, "<!DOCTYPE") {
+			return nil, fmt.Errorf("received HTML response instead of JSON (status %d)", resp.StatusCode)
+		}
+		// For other parse errors, include a snippet of the response
+		snippet := bodyStr
+		if len(snippet) > 200 {
+			snippet = snippet[:200] + "..."
+		}
+		return nil, fmt.Errorf("failed to parse response: %w (response: %s)", err, snippet)
 	}
 
 	return result, nil

@@ -507,7 +507,7 @@ func (p *HarnessProvider) GetOperationMappings() map[string]providers.OperationM
 		mappings["sto/vulnerabilities/list"] = providers.OperationMapping{
 			OperationID:    "listVulnerabilities",
 			Method:         "GET",
-			PathTemplate:   "/sto/api/v2/vulnerabilities",
+			PathTemplate:   "/sto/api/v2/issues",
 			RequiredParams: []string{},
 			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "severity", "page", "limit"},
 		}
@@ -540,8 +540,8 @@ func (p *HarnessProvider) GetOperationMappings() map[string]providers.OperationM
 			OperationID:    "listCostRecommendations",
 			Method:         "POST",
 			PathTemplate:   "/ccm/api/recommendation/overview/list",
-			RequiredParams: []string{},
-			OptionalParams: []string{"accountIdentifier"},
+			RequiredParams: []string{"accountIdentifier"},
+			OptionalParams: []string{},
 		}
 		mappings["ccm/anomalies/list"] = providers.OperationMapping{
 			OperationID:    "listCostAnomalies",

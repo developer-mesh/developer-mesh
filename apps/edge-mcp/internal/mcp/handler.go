@@ -198,6 +198,25 @@ func (h *Handler) HandleConnection(conn *websocket.Conn, r *http.Request) {
 func (h *Handler) HandleStdio() {
 	sessionID := uuid.New().String()
 
+	// Log all environment variables that might contain tokens (for debugging)
+	// Write to stderr so it appears in Claude logs
+	fmt.Fprintf(os.Stderr, "[edge-mcp] Checking environment variables:\n")
+	fmt.Fprintf(os.Stderr, "  HARNESS_TOKEN: %v\n", os.Getenv("HARNESS_TOKEN") != "")
+	fmt.Fprintf(os.Stderr, "  HARNESS_API_KEY: %v\n", os.Getenv("HARNESS_API_KEY") != "")
+	fmt.Fprintf(os.Stderr, "  GITHUB_TOKEN: %v (len=%d)\n", os.Getenv("GITHUB_TOKEN") != "", len(os.Getenv("GITHUB_TOKEN")))
+	fmt.Fprintf(os.Stderr, "  AWS_ACCESS_KEY_ID: %v\n", os.Getenv("AWS_ACCESS_KEY_ID") != "")
+	fmt.Fprintf(os.Stderr, "  DEV_MESH_URL: %s\n", os.Getenv("DEV_MESH_URL"))
+	fmt.Fprintf(os.Stderr, "  DEV_MESH_API_KEY: %v\n", os.Getenv("DEV_MESH_API_KEY") != "")
+	
+	h.logger.Info("Checking environment variables for tokens", map[string]interface{}{
+		"has_HARNESS_TOKEN":  os.Getenv("HARNESS_TOKEN") != "",
+		"has_HARNESS_API_KEY": os.Getenv("HARNESS_API_KEY") != "",
+		"has_GITHUB_TOKEN":   os.Getenv("GITHUB_TOKEN") != "",
+		"has_AWS_ACCESS_KEY": os.Getenv("AWS_ACCESS_KEY_ID") != "",
+		"has_DEV_MESH_URL":   os.Getenv("DEV_MESH_URL") != "",
+		"has_DEV_MESH_API_KEY": os.Getenv("DEV_MESH_API_KEY") != "",
+	})
+
 	// Extract passthrough authentication from environment variables
 	passthroughAuth := h.extractPassthroughAuthFromEnv()
 
@@ -324,21 +343,45 @@ func (h *Handler) extractPassthroughAuthFromEnv() *models.PassthroughAuthBundle 
 
 	// Check for Harness token (try both possible env var names)
 	harnessToken := os.Getenv("HARNESS_TOKEN")
+	fmt.Fprintf(os.Stderr, "[edge-mcp] Checking HARNESS_TOKEN: found=%v, len=%d\n", harnessToken != "", len(harnessToken))
+	h.logger.Info("Checking HARNESS_TOKEN environment variable", map[string]interface{}{
+		"found":     harnessToken != "",
+		"token_len": len(harnessToken),
+	})
 	if harnessToken == "" {
 		harnessToken = os.Getenv("HARNESS_API_KEY")
+		fmt.Fprintf(os.Stderr, "[edge-mcp] Checking HARNESS_API_KEY: found=%v, len=%d\n", harnessToken != "", len(harnessToken))
+		h.logger.Info("Checking HARNESS_API_KEY environment variable", map[string]interface{}{
+			"found":     harnessToken != "",
+			"token_len": len(harnessToken),
+		})
 	}
 	if harnessToken != "" {
 		bundle.Credentials["harness"] = &models.PassthroughCredential{
 			Type:  "api_key",
 			Token: harnessToken,
 		}
+		fmt.Fprintf(os.Stderr, "[edge-mcp] Added Harness token to passthrough bundle (len=%d)\n", len(harnessToken))
 		h.logger.Info("Found Harness passthrough token in environment", map[string]interface{}{
 			"token_len": len(harnessToken),
 		})
+	} else {
+		fmt.Fprintf(os.Stderr, "[edge-mcp] WARNING: No Harness token found in environment\n")
+		h.logger.Warn("No Harness token found in environment", nil)
 	}
 
 	if len(bundle.Credentials) == 0 {
 		return nil
+	}
+
+	// Debug: Log what credentials are in the bundle
+	fmt.Fprintf(os.Stderr, "[edge-mcp] Passthrough bundle contains %d credentials:\n", len(bundle.Credentials))
+	for provider, cred := range bundle.Credentials {
+		tokenLen := 0
+		if cred.Token != "" {
+			tokenLen = len(cred.Token)
+		}
+		fmt.Fprintf(os.Stderr, "  - %s: type=%s, token_len=%d\n", provider, cred.Type, tokenLen)
 	}
 
 	return bundle

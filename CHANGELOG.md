@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Harness Provider Authentication and Parameter Handling** (2025-09-08): Fixed multiple issues with Harness integration
+  - Fixed credential mapping: Changed from always setting "token" to proper key mapping based on auth type (api_key vs bearer)
+  - Added automatic accountIdentifier extraction from PAT token format (pat.ACCOUNT_ID.xxx)
+  - Added default parameter substitution for missing org/project parameters ("default" fallback)
+  - Fixed STO vulnerabilities endpoint path from `/sto/api/v2/vulnerabilities` to `/sto/api/v2/issues`
+  - Improved error handling for non-JSON responses (HTML error pages)
+  - Added special request body handling for CCM endpoints that expect filter objects
+  - Fixed query parameter handling for POST requests that require query params
+  - Results: 5 Harness tools now working (was 0), 7 return expected auth/project errors
+
 - **Operation Name Transformation for GitHub Actions** (2025-09-05): Fixed incorrect operation ID transformation
   - Resolved issue where GitHub Actions operations were being over-transformed
   - Changed tool ID generation to use hyphens consistently instead of mix of underscores/hyphens

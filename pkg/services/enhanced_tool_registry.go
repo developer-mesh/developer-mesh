@@ -301,8 +301,16 @@ func (r *EnhancedToolRegistry) executeOrganizationTool(
 		providerCred, hasProviderCred := passthroughAuth.Credentials[template.ProviderName]
 		if hasProviderCred && providerCred != nil {
 			// Use passthrough credentials
-			credentials = map[string]string{
-				"token": providerCred.Token,
+			// Map the token to the appropriate credential key based on auth type
+			credentials = map[string]string{}
+			switch providerCred.Type {
+			case "api_key":
+				credentials["api_key"] = providerCred.Token
+			case "bearer":
+				credentials["token"] = providerCred.Token
+			default:
+				// Default to token for compatibility
+				credentials["token"] = providerCred.Token
 			}
 			usingPassthrough = true
 			r.logger.Info("Using passthrough authentication", map[string]interface{}{
