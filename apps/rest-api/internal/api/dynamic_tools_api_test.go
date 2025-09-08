@@ -205,7 +205,7 @@ func TestExpandOrganizationTool(t *testing.T) {
 		ciListTool, exists := toolsByName["harness-devmesh-ci-pipelines-list"]
 		assert.True(t, exists, "Should have ci/pipelines/list tool")
 		if exists {
-			assert.Equal(t, "org-tool-123_ci_pipelines_list", ciListTool.ID)
+			assert.Equal(t, "org-tool-123-ci-pipelines-list", ciListTool.ID)
 			assert.Equal(t, "Harness DevMesh - ci/pipelines/list", ciListTool.DisplayName)
 			assert.Equal(t, tenantID, ciListTool.TenantID)
 			assert.Equal(t, "https://app.harness.io", ciListTool.BaseURL)

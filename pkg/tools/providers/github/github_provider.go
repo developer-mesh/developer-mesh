@@ -313,6 +313,41 @@ func (p *GitHubProvider) GetOperationMappings() map[string]providers.OperationMa
 			RequiredParams: []string{"owner", "repo", "workflow_id", "ref"},
 			OptionalParams: []string{"inputs"},
 		},
+		"actions/list-workflow-runs": {
+			OperationID:    "actions/list-workflow-runs",
+			Method:         "GET",
+			PathTemplate:   "/repos/{owner}/{repo}/actions/runs",
+			RequiredParams: []string{"owner", "repo"},
+			OptionalParams: []string{"actor", "branch", "event", "status", "per_page", "page", "created", "exclude_pull_requests", "check_suite_id", "head_sha"},
+		},
+		"actions/get-workflow-run": {
+			OperationID:    "actions/get-workflow-run",
+			Method:         "GET",
+			PathTemplate:   "/repos/{owner}/{repo}/actions/runs/{run_id}",
+			RequiredParams: []string{"owner", "repo", "run_id"},
+			OptionalParams: []string{"exclude_pull_requests"},
+		},
+		"actions/list-workflow-run-jobs": {
+			OperationID:    "actions/list-workflow-run-jobs",
+			Method:         "GET",
+			PathTemplate:   "/repos/{owner}/{repo}/actions/runs/{run_id}/jobs",
+			RequiredParams: []string{"owner", "repo", "run_id"},
+			OptionalParams: []string{"filter", "per_page", "page"},
+		},
+		"actions/rerun-workflow": {
+			OperationID:    "actions/rerun-workflow",
+			Method:         "POST",
+			PathTemplate:   "/repos/{owner}/{repo}/actions/runs/{run_id}/rerun",
+			RequiredParams: []string{"owner", "repo", "run_id"},
+			OptionalParams: []string{"enable_debug_logging"},
+		},
+		"actions/list-runs-for-workflow": {
+			OperationID:    "actions/list-runs-for-workflow",
+			Method:         "GET",
+			PathTemplate:   "/repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs",
+			RequiredParams: []string{"owner", "repo", "workflow_id"},
+			OptionalParams: []string{"actor", "branch", "event", "status", "per_page", "page", "created", "exclude_pull_requests", "check_suite_id", "head_sha"},
+		},
 	}
 }
 
@@ -357,8 +392,16 @@ func (p *GitHubProvider) GetDefaultConfiguration() providers.ProviderConfig {
 			{
 				Name:        "actions",
 				DisplayName: "GitHub Actions",
-				Description: "Operations for GitHub Actions workflows",
-				Operations:  []string{"actions/list-repo-workflows", "actions/create-workflow-dispatch"},
+				Description: "Operations for GitHub Actions workflows and runs",
+				Operations: []string{
+					"actions/list-repo-workflows",
+					"actions/create-workflow-dispatch",
+					"actions/list-workflow-runs",
+					"actions/get-workflow-run",
+					"actions/list-workflow-run-jobs",
+					"actions/rerun-workflow",
+					"actions/list-runs-for-workflow",
+				},
 			},
 		},
 	}
@@ -489,10 +532,20 @@ func (p *GitHubProvider) normalizeOperationName(operation string) string {
 	// Handle GitHub Actions operations specially
 	// Map our simplified names to GitHub's actual operation IDs
 	actionsOperations := map[string]string{
-		"list-workflows":   "actions/list-repo-workflows",
-		"trigger-workflow": "actions/create-workflow-dispatch",
-		"list_workflows":   "actions/list-repo-workflows",
-		"trigger_workflow": "actions/create-workflow-dispatch",
+		"list-workflows":         "actions/list-repo-workflows",
+		"trigger-workflow":       "actions/create-workflow-dispatch",
+		"list_workflows":         "actions/list-repo-workflows",
+		"trigger_workflow":       "actions/create-workflow-dispatch",
+		"list-workflow-runs":     "actions/list-workflow-runs",
+		"list_workflow_runs":     "actions/list-workflow-runs",
+		"get-workflow-run":       "actions/get-workflow-run",
+		"get_workflow_run":       "actions/get-workflow-run",
+		"list-workflow-run-jobs": "actions/list-workflow-run-jobs",
+		"list_workflow_run_jobs": "actions/list-workflow-run-jobs",
+		"rerun-workflow":         "actions/rerun-workflow",
+		"rerun_workflow":         "actions/rerun-workflow",
+		"list-runs-for-workflow": "actions/list-runs-for-workflow",
+		"list_runs_for_workflow": "actions/list-runs-for-workflow",
 	}
 
 	// Check if operation starts with "actions-" and strip it to check the map
