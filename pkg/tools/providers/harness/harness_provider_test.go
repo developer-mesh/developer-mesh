@@ -67,7 +67,7 @@ func TestHarnessProvider_GetToolDefinitions(t *testing.T) {
 	// Check that pipeline tools are included
 	hasPipelineTool := false
 	for _, tool := range tools {
-		if tool.Category == "CI/CD" && tool.Name == "harness_pipelines" {
+		if tool.Category == "ci_cd" && tool.Name == "harness_pipelines" {
 			hasPipelineTool = true
 			assert.NotEmpty(t, tool.Name)
 			assert.NotEmpty(t, tool.Description)
@@ -84,7 +84,7 @@ func TestHarnessProvider_GetToolDefinitions(t *testing.T) {
 	// Check that pipeline tools are excluded
 	hasPipelineTool = false
 	for _, tool := range tools {
-		if tool.Category == "CI/CD" && tool.Name == "harness_pipelines" {
+		if tool.Category == "ci_cd" && tool.Name == "harness_pipelines" {
 			hasPipelineTool = true
 			break
 		}

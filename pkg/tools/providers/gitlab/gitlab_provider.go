@@ -509,13 +509,14 @@ func (p *GitLabProvider) ValidateCredentials(ctx context.Context, creds map[stri
 	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err == nil {
 		// Store user ID if available
 		if id, ok := userInfo["id"]; ok {
-			p.BaseProvider.SetConfiguration(providers.ProviderConfig{
-				Metadata: map[string]interface{}{
-					"user_id":  id,
-					"username": userInfo["username"],
-					"email":    userInfo["email"],
-				},
-			})
+			// Get current config and update metadata without losing other fields
+			config := p.BaseProvider.GetDefaultConfiguration()
+			config.Metadata = map[string]interface{}{
+				"user_id":  id,
+				"username": userInfo["username"],
+				"email":    userInfo["email"],
+			}
+			p.BaseProvider.SetConfiguration(config)
 		}
 	}
 

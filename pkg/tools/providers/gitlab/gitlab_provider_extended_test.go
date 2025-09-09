@@ -697,6 +697,7 @@ func TestGitLabProvider_PassThroughAuthentication(t *testing.T) {
 				if r.URL.Path != "/user" {
 					capturedAuth = r.Header.Get("Authorization")
 					authCaptured = true
+					t.Logf("Request to %s with Authorization: %s", r.URL.Path, capturedAuth)
 				}
 
 				// For validation endpoint
@@ -723,6 +724,7 @@ func TestGitLabProvider_PassThroughAuthentication(t *testing.T) {
 			provider := NewGitLabProvider(logger)
 			config := provider.GetDefaultConfiguration()
 			config.BaseURL = server.URL
+			t.Logf("Config AuthType: %s", config.AuthType)
 			provider.SetConfiguration(config)
 
 			// First validate credentials if provided
@@ -754,7 +756,18 @@ func TestGitLabProvider_PassThroughAuthentication(t *testing.T) {
 			}
 
 			// Execute operation
-			_, err := provider.ExecuteOperation(ctx, tt.operation, map[string]interface{}{})
+			// Provide required parameters for operations that need them
+			params := map[string]interface{}{}
+			if tt.operation == "issues/list" || tt.operation == "merge_requests/list" {
+				params["id"] = "test-project"
+			}
+			// Debug: check context
+			if pctx, ok := providers.FromContext(ctx); ok && pctx.Credentials != nil {
+				t.Logf("Context has credentials: token=%v, apikey=%v", pctx.Credentials.Token != "", pctx.Credentials.APIKey != "")
+			} else {
+				t.Logf("Context missing credentials")
+			}
+			_, err := provider.ExecuteOperation(ctx, tt.operation, params)
 
 			if tt.expectError {
 				assert.Error(t, err)
