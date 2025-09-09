@@ -267,6 +267,7 @@ func TestRelevanceService_EnvironmentBoost(t *testing.T) {
 				CreatedAt:    time.Now(),
 				LastAccessed: time.Now(),
 				AccessCount:  1,
+				Importance:   0.9, // Production environment has higher importance
 			},
 		}
 
@@ -281,6 +282,7 @@ func TestRelevanceService_EnvironmentBoost(t *testing.T) {
 				CreatedAt:    time.Now(),
 				LastAccessed: time.Now(),
 				AccessCount:  1,
+				Importance:   0.5, // Development environment has lower importance
 			},
 		}
 
