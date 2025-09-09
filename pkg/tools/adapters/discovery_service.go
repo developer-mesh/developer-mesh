@@ -11,6 +11,7 @@ import (
 
 	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/security"
 	"github.com/developer-mesh/developer-mesh/pkg/tools"
 	"github.com/getkin/kin-openapi/openapi3"
 	"golang.org/x/net/html"
@@ -546,8 +547,15 @@ func (s *DiscoveryService) applySubdomain(baseURL, subdomain string) string {
 
 // fetchContent fetches raw content from a URL
 func (s *DiscoveryService) fetchContent(ctx context.Context, url string, creds *models.TokenCredential) ([]byte, error) {
+	// Validate URL to prevent SSRF attacks
+	validator := security.NewURLValidator()
+	validatedURL, err := validator.ValidateAndSanitizeURL(url)
+	if err != nil {
+		return nil, fmt.Errorf("invalid URL: %w", err)
+	}
+
 	// Create request
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", validatedURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -656,7 +664,14 @@ func (s *DiscoveryService) fetchAndParseSpec(ctx context.Context, specURL string
 
 // checkForOpenAPIDocument checks if a URL might contain an OpenAPI document
 func (s *DiscoveryService) checkForOpenAPIDocument(ctx context.Context, url string, creds *models.TokenCredential) bool {
-	req, err := http.NewRequestWithContext(ctx, "HEAD", url, nil)
+	// Validate URL to prevent SSRF attacks
+	validator := security.NewURLValidator()
+	validatedURL, err := validator.ValidateAndSanitizeURL(url)
+	if err != nil {
+		return false
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "HEAD", validatedURL, nil)
 	if err != nil {
 		return false
 	}
@@ -701,8 +716,15 @@ func (s *DiscoveryService) checkForOpenAPIDocument(ctx context.Context, url stri
 
 // discoverFromHTML discovers API documentation links from HTML pages
 func (s *DiscoveryService) discoverFromHTML(ctx context.Context, baseURL string, creds *models.TokenCredential) ([]string, error) {
+	// Validate URL to prevent SSRF attacks
+	validator := security.NewURLValidator()
+	validatedURL, err := validator.ValidateAndSanitizeURL(baseURL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid base URL: %w", err)
+	}
+
 	// Fetch the homepage
-	req, err := http.NewRequestWithContext(ctx, "GET", baseURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", validatedURL, nil)
 	if err != nil {
 		return nil, err
 	}

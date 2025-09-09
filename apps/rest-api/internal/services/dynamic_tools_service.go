@@ -1263,13 +1263,20 @@ func (s *DynamicToolsService) CreateToolsFromMultipleAPIs(ctx context.Context, t
 
 // preCacheOpenAPISpec fetches and caches an OpenAPI spec
 func (s *DynamicToolsService) preCacheOpenAPISpec(ctx context.Context, specURL string, cacheRepo pkgrepository.OpenAPICacheRepository) error {
+	// Validate URL to prevent SSRF attacks
+	validator := security.NewURLValidator()
+	validatedURL, err := validator.ValidateAndSanitizeURL(specURL)
+	if err != nil {
+		return fmt.Errorf("invalid spec URL: %w", err)
+	}
+
 	// Create HTTP client with timeout
 	client := &http.Client{
 		Timeout: 30 * time.Second,
 	}
 
 	// Fetch the spec
-	req, err := http.NewRequestWithContext(ctx, "GET", specURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", validatedURL, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
