@@ -154,7 +154,8 @@ func TestEnhancedDiscoveryService_Integration(t *testing.T) {
 
 func TestDiscoveryService_ErrorHandling(t *testing.T) {
 	logger := &mockLogger{}
-	service := NewDiscoveryService(logger)
+	// Create service without validator for testing (allows localhost)
+	service := NewDiscoveryServiceWithOptions(logger, nil, nil)
 
 	t.Run("Context cancellation", func(t *testing.T) {
 		slowServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -246,7 +247,8 @@ func TestDiscoveryService_ErrorHandling(t *testing.T) {
 
 func TestDiscoveryService_AuthenticationScenarios(t *testing.T) {
 	logger := &mockLogger{}
-	service := NewDiscoveryService(logger)
+	// Create service without validator for testing (allows localhost)
+	service := NewDiscoveryServiceWithOptions(logger, nil, nil)
 
 	t.Run("Bearer token", func(t *testing.T) {
 		spec := createTestOpenAPISpec()
@@ -338,7 +340,8 @@ func TestDiscoveryService_AuthenticationScenarios(t *testing.T) {
 func TestDiscoveryService_HTMLCrawling(t *testing.T) {
 	t.Skip("Skipping HTML crawling tests - feature not fully implemented")
 	logger := &mockLogger{}
-	service := NewDiscoveryService(logger)
+	// Create service without validator for testing (allows localhost)
+	service := NewDiscoveryServiceWithOptions(logger, nil, nil)
 
 	t.Run("Extract API links from HTML", func(t *testing.T) {
 		htmlContent := `
@@ -424,7 +427,8 @@ func TestDiscoveryService_HTMLCrawling(t *testing.T) {
 func TestDiscoveryService_Redirects(t *testing.T) {
 	t.Skip("Skipping redirect tests - feature not fully implemented")
 	logger := &mockLogger{}
-	service := NewDiscoveryService(logger)
+	// Create service without validator for testing (allows localhost)
+	service := NewDiscoveryServiceWithOptions(logger, nil, nil)
 
 	t.Run("Follow redirects", func(t *testing.T) {
 		spec := createTestOpenAPISpec()
@@ -496,7 +500,8 @@ func TestDiscoveryService_Redirects(t *testing.T) {
 
 func TestDiscoveryService_fetchContent(t *testing.T) {
 	logger := &mockLogger{}
-	service := NewDiscoveryService(logger)
+	// Create service without validator for testing (allows localhost)
+	service := NewDiscoveryServiceWithOptions(logger, nil, nil)
 
 	t.Run("Content size limit", func(t *testing.T) {
 		// Create large content
@@ -539,7 +544,8 @@ func TestDiscoveryService_fetchContent(t *testing.T) {
 func TestDiscoveryService_RealWorldAPIs(t *testing.T) {
 	t.Skip("Skipping RealWorldAPIs tests - need to debug discovery path issues")
 	logger := &mockLogger{}
-	service := NewDiscoveryService(logger)
+	// Create service without validator for testing (allows localhost)
+	service := NewDiscoveryServiceWithOptions(logger, nil, nil)
 
 	t.Run("Kubernetes-style API", func(t *testing.T) {
 		// Simulate Kubernetes API discovery

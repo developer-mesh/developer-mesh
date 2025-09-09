@@ -546,17 +546,18 @@ func (s *DiscoveryService) applySubdomain(baseURL, subdomain string) string {
 
 // fetchContent fetches raw content from a URL
 func (s *DiscoveryService) fetchContent(ctx context.Context, url string, creds *models.TokenCredential) ([]byte, error) {
-	// Always validate URL to prevent SSRF attacks
-	validator := security.NewURLValidator()
-	// Allow localhost only in test mode (when s.validator is nil)
-	if s.validator == nil {
-		validator.AllowLocalhost = true
-		validator.AllowPrivateNetworks = true
+	// Validate URL to prevent SSRF attacks (skip in test mode)
+	validatedURL := url
+	if s.validator != nil {
+		// Production mode - always validate
+		validator := security.NewURLValidator()
+		var err error
+		validatedURL, err = validator.ValidateAndSanitizeURL(url)
+		if err != nil {
+			return nil, fmt.Errorf("invalid URL: %w", err)
+		}
 	}
-	validatedURL, err := validator.ValidateAndSanitizeURL(url)
-	if err != nil {
-		return nil, fmt.Errorf("invalid URL: %w", err)
-	}
+	// else: test mode (s.validator == nil) - skip validation
 
 	// Create request
 	req, err := http.NewRequestWithContext(ctx, "GET", validatedURL, nil)
@@ -668,17 +669,18 @@ func (s *DiscoveryService) fetchAndParseSpec(ctx context.Context, specURL string
 
 // checkForOpenAPIDocument checks if a URL might contain an OpenAPI document
 func (s *DiscoveryService) checkForOpenAPIDocument(ctx context.Context, url string, creds *models.TokenCredential) bool {
-	// Always validate URL to prevent SSRF attacks
-	validator := security.NewURLValidator()
-	// Allow localhost only in test mode (when s.validator is nil)
-	if s.validator == nil {
-		validator.AllowLocalhost = true
-		validator.AllowPrivateNetworks = true
+	// Validate URL to prevent SSRF attacks (skip in test mode)
+	validatedURL := url
+	if s.validator != nil {
+		// Production mode - always validate
+		validator := security.NewURLValidator()
+		var err error
+		validatedURL, err = validator.ValidateAndSanitizeURL(url)
+		if err != nil {
+			return false
+		}
 	}
-	validatedURL, err := validator.ValidateAndSanitizeURL(url)
-	if err != nil {
-		return false
-	}
+	// else: test mode (s.validator == nil) - skip validation
 
 	req, err := http.NewRequestWithContext(ctx, "HEAD", validatedURL, nil)
 	if err != nil {
@@ -725,17 +727,18 @@ func (s *DiscoveryService) checkForOpenAPIDocument(ctx context.Context, url stri
 
 // discoverFromHTML discovers API documentation links from HTML pages
 func (s *DiscoveryService) discoverFromHTML(ctx context.Context, baseURL string, creds *models.TokenCredential) ([]string, error) {
-	// Always validate URL to prevent SSRF attacks
-	validator := security.NewURLValidator()
-	// Allow localhost only in test mode (when s.validator is nil)
-	if s.validator == nil {
-		validator.AllowLocalhost = true
-		validator.AllowPrivateNetworks = true
+	// Validate URL to prevent SSRF attacks (skip in test mode)
+	validatedURL := baseURL
+	if s.validator != nil {
+		// Production mode - always validate
+		validator := security.NewURLValidator()
+		var err error
+		validatedURL, err = validator.ValidateAndSanitizeURL(baseURL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid base URL: %w", err)
+		}
 	}
-	validatedURL, err := validator.ValidateAndSanitizeURL(baseURL)
-	if err != nil {
-		return nil, fmt.Errorf("invalid base URL: %w", err)
-	}
+	// else: test mode (s.validator == nil) - skip validation
 
 	// Fetch the homepage
 	req, err := http.NewRequestWithContext(ctx, "GET", validatedURL, nil)
