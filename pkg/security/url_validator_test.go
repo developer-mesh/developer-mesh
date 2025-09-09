@@ -112,7 +112,7 @@ func TestURLValidator_ValidateURL(t *testing.T) {
 			url:           "http://169.254.169.254/latest/meta-data/",
 			validator:     NewURLValidator(),
 			expectedError: true,
-			errorContains: "metadata",
+			errorContains: "link-local",
 		},
 		{
 			name:          "Link-local addresses blocked",
@@ -155,7 +155,7 @@ func TestURLValidator_ValidateURL(t *testing.T) {
 			url:           "",
 			validator:     NewURLValidator(),
 			expectedError: true,
-			errorContains: "invalid URL format",
+			errorContains: "invalid URL scheme",
 		},
 		{
 			name:          "malformed URL",
