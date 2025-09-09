@@ -33,6 +33,16 @@ func NewOpenAPIAdapter(logger observability.Logger) *OpenAPIAdapter {
 	}
 }
 
+// NewOpenAPIAdapterWithDiscovery creates a new OpenAPI adapter with a custom discovery service
+func NewOpenAPIAdapterWithDiscovery(logger observability.Logger, discoveryService *DiscoveryService) *OpenAPIAdapter {
+	return &OpenAPIAdapter{
+		helper:           tools.NewOpenAPIHelper(logger),
+		logger:           logger,
+		discoveryService: discoveryService,
+		auth:             tools.NewDynamicAuthenticator(),
+	}
+}
+
 // DiscoverAPIs discovers OpenAPI specifications
 func (a *OpenAPIAdapter) DiscoverAPIs(ctx context.Context, config tools.ToolConfig) (*tools.DiscoveryResult, error) {
 	// Use discovery service to find OpenAPI spec

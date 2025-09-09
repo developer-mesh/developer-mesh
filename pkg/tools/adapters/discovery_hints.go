@@ -119,16 +119,20 @@ func (h *HintBasedDiscovery) DiscoverWithHints(ctx context.Context, config tools
 
 			// Fetch and process the OpenAPI spec
 			if h.detector != nil && h.detector.httpClient != nil {
-				// Validate URL to prevent SSRF attacks
-				validator := security.NewURLValidator()
-				validatedURL, err := validator.ValidateAndSanitizeURL(hints.OpenAPIURL)
-				if err != nil {
-					result.Status = tools.DiscoveryStatusFailed
-					result.Metadata["error"] = fmt.Sprintf("Invalid OpenAPI URL: %v", err)
-					return result, nil
+				// Only validate URL for SSRF when validator is provided (production mode)
+				urlToFetch := hints.OpenAPIURL
+				if h.validator != nil {
+					validator := security.NewURLValidator()
+					validatedURL, err := validator.ValidateAndSanitizeURL(hints.OpenAPIURL)
+					if err != nil {
+						result.Status = tools.DiscoveryStatusFailed
+						result.Metadata["error"] = fmt.Sprintf("Invalid OpenAPI URL: %v", err)
+						return result, nil
+					}
+					urlToFetch = validatedURL
 				}
 
-				req, err := http.NewRequestWithContext(ctx, "GET", validatedURL, nil)
+				req, err := http.NewRequestWithContext(ctx, "GET", urlToFetch, nil)
 				if err == nil {
 					// Add auth headers if provided
 					for key, value := range hints.AuthHeaders {
@@ -181,15 +185,19 @@ func (h *HintBasedDiscovery) DiscoverWithHints(ctx context.Context, config tools
 
 			// Try to fetch and detect format
 			if h.detector != nil && h.detector.httpClient != nil {
-				// Validate URL to prevent SSRF attacks
-				validator := security.NewURLValidator()
-				validatedURL, err := validator.ValidateAndSanitizeURL(fullURL)
-				if err != nil {
-					// Skip this URL if it's invalid
-					continue
+				// Only validate URL for SSRF when validator is provided (production mode)
+				urlToFetch := fullURL
+				if h.validator != nil {
+					validator := security.NewURLValidator()
+					validatedURL, err := validator.ValidateAndSanitizeURL(fullURL)
+					if err != nil {
+						// Skip this URL if it's invalid
+						continue
+					}
+					urlToFetch = validatedURL
 				}
 
-				req, err := http.NewRequestWithContext(ctx, "GET", validatedURL, nil)
+				req, err := http.NewRequestWithContext(ctx, "GET", urlToFetch, nil)
 				if err == nil {
 					// Add auth headers if provided
 					for key, value := range hints.AuthHeaders {

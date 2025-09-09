@@ -18,14 +18,20 @@ import (
 
 func TestOpenAPIAdapter(t *testing.T) {
 	logger := &mockLoggerAdapter{}
-	adapter := NewOpenAPIAdapter(logger)
+	// Create discovery service without validator for testing (allows localhost)
+	discoveryService := NewDiscoveryServiceWithOptions(logger, nil, nil)
+	adapter := NewOpenAPIAdapterWithDiscovery(logger, discoveryService)
 
 	t.Run("DiscoverAPIs", func(t *testing.T) {
 		spec := createTestOpenAPISpec()
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			if err := json.NewEncoder(w).Encode(spec); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+			if r.URL.Path == "/openapi.json" {
+				w.Header().Set("Content-Type", "application/json")
+				if err := json.NewEncoder(w).Encode(spec); err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+				}
+			} else {
+				http.NotFound(w, r)
 			}
 		}))
 		defer server.Close()
@@ -37,7 +43,18 @@ func TestOpenAPIAdapter(t *testing.T) {
 		}
 
 		result, err := adapter.DiscoverAPIs(context.Background(), config)
+		// Debug output
+		if err != nil {
+			t.Logf("Discovery error: %v", err)
+		}
 		require.NoError(t, err)
+		if result.Status != tools.DiscoveryStatusSuccess {
+			t.Logf("Discovery result status: %s", result.Status)
+			t.Logf("Discovery result metadata: %+v", result.Metadata)
+			t.Logf("Discovery suggested actions: %v", result.SuggestedActions)
+			t.Logf("Discovery result spec URL: %s", result.SpecURL)
+			t.Logf("Discovery result discovered URLs: %v", result.DiscoveredURLs)
+		}
 		assert.Equal(t, tools.DiscoveryStatusSuccess, result.Status)
 		assert.NotNil(t, result.OpenAPISpec)
 		assert.NotEmpty(t, result.Capabilities)
