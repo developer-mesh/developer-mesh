@@ -8,11 +8,11 @@ import (
 
 func TestURLValidator_ValidateURL(t *testing.T) {
 	tests := []struct {
-		name           string
-		url            string
-		validator      *URLValidator
-		expectedError  bool
-		errorContains  string
+		name          string
+		url           string
+		validator     *URLValidator
+		expectedError bool
+		errorContains string
 	}{
 		// Valid URLs
 		{
@@ -27,7 +27,7 @@ func TestURLValidator_ValidateURL(t *testing.T) {
 			validator:     NewURLValidator(),
 			expectedError: false,
 		},
-		
+
 		// Invalid schemes
 		{
 			name:          "file scheme blocked",
@@ -50,7 +50,7 @@ func TestURLValidator_ValidateURL(t *testing.T) {
 			expectedError: true,
 			errorContains: "invalid URL scheme",
 		},
-		
+
 		// Localhost/loopback
 		{
 			name:          "localhost blocked by default",
@@ -74,7 +74,7 @@ func TestURLValidator_ValidateURL(t *testing.T) {
 			},
 			expectedError: false,
 		},
-		
+
 		// Private networks
 		{
 			name:          "10.x.x.x blocked",
@@ -105,7 +105,7 @@ func TestURLValidator_ValidateURL(t *testing.T) {
 			},
 			expectedError: false,
 		},
-		
+
 		// Metadata endpoints
 		{
 			name:          "AWS metadata endpoint blocked",
@@ -121,7 +121,7 @@ func TestURLValidator_ValidateURL(t *testing.T) {
 			expectedError: true,
 			errorContains: "link-local",
 		},
-		
+
 		// Domain allowlist
 		{
 			name: "allowed domain passes",
@@ -148,7 +148,7 @@ func TestURLValidator_ValidateURL(t *testing.T) {
 			expectedError: true,
 			errorContains: "not in the allowed list",
 		},
-		
+
 		// Invalid URLs
 		{
 			name:          "empty URL",
@@ -171,7 +171,7 @@ func TestURLValidator_ValidateURL(t *testing.T) {
 			expectedError: true,
 			errorContains: "valid hostname",
 		},
-		
+
 		// Special addresses
 		{
 			name:          "unspecified address blocked",
@@ -192,7 +192,7 @@ func TestURLValidator_ValidateURL(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.validator.ValidateURL(tt.url)
-			
+
 			if tt.expectedError {
 				assert.Error(t, err)
 				if tt.errorContains != "" {
@@ -207,7 +207,7 @@ func TestURLValidator_ValidateURL(t *testing.T) {
 
 func TestURLValidator_ValidateAndSanitizeURL(t *testing.T) {
 	validator := NewURLValidator()
-	
+
 	tests := []struct {
 		name          string
 		input         string
@@ -239,11 +239,11 @@ func TestURLValidator_ValidateAndSanitizeURL(t *testing.T) {
 			expectedError: false,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := validator.ValidateAndSanitizeURL(tt.input)
-			
+
 			if tt.expectedError {
 				assert.Error(t, err)
 				assert.Empty(t, result)

@@ -12,10 +12,10 @@ type URLValidator struct {
 	// AllowedDomains is an optional list of allowed domains
 	// If empty, all non-private domains are allowed
 	AllowedDomains []string
-	
+
 	// AllowLocalhost allows connections to localhost (default: false)
 	AllowLocalhost bool
-	
+
 	// AllowPrivateNetworks allows connections to private networks (default: false)
 	AllowPrivateNetworks bool
 }
@@ -97,30 +97,30 @@ func (v *URLValidator) validateIPAddress(ip net.IP) error {
 		if ip.IsPrivate() {
 			return fmt.Errorf("private network addresses are not allowed")
 		}
-		
+
 		// Block link-local addresses (169.254.0.0/16)
 		if ip.IsLinkLocalUnicast() {
 			return fmt.Errorf("link-local addresses are not allowed")
 		}
-		
+
 		// Block multicast addresses
 		if ip.IsMulticast() {
 			return fmt.Errorf("multicast addresses are not allowed")
 		}
-		
+
 		// Explicitly block AWS metadata endpoint (169.254.169.254)
 		if ip.String() == "169.254.169.254" {
 			return fmt.Errorf("metadata endpoints are not allowed")
 		}
-		
+
 		// Block common metadata endpoints
 		metadataIPs := []string{
-			"169.254.169.254", // AWS
+			"169.254.169.254",          // AWS
 			"metadata.google.internal", // GCP
-			"169.254.169.254", // Azure
-			"100.100.100.200", // Alibaba Cloud
+			"169.254.169.254",          // Azure
+			"100.100.100.200",          // Alibaba Cloud
 		}
-		
+
 		ipStr := ip.String()
 		for _, metaIP := range metadataIPs {
 			if ipStr == metaIP {
@@ -147,7 +147,7 @@ func (v *URLValidator) ValidateAndSanitizeURL(rawURL string) (string, error) {
 
 	// Parse and reconstruct to ensure proper encoding
 	parsedURL, _ := url.Parse(rawURL) // Already validated above
-	
+
 	// Ensure proper encoding of path and query parameters
 	sanitized := &url.URL{
 		Scheme:   parsedURL.Scheme,
