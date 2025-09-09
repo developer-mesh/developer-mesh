@@ -136,7 +136,7 @@ func (p *BaseProvider) Execute(ctx context.Context, operation string, params map
 						params["accountIdentifier"] = parts[1]
 						if p.logger != nil {
 							p.logger.Debug("Extracted account ID from PAT token", map[string]interface{}{
-								"account_id": parts[1],
+								"token_format": "pat.***",
 							})
 						}
 					}
