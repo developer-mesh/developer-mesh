@@ -1,337 +1,230 @@
-# Webhook Worker
+# Worker - Redis-Based Event Processor
 
-A generic, provider-agnostic webhook event processor that supports dynamic tool configuration, retry logic, dead letter queues, and comprehensive observability.
-
-## Overview
-
-The webhook worker processes events from any webhook provider (GitHub, GitLab, Jira, etc.) based on dynamic tool configurations. It provides:
-
-- **Dynamic Tool Support**: Process webhooks from any provider without code changes
-- **Flexible Processing Modes**: Store only, store and forward, or transform and store
-- **Robust Error Handling**: Exponential backoff retries with configurable limits
-- **Dead Letter Queue**: Failed events are stored for manual inspection and retry
-- **Comprehensive Observability**: Metrics, distributed tracing, and health checks
+## Service Overview
+The Worker is a robust, scalable event processor that handles:
+- Webhook event processing from Redis streams
+- Dynamic tool configuration extraction
+- Retry logic with exponential backoff
+- Dead Letter Queue (DLQ) management
+- Health monitoring and metrics
+- Generic event transformation
 
 ## Architecture
+- **Queue**: Redis Streams with consumer groups
+- **Processing**: Generic processor pattern
+- **Storage**: PostgreSQL for DLQ and audit logs
+- **Monitoring**: Prometheus metrics, health endpoints
 
+## Key Components
+
+### Core Worker (`internal/worker/`)
+- `Worker`: Main processing loop
+- `Processor`: Message handling logic
+- `GenericProcessor`: Provider-agnostic processing
+- `RetryHandler`: Exponential backoff implementation
+- `DLQHandler`: Failed message handling
+- `DLQWorker`: DLQ retry processor
+
+### Supporting Components
+- `HealthServer`: HTTP health endpoints
+- `PerformanceMonitor`: Resource tracking
+- `EventTransformer`: Event normalization
+- `ToolConfigExtractor`: Dynamic config parsing
+
+## Redis Streams Configuration
+```bash
+# Stream names
+webhook_events          # Main event stream
+webhook_events_dlq      # Dead letter queue
+
+# Consumer group
+webhook_workers         # Worker consumer group
+
+# Keys
+webhook:idempotency:*   # Deduplication keys
 ```
-┌─────────────────┐     ┌──────────────┐     ┌─────────────────┐
-│   REST API      │────▶│ Redis Queue  │────▶│  Worker Process │
-└─────────────────┘     └──────────────┘     └─────────────────┘
-                                                      │
-                                                      ▼
-                                              ┌───────────────┐
-                                              │   Database    │
-                                              │  (DLQ, Logs)  │
-                                              └───────────────┘
-```
 
-## Features
+## Processing Flow
+1. **Receive**: Read from Redis stream
+2. **Extract**: Get tool config from metadata
+3. **Validate**: Check idempotency
+4. **Process**: Apply transformations
+5. **Store**: Save to database
+6. **Acknowledge**: Mark as processed
 
-### 1. Dynamic Tool Processing
-
-The worker extracts tool configuration from event metadata and processes events according to the tool's webhook configuration:
-
+## Error Handling
 ```go
-// Tool configuration determines:
-- Authentication validation
-- Processing mode (store, forward, transform)
-- Event transformation rules
-- Retry policies
+// Retry configuration
+type RetryConfig struct {
+    MaxRetries:      5
+    InitialInterval: 1s
+    MaxInterval:     5m
+    Multiplier:      2.0
+    MaxElapsedTime:  30m
+}
+
+// Error classification
+- Retryable: Network, timeout, rate limit
+- Non-retryable: Validation, auth, not found
 ```
 
-### 2. Processing Modes
+## Health Endpoints
+- `GET /health` - Overall health
+- `GET /health/live` - Liveness probe
+- `GET /health/ready` - Readiness probe
 
-- **Store Only**: Store the event in the database (default)
-- **Store and Forward**: Store the event and forward to another service
-- **Transform and Store**: Apply transformation rules before storing
-
-### 3. Error Handling
-
-#### Retry Logic
-- Exponential backoff with configurable parameters
-- Smart error classification (retryable vs non-retryable)
-- Maximum retry attempts before sending to DLQ
-
-#### Dead Letter Queue
-- Failed events stored with error details
-- Automatic retry attempts for DLQ entries
-- Manual retry API for specific events
-
-### 4. Observability
-
-#### Metrics
-- Event processing rate and duration
-- Queue depth monitoring
-- Retry attempt tracking
-- DLQ activity monitoring
-- Memory and performance metrics
-
-#### Health Checks
+Health response includes:
 - Database connectivity
 - Redis connectivity
-- Queue health
-- Worker process health
-
-#### Distributed Tracing
-- OpenTelemetry integration
-- End-to-end request tracing
-- Performance profiling
+- Queue depth
+- Worker runtime stats
 
 ## Configuration
-
-### Environment Variables
-
-```bash
-# Database Configuration
-DATABASE_HOST=localhost
-DATABASE_PORT=5432
-DATABASE_NAME=devops_mcp
-DATABASE_USER=dbuser
-DATABASE_PASSWORD=password
-DATABASE_SSL_MODE=disable
-
-# Redis Configuration
-REDIS_ADDR=localhost:6379
-REDIS_TLS_ENABLED=false
-
-# Worker Configuration
-WORKER_CONSUMER_NAME=worker-1
-WORKER_IDEMPOTENCY_TTL=24h
-
-# Health Check
-HEALTH_ENDPOINT=:8088
-
-# Logging
-LOG_LEVEL=info
-```
-
-### Retry Configuration
-
-```go
-type RetryConfig struct {
-    MaxRetries      int           // Default: 5
-    InitialInterval time.Duration // Default: 1s
-    MaxInterval     time.Duration // Default: 5m
-    Multiplier      float64       // Default: 2.0
-    MaxElapsedTime  time.Duration // Default: 30m
-}
-```
-
-## API Reference
-
-### Health Check Endpoint
-
-```bash
-GET /health
-```
-
-Response:
-```json
-{
-  "status": "healthy",
-  "timestamp": "2024-01-15T10:30:00Z",
-  "components": {
-    "database": {
-      "status": "healthy",
-      "details": {
-        "open_connections": 5,
-        "query_duration_ms": 2
-      }
-    },
-    "redis": {
-      "status": "healthy",
-      "details": {
-        "ping_duration_ms": 1
-      }
-    },
-    "queue": {
-      "status": "healthy",
-      "details": {
-        "queue_depth": 42
-      }
-    },
-    "worker": {
-      "status": "healthy",
-      "details": {
-        "runtime": {
-          "goroutines": 25,
-          "memory_alloc_mb": 64
-        }
-      }
-    }
-  }
-}
+```yaml
+# Environment variables
+DATABASE_HOST: localhost
+DATABASE_PORT: 5432
+REDIS_ADDR: localhost:6379
+WORKER_CONSUMER_NAME: worker-1
+WORKER_IDEMPOTENCY_TTL: 24h
+HEALTH_ENDPOINT: :8088
+LOG_LEVEL: info
 ```
 
 ## Metrics
-
-### Prometheus Metrics
-
 ```
 # Event processing
-webhook_events_received_total{event_type, tool_id}
-webhook_events_processed_total{event_type, tool_id, status}
-webhook_event_processing_duration_seconds{event_type, tool_id, status}
+webhook_events_received_total
+webhook_events_processed_total
+webhook_event_processing_duration_seconds
 
 # Retries and DLQ
-webhook_retry_attempts_total{attempt, reason}
-webhook_dlq_entries_total{event_type, reason}
-webhook_dlq_retries_total{status}
-
-# Queue monitoring
-webhook_queue_depth
-webhook_dlq_depth
+webhook_retry_attempts_total
+webhook_dlq_entries_total
+webhook_dlq_retries_total
 
 # Performance
 webhook_memory_allocated_bytes
 webhook_goroutines_total
 webhook_gc_runs_total
-webhook_gc_pause_duration_seconds
-
-# Health
-webhook_health_checks_total{component, status}
-webhook_health_check_duration_seconds{component}
 ```
 
-## Development
-
-### Building
-
+## Testing
 ```bash
-# Build the worker
-go build -o worker ./cmd/worker
+# Run all tests
+cd apps/worker && go test ./...
 
-# Run tests
-go test ./...
+# Integration tests
+go test -tags=integration ./...
 
-# Run with race detector
+# Race detection
 go test -race ./...
+
+# Specific component
+go test ./internal/worker/...
 ```
 
-### Running Locally
+## Common Issues
 
+### High Memory Usage
+- Check for goroutine leaks
+- Review event payload sizes
+- Monitor GC activity
+- Adjust GOMAXPROCS
+
+### Events Stuck in Queue
+- Check consumer group status
+- Verify Redis connectivity
+- Review processing errors
+- Check idempotency keys
+
+### DLQ Growing
+- Review error types
+- Check tool configurations
+- Verify external dependencies
+- Manual retry if needed
+
+## Debugging
 ```bash
-# Start dependencies
-docker-compose up -d postgres redis
+# Monitor Redis stream
+redis-cli xinfo stream webhook_events
 
-# Run database migrations
-migrate -path migrations -database postgres://... up
+# Check consumer group
+redis-cli xinfo groups webhook_events
 
-# Start the worker
-./worker
+# View pending messages
+redis-cli xpending webhook_events webhook_workers
+
+# Check DLQ
+redis-cli xlen webhook_events_dlq
 ```
 
-### Testing
+## Development Workflow
+1. Make changes in `internal/worker/`
+2. Run unit tests
+3. Test with local Redis
+4. Verify metrics output
+5. Check health endpoints
 
-The worker includes comprehensive unit tests for all components:
+## Important Files
+- `cmd/worker/main.go` - Entry point
+- `internal/worker/worker.go` - Main loop
+- `internal/worker/processor.go` - Core logic
+- `internal/worker/generic_processor.go` - Event handling
+- `internal/worker/retry_handler.go` - Retry logic
+- `internal/worker/dlq_handler.go` - DLQ management
 
-- Generic processor tests
-- Retry handler tests
-- DLQ handler tests
-- Health check tests
-- Performance monitor tests
+## Performance Tuning
+- Batch size: 100 messages
+- Processing timeout: 5 minutes
+- Max concurrent: 10 workers
+- Redis pool size: 20 connections
+- DB pool size: 10 connections
+
+## Security
+- No credentials in logs
+- Validate webhook signatures
+- Sanitize event data
+- Use prepared statements
+- Encrypt sensitive fields
+
+## Integration Points
+- **REST API**: Produces events to Redis
+- **Redis**: Message queue and cache
+- **PostgreSQL**: DLQ and audit logs
+- **Prometheus**: Metrics export
 
 ## Deployment
-
-### Docker
-
-```dockerfile
-FROM golang:1.21-alpine AS builder
-WORKDIR /app
-COPY . .
-RUN go build -o worker ./cmd/worker
-
-FROM alpine:latest
-RUN apk --no-cache add ca-certificates
-COPY --from=builder /app/worker /worker
-ENTRYPOINT ["/worker"]
-```
-
-### Kubernetes
-
 ```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: webhook-worker
-spec:
-  replicas: 3
-  template:
-    spec:
-      containers:
-      - name: worker
-        image: webhook-worker:latest
-        env:
-        - name: DATABASE_HOST
-          value: postgres-service
-        - name: REDIS_ADDR
-          value: redis-service:6379
-        livenessProbe:
-          httpGet:
-            path: /health/live
-            port: 8088
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 8088
+# Kubernetes example
+replicas: 3
+resources:
+  requests:
+    memory: "256Mi"
+    cpu: "250m"
+  limits:
+    memory: "512Mi"
+    cpu: "1000m"
 ```
 
-## Monitoring
-
-### Grafana Dashboard
-
-Import the provided dashboard JSON for:
-- Event processing rates
-- Error rates by event type
-- Processing duration percentiles
-- Queue depth trends
-- Memory and CPU usage
-- GC activity
-
-### Alerts
-
-Recommended alerts:
-- High error rate (> 5%)
+## Monitoring Alerts
+- Error rate > 5%
 - Queue depth > 1000
 - DLQ depth increasing
-- Memory usage > 80%
-- Database connection pool exhaustion
+- Memory > 80% limit
+- Processing latency > 30s
 
-## Troubleshooting
+## Best Practices
+- Process events idempotently
+- Log correlation IDs
+- Use structured logging
+- Monitor queue depth
+- Handle graceful shutdown
+- Test retry scenarios
 
-### Common Issues
-
-1. **High Memory Usage**
-   - Check for memory leaks in event handlers
-   - Review GC metrics
-   - Increase GOMAXPROCS if CPU bound
-
-2. **Events Stuck in DLQ**
-   - Check error messages in DLQ entries
-   - Verify tool configuration
-   - Manual retry specific events
-
-3. **Slow Processing**
-   - Check database query performance
-   - Review transformation rules complexity
-   - Monitor Redis latency
-
-### Debug Mode
-
-Enable debug logging:
-```bash
-LOG_LEVEL=debug ./worker
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Ensure all tests pass
-5. Submit a pull request
-
-## License
-
-See LICENSE file in the repository root.
+## Never Do
+- Don't log sensitive data
+- Don't skip idempotency checks
+- Don't ignore health checks
+- Don't process synchronously
+- Don't retry forever

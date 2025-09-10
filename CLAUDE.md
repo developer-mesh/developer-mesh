@@ -1,37 +1,5 @@
 # Developer Mesh - AI Agent Orchestration Platform
 
-## 🚨 CRITICAL: MCP-First Tool Usage
-
-### MANDATORY Tool Selection Rules
-1. **CHECK MCP TOOLS FIRST**: Before ANY operation, check available MCP tools
-2. **USE MCP WHEN AVAILABLE**: If an MCP tool exists, you MUST use it
-3. **NO CLI BYPASSING**: Do NOT use `git`, `gh`, `curl`, or other CLI tools if MCP equivalent exists
-
-### MCP Tool Mapping (ALWAYS USE THESE)
-| Operation | MCP Tool | NOT This |
-|-----------|----------|----------|
-| GitHub tags/commits | `mcp__devmesh__github_git` | `git tag`, `git commit` |
-| GitHub releases | `mcp__devmesh__github_repos` | `gh release create` |
-| GitHub issues | `mcp__devmesh__github_issues` | `gh issue` |
-| GitHub PRs | `mcp__devmesh__github_pulls` | `gh pr` |
-| GitHub actions | `mcp__devmesh__github_actions` | `gh workflow` |
-| Any GitHub operation | `mcp__devmesh__github_*` | `gh` CLI |
-| API calls | MCP API tools | `curl`, `WebFetch` |
-| Database operations | MCP database tools | `psql` via Bash |
-
-### Pre-Operation Checklist
-Before EVERY operation:
-- [ ] Have I checked `tools/list` for available MCP tools?
-- [ ] Is there an `mcp__devmesh__*` tool for this?
-- [ ] Am I defaulting to CLI out of habit?
-- [ ] Have I justified why I'm NOT using an MCP tool (if applicable)?
-
-### Session Start Protocol
-1. Run `tools/list` immediately
-2. Note all `mcp__devmesh__*` tools available
-3. Refresh tool list every 10 operations
-4. After any reconnect, check tools again
-
 ## Project Overview
 Developer Mesh is a production-ready platform for orchestrating multiple AI agents in DevOps workflows. It consists of:
 - **MCP Server**: WebSocket server for real-time agent communication
@@ -76,6 +44,75 @@ Developer Mesh is a production-ready platform for orchestrating multiple AI agen
 3. **Testing**: Always write tests for new features
 4. **Code style**: Follow Go idioms, use gofmt
 5. **Security**: Use parameterized queries, validate inputs
+
+## Go-Specific Patterns (This Project)
+
+### Code Style
+- **Indentation**: Tabs for Go (as per gofmt)
+- **Import Groups**: stdlib, external, internal (blank line between)
+- **Comments**: Package comments required, function comments for exported items
+- **Line Length**: Follow gofmt, no hard limit
+- **Error Handling**: Always wrap with context using `fmt.Errorf("context: %w", err)`
+
+### Testing
+- **Framework**: Always use testify/assert and testify/mock
+- **Mocks**: Define in same test file or dedicated mock file
+- **Table Tests**: Preferred for multiple scenarios
+- **Coverage**: Minimum 80% coverage for new code
+- **Test files**: In same package (not `_test` package)
+- **Run tests**: `make test` or `go test ./...` in specific module
+
+### Error Handling
+```go
+// Always wrap errors with context
+if err != nil {
+    return nil, fmt.Errorf("failed to query tools: %w", err)
+}
+
+// For deferred operations
+defer func() {
+    if err := rows.Close(); err != nil {
+        s.logger.Warn("Failed to close rows", map[string]interface{}{
+            "error": err.Error(),
+        })
+    }
+}()
+```
+
+### Architecture Patterns
+- **Context**: Always first parameter in functions
+- **Defer Close**: Immediately after resource creation with error handling
+- **Dependency Injection**: Via constructors
+- **Interfaces**: Defined where used, not where implemented
+- **Services**: Should be stateless
+- **Circuit Breakers**: For external calls
+
+### Database Patterns
+- Use repository pattern (see pkg/repository)
+- Always use sqlx over database/sql
+- Named queries for clarity
+- Scan into structs, not individual variables
+- Handle sql.ErrNoRows explicitly
+
+### Logging Standards
+- Use structured logging via observability.Logger
+- Never use fmt.Printf or println
+- Log levels: Error (failures), Warn (recoverable), Info (important), Debug (detailed)
+- Include context in log fields
+
+### Security Practices
+- **SQL**: Always parameterized queries, never string concatenation
+- **API Keys**: Validate with regex `^[a-zA-Z0-9_-]+$`
+- **Credentials**: Always encrypt using EncryptionService
+- **Input Validation**: Required at handler level
+- **No DEBUG prints**: Remove all debug statements before commit
+
+### Common Gotchas to Avoid
+- Don't ignore Close() errors in deferred functions
+- Don't use panic except in main()
+- Don't leave TODO comments - create issues instead
+- Don't commit commented-out code
+- Don't use magic numbers - create constants
 
 ## Current Focus Areas
 - Redis Streams migration (completed)
