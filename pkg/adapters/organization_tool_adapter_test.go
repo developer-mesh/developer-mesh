@@ -11,6 +11,8 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/feature"
 	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/resilience"
+	"github.com/developer-mesh/developer-mesh/pkg/security"
 	"github.com/developer-mesh/developer-mesh/pkg/services"
 	"github.com/developer-mesh/developer-mesh/pkg/tools/providers/github"
 	"github.com/stretchr/testify/assert"
@@ -159,7 +161,26 @@ func TestOrganizationToolAdapter_GetOrganizationTools(t *testing.T) {
 
 	// Create provider registry
 	providerRegistry := services.NewProviderRegistry(logger)
-	githubProvider := github.NewGitHubProvider(logger)
+	// Create mock resilience dependencies for tests
+	encryptionSvc := security.NewEncryptionService("test-encryption-key-32bytes!!!!!")
+	cbConfig := resilience.CircuitBreakerConfig{
+		FailureThreshold: 5,
+		FailureRatio:    0.6,
+		ResetTimeout:   30 * time.Second,
+	}
+	circuitBreaker := resilience.NewCircuitBreaker("github-test", cbConfig, logger, nil)
+	rateLimiter := resilience.NewRateLimiter("github-test", resilience.RateLimiterConfig{
+		Limit:       10,
+		Period:      time.Second,
+		BurstFactor: 2,
+	})
+	retryPolicy := &resilience.RetryPolicy{
+		MaxAttempts:  3,
+		InitialDelay: 100 * time.Millisecond,
+		MaxDelay:     5 * time.Second,
+		Multiplier:   2.0,
+	}
+	githubProvider := github.NewGitHubProvider(logger, encryptionSvc, circuitBreaker, rateLimiter, retryPolicy)
 	providerRegistry.RegisterProvider("github", githubProvider)
 
 	// Create permission cache
@@ -308,7 +329,26 @@ func TestOrganizationToolAdapter_ExpandToMCPTools(t *testing.T) {
 
 	// Create provider registry and register GitHub
 	providerRegistry := services.NewProviderRegistry(logger)
-	githubProvider := github.NewGitHubProvider(logger)
+	// Create mock resilience dependencies for tests
+	encryptionSvc2 := security.NewEncryptionService("test-encryption-key-32bytes!!!!!")
+	cbConfig2 := resilience.CircuitBreakerConfig{
+		FailureThreshold: 5,
+		FailureRatio:    0.6,
+		ResetTimeout:   30 * time.Second,
+	}
+	circuitBreaker2 := resilience.NewCircuitBreaker("github-test2", cbConfig2, logger, nil)
+	rateLimiter2 := resilience.NewRateLimiter("github-test2", resilience.RateLimiterConfig{
+		Limit:       10,
+		Period:      time.Second,
+		BurstFactor: 2,
+	})
+	retryPolicy2 := &resilience.RetryPolicy{
+		MaxAttempts:  3,
+		InitialDelay: 100 * time.Millisecond,
+		MaxDelay:     5 * time.Second,
+		Multiplier:   2.0,
+	}
+	githubProvider := github.NewGitHubProvider(logger, encryptionSvc2, circuitBreaker2, rateLimiter2, retryPolicy2)
 	providerRegistry.RegisterProvider("github", githubProvider)
 
 	// Create permission cache

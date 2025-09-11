@@ -299,3 +299,108 @@ func (h *GetReleaseByTagHandler) Execute(ctx context.Context, params map[string]
 	data, _ := json.Marshal(release)
 	return NewToolResult(string(data)), nil
 }
+
+// CreateReleaseHandler handles creating a new release
+type CreateReleaseHandler struct {
+	provider *GitHubProvider
+}
+
+func NewCreateReleaseHandler(p *GitHubProvider) *CreateReleaseHandler {
+	return &CreateReleaseHandler{provider: p}
+}
+
+func (h *CreateReleaseHandler) GetDefinition() ToolDefinition {
+	return ToolDefinition{
+		Name:        "create_release",
+		Description: "Create a new release",
+		InputSchema: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"owner": map[string]interface{}{
+					"type":        "string",
+					"description": "Repository owner",
+				},
+				"repo": map[string]interface{}{
+					"type":        "string",
+					"description": "Repository name",
+				},
+				"tag_name": map[string]interface{}{
+					"type":        "string",
+					"description": "Tag name for the release",
+				},
+				"name": map[string]interface{}{
+					"type":        "string",
+					"description": "Release name",
+				},
+				"body": map[string]interface{}{
+					"type":        "string",
+					"description": "Release description",
+				},
+				"target_commitish": map[string]interface{}{
+					"type":        "string",
+					"description": "Target branch or commit SHA",
+				},
+				"draft": map[string]interface{}{
+					"type":        "boolean",
+					"description": "Whether this is a draft release",
+				},
+				"prerelease": map[string]interface{}{
+					"type":        "boolean",
+					"description": "Whether this is a prerelease",
+				},
+				"generate_release_notes": map[string]interface{}{
+					"type":        "boolean",
+					"description": "Whether to generate release notes automatically",
+				},
+			},
+			"required": []interface{}{"owner", "repo", "tag_name"},
+		},
+	}
+}
+
+func (h *CreateReleaseHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
+	client, ok := ctx.Value("github_client").(*github.Client)
+	if !ok {
+		return NewToolError("GitHub client not found in context"), nil
+	}
+
+	owner := extractString(params, "owner")
+	repo := extractString(params, "repo")
+	
+	tagName := extractString(params, "tag_name")
+	releaseRequest := &github.RepositoryRelease{
+		TagName: &tagName,
+	}
+	
+	if name := extractString(params, "name"); name != "" {
+		releaseRequest.Name = &name
+	}
+	
+	if body := extractString(params, "body"); body != "" {
+		releaseRequest.Body = &body
+	}
+	
+	if targetCommitish := extractString(params, "target_commitish"); targetCommitish != "" {
+		releaseRequest.TargetCommitish = &targetCommitish
+	}
+	
+	if draft, ok := params["draft"].(bool); ok {
+		releaseRequest.Draft = &draft
+	}
+	
+	if prerelease, ok := params["prerelease"].(bool); ok {
+		releaseRequest.Prerelease = &prerelease
+	}
+	
+	if generateNotes, ok := params["generate_release_notes"].(bool); ok {
+		releaseRequest.GenerateReleaseNotes = &generateNotes
+	}
+
+	release, _, err := client.Repositories.CreateRelease(ctx, owner, repo, releaseRequest)
+	if err != nil {
+		return NewToolError(fmt.Sprintf("Failed to create release: %v", err)), nil
+	}
+
+	data, _ := json.Marshal(release)
+	return NewToolResult(string(data)), nil
+}

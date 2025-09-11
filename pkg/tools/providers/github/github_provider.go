@@ -147,6 +147,7 @@ func (p *GitHubProvider) initializeToolsets() {
 			NewListReleasesHandler(p),
 			NewGetLatestReleaseHandler(p),
 			NewGetReleaseByTagHandler(p),
+			NewCreateReleaseHandler(p),
 		},
 		Enabled: false,
 	}
@@ -343,6 +344,20 @@ func (p *GitHubProvider) initializeToolsets() {
 		Enabled: false,
 	}
 	p.toolsetRegistry["graphql"] = graphqlTools
+
+	// Discussions toolset
+	discussionsTools := &Toolset{
+		Name:        "discussions",
+		Description: "GitHub Discussions management tools",
+		Tools: []ToolHandler{
+			NewListDiscussionsHandler(p),
+			NewGetDiscussionHandler(p),
+			NewGetDiscussionCommentsHandler(p),
+			NewListDiscussionCategoriesHandler(p),
+		},
+		Enabled: false,
+	}
+	p.toolsetRegistry["discussions"] = discussionsTools
 
 	// Register all tools in the main registry with caching for read operations
 	for _, toolset := range p.toolsetRegistry {
