@@ -185,3 +185,27 @@ func detectMimeType(path string) string {
 		return "text/plain"
 	}
 }
+
+// ErrorResult creates an error ToolResult
+func ErrorResult(format string, args ...interface{}) *ToolResult {
+	var message string
+	if len(args) > 0 {
+		message = fmt.Sprintf(format, args...)
+	} else {
+		message = format
+	}
+	
+	return &ToolResult{
+		Content: nil,
+		IsError: true,
+		Error:   message,
+	}
+}
+
+// SuccessResult creates a success ToolResult  
+func SuccessResult(content interface{}) *ToolResult {
+	return &ToolResult{
+		Content: content,
+		IsError: false,
+	}
+}

@@ -325,6 +325,25 @@ func (p *GitHubProvider) initializeToolsets() {
 	}
 	p.toolsetRegistry["organizations"] = orgsTools
 
+	// GraphQL toolset - advanced GraphQL operations
+	graphqlTools := &Toolset{
+		Name:        "graphql",
+		Description: "Advanced GraphQL-based operations for efficient data fetching",
+		Tools: []ToolHandler{
+			// Query operations
+			NewListIssuesGraphQLHandler(p),
+			NewSearchIssuesAndPRsGraphQLHandler(p),
+			NewGetRepositoryDetailsGraphQLHandler(p),
+			// Mutation operations
+			NewCreateIssueGraphQLHandler(p),
+			NewCreatePullRequestGraphQLHandler(p),
+			NewAddPullRequestReviewGraphQLHandler(p),
+			NewMergePullRequestGraphQLHandler(p),
+		},
+		Enabled: false,
+	}
+	p.toolsetRegistry["graphql"] = graphqlTools
+
 	// Register all tools in the main registry with caching for read operations
 	for _, toolset := range p.toolsetRegistry {
 		for i, tool := range toolset.Tools {
@@ -574,6 +593,36 @@ func (p *GitHubProvider) getOrCreateClients(ctx context.Context, tenantID string
 	return clients, nil
 }
 
+// getGraphQLClient gets or creates a GraphQL client for the tenant
+func (p *GitHubProvider) getGraphQLClient(ctx context.Context) (*githubv4.Client, error) {
+	// Get tenant ID
+	tenantID := p.extractTenantID(ctx, nil)
+	
+	// Try to get from cache
+	p.clientMutex.RLock()
+	if clients, ok := p.clientCache[tenantID]; ok {
+		p.clientMutex.RUnlock()
+		clients.lastAccessed = time.Now()
+		if clients.gqlClient != nil {
+			return clients.gqlClient, nil
+		}
+	} else {
+		p.clientMutex.RUnlock()
+	}
+	
+	// Create new client set
+	clients, err := p.getOrCreateClients(ctx, tenantID, nil)
+	if err != nil {
+		return nil, err
+	}
+	
+	if clients.gqlClient == nil {
+		return nil, fmt.Errorf("failed to create GraphQL client")
+	}
+	
+	return clients.gqlClient, nil
+}
+
 // extractTenantID extracts tenant ID from context or params
 func (p *GitHubProvider) extractTenantID(ctx context.Context, params map[string]interface{}) string {
 	// Try from context first
@@ -582,8 +631,10 @@ func (p *GitHubProvider) extractTenantID(ctx context.Context, params map[string]
 	}
 
 	// Try from params
-	if tenantID, ok := params["tenant_id"].(string); ok {
-		return tenantID
+	if params != nil {
+		if tenantID, ok := params["tenant_id"].(string); ok {
+			return tenantID
+		}
 	}
 
 	// Default tenant
