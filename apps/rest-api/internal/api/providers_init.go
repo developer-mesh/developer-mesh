@@ -1,7 +1,11 @@
 package api
 
 import (
+	"time"
+
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/resilience"
+	"github.com/developer-mesh/developer-mesh/pkg/security"
 	pkgservices "github.com/developer-mesh/developer-mesh/pkg/services"
 	"github.com/developer-mesh/developer-mesh/pkg/tools/providers/artifactory"
 	"github.com/developer-mesh/developer-mesh/pkg/tools/providers/confluence"
@@ -18,8 +22,40 @@ func InitializeStandardProviders(registry *pkgservices.EnhancedToolRegistry, log
 
 	providersCount := 0
 
+	// Create common dependencies for providers
+	encryptionSvc := security.NewEncryptionService("devmesh-encryption-key-32bytes!!")
+	
+	// Circuit breaker configuration
+	cbConfig := resilience.CircuitBreakerConfig{
+		FailureThreshold:    5,
+		FailureRatio:        0.6,
+		ResetTimeout:        30 * time.Second,
+		SuccessThreshold:    2,
+		TimeoutThreshold:    5 * time.Second,
+		MaxRequestsHalfOpen: 5,
+		MinimumRequestCount: 10,
+	}
+	circuitBreaker := resilience.NewCircuitBreaker("github", cbConfig, logger, nil)
+	
+	// Rate limiter configuration  
+	rlConfig := resilience.RateLimiterConfig{
+		Limit:       100,
+		Period:      time.Minute,
+		BurstFactor: 3,
+	}
+	rateLimiter := resilience.NewRateLimiter("github", rlConfig)
+	
+	// Retry policy configuration
+	retryPolicy := &resilience.RetryPolicy{
+		MaxAttempts:  3,
+		InitialDelay: 100 * time.Millisecond,
+		MaxDelay:     5 * time.Second,
+		Multiplier:   2.0,
+		Jitter:       0.1,
+	}
+
 	// Register GitHub provider
-	githubProvider := github.NewGitHubProvider(logger)
+	githubProvider := github.NewGitHubProvider(logger, encryptionSvc, circuitBreaker, rateLimiter, retryPolicy)
 	if err := registry.RegisterProvider(githubProvider); err != nil {
 		logger.Error("Failed to register GitHub provider", map[string]interface{}{
 			"error": err.Error(),
