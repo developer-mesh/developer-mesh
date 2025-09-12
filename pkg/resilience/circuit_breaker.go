@@ -322,6 +322,10 @@ func (cb *CircuitBreaker) getCounts() *Counts {
 // Metrics recording methods
 
 func (cb *CircuitBreaker) recordMetrics(result string, success bool, duration time.Duration) {
+	if cb.metrics == nil {
+		return
+	}
+	
 	labels := map[string]string{
 		"name":   cb.name,
 		"state":  cb.getState().String(),
@@ -343,6 +347,10 @@ func (cb *CircuitBreaker) recordMetrics(result string, success bool, duration ti
 }
 
 func (cb *CircuitBreaker) recordStateChangeMetric(from, to CircuitBreakerState) {
+	if cb.metrics == nil {
+		return
+	}
+	
 	labels := map[string]string{
 		"name": cb.name,
 		"from": from.String(),
@@ -353,10 +361,12 @@ func (cb *CircuitBreaker) recordStateChangeMetric(from, to CircuitBreakerState) 
 
 func (cb *CircuitBreaker) recordStateMetric(state CircuitBreakerState) {
 	// Record current state as a gauge (0=closed, 1=open, 2=half-open)
-	labels := map[string]string{
-		"name": cb.name,
+	if cb.metrics != nil {
+		labels := map[string]string{
+			"name": cb.name,
+		}
+		cb.metrics.RecordGauge("circuit_breaker_current_state", float64(state), labels)
 	}
-	cb.metrics.RecordGauge("circuit_breaker_current_state", float64(state), labels)
 }
 
 // GetMetrics returns current circuit breaker metrics
