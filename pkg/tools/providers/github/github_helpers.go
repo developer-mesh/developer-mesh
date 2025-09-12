@@ -34,28 +34,6 @@ func marshalJSON(v interface{}) string {
 	return string(data)
 }
 
-// extractStringSlice extracts a string slice from interface{}
-func extractStringSlice(v interface{}) []string {
-	if v == nil {
-		return nil
-	}
-	
-	switch val := v.(type) {
-	case []string:
-		return val
-	case []interface{}:
-		result := make([]string, 0, len(val))
-		for _, item := range val {
-			if str, ok := item.(string); ok {
-				result = append(result, str)
-			}
-		}
-		return result
-	default:
-		return nil
-	}
-}
-
 // extractString safely extracts a string from params
 func extractString(params map[string]interface{}, key string) string {
 	if v, ok := params[key].(string); ok {
@@ -115,75 +93,6 @@ func BuildSearchQuery(filters map[string]interface{}) string {
 	}
 	
 	return strings.Join(parts, " ")
-}
-
-// convertToMinimalResponse converts GitHub SDK objects to minimal formats
-func convertToMinimalResponse(data interface{}) interface{} {
-	// This would implement minimal response conversion
-	// For now, we'll just return the data as-is
-	// In production, this would strip unnecessary fields
-	return data
-}
-
-// isDirectory checks if a path is likely a directory
-func isDirectory(path string) bool {
-	// Simple heuristic: directories don't have file extensions
-	// and don't end with common file patterns
-	if path == "" || path == "/" {
-		return true
-	}
-	
-	parts := strings.Split(path, "/")
-	lastPart := parts[len(parts)-1]
-	
-	// Check for file extension
-	if strings.Contains(lastPart, ".") {
-		return false
-	}
-	
-	return true
-}
-
-// detectMimeType detects MIME type from file path
-func detectMimeType(path string) string {
-	lowerPath := strings.ToLower(path)
-	
-	switch {
-	case strings.HasSuffix(lowerPath, ".json"):
-		return "application/json"
-	case strings.HasSuffix(lowerPath, ".yaml") || strings.HasSuffix(lowerPath, ".yml"):
-		return "application/yaml"
-	case strings.HasSuffix(lowerPath, ".xml"):
-		return "application/xml"
-	case strings.HasSuffix(lowerPath, ".html"):
-		return "text/html"
-	case strings.HasSuffix(lowerPath, ".css"):
-		return "text/css"
-	case strings.HasSuffix(lowerPath, ".js"):
-		return "application/javascript"
-	case strings.HasSuffix(lowerPath, ".ts"):
-		return "application/typescript"
-	case strings.HasSuffix(lowerPath, ".go"):
-		return "text/x-go"
-	case strings.HasSuffix(lowerPath, ".py"):
-		return "text/x-python"
-	case strings.HasSuffix(lowerPath, ".java"):
-		return "text/x-java"
-	case strings.HasSuffix(lowerPath, ".md"):
-		return "text/markdown"
-	case strings.HasSuffix(lowerPath, ".txt"):
-		return "text/plain"
-	case strings.HasSuffix(lowerPath, ".png"):
-		return "image/png"
-	case strings.HasSuffix(lowerPath, ".jpg") || strings.HasSuffix(lowerPath, ".jpeg"):
-		return "image/jpeg"
-	case strings.HasSuffix(lowerPath, ".gif"):
-		return "image/gif"
-	case strings.HasSuffix(lowerPath, ".svg"):
-		return "image/svg+xml"
-	default:
-		return "text/plain"
-	}
 }
 
 // ErrorResult creates an error ToolResult

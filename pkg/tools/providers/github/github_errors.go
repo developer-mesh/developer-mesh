@@ -78,27 +78,3 @@ func NewGitHubAPIErrorResponse(message string, resp *github.Response, err error)
 	
 	return NewToolError(apiErr.Error())
 }
-
-// handleGitHubError is a helper to convert GitHub errors to ToolResult
-func handleGitHubError(resp *github.Response, err error) *ToolResult {
-	if err == nil {
-		return nil
-	}
-	
-	return NewGitHubAPIErrorResponse("GitHub API error", resp, err)
-}
-
-// isRateLimited checks if the error is due to rate limiting
-func isRateLimited(resp *github.Response) bool {
-	return resp != nil && resp.StatusCode == http.StatusForbidden && resp.Rate.Remaining == 0
-}
-
-// isNotFound checks if the error is a 404
-func isNotFound(resp *github.Response) bool {
-	return resp != nil && resp.StatusCode == http.StatusNotFound
-}
-
-// isUnauthorized checks if the error is due to auth failure
-func isUnauthorized(resp *github.Response) bool {
-	return resp != nil && resp.StatusCode == http.StatusUnauthorized
-}
