@@ -1394,28 +1394,30 @@ func (api *DynamicToolsAPI) expandOrganizationTool(ctx context.Context, ot *mode
 		category    string
 	})
 
-	// Parse AI definitions to get descriptive info for each operation
+	// Parse AI definitions to get descriptive info and schemas for each operation
+	var aiDefMap map[string]map[string]interface{}
 	if template.AIDefinitions != nil {
-		var aiDefs struct {
-			Tools []struct {
-				Name        string `json:"name"`
-				Description string `json:"description"`
-				Category    string `json:"category"`
-			} `json:"tools"`
-		}
+		// Parse as array of AI tool definitions
+		var aiDefs []map[string]interface{}
 		if err := json.Unmarshal(*template.AIDefinitions, &aiDefs); err == nil {
-			// Map operation names to their definitions
-			for _, tool := range aiDefs.Tools {
-				// Convert tool name to operation format (e.g., "harness_ci_pipelines" -> "ci/pipelines")
-				// This is a heuristic - we'll need to match based on the operation mappings
-				toolDefs[tool.Name] = struct {
-					displayName string
-					description string
-					category    string
-				}{
-					displayName: tool.Name,
-					description: tool.Description,
-					category:    tool.Category,
+			aiDefMap = make(map[string]map[string]interface{})
+			for _, def := range aiDefs {
+				if name, ok := def["name"].(string); ok {
+					aiDefMap[name] = def
+					// Also populate the legacy toolDefs map
+					if desc, ok := def["description"].(string); ok {
+						if cat, ok := def["category"].(string); ok {
+							toolDefs[name] = struct {
+								displayName string
+								description string
+								category    string
+							}{
+								displayName: name,
+								description: desc,
+								category:    cat,
+							}
+						}
+					}
 				}
 			}
 		}
@@ -1452,6 +1454,38 @@ func (api *DynamicToolsAPI) expandOrganizationTool(ctx context.Context, ot *mode
 			displayName = fmt.Sprintf("%s - %s", ot.DisplayName, operationName)
 		}
 
+		// Try to get the input schema from AI definitions
+		var inputSchema map[string]interface{}
+		if aiDefMap != nil {
+			if aiDef, ok := aiDefMap[operationName]; ok {
+				if schema, ok := aiDef["inputSchema"].(map[string]interface{}); ok {
+					inputSchema = schema
+				}
+			}
+		}
+		
+		// If no schema from AI definitions, build basic schema from operation parameters
+		if inputSchema == nil && (len(mapping.RequiredParams) > 0 || len(mapping.OptionalParams) > 0) {
+			properties := make(map[string]interface{})
+			for _, param := range mapping.RequiredParams {
+				properties[param] = map[string]interface{}{
+					"type":        "string",
+					"description": fmt.Sprintf("Required parameter: %s", param),
+				}
+			}
+			for _, param := range mapping.OptionalParams {
+				properties[param] = map[string]interface{}{
+					"type":        "string",
+					"description": fmt.Sprintf("Optional parameter: %s", param),
+				}
+			}
+			inputSchema = map[string]interface{}{
+				"type":       "object",
+				"properties": properties,
+				"required":   mapping.RequiredParams,
+			}
+		}
+
 		// Create the dynamic tool
 		tool := &models.DynamicTool{
 			ID:          fmt.Sprintf("%s_%s", template.ProviderName, operationNameForTool),
@@ -1459,6 +1493,7 @@ func (api *DynamicToolsAPI) expandOrganizationTool(ctx context.Context, ot *mode
 			ToolName:    toolName,
 			DisplayName: displayName,
 			BaseURL:     baseURL,
+			InputSchema: inputSchema,
 			Status:      ot.Status,
 			ToolType:    "organization_tool_operation",
 			Config: map[string]interface{}{

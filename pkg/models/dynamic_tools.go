@@ -13,6 +13,7 @@ type DynamicTool struct {
 	ToolType             string                 `json:"tool_type" db:"tool_type"`
 	DisplayName          string                 `json:"display_name" db:"display_name"`
 	BaseURL              string                 `json:"base_url" db:"base_url"`
+	InputSchema          map[string]interface{} `json:"input_schema,omitempty" db:"-"`
 	DocumentationURL     *string                `json:"documentation_url,omitempty" db:"documentation_url"`
 	OpenAPIURL           *string                `json:"openapi_url,omitempty" db:"openapi_url"`
 	OpenAPISpecURL       *string                `json:"openapi_spec_url,omitempty" db:"openapi_spec_url"`
