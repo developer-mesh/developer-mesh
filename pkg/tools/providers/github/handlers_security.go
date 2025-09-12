@@ -64,7 +64,7 @@ func (h *ListCodeScanningAlertsHandler) Execute(ctx context.Context, params map[
 
 	owner := extractString(params, "owner")
 	repo := extractString(params, "repo")
-	
+
 	pagination := ExtractPagination(params)
 	opts := &github.AlertListOptions{
 		ListOptions: github.ListOptions{
@@ -277,7 +277,7 @@ func (h *ListDependabotAlertsHandler) Execute(ctx context.Context, params map[st
 
 	owner := extractString(params, "owner")
 	repo := extractString(params, "repo")
-	
+
 	pagination := ExtractPagination(params)
 	opts := &github.ListAlertsOptions{
 		ListOptions: github.ListOptions{
@@ -417,7 +417,7 @@ func (h *UpdateDependabotAlertHandler) Execute(ctx context.Context, params map[s
 
 	var dismissedReason *string
 	var dismissedComment *string
-	
+
 	if reason := extractString(params, "dismissed_reason"); reason != "" {
 		dismissedReason = &reason
 	}
@@ -496,7 +496,7 @@ func (h *ListSecretScanningAlertsHandler) Execute(ctx context.Context, params ma
 
 	owner := extractString(params, "owner")
 	repo := extractString(params, "repo")
-	
+
 	pagination := ExtractPagination(params)
 	opts := &github.SecretScanningAlertListOptions{
 		ListOptions: github.ListOptions{
@@ -705,7 +705,7 @@ func (h *ListSecretScanningLocationsHandler) Execute(ctx context.Context, params
 	owner := extractString(params, "owner")
 	repo := extractString(params, "repo")
 	alertNumber := int64(extractInt(params, "alert_number"))
-	
+
 	pagination := ExtractPagination(params)
 	opts := &github.ListOptions{
 		Page:    pagination.Page,
@@ -775,7 +775,7 @@ func (h *ListSecurityAdvisoriesHandler) Execute(ctx context.Context, params map[
 
 	owner := extractString(params, "owner")
 	repo := extractString(params, "repo")
-	
+
 	pagination := ExtractPagination(params)
 	opts := &github.ListRepositorySecurityAdvisoriesOptions{
 		ListCursorOptions: github.ListCursorOptions{
@@ -786,7 +786,7 @@ func (h *ListSecurityAdvisoriesHandler) Execute(ctx context.Context, params map[
 	if state := extractString(params, "state"); state != "" {
 		opts.State = state
 	}
-	
+
 	// Note: The API doesn't support severity filtering directly,
 	// but we keep the parameter for potential client-side filtering
 	severityFilter := extractString(params, "severity")

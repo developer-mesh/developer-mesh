@@ -74,7 +74,7 @@ func ExtractPagination(params map[string]interface{}) PaginationParams {
 	if p, ok := params["page"].(float64); ok {
 		page = int(p)
 	}
-	
+
 	perPage := 30 // Default
 	if pp, ok := params["perPage"].(float64); ok {
 		perPage = int(pp)
@@ -82,12 +82,12 @@ func ExtractPagination(params map[string]interface{}) PaginationParams {
 			perPage = 100
 		}
 	}
-	
+
 	after := ""
 	if a, ok := params["after"].(string); ok {
 		after = a
 	}
-	
+
 	return PaginationParams{
 		Page:    page,
 		PerPage: perPage,
@@ -104,12 +104,12 @@ func ExtractCursorPagination(params map[string]interface{}) CursorPaginationPara
 			perPage = 100
 		}
 	}
-	
+
 	after := ""
 	if a, ok := params["after"].(string); ok {
 		after = a
 	}
-	
+
 	return CursorPaginationParams{
 		PerPage: perPage,
 		After:   after,

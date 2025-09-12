@@ -51,7 +51,7 @@ func NewToolResult(content interface{}) *ToolResult {
 // NewGitHubAPIErrorResponse returns a ToolResult for GitHub API errors
 func NewGitHubAPIErrorResponse(message string, resp *github.Response, err error) *ToolResult {
 	apiErr := newGitHubAPIError(message, resp, err)
-	
+
 	// Check for specific GitHub error types
 	if resp != nil {
 		switch resp.StatusCode {
@@ -70,11 +70,11 @@ func NewGitHubAPIErrorResponse(message string, resp *github.Response, err error)
 			return NewToolError(fmt.Sprintf("%s (status: %d)", message, resp.StatusCode))
 		}
 	}
-	
+
 	// Generic error
 	if err != nil {
 		return NewToolError(fmt.Sprintf("%s: %v", message, err))
 	}
-	
+
 	return NewToolError(apiErr.Error())
 }

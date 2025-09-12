@@ -165,8 +165,8 @@ func TestOrganizationToolAdapter_GetOrganizationTools(t *testing.T) {
 	encryptionSvc := security.NewEncryptionService("test-encryption-key-32bytes!!!!!")
 	cbConfig := resilience.CircuitBreakerConfig{
 		FailureThreshold: 5,
-		FailureRatio:    0.6,
-		ResetTimeout:   30 * time.Second,
+		FailureRatio:     0.6,
+		ResetTimeout:     30 * time.Second,
 	}
 	circuitBreaker := resilience.NewCircuitBreaker("github-test", cbConfig, logger, nil)
 	rateLimiter := resilience.NewRateLimiter("github-test", resilience.RateLimiterConfig{
@@ -333,8 +333,8 @@ func TestOrganizationToolAdapter_ExpandToMCPTools(t *testing.T) {
 	encryptionSvc2 := security.NewEncryptionService("test-encryption-key-32bytes!!!!!")
 	cbConfig2 := resilience.CircuitBreakerConfig{
 		FailureThreshold: 5,
-		FailureRatio:    0.6,
-		ResetTimeout:   30 * time.Second,
+		FailureRatio:     0.6,
+		ResetTimeout:     30 * time.Second,
 	}
 	circuitBreaker2 := resilience.NewCircuitBreaker("github-test2", cbConfig2, logger, nil)
 	rateLimiter2 := resilience.NewRateLimiter("github-test2", resilience.RateLimiterConfig{

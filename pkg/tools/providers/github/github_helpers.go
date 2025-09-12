@@ -64,7 +64,7 @@ func extractBool(params map[string]interface{}, key string) bool {
 // BuildSearchQuery builds a GitHub search query from filters
 func BuildSearchQuery(filters map[string]interface{}) string {
 	parts := []string{}
-	
+
 	// Add type qualifiers
 	if repo, ok := filters["repo"].(string); ok {
 		parts = append(parts, fmt.Sprintf("repo:%s", repo))
@@ -84,14 +84,14 @@ func BuildSearchQuery(filters map[string]interface{}) string {
 	if typ, ok := filters["type"].(string); ok {
 		parts = append(parts, fmt.Sprintf("type:%s", typ))
 	}
-	
+
 	// Add the main query
 	if q, ok := filters["q"].(string); ok {
 		parts = append(parts, q)
 	} else if query, ok := filters["query"].(string); ok {
 		parts = append(parts, query)
 	}
-	
+
 	return strings.Join(parts, " ")
 }
 
@@ -103,7 +103,7 @@ func ErrorResult(format string, args ...interface{}) *ToolResult {
 	} else {
 		message = format
 	}
-	
+
 	return &ToolResult{
 		Content: nil,
 		IsError: true,
@@ -111,7 +111,7 @@ func ErrorResult(format string, args ...interface{}) *ToolResult {
 	}
 }
 
-// SuccessResult creates a success ToolResult  
+// SuccessResult creates a success ToolResult
 func SuccessResult(content interface{}) *ToolResult {
 	return &ToolResult{
 		Content: content,

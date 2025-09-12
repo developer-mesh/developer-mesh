@@ -24,7 +24,7 @@ func InitializeStandardProviders(registry *pkgservices.EnhancedToolRegistry, log
 
 	// Create common dependencies for providers
 	encryptionSvc := security.NewEncryptionService("devmesh-encryption-key-32bytes!!")
-	
+
 	// Circuit breaker configuration
 	cbConfig := resilience.CircuitBreakerConfig{
 		FailureThreshold:    5,
@@ -36,15 +36,15 @@ func InitializeStandardProviders(registry *pkgservices.EnhancedToolRegistry, log
 		MinimumRequestCount: 10,
 	}
 	circuitBreaker := resilience.NewCircuitBreaker("github", cbConfig, logger, nil)
-	
-	// Rate limiter configuration  
+
+	// Rate limiter configuration
 	rlConfig := resilience.RateLimiterConfig{
 		Limit:       100,
 		Period:      time.Minute,
 		BurstFactor: 3,
 	}
 	rateLimiter := resilience.NewRateLimiter("github", rlConfig)
-	
+
 	// Retry policy configuration
 	retryPolicy := &resilience.RetryPolicy{
 		MaxAttempts:  3,

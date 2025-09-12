@@ -14,11 +14,11 @@ type GitHubCache struct {
 	mu    sync.RWMutex
 	items map[string]*CacheItem
 	ttl   time.Duration
-	
+
 	// Metrics for monitoring
 	hits   int64
 	misses int64
-	
+
 	// Control cleanup goroutine
 	stopCleanup chan struct{}
 }
@@ -33,10 +33,10 @@ type CacheItem struct {
 type CacheConfig struct {
 	// DefaultTTL is the default time-to-live for cache entries
 	DefaultTTL time.Duration
-	
+
 	// MaxSize is the maximum number of items in cache (0 = unlimited)
 	MaxSize int
-	
+
 	// CleanupInterval is how often to run cleanup of expired items
 	CleanupInterval time.Duration
 }
@@ -45,7 +45,7 @@ type CacheConfig struct {
 func DefaultCacheConfig() *CacheConfig {
 	return &CacheConfig{
 		DefaultTTL:      5 * time.Minute,  // 5 minutes default
-		MaxSize:         10000,             // Max 10k items
+		MaxSize:         10000,            // Max 10k items
 		CleanupInterval: 10 * time.Minute, // Cleanup every 10 minutes
 	}
 }
@@ -55,13 +55,13 @@ func NewGitHubCache(config *CacheConfig) *GitHubCache {
 	if config == nil {
 		config = DefaultCacheConfig()
 	}
-	
+
 	cache := &GitHubCache{
 		items:       make(map[string]*CacheItem),
 		ttl:         config.DefaultTTL,
 		stopCleanup: make(chan struct{}),
 	}
-	
+
 	// Start cleanup goroutine
 	go cache.cleanupExpired(config.CleanupInterval)
 	return cache
@@ -71,19 +71,19 @@ func NewGitHubCache(config *CacheConfig) *GitHubCache {
 func (c *GitHubCache) Get(key string) (interface{}, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	
+
 	item, ok := c.items[key]
 	if !ok {
 		c.misses++
 		return nil, false
 	}
-	
+
 	// Check if expired
 	if time.Now().After(item.ExpiresAt) {
 		c.misses++
 		return nil, false
 	}
-	
+
 	c.hits++
 	return item.Value, true
 }
@@ -92,12 +92,12 @@ func (c *GitHubCache) Get(key string) (interface{}, bool) {
 func (c *GitHubCache) Set(key string, value interface{}, ttl ...time.Duration) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	expiry := c.ttl
 	if len(ttl) > 0 && ttl[0] > 0 {
 		expiry = ttl[0]
 	}
-	
+
 	c.items[key] = &CacheItem{
 		Value:     value,
 		ExpiresAt: time.Now().Add(expiry),
@@ -129,13 +129,13 @@ func (c *GitHubCache) Size() int {
 func (c *GitHubCache) Stats() map[string]interface{} {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	
+
 	total := c.hits + c.misses
 	hitRate := float64(0)
 	if total > 0 {
 		hitRate = float64(c.hits) / float64(total) * 100
 	}
-	
+
 	return map[string]interface{}{
 		"hits":      c.hits,
 		"misses":    c.misses,
@@ -149,7 +149,7 @@ func (c *GitHubCache) Stats() map[string]interface{} {
 func (c *GitHubCache) InvalidatePattern(pattern string) int {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	count := 0
 	for key := range c.items {
 		if strings.Contains(key, pattern) {
@@ -164,7 +164,7 @@ func (c *GitHubCache) InvalidatePattern(pattern string) int {
 func (c *GitHubCache) cleanupExpired(interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-ticker.C:
@@ -179,7 +179,7 @@ func (c *GitHubCache) cleanupExpired(interval time.Duration) {
 func (c *GitHubCache) removeExpired() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	now := time.Now()
 	for key, item := range c.items {
 		if now.After(item.ExpiresAt) {
@@ -241,13 +241,13 @@ func BuildSearchCacheKey(searchType, query string, page int) string {
 const (
 	// Short TTL for frequently changing data
 	TTLShort = 1 * time.Minute
-	
+
 	// Medium TTL for moderately stable data
 	TTLMedium = 5 * time.Minute
-	
+
 	// Long TTL for rarely changing data
 	TTLLong = 15 * time.Minute
-	
+
 	// Extra long TTL for very stable data
 	TTLExtraLong = 1 * time.Hour
 )
@@ -258,19 +258,19 @@ func GetRecommendedTTL(operationType string) time.Duration {
 	// Very short TTL for things that change frequently
 	case "notifications", "workflow_runs", "workflow_jobs":
 		return TTLShort
-		
+
 	// Medium TTL for standard operations
 	case "issues", "pulls", "commits", "branches":
 		return TTLMedium
-		
+
 	// Long TTL for stable data
 	case "repositories", "organizations", "users", "teams":
 		return TTLLong
-		
+
 	// Extra long TTL for very stable data
 	case "licenses", "gitignore_templates", "languages":
 		return TTLExtraLong
-		
+
 	default:
 		return TTLMedium
 	}

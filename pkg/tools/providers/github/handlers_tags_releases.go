@@ -56,7 +56,7 @@ func (h *ListTagsHandler) Execute(ctx context.Context, params map[string]interfa
 
 	owner := extractString(params, "owner")
 	repo := extractString(params, "repo")
-	
+
 	pagination := ExtractPagination(params)
 	opts := &github.ListOptions{
 		Page:    pagination.Page,
@@ -183,7 +183,7 @@ func (h *ListReleasesHandler) Execute(ctx context.Context, params map[string]int
 
 	owner := extractString(params, "owner")
 	repo := extractString(params, "repo")
-	
+
 	pagination := ExtractPagination(params)
 	opts := &github.ListOptions{
 		Page:    pagination.Page,
@@ -366,32 +366,32 @@ func (h *CreateReleaseHandler) Execute(ctx context.Context, params map[string]in
 
 	owner := extractString(params, "owner")
 	repo := extractString(params, "repo")
-	
+
 	tagName := extractString(params, "tag_name")
 	releaseRequest := &github.RepositoryRelease{
 		TagName: &tagName,
 	}
-	
+
 	if name := extractString(params, "name"); name != "" {
 		releaseRequest.Name = &name
 	}
-	
+
 	if body := extractString(params, "body"); body != "" {
 		releaseRequest.Body = &body
 	}
-	
+
 	if targetCommitish := extractString(params, "target_commitish"); targetCommitish != "" {
 		releaseRequest.TargetCommitish = &targetCommitish
 	}
-	
+
 	if draft, ok := params["draft"].(bool); ok {
 		releaseRequest.Draft = &draft
 	}
-	
+
 	if prerelease, ok := params["prerelease"].(bool); ok {
 		releaseRequest.Prerelease = &prerelease
 	}
-	
+
 	if generateNotes, ok := params["generate_release_notes"].(bool); ok {
 		releaseRequest.GenerateReleaseNotes = &generateNotes
 	}

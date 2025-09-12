@@ -58,7 +58,7 @@ type GitHubProvider struct {
 
 	// Configuration
 	config providers.ProviderConfig
-	
+
 	// Caching
 	cache        *GitHubCache
 	cacheEnabled bool
@@ -385,13 +385,13 @@ func (p *GitHubProvider) initializeToolsets() {
 	for _, toolset := range p.toolsetRegistry {
 		for i, tool := range toolset.Tools {
 			def := tool.GetDefinition()
-			
+
 			// Wrap read-only operations with cache if caching is enabled
 			if p.cache != nil && isReadOnlyOperation(def.Name) {
 				toolset.Tools[i] = WrapWithCache(p, tool)
 				tool = toolset.Tools[i]
 			}
-			
+
 			p.toolRegistry[def.Name] = tool
 		}
 	}
@@ -639,7 +639,7 @@ func (p *GitHubProvider) getOrCreateClients(ctx context.Context, tenantID string
 func (p *GitHubProvider) getGraphQLClient(ctx context.Context) (*githubv4.Client, error) {
 	// Get tenant ID
 	tenantID := p.extractTenantID(ctx, nil)
-	
+
 	// Try to get from cache
 	p.clientMutex.RLock()
 	if clients, ok := p.clientCache[tenantID]; ok {
@@ -651,17 +651,17 @@ func (p *GitHubProvider) getGraphQLClient(ctx context.Context) (*githubv4.Client
 	} else {
 		p.clientMutex.RUnlock()
 	}
-	
+
 	// Create new client set
 	clients, err := p.getOrCreateClients(ctx, tenantID, nil)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if clients.gqlClient == nil {
 		return nil, fmt.Errorf("failed to create GraphQL client")
 	}
-	
+
 	return clients.gqlClient, nil
 }
 
@@ -938,7 +938,7 @@ func (p *GitHubProvider) GetCacheStats() map[string]interface{} {
 			"error":   "cache not initialized",
 		}
 	}
-	
+
 	stats := p.cache.Stats()
 	stats["enabled"] = p.cacheEnabled
 	return stats
@@ -957,7 +957,7 @@ func (p *GitHubProvider) InvalidateCachePattern(pattern string) int {
 	if p.cache == nil {
 		return 0
 	}
-	
+
 	count := p.cache.InvalidatePattern(pattern)
 	p.logger.Info("Invalidated cache entries", map[string]interface{}{
 		"pattern": pattern,
@@ -980,7 +980,7 @@ func (p *GitHubProvider) SetCacheTTL(ttl time.Duration) {
 func (p *GitHubProvider) GetAIOptimizedDefinitions() []providers.AIOptimizedToolDefinition {
 	tools := p.GetToolDefinitions()
 	optimized := make([]providers.AIOptimizedToolDefinition, 0, len(tools))
-	
+
 	for _, tool := range tools {
 		// Convert standard tool to AI-optimized format
 		aiTool := providers.AIOptimizedToolDefinition{
@@ -988,20 +988,20 @@ func (p *GitHubProvider) GetAIOptimizedDefinitions() []providers.AIOptimizedTool
 			DisplayName: tool.Name,
 			Category:    "GitHub",
 			Description: tool.Description,
-			
+
 			// Add semantic tags based on operation type
 			SemanticTags: getSemanticTags(tool.Name),
-			
+
 			// Set complexity level
 			ComplexityLevel: getComplexityLevel(tool.Name),
-			
+
 			// Convert input schema
 			InputSchema: providers.AIParameterSchema{
 				Type:       "object",
 				Properties: make(map[string]providers.AIPropertySchema),
 			},
 		}
-		
+
 		// Add subcategory based on toolset
 		if strings.Contains(tool.Name, "issue") {
 			aiTool.Subcategory = "Issues"
@@ -1014,17 +1014,17 @@ func (p *GitHubProvider) GetAIOptimizedDefinitions() []providers.AIOptimizedTool
 		} else if strings.Contains(tool.Name, "security") || strings.Contains(tool.Name, "scan") {
 			aiTool.Subcategory = "Security"
 		}
-		
+
 		optimized = append(optimized, aiTool)
 	}
-	
+
 	return optimized
 }
 
 // getSemanticTags returns semantic tags for a tool based on its name
 func getSemanticTags(toolName string) []string {
 	tags := []string{"github", "version-control"}
-	
+
 	if strings.HasPrefix(toolName, "get_") {
 		tags = append(tags, "read", "fetch", "retrieve")
 	}
@@ -1043,7 +1043,7 @@ func getSemanticTags(toolName string) []string {
 	if strings.Contains(toolName, "search") {
 		tags = append(tags, "query", "find", "filter")
 	}
-	
+
 	return tags
 }
 
@@ -1053,13 +1053,13 @@ func getComplexityLevel(toolName string) string {
 	if strings.HasPrefix(toolName, "get_") || strings.HasPrefix(toolName, "list_") {
 		return "simple"
 	}
-	
+
 	// Complex operations
 	if strings.Contains(toolName, "merge") || strings.Contains(toolName, "workflow") ||
 		strings.Contains(toolName, "tree") || strings.Contains(toolName, "commit") {
 		return "complex"
 	}
-	
+
 	// Default to moderate
 	return "moderate"
 }

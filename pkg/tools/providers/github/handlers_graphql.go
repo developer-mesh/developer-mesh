@@ -148,7 +148,7 @@ func NewListIssuesGraphQLHandler(p *GitHubProvider) *ListIssuesGraphQLHandler {
 func (h *ListIssuesGraphQLHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
 	owner := extractString(params, "owner")
 	repo := extractString(params, "repo")
-	
+
 	if owner == "" || repo == "" {
 		return ErrorResult("owner and repo are required"), nil
 	}
@@ -435,7 +435,7 @@ func (h *GetRepositoryDetailsGraphQLHandler) Execute(ctx context.Context, params
 			PullRequests struct {
 				TotalCount int
 			} `graphql:"pullRequests(states: OPEN)"`
-			DiskUsage       *int
+			DiskUsage               *int
 			IsSecurityPolicyEnabled bool
 			VulnerabilityAlerts     *struct {
 				TotalCount int
@@ -455,20 +455,20 @@ func (h *GetRepositoryDetailsGraphQLHandler) Execute(ctx context.Context, params
 
 	// Convert to response
 	result := convertRepositoryFragment(query.Repository.RepositoryFragment)
-	
+
 	// Add extended information
 	result["collaborators_count"] = query.Repository.Collaborators.TotalCount
 	result["releases_count"] = query.Repository.Releases.TotalCount
 	result["tags_count"] = query.Repository.Tags.TotalCount
 	result["branches_count"] = query.Repository.Branches.TotalCount
 	result["open_pull_requests_count"] = query.Repository.PullRequests.TotalCount
-	
+
 	if query.Repository.DiskUsage != nil {
 		result["disk_usage_kb"] = *query.Repository.DiskUsage
 	}
-	
+
 	result["security_policy_enabled"] = query.Repository.IsSecurityPolicyEnabled
-	
+
 	if query.Repository.VulnerabilityAlerts != nil {
 		result["vulnerability_alerts_count"] = query.Repository.VulnerabilityAlerts.TotalCount
 	}

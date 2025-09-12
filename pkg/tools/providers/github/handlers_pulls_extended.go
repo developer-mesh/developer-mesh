@@ -60,7 +60,7 @@ func (h *UpdatePullRequestBranchHandler) Execute(ctx context.Context, params map
 	}
 
 	return NewToolResult(map[string]string{
-		"status": "updated",
+		"status":  "updated",
 		"message": "Pull request branch updated with base branch",
 	}), nil
 }
@@ -116,7 +116,7 @@ func (h *GetPullRequestDiffHandler) Execute(ctx context.Context, params map[stri
 	}
 
 	return NewToolResult(map[string]interface{}{
-		"diff": diff,
+		"diff":        diff,
 		"pull_number": pullNumber,
 	}), nil
 }
@@ -259,7 +259,7 @@ func (h *GetPullRequestReviewCommentsHandler) Execute(ctx context.Context, param
 	if direction, ok := params["direction"].(string); ok {
 		opts.Direction = direction
 	}
-	
+
 	pagination := ExtractPagination(params)
 	opts.ListOptions = github.ListOptions{
 		Page:    pagination.Page,
@@ -349,14 +349,14 @@ func (h *CreatePullRequestReviewHandler) Execute(ctx context.Context, params map
 	pullNumber := extractInt(params, "pull_number")
 
 	review := &github.PullRequestReviewRequest{}
-	
+
 	if event, ok := params["event"].(string); ok {
 		review.Event = &event
 	}
 	if body, ok := params["body"].(string); ok {
 		review.Body = &body
 	}
-	
+
 	if comments, ok := params["comments"].([]interface{}); ok {
 		var draftComments []*github.DraftReviewComment
 		for _, c := range comments {
@@ -448,7 +448,7 @@ func (h *SubmitPullRequestReviewHandler) Execute(ctx context.Context, params map
 	review := &github.PullRequestReviewRequest{
 		Event: &event,
 	}
-	
+
 	if body, ok := params["body"].(string); ok {
 		review.Body = &body
 	}

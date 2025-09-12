@@ -126,7 +126,7 @@ func (h *CreateBlobHandler) Execute(ctx context.Context, params map[string]inter
 	repo := extractString(params, "repo")
 	content := extractString(params, "content")
 	encoding := extractString(params, "encoding")
-	
+
 	if encoding == "" {
 		encoding = "utf-8"
 	}
@@ -283,7 +283,7 @@ func (h *CreateTreeHandler) Execute(ctx context.Context, params map[string]inter
 		for _, item := range treeArray {
 			if entry, ok := item.(map[string]interface{}); ok {
 				treeEntry := &github.TreeEntry{}
-				
+
 				if path := extractString(entry, "path"); path != "" {
 					treeEntry.Path = &path
 				}
@@ -299,7 +299,7 @@ func (h *CreateTreeHandler) Execute(ctx context.Context, params map[string]inter
 				if content := extractString(entry, "content"); content != "" {
 					treeEntry.Content = &content
 				}
-				
+
 				entries = append(entries, treeEntry)
 			}
 		}
@@ -407,7 +407,7 @@ func (h *CreateCommitHandler) GetDefinition() ToolDefinition {
 					},
 				},
 				"author": map[string]interface{}{
-					"type": "object",
+					"type":        "object",
 					"description": "Author information",
 					"properties": map[string]interface{}{
 						"name": map[string]interface{}{

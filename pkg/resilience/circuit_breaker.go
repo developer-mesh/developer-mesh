@@ -325,7 +325,7 @@ func (cb *CircuitBreaker) recordMetrics(result string, success bool, duration ti
 	if cb.metrics == nil {
 		return
 	}
-	
+
 	labels := map[string]string{
 		"name":   cb.name,
 		"state":  cb.getState().String(),
@@ -350,7 +350,7 @@ func (cb *CircuitBreaker) recordStateChangeMetric(from, to CircuitBreakerState) 
 	if cb.metrics == nil {
 		return
 	}
-	
+
 	labels := map[string]string{
 		"name": cb.name,
 		"from": from.String(),

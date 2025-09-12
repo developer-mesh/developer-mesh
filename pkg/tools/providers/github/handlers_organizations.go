@@ -122,7 +122,7 @@ func (h *SearchOrganizationsHandler) Execute(ctx context.Context, params map[str
 	}
 
 	query := extractString(params, "query")
-	
+
 	pagination := ExtractPagination(params)
 	opts := &github.SearchOptions{
 		ListOptions: github.ListOptions{
@@ -198,7 +198,7 @@ func (h *SearchUsersHandler) Execute(ctx context.Context, params map[string]inte
 	}
 
 	query := extractString(params, "query")
-	
+
 	pagination := ExtractPagination(params)
 	opts := &github.SearchOptions{
 		ListOptions: github.ListOptions{
@@ -273,7 +273,7 @@ func (h *GetTeamMembersHandler) Execute(ctx context.Context, params map[string]i
 
 	org := extractString(params, "org")
 	teamSlug := extractString(params, "team_slug")
-	
+
 	pagination := ExtractPagination(params)
 	opts := &github.TeamListTeamMembersOptions{
 		ListOptions: github.ListOptions{
@@ -336,7 +336,7 @@ func (h *ListTeamsHandler) Execute(ctx context.Context, params map[string]interf
 	}
 
 	org := extractString(params, "org")
-	
+
 	pagination := ExtractPagination(params)
 	opts := &github.ListOptions{
 		Page:    pagination.Page,

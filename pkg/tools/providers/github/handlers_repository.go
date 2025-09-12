@@ -76,7 +76,7 @@ func (h *ListRepositoriesHandler) Execute(ctx context.Context, params map[string
 	if direction, ok := params["direction"].(string); ok {
 		opts.Direction = direction
 	}
-	
+
 	pagination := ExtractPagination(params)
 	opts.ListOptions = github.ListOptions{
 		Page:    pagination.Page,
@@ -159,7 +159,7 @@ func (h *GetRepositoryHandler) Execute(ctx context.Context, params map[string]in
 		owner := extractString(params, "owner")
 		repo := extractString(params, "repo")
 		cacheKey := BuildRepositoryCacheKey(owner, repo, "get")
-		
+
 		if cached, found := h.provider.cache.Get(cacheKey); found {
 			h.provider.logger.Debug("Cache hit for repository", map[string]interface{}{
 				"owner": owner,
@@ -186,7 +186,7 @@ func (h *GetRepositoryHandler) Execute(ctx context.Context, params map[string]in
 
 	data, _ := json.Marshal(repository)
 	result := NewToolResult(string(data))
-	
+
 	// Cache the successful result
 	if h.provider.cacheEnabled && h.provider.cache != nil && !result.IsError {
 		cacheKey := BuildRepositoryCacheKey(owner, repo, "get")
@@ -197,7 +197,7 @@ func (h *GetRepositoryHandler) Execute(ctx context.Context, params map[string]in
 			"ttl":   GetRecommendedTTL("repositories").String(),
 		})
 	}
-	
+
 	return result, nil
 }
 
@@ -388,7 +388,7 @@ func (h *DeleteRepositoryHandler) Execute(ctx context.Context, params map[string
 	}
 
 	return NewToolResult(map[string]string{
-		"status": "deleted",
+		"status":     "deleted",
 		"repository": fmt.Sprintf("%s/%s", owner, repo),
 	}), nil
 }
@@ -885,7 +885,7 @@ func (h *CreateOrUpdateFileHandler) Execute(ctx context.Context, params map[stri
 		Message: &message,
 		Content: []byte(content),
 	}
-	
+
 	if branch != "" {
 		opts.Branch = &branch
 	}
@@ -1017,7 +1017,7 @@ func (h *ForkRepositoryHandler) Execute(ctx context.Context, params map[string]i
 
 	owner := extractString(params, "owner")
 	repo := extractString(params, "repo")
-	
+
 	opts := &github.RepositoryCreateForkOptions{}
 	if org := extractString(params, "organization"); org != "" {
 		opts.Organization = org
@@ -1191,7 +1191,7 @@ func (h *PushFilesHandler) Execute(ctx context.Context, params map[string]interf
 			if fileMap, ok := file.(map[string]interface{}); ok {
 				path := extractString(fileMap, "path")
 				content := extractString(fileMap, "content")
-				
+
 				blob, _, err := client.Git.CreateBlob(ctx, owner, repo, &github.Blob{
 					Content:  &content,
 					Encoding: ToStringPtr("utf-8"),
@@ -1199,7 +1199,7 @@ func (h *PushFilesHandler) Execute(ctx context.Context, params map[string]interf
 				if err != nil {
 					return NewToolError(fmt.Sprintf("Failed to create blob for %s: %v", path, err)), nil
 				}
-				
+
 				entries = append(entries, github.TreeEntry{
 					Path: &path,
 					Mode: ToStringPtr("100644"),
@@ -1239,9 +1239,9 @@ func (h *PushFilesHandler) Execute(ctx context.Context, params map[string]interf
 	}
 
 	return NewToolResult(marshalJSON(map[string]interface{}{
-		"commit": newCommit.SHA,
+		"commit":  newCommit.SHA,
 		"message": message,
-		"files": len(entries),
+		"files":   len(entries),
 	})), nil
 }
 
@@ -1308,7 +1308,7 @@ func (h *DeleteFileHandler) Execute(ctx context.Context, params map[string]inter
 		Message: &message,
 		SHA:     &sha,
 	}
-	
+
 	if branch != "" {
 		opts.Branch = &branch
 	}

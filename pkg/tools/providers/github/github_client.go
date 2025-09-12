@@ -45,12 +45,12 @@ func (t *BearerAuthTransport) RoundTrip(req *http.Request) (*http.Response, erro
 	req2 := cloneRequest(req)
 	req2.Header.Set("Authorization", "Bearer "+t.Token)
 	req2.Header.Set("Accept", "application/vnd.github.v3+json")
-	
+
 	transport := t.Transport
 	if transport == nil {
 		transport = http.DefaultTransport
 	}
-	
+
 	return transport.RoundTrip(req2)
 }
 
@@ -71,7 +71,7 @@ func NewGitHubClients(token string, host string) (*GitHubClients, error) {
 	if host == "" {
 		host = "github.com"
 	}
-	
+
 	// Determine API URLs based on host
 	var apiURL, graphQLURL string
 	if host == "github.com" {
@@ -82,14 +82,14 @@ func NewGitHubClients(token string, host string) (*GitHubClients, error) {
 		apiURL = fmt.Sprintf("https://%s/api/v3", host)
 		graphQLURL = fmt.Sprintf("https://%s/api/graphql", host)
 	}
-	
+
 	// Create OAuth2 client for REST API
 	ctx := context.Background()
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: token},
 	)
 	httpClient := oauth2.NewClient(ctx, ts)
-	
+
 	// REST client setup
 	restClient := github.NewClient(httpClient)
 	restClient.UserAgent = "devops-mcp-github/1.0"
@@ -97,7 +97,7 @@ func NewGitHubClients(token string, host string) (*GitHubClients, error) {
 		restClient.BaseURL.Host = host
 		restClient.BaseURL.Path = "/api/v3/"
 	}
-	
+
 	// GraphQL client setup with bearer auth transport
 	gqlHTTPClient := &http.Client{
 		Transport: &BearerAuthTransport{
@@ -105,21 +105,21 @@ func NewGitHubClients(token string, host string) (*GitHubClients, error) {
 			Token:     token,
 		},
 	}
-	
+
 	var gqlClient *githubv4.Client
 	if host == "github.com" {
 		gqlClient = githubv4.NewClient(gqlHTTPClient)
 	} else {
 		gqlClient = githubv4.NewEnterpriseClient(graphQLURL, gqlHTTPClient)
 	}
-	
+
 	// Raw client for direct file access
 	rawClient := &RawClient{
 		httpClient: httpClient,
 		baseURL:    apiURL,
 		token:      token,
 	}
-	
+
 	return &GitHubClients{
 		REST:    restClient,
 		GraphQL: gqlClient,
@@ -133,15 +133,15 @@ func (c *RawClient) DownloadRawFile(ctx context.Context, owner, repo, path, ref 
 	if ref != "" {
 		url += "?ref=" + ref
 	}
-	
+
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	req.Header.Set("Authorization", "Bearer "+c.token)
 	req.Header.Set("Accept", "application/vnd.github.v3.raw")
-	
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -149,11 +149,11 @@ func (c *RawClient) DownloadRawFile(ctx context.Context, owner, repo, path, ref 
 	defer func() {
 		_ = resp.Body.Close()
 	}()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to download file: %s", resp.Status)
 	}
-	
+
 	return io.ReadAll(resp.Body)
 }
 

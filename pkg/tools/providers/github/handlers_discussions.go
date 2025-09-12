@@ -8,19 +8,19 @@ import (
 
 // Discussion represents a GitHub discussion
 type Discussion struct {
-	ID            string
-	Number        int
-	Title         string
-	Body          string
-	Author        string
-	Category      string
-	CreatedAt     string
-	UpdatedAt     string
+	ID             string
+	Number         int
+	Title          string
+	Body           string
+	Author         string
+	Category       string
+	CreatedAt      string
+	UpdatedAt      string
 	AnswerChosenAt *string
-	IsAnswered    bool
-	Locked        bool
-	Comments      int
-	URL           string
+	IsAnswered     bool
+	Locked         bool
+	Comments       int
+	URL            string
 }
 
 // ListDiscussionsHandler lists discussions in a repository
@@ -37,7 +37,7 @@ func NewListDiscussionsHandler(p *GitHubProvider) *ListDiscussionsHandler {
 func (h *ListDiscussionsHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
 	owner := extractString(params, "owner")
 	repo := extractString(params, "repo")
-	
+
 	if owner == "" || repo == "" {
 		return ErrorResult("owner and repo are required"), nil
 	}
@@ -52,11 +52,11 @@ func (h *ListDiscussionsHandler) Execute(ctx context.Context, params map[string]
 		Repository struct {
 			Discussions struct {
 				Nodes []struct {
-					ID       string
-					Number   int
-					Title    string
-					Body     string
-					Author   struct {
+					ID     string
+					Number int
+					Title  string
+					Body   string
+					Author struct {
 						Login string
 					}
 					Category struct {
@@ -118,24 +118,24 @@ func (h *ListDiscussionsHandler) Execute(ctx context.Context, params map[string]
 	discussions := make([]map[string]interface{}, 0, len(query.Repository.Discussions.Nodes))
 	for _, disc := range query.Repository.Discussions.Nodes {
 		discussion := map[string]interface{}{
-			"id":         disc.ID,
-			"number":     disc.Number,
-			"title":      disc.Title,
-			"body":       disc.Body,
-			"author":     disc.Author.Login,
-			"category":   disc.Category.Name,
-			"created_at": disc.CreatedAt.Time,
-			"updated_at": disc.UpdatedAt.Time,
+			"id":          disc.ID,
+			"number":      disc.Number,
+			"title":       disc.Title,
+			"body":        disc.Body,
+			"author":      disc.Author.Login,
+			"category":    disc.Category.Name,
+			"created_at":  disc.CreatedAt.Time,
+			"updated_at":  disc.UpdatedAt.Time,
 			"is_answered": disc.IsAnswered,
-			"locked":     disc.Locked,
-			"comments":   disc.Comments.TotalCount,
-			"url":        disc.URL,
+			"locked":      disc.Locked,
+			"comments":    disc.Comments.TotalCount,
+			"url":         disc.URL,
 		}
-		
+
 		if disc.AnswerChosenAt != nil {
 			discussion["answer_chosen_at"] = disc.AnswerChosenAt.Time
 		}
-		
+
 		discussions = append(discussions, discussion)
 	}
 
@@ -196,7 +196,7 @@ func (h *GetDiscussionHandler) Execute(ctx context.Context, params map[string]in
 	owner := extractString(params, "owner")
 	repo := extractString(params, "repo")
 	discussionNumber := extractInt(params, "discussion_number")
-	
+
 	if owner == "" || repo == "" || discussionNumber == 0 {
 		return ErrorResult("owner, repo, and discussion_number are required"), nil
 	}
@@ -234,9 +234,9 @@ func (h *GetDiscussionHandler) Execute(ctx context.Context, params map[string]in
 				Comments       struct {
 					TotalCount int
 					Nodes      []struct {
-						ID        string
-						Body      string
-						Author    struct {
+						ID     string
+						Body   string
+						Author struct {
 							Login string
 						}
 						CreatedAt githubv4.DateTime
@@ -249,9 +249,9 @@ func (h *GetDiscussionHandler) Execute(ctx context.Context, params map[string]in
 						Color string
 					}
 				} `graphql:"labels(first: 10)"`
-				URL           string
-				ResourcePath  string
-				Upvotes       int `graphql:"upvoteCount"`
+				URL          string
+				ResourcePath string
+				Upvotes      int `graphql:"upvoteCount"`
 			} `graphql:"discussion(number: $number)"`
 		} `graphql:"repository(owner: $owner, name: $repo)"`
 	}
@@ -268,7 +268,7 @@ func (h *GetDiscussionHandler) Execute(ctx context.Context, params map[string]in
 	}
 
 	disc := query.Repository.Discussion
-	
+
 	// Format comments
 	comments := make([]map[string]interface{}, 0, len(disc.Comments.Nodes))
 	for _, comment := range disc.Comments.Nodes {
@@ -280,7 +280,7 @@ func (h *GetDiscussionHandler) Execute(ctx context.Context, params map[string]in
 			"updated_at": comment.UpdatedAt.Time,
 		})
 	}
-	
+
 	// Format labels
 	labels := make([]map[string]interface{}, 0, len(disc.Labels.Nodes))
 	for _, label := range disc.Labels.Nodes {
@@ -291,10 +291,10 @@ func (h *GetDiscussionHandler) Execute(ctx context.Context, params map[string]in
 	}
 
 	result := map[string]interface{}{
-		"id":       disc.ID,
-		"number":   disc.Number,
-		"title":    disc.Title,
-		"body":     disc.Body,
+		"id":        disc.ID,
+		"number":    disc.Number,
+		"title":     disc.Title,
+		"body":      disc.Body,
 		"body_html": disc.BodyHTML,
 		"author": map[string]interface{}{
 			"login":      disc.Author.Login,
@@ -306,22 +306,22 @@ func (h *GetDiscussionHandler) Execute(ctx context.Context, params map[string]in
 			"description": disc.Category.Description,
 			"emoji":       disc.Category.Emoji,
 		},
-		"created_at":    disc.CreatedAt.Time,
-		"updated_at":    disc.UpdatedAt.Time,
-		"is_answered":   disc.IsAnswered,
-		"locked":        disc.Locked,
+		"created_at":     disc.CreatedAt.Time,
+		"updated_at":     disc.UpdatedAt.Time,
+		"is_answered":    disc.IsAnswered,
+		"locked":         disc.Locked,
 		"comments_count": disc.Comments.TotalCount,
-		"comments":      comments,
-		"labels":        labels,
-		"url":           disc.URL,
-		"resource_path": disc.ResourcePath,
-		"upvotes":       disc.Upvotes,
+		"comments":       comments,
+		"labels":         labels,
+		"url":            disc.URL,
+		"resource_path":  disc.ResourcePath,
+		"upvotes":        disc.Upvotes,
 	}
-	
+
 	if disc.AnswerChosenAt != nil {
 		result["answer_chosen_at"] = disc.AnswerChosenAt.Time
 	}
-	
+
 	if disc.LockedAt != nil {
 		result["locked_at"] = disc.LockedAt.Time
 	}
@@ -370,7 +370,7 @@ func (h *GetDiscussionCommentsHandler) Execute(ctx context.Context, params map[s
 	owner := extractString(params, "owner")
 	repo := extractString(params, "repo")
 	discussionNumber := extractInt(params, "discussion_number")
-	
+
 	if owner == "" || repo == "" || discussionNumber == 0 {
 		return ErrorResult("owner, repo, and discussion_number are required"), nil
 	}
@@ -384,22 +384,22 @@ func (h *GetDiscussionCommentsHandler) Execute(ctx context.Context, params map[s
 	var query struct {
 		Repository struct {
 			Discussion struct {
-				ID    string
-				Title string
+				ID       string
+				Title    string
 				Comments struct {
 					Nodes []struct {
-						ID        string
-						Body      string
-						BodyHTML  string
-						Author    struct {
+						ID       string
+						Body     string
+						BodyHTML string
+						Author   struct {
 							Login     string
 							AvatarUrl string
 						}
-						CreatedAt  githubv4.DateTime
-						UpdatedAt  githubv4.DateTime
-						IsAnswer   bool
-						Upvotes    int `graphql:"upvoteCount"`
-						Replies    struct {
+						CreatedAt githubv4.DateTime
+						UpdatedAt githubv4.DateTime
+						IsAnswer  bool
+						Upvotes   int `graphql:"upvoteCount"`
+						Replies   struct {
 							TotalCount int
 							Nodes      []struct {
 								ID     string
@@ -453,7 +453,7 @@ func (h *GetDiscussionCommentsHandler) Execute(ctx context.Context, params map[s
 				"created_at": reply.CreatedAt.Time,
 			})
 		}
-		
+
 		comments = append(comments, map[string]interface{}{
 			"id":        comment.ID,
 			"body":      comment.Body,
@@ -529,7 +529,7 @@ func NewListDiscussionCategoriesHandler(p *GitHubProvider) *ListDiscussionCatego
 func (h *ListDiscussionCategoriesHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
 	owner := extractString(params, "owner")
 	repo := extractString(params, "repo")
-	
+
 	if owner == "" || repo == "" {
 		return ErrorResult("owner and repo are required"), nil
 	}
@@ -544,12 +544,12 @@ func (h *ListDiscussionCategoriesHandler) Execute(ctx context.Context, params ma
 		Repository struct {
 			DiscussionCategories struct {
 				Nodes []struct {
-					ID          string
-					Name        string
-					Description string
-					Emoji       string
-					CreatedAt   githubv4.DateTime
-					UpdatedAt   githubv4.DateTime
+					ID           string
+					Name         string
+					Description  string
+					Emoji        string
+					CreatedAt    githubv4.DateTime
+					UpdatedAt    githubv4.DateTime
 					IsAnswerable bool
 				}
 				TotalCount int
@@ -571,12 +571,12 @@ func (h *ListDiscussionCategoriesHandler) Execute(ctx context.Context, params ma
 	categories := make([]map[string]interface{}, 0, len(query.Repository.DiscussionCategories.Nodes))
 	for _, cat := range query.Repository.DiscussionCategories.Nodes {
 		categories = append(categories, map[string]interface{}{
-			"id":           cat.ID,
-			"name":         cat.Name,
-			"description":  cat.Description,
-			"emoji":        cat.Emoji,
-			"created_at":   cat.CreatedAt.Time,
-			"updated_at":   cat.UpdatedAt.Time,
+			"id":            cat.ID,
+			"name":          cat.Name,
+			"description":   cat.Description,
+			"emoji":         cat.Emoji,
+			"created_at":    cat.CreatedAt.Time,
+			"updated_at":    cat.UpdatedAt.Time,
 			"is_answerable": cat.IsAnswerable,
 		})
 	}

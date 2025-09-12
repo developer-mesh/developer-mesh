@@ -186,10 +186,10 @@ func (h *AddPullRequestReviewGraphQLHandler) Execute(ctx context.Context, params
 	var mutation struct {
 		AddPullRequestReview struct {
 			PullRequestReview struct {
-				ID          string
-				State       string
-				Body        string
-				Author      struct {
+				ID     string
+				State  string
+				Body   string
+				Author struct {
 					Login string
 				}
 				SubmittedAt *githubv4.DateTime
@@ -309,9 +309,9 @@ func (h *MergePullRequestGraphQLHandler) Execute(ctx context.Context, params map
 	var prQuery struct {
 		Repository struct {
 			PullRequest struct {
-				ID            string
-				Mergeable     githubv4.MergeableState
-				HeadRefOid    string
+				ID         string
+				Mergeable  githubv4.MergeableState
+				HeadRefOid string
 			} `graphql:"pullRequest(number: $number)"`
 		} `graphql:"repository(owner: $owner, name: $repo)"`
 	}
@@ -381,10 +381,10 @@ func (h *MergePullRequestGraphQLHandler) Execute(ctx context.Context, params map
 	}
 
 	result := map[string]interface{}{
-		"id":       mutation.MergePullRequest.PullRequest.ID,
-		"number":   mutation.MergePullRequest.PullRequest.Number,
-		"state":    mutation.MergePullRequest.PullRequest.State,
-		"merged":   mutation.MergePullRequest.PullRequest.Merged,
+		"id":        mutation.MergePullRequest.PullRequest.ID,
+		"number":    mutation.MergePullRequest.PullRequest.Number,
+		"state":     mutation.MergePullRequest.PullRequest.State,
+		"merged":    mutation.MergePullRequest.PullRequest.Merged,
 		"merged_by": mutation.MergePullRequest.PullRequest.MergedBy.Login,
 	}
 
@@ -496,13 +496,13 @@ func (h *CreateIssueGraphQLHandler) Execute(ctx context.Context, params map[stri
 	var mutation struct {
 		CreateIssue struct {
 			Issue struct {
-				ID      string
-				Number  int
-				Title   string
-				Body    string
-				State   string
-				URL     string
-				Author  struct {
+				ID     string
+				Number int
+				Title  string
+				Body   string
+				State  string
+				URL    string
+				Author struct {
 					Login string
 				}
 			}

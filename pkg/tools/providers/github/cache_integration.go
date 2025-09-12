@@ -9,11 +9,11 @@ import (
 
 // CachedExecutor wraps a handler's Execute method with caching logic
 type CachedExecutor struct {
-	provider  *GitHubProvider
-	handler   ToolHandler
-	cacheKey  func(params map[string]interface{}) string
-	cacheTTL  time.Duration
-	readOnly  bool // Whether this is a read-only operation that can be cached
+	provider *GitHubProvider
+	handler  ToolHandler
+	cacheKey func(params map[string]interface{}) string
+	cacheTTL time.Duration
+	readOnly bool // Whether this is a read-only operation that can be cached
 }
 
 // NewCachedExecutor creates a new cached executor for a handler
@@ -25,11 +25,11 @@ func NewCachedExecutor(
 	readOnly bool,
 ) *CachedExecutor {
 	return &CachedExecutor{
-		provider:  provider,
-		handler:   handler,
-		cacheKey:  keyBuilder,
-		cacheTTL:  ttl,
-		readOnly:  readOnly,
+		provider: provider,
+		handler:  handler,
+		cacheKey: keyBuilder,
+		cacheTTL: ttl,
+		readOnly: readOnly,
 	}
 }
 
@@ -49,7 +49,7 @@ func (ce *CachedExecutor) Execute(ctx context.Context, params map[string]interfa
 			"operation": ce.handler.GetDefinition().Name,
 			"key":       key,
 		})
-		
+
 		// Convert cached value back to ToolResult
 		if result, ok := cached.(*ToolResult); ok {
 			return result, nil
@@ -92,15 +92,15 @@ func RepositoryCacheKeyBuilder(operation string) func(params map[string]interfac
 	return func(params map[string]interface{}) string {
 		owner := extractString(params, "owner")
 		repo := extractString(params, "repo")
-		
+
 		// Include pagination in key if present
 		page := extractInt(params, "page")
 		perPage := extractInt(params, "per_page")
-		
+
 		if page > 0 || perPage > 0 {
 			return fmt.Sprintf("github:repo:%s:%s:%s:p%d:pp%d", owner, repo, operation, page, perPage)
 		}
-		
+
 		return BuildRepositoryCacheKey(owner, repo, operation)
 	}
 }
@@ -111,17 +111,17 @@ func IssueCacheKeyBuilder(operation string) func(params map[string]interface{}) 
 		owner := extractString(params, "owner")
 		repo := extractString(params, "repo")
 		issueNum := extractInt(params, "issue_number")
-		
+
 		if issueNum > 0 {
 			return BuildIssueCacheKey(owner, repo, issueNum, operation)
 		}
-		
+
 		// For list operations
 		state := extractString(params, "state")
 		labels := extractString(params, "labels")
 		page := extractInt(params, "page")
-		
-		return fmt.Sprintf("github:issues:%s:%s:%s:%s:%s:p%d", 
+
+		return fmt.Sprintf("github:issues:%s:%s:%s:%s:%s:p%d",
 			owner, repo, operation, state, labels, page)
 	}
 }
@@ -132,16 +132,16 @@ func PullRequestCacheKeyBuilder(operation string) func(params map[string]interfa
 		owner := extractString(params, "owner")
 		repo := extractString(params, "repo")
 		prNum := extractInt(params, "pull_number")
-		
+
 		if prNum > 0 {
 			return BuildPullRequestCacheKey(owner, repo, prNum, operation)
 		}
-		
+
 		// For list operations
 		state := extractString(params, "state")
 		page := extractInt(params, "page")
-		
-		return fmt.Sprintf("github:prs:%s:%s:%s:%s:p%d", 
+
+		return fmt.Sprintf("github:prs:%s:%s:%s:%s:p%d",
 			owner, repo, operation, state, page)
 	}
 }
@@ -153,14 +153,14 @@ func SearchCacheKeyBuilder(searchType string) func(params map[string]interface{}
 		page := extractInt(params, "page")
 		sort := extractString(params, "sort")
 		order := extractString(params, "order")
-		
+
 		// Create a hash of the query to keep key length reasonable
 		queryHash := fmt.Sprintf("%x", query)
 		if len(queryHash) > 20 {
 			queryHash = queryHash[:20]
 		}
-		
-		return fmt.Sprintf("github:search:%s:%s:%s:%s:p%d", 
+
+		return fmt.Sprintf("github:search:%s:%s:%s:%s:p%d",
 			searchType, queryHash, sort, order, page)
 	}
 }
@@ -168,16 +168,16 @@ func SearchCacheKeyBuilder(searchType string) func(params map[string]interface{}
 // WrapWithCache wraps a handler with caching for read operations
 func WrapWithCache(provider *GitHubProvider, handler ToolHandler) ToolHandler {
 	def := handler.GetDefinition()
-	
+
 	// Determine if this is a read-only operation
 	readOnly := isReadOnlyOperation(def.Name)
-	
+
 	// Determine TTL based on operation type
 	ttl := GetRecommendedTTL(getOperationType(def.Name))
-	
+
 	// Build appropriate key builder
 	var keyBuilder func(params map[string]interface{}) string
-	
+
 	switch {
 	case contains(def.Name, "repository") || contains(def.Name, "repo"):
 		keyBuilder = RepositoryCacheKeyBuilder(def.Name)
@@ -195,7 +195,7 @@ func WrapWithCache(provider *GitHubProvider, handler ToolHandler) ToolHandler {
 			return fmt.Sprintf("github:%s:%x", def.Name, data)
 		}
 	}
-	
+
 	return NewCachedExecutor(provider, handler, keyBuilder, ttl, readOnly)
 }
 
@@ -205,13 +205,13 @@ func isReadOnlyOperation(name string) bool {
 	readOnlyPrefixes := []string{
 		"get_", "list_", "search_", "find_",
 	}
-	
+
 	for _, prefix := range readOnlyPrefixes {
 		if contains(name, prefix) {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -262,12 +262,12 @@ func getSearchType(name string) string {
 }
 
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && 
-		(s == substr || 
-		 len(s) > len(substr) && 
-		 (s[:len(substr)] == substr || 
-		  s[len(s)-len(substr):] == substr ||
-		  findSubstring(s, substr)))
+	return len(s) >= len(substr) &&
+		(s == substr ||
+			len(s) > len(substr) &&
+				(s[:len(substr)] == substr ||
+					s[len(s)-len(substr):] == substr ||
+					findSubstring(s, substr)))
 }
 
 func findSubstring(s, substr string) bool {
