@@ -1429,6 +1429,18 @@ func (api *DynamicToolsAPI) expandOrganizationTool(ctx context.Context, ot *mode
 		displayName := operationName
 		description := fmt.Sprintf("Execute %s operation", operationName)
 		category := "general"
+		
+		// Try to get better description from AI definitions
+		if aiDefMap != nil {
+			if aiDef, ok := aiDefMap[operationName]; ok {
+				if desc, ok := aiDef["description"].(string); ok && desc != "" {
+					description = desc
+				}
+				if cat, ok := aiDef["category"].(string); ok && cat != "" {
+					category = cat
+				}
+			}
+		}
 
 		// Try to extract better names from operation groups
 		for _, group := range template.OperationGroups {

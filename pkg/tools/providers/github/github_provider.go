@@ -994,11 +994,17 @@ func (p *GitHubProvider) GetAIOptimizedDefinitions() []providers.AIOptimizedTool
 
 	for _, tool := range tools {
 		// Convert standard tool to AI-optimized format
+		// Use enhanced description if available
+		description := GetOperationDescription(tool.Name)
+		if description == "" {
+			description = tool.Description
+		}
+		
 		aiTool := providers.AIOptimizedToolDefinition{
 			Name:        tool.Name,
 			DisplayName: tool.Name,
 			Category:    "GitHub",
-			Description: tool.Description,
+			Description: description,
 
 			// Add semantic tags based on operation type
 			SemanticTags: getSemanticTags(tool.Name),
