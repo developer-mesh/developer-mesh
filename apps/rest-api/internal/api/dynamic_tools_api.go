@@ -1439,12 +1439,13 @@ func (api *DynamicToolsAPI) expandOrganizationTool(ctx context.Context, ot *mode
 		}
 
 		// Format the operation name for tool naming
-		// Convert slashes to hyphens for consistency (e.g., "ci/pipelines/list" -> "ci-pipelines-list")
-		operationNameForTool := strings.ReplaceAll(operationName, "/", "-")
-		operationNameForTool = strings.ReplaceAll(operationNameForTool, "_", "-")
+		// Keep snake_case and use underscores for consistency (e.g., "ci/pipelines/list" -> "ci_pipelines_list")
+		operationNameForTool := strings.ReplaceAll(operationName, "/", "_")
+		operationNameForTool = strings.ReplaceAll(operationNameForTool, "-", "_")
 
-		// Create tool name with instance prefix
-		toolName := fmt.Sprintf("%s-%s", ot.InstanceName, operationNameForTool)
+		// Create tool name with provider prefix (e.g., "github_list_repositories")
+		// Use the template provider name for consistency
+		toolName := fmt.Sprintf("%s_%s", template.ProviderName, operationNameForTool)
 
 		// Create display name
 		if ot.DisplayName != "" {
@@ -1453,7 +1454,7 @@ func (api *DynamicToolsAPI) expandOrganizationTool(ctx context.Context, ot *mode
 
 		// Create the dynamic tool
 		tool := &models.DynamicTool{
-			ID:          fmt.Sprintf("%s-%s", ot.ID, operationNameForTool),
+			ID:          fmt.Sprintf("%s_%s", template.ProviderName, operationNameForTool),
 			TenantID:    ot.TenantID,
 			ToolName:    toolName,
 			DisplayName: displayName,
