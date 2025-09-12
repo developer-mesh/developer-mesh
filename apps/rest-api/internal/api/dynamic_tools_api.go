@@ -681,25 +681,66 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 		req.Action = action
 	}
 
-	// Add pagination defaults for list operations to prevent large responses
+	// Add pagination defaults for operations that can return large responses
+	needsPagination := false
+	defaultPerPage := 30 // Reasonable default to prevent token limit issues
+	
+	// Check if this is a list, search, or get-multiple operation
 	if strings.Contains(req.Action, "list") || strings.Contains(req.Action, "_list") ||
-		strings.Contains(req.Action, "-list") || strings.HasSuffix(req.Action, "list") {
+		strings.Contains(req.Action, "search") || strings.Contains(req.Action, "_search") ||
+		strings.Contains(req.Action, "get_all") || strings.Contains(req.Action, "fetch_all") {
+		needsPagination = true
+	}
+	
+	// Special cases for specific GitHub operations that return arrays
+	paginatedOps := []string{
+		"get_issue_comments", "get_issue_events", "get_pull_request_files",
+		"get_pull_request_reviews", "get_pull_request_review_comments",
+		"list_workflow_runs", "list_workflow_jobs", "list_artifacts",
+		"list_commits", "list_branches", "list_tags", "list_releases",
+		"list_notifications", "list_gists", "get_team_members",
+		"discussion_comments_get", "get_issue_timeline",
+	}
+	
+	for _, op := range paginatedOps {
+		if strings.Contains(req.Action, op) {
+			needsPagination = true
+			break
+		}
+	}
+	
+	if needsPagination {
 		if req.Parameters == nil {
 			req.Parameters = make(map[string]interface{})
 		}
 
 		// Set reasonable defaults for MCP clients to prevent token limit issues
 		if _, hasPerPage := req.Parameters["per_page"]; !hasPerPage {
-			req.Parameters["per_page"] = 30 // GitHub API default that works well
+			// Use smaller page size for operations that typically have larger payloads
+			if strings.Contains(req.Action, "diff") || strings.Contains(req.Action, "files") {
+				req.Parameters["per_page"] = 20
+				defaultPerPage = 20
+			} else if strings.Contains(req.Action, "search") {
+				req.Parameters["per_page"] = 25 // Search results are often larger
+				defaultPerPage = 25
+			} else {
+				req.Parameters["per_page"] = defaultPerPage
+			}
 		}
 		if _, hasPage := req.Parameters["page"]; !hasPage {
 			req.Parameters["page"] = 1
 		}
+		
+		// Add limit parameter for operations that use it instead of per_page
+		if _, hasLimit := req.Parameters["limit"]; !hasLimit {
+			req.Parameters["limit"] = defaultPerPage
+		}
 
-		api.logger.Info("Added pagination defaults for list operation", map[string]interface{}{
+		api.logger.Debug("Added pagination defaults", map[string]interface{}{
 			"action":   req.Action,
 			"per_page": req.Parameters["per_page"],
 			"page":     req.Parameters["page"],
+			"limit":    req.Parameters["limit"],
 		})
 	}
 
