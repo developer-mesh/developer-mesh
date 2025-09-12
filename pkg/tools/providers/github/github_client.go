@@ -146,7 +146,9 @@ func (c *RawClient) DownloadRawFile(ctx context.Context, owner, repo, path, ref 
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to download file: %s", resp.Status)

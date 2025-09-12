@@ -122,7 +122,9 @@ func (h *GetJobLogsHandler) Execute(ctx context.Context, params map[string]inter
 	if err != nil {
 		return NewToolError(fmt.Sprintf("Failed to fetch job logs: %v", err)), nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	logs, err := io.ReadAll(resp.Body)
 	if err != nil {
