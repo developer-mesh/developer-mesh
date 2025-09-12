@@ -15,6 +15,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	pkgrepository "github.com/developer-mesh/developer-mesh/pkg/repository"
 	"github.com/developer-mesh/developer-mesh/pkg/tools"
+	githubprovider "github.com/developer-mesh/developer-mesh/pkg/tools/providers/github"
 	"github.com/gin-gonic/gin"
 )
 
@@ -1539,6 +1540,16 @@ func (api *DynamicToolsAPI) expandOrganizationTool(ctx context.Context, ot *mode
 			}
 		}
 
+		// Get operation metadata if provider is GitHub
+		var metadata *json.RawMessage
+		if template.ProviderName == "github" {
+			// Import the github provider package to get metadata
+			if metadataFunc := api.getGitHubOperationMetadata(operationName); metadataFunc != nil {
+				metadataBytes, _ := json.Marshal(metadataFunc)
+				metadata = (*json.RawMessage)(&metadataBytes)
+			}
+		}
+
 		// Create the dynamic tool
 		tool := &models.DynamicTool{
 			ID:          fmt.Sprintf("%s_%s", template.ProviderName, operationNameForTool),
@@ -1562,6 +1573,7 @@ func (api *DynamicToolsAPI) expandOrganizationTool(ctx context.Context, ot *mode
 			},
 			IsActive:    ot.IsActive,
 			Description: &description,
+			Metadata:    metadata,
 		}
 
 		// Add encrypted credentials if present
@@ -1608,4 +1620,9 @@ func (api *DynamicToolsAPI) createSingleToolFromOrgTool(ot *models.OrganizationT
 	}
 
 	return tool
+}
+
+// getGitHubOperationMetadata retrieves metadata for a GitHub operation
+func (api *DynamicToolsAPI) getGitHubOperationMetadata(operationName string) map[string]interface{} {
+	return githubprovider.GetOperationMetadata(operationName)
 }
