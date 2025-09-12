@@ -402,8 +402,19 @@ func (p *GitHubProvider) enableDefaultToolsets() {
 	// Enable context toolset by default
 	p.enabledToolsets["context"] = true
 
-	// Enable core toolsets by default
-	defaultToolsets := []string{"repos", "issues", "pull_requests", "actions"}
+	// Enable all toolsets by default to expose full GitHub functionality
+	defaultToolsets := []string{
+		"repos",
+		"issues",
+		"pull_requests",
+		"actions",
+		"security",
+		"collaboration",
+		"git",
+		"organizations",
+		"graphql",      // New GraphQL operations
+		"discussions",  // New Discussions API
+	}
 	for _, name := range defaultToolsets {
 		if err := p.EnableToolset(name); err != nil {
 			p.logger.Warn("Failed to enable default toolset", map[string]interface{}{
