@@ -489,6 +489,63 @@ func (r *EnhancedToolRegistry) clearTenantCache(tenantID string) {
 	delete(r.toolNameCache, tenantID)
 }
 
+// RefreshOrganizationTool refreshes an organization tool with the latest provider capabilities
+func (r *EnhancedToolRegistry) RefreshOrganizationTool(ctx context.Context, orgID, toolID string) error {
+	// Get the organization tool
+	orgTool, err := r.orgToolRepo.GetByID(ctx, toolID)
+	if err != nil {
+		return fmt.Errorf("failed to get organization tool: %w", err)
+	}
+
+	// Verify it belongs to the organization
+	if orgTool.OrganizationID != orgID {
+		return fmt.Errorf("tool does not belong to organization")
+	}
+
+	// Get the tool template
+	template, err := r.templateRepo.GetByID(ctx, orgTool.TemplateID)
+	if err != nil {
+		return fmt.Errorf("failed to get tool template: %w", err)
+	}
+
+	// Get the provider from registry
+	provider, err := r.providerRegistry.GetProvider(template.ProviderName)
+	if err != nil || provider == nil {
+		return fmt.Errorf("provider %s not found: %w", template.ProviderName, err)
+	}
+
+	// Create an updated template from the current provider state
+	updatedTemplate := r.createTemplateFromProvider(provider)
+	
+	// Preserve the template ID and other metadata
+	updatedTemplate.ID = template.ID
+	updatedTemplate.CreatedAt = template.CreatedAt
+	updatedTemplate.CreatedBy = template.CreatedBy
+	
+	// Update the template in the database
+	if err := r.templateRepo.Update(ctx, updatedTemplate); err != nil {
+		return fmt.Errorf("failed to update tool template: %w", err)
+	}
+
+	// Update the organization tool's updated timestamp
+	orgTool.UpdatedAt = time.Now()
+	if err := r.orgToolRepo.Update(ctx, orgTool); err != nil {
+		return fmt.Errorf("failed to update organization tool: %w", err)
+	}
+
+	// Clear cache for the tenant
+	r.clearTenantCache(orgTool.TenantID)
+
+	r.logger.Info("Organization tool refreshed", map[string]interface{}{
+		"org_id":          orgID,
+		"tool_id":         toolID,
+		"provider":        template.ProviderName,
+		"operation_count": len(provider.GetAIOptimizedDefinitions()),
+	})
+
+	return nil
+}
+
 // trackToolUsage tracks tool usage for analytics
 func (r *EnhancedToolRegistry) trackToolUsage(toolID string, operation string, success bool, responseTimeMs int) {
 	ctx := context.Background()

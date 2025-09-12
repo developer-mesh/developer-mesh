@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -583,3 +584,112 @@ type ProviderHealth struct {
 	ConsecutiveFailures uint32    `json:"consecutive_failures"`
 	LastChecked         time.Time `json:"last_checked"`
 }
+
+// RefreshOrganizationTool refreshes an organization tool's configuration with the latest provider capabilities
+func (a *OrganizationToolAdapter) RefreshOrganizationTool(ctx context.Context, orgID, toolID string) error {
+	startTime := time.Now()
+	defer func() {
+		a.metrics.RecordLatency("organization_tools.refresh", time.Since(startTime))
+	}()
+
+	// Get the organization tool
+	orgTool, err := a.orgToolRepo.GetByID(ctx, toolID)
+	if err != nil {
+		return fmt.Errorf("failed to get organization tool: %w", err)
+	}
+
+	// Verify it belongs to the organization
+	if orgTool.OrganizationID != orgID {
+		return fmt.Errorf("tool does not belong to organization")
+	}
+
+	// Get the tool template
+	template, err := a.toolTemplateRepo.GetByID(ctx, orgTool.TemplateID)
+	if err != nil {
+		return fmt.Errorf("failed to get tool template: %w", err)
+	}
+
+	// Get the provider
+	provider, err := a.getProvider(template.ProviderName)
+	if err != nil {
+		return fmt.Errorf("failed to get provider: %w", err)
+	}
+
+	// Get the latest AI-optimized definitions from the provider
+	aiDefs := provider.GetAIOptimizedDefinitions()
+	
+	// Update the template with the latest operation mappings
+	newOperationMappings := make(map[string]providers.OperationMapping)
+	for _, def := range aiDefs {
+		// Create operation mapping from AI definition
+		requiredParams := make([]string, 0)
+		optionalParams := make([]string, 0)
+		
+		for name := range def.InputSchema.Properties {
+			isRequired := false
+			for _, req := range def.InputSchema.Required {
+				if req == name {
+					isRequired = true
+					break
+				}
+			}
+			if isRequired {
+				requiredParams = append(requiredParams, name)
+			} else {
+				optionalParams = append(optionalParams, name)
+			}
+		}
+		
+		newOperationMappings[def.Name] = providers.OperationMapping{
+			OperationID:    def.Name,
+			Method:         "POST", // Default for tool operations
+			PathTemplate:   fmt.Sprintf("/tools/%s", def.Name),
+			RequiredParams: requiredParams,
+			OptionalParams: optionalParams,
+		}
+	}
+
+	// Update the template with new mappings
+	template.OperationMappings = newOperationMappings
+	template.UpdatedAt = time.Now()
+
+	// Serialize AI definitions for storage
+	aiDefsJSON, err := json.Marshal(aiDefs)
+	if err != nil {
+		return fmt.Errorf("failed to marshal AI definitions: %w", err)
+	}
+	aiDefsRaw := json.RawMessage(aiDefsJSON)
+	template.AIDefinitions = &aiDefsRaw
+
+	// Update the template in the database
+	if err := a.toolTemplateRepo.Update(ctx, template); err != nil {
+		return fmt.Errorf("failed to update tool template: %w", err)
+	}
+
+	// Update the organization tool's updated timestamp
+	orgTool.UpdatedAt = time.Now()
+	if err := a.orgToolRepo.Update(ctx, orgTool); err != nil {
+		return fmt.Errorf("failed to update organization tool: %w", err)
+	}
+
+	// Clear any cached provider data
+	a.mu.Lock()
+	delete(a.providerCache, template.ProviderName)
+	a.mu.Unlock()
+
+	// Log the refresh
+	a.logger.Info("Organization tool refreshed", map[string]interface{}{
+		"org_id":          orgID,
+		"tool_id":         toolID,
+		"provider":        template.ProviderName,
+		"operation_count": len(aiDefs),
+	})
+
+	a.metrics.RecordCounter("organization_tools.refresh.success", 1, map[string]string{
+		"org_id":   orgID,
+		"provider": template.ProviderName,
+	})
+
+	return nil
+}
+
