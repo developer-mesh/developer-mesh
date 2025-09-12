@@ -17,6 +17,28 @@ import (
 	"golang.org/x/oauth2"
 )
 
+// contextKey is a type for context keys to avoid collisions
+type contextKey string
+
+const (
+	// contextKeyGitHubClient is the context key for GitHub REST client
+	contextKeyGitHubClient contextKey = "github_client"
+	// contextKeyGitHubV4Client is the context key for GitHub GraphQL client
+	contextKeyGitHubV4Client contextKey = "githubv4_client"
+)
+
+// GetGitHubClientFromContext retrieves the GitHub REST client from context
+func GetGitHubClientFromContext(ctx context.Context) (*github.Client, bool) {
+	client, ok := ctx.Value(contextKeyGitHubClient).(*github.Client)
+	return client, ok
+}
+
+// GetGitHubV4ClientFromContext retrieves the GitHub GraphQL client from context
+func GetGitHubV4ClientFromContext(ctx context.Context) (*githubv4.Client, bool) {
+	client, ok := ctx.Value(contextKeyGitHubV4Client).(*githubv4.Client)
+	return client, ok
+}
+
 // GitHubProvider implements comprehensive GitHub integration
 type GitHubProvider struct {
 	logger         observability.Logger
@@ -383,7 +405,12 @@ func (p *GitHubProvider) enableDefaultToolsets() {
 	// Enable core toolsets by default
 	defaultToolsets := []string{"repos", "issues", "pull_requests", "actions"}
 	for _, name := range defaultToolsets {
-		p.EnableToolset(name)
+		if err := p.EnableToolset(name); err != nil {
+			p.logger.Warn("Failed to enable default toolset", map[string]interface{}{
+				"toolset": name,
+				"error":   err.Error(),
+			})
+		}
 	}
 }
 
@@ -512,8 +539,8 @@ func (p *GitHubProvider) ExecuteOperation(ctx context.Context, operation string,
 	}
 
 	// Update context with clients
-	ctx = context.WithValue(ctx, "github_client", clients.restClient)
-	ctx = context.WithValue(ctx, "githubv4_client", clients.gqlClient)
+	ctx = context.WithValue(ctx, contextKeyGitHubClient, clients.restClient)
+	ctx = context.WithValue(ctx, contextKeyGitHubV4Client, clients.gqlClient)
 
 	// Find and execute the tool
 	tool, exists := p.toolRegistry[operation]
@@ -947,21 +974,6 @@ func (p *GitHubProvider) SetCacheTTL(ttl time.Duration) {
 			"ttl": ttl.String(),
 		})
 	}
-}
-
-// isReadOnlyOperation checks if an operation is read-only
-func (p *GitHubProvider) isReadOnlyOperation(name string) bool {
-	readOnlyPrefixes := []string{
-		"get_", "list_", "search_", "find_",
-	}
-	
-	for _, prefix := range readOnlyPrefixes {
-		if strings.HasPrefix(name, prefix) {
-			return true
-		}
-	}
-	
-	return false
 }
 
 // GetAIOptimizedDefinitions returns AI-optimized tool definitions

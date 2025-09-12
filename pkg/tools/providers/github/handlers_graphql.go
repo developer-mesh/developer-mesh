@@ -346,11 +346,12 @@ func (h *SearchIssuesAndPRsGraphQLHandler) Execute(ctx context.Context, params m
 	// Process results
 	results := make([]map[string]interface{}, 0, len(searchQuery.Search.Nodes))
 	for _, node := range searchQuery.Search.Nodes {
-		if node.Typename == "Issue" {
+		switch node.Typename {
+		case "Issue":
 			item := convertIssueFragment(node.Issue.IssueFragment)
 			item["type"] = "issue"
 			results = append(results, item)
-		} else if node.Typename == "PullRequest" {
+		case "PullRequest":
 			item := convertPullRequestFragment(node.PullRequest.PullRequestFragment)
 			item["type"] = "pull_request"
 			results = append(results, item)

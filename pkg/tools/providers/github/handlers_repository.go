@@ -97,10 +97,22 @@ func (h *ListRepositoriesHandler) Execute(ctx context.Context, params map[string
 		repos, _, err = client.Repositories.ListByOrg(ctx, org, orgOpts)
 	} else if user, ok := params["user"].(string); ok && user != "" {
 		// List user repositories
-		repos, _, err = client.Repositories.List(ctx, user, opts)
+		userOpts := &github.RepositoryListByUserOptions{
+			Type:        opts.Type,
+			Sort:        opts.Sort,
+			Direction:   opts.Direction,
+			ListOptions: opts.ListOptions,
+		}
+		repos, _, err = client.Repositories.ListByUser(ctx, user, userOpts)
 	} else {
 		// List authenticated user's repositories
-		repos, _, err = client.Repositories.List(ctx, "", opts)
+		authOpts := &github.RepositoryListByAuthenticatedUserOptions{
+			Type:        opts.Type,
+			Sort:        opts.Sort,
+			Direction:   opts.Direction,
+			ListOptions: opts.ListOptions,
+		}
+		repos, _, err = client.Repositories.ListByAuthenticatedUser(ctx, authOpts)
 	}
 
 	if err != nil {

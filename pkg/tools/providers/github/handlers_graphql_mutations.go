@@ -537,13 +537,10 @@ func (h *CreateIssueGraphQLHandler) Execute(ctx context.Context, params map[stri
 	}
 
 	// Add assignees if provided
-	if assigneesRaw, ok := params["assignees"]; ok {
-		if assignees, ok := assigneesRaw.([]string); ok && len(assignees) > 0 {
-			// Note: GraphQL API requires user node IDs for assignees
-			// For simplicity, we're omitting this as it requires additional queries
-			// In production, you'd query for user IDs first
-		}
-	}
+	// Note: GraphQL API requires user node IDs for assignees
+	// For simplicity, we're omitting assignees as it requires additional queries
+	// In production, you'd query for user IDs first
+	// TODO: Implement assignee support with proper user ID resolution
 
 	err = client.Mutate(ctx, &mutation, input, nil)
 	if err != nil {
