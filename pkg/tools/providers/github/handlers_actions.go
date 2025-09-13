@@ -50,7 +50,7 @@ func (h *ListWorkflowsHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *ListWorkflowsHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -134,7 +134,7 @@ func (h *ListWorkflowRunsHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *ListWorkflowRunsHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -215,7 +215,7 @@ func (h *GetWorkflowRunHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *GetWorkflowRunHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -280,7 +280,7 @@ func (h *ListWorkflowJobsHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *ListWorkflowJobsHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -352,7 +352,7 @@ func (h *RunWorkflowHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *RunWorkflowHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -414,7 +414,7 @@ func (h *RerunWorkflowRunHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *RerunWorkflowRunHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -466,7 +466,7 @@ func (h *CancelWorkflowRunHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *CancelWorkflowRunHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}

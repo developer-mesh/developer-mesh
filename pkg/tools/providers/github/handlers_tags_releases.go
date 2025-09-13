@@ -49,7 +49,7 @@ func (h *ListTagsHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *ListTagsHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -107,7 +107,7 @@ func (h *GetTagHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *GetTagHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -176,7 +176,7 @@ func (h *ListReleasesHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *ListReleasesHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -230,7 +230,7 @@ func (h *GetLatestReleaseHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *GetLatestReleaseHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -282,7 +282,7 @@ func (h *GetReleaseByTagHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *GetReleaseByTagHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -359,7 +359,7 @@ func (h *CreateReleaseHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *CreateReleaseHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}

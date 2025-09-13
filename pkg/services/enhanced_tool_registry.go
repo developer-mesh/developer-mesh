@@ -233,21 +233,59 @@ func (r *EnhancedToolRegistry) ExecuteToolWithPassthrough(
 	params map[string]interface{},
 	passthroughAuth *models.PassthroughAuthBundle,
 ) (interface{}, error) {
-	// The toolID may have already been processed by the API layer
-	// If operation is provided and toolID doesn't contain underscore,
-	// it means the API layer already extracted it
 	actualToolID := toolID
-
+	
+	// First, check if this is an expanded organization tool
+	// These are dynamic tools with a parent_tool_id in their config
+	dynamicTool, err := r.dynamicToolRepo.GetByID(ctx, toolID)
+	if err == nil && dynamicTool != nil {
+		// Check if this is an expanded organization tool
+		if dynamicTool.Config != nil {
+			if parentID, ok := dynamicTool.Config["parent_tool_id"].(string); ok && parentID != "" {
+				// This is an expanded organization tool
+				actualToolID = parentID
+				
+				// Extract the operation from config if not already provided
+				if operation == "" || operation == "execute" {
+					if op, ok := dynamicTool.Config["operation"].(string); ok && op != "" {
+						operation = op
+					}
+				}
+				
+				r.logger.Debug("Expanded organization tool detected", map[string]interface{}{
+					"tool_id":        toolID,
+					"parent_tool_id": actualToolID,
+					"operation":      operation,
+					"type":           dynamicTool.Config["type"],
+				})
+				
+				// Get the parent organization tool
+				orgTool, err := r.orgToolRepo.GetByID(ctx, actualToolID)
+				if err == nil && orgTool != nil {
+					// Pass along the expanded tool's credentials if the org tool doesn't have any
+					if len(orgTool.CredentialsEncrypted) == 0 && len(dynamicTool.CredentialsEncrypted) > 0 {
+						orgTool.CredentialsEncrypted = dynamicTool.CredentialsEncrypted
+					}
+					return r.executeOrganizationTool(ctx, orgTool, operation, params, passthroughAuth)
+				}
+			}
+		}
+		
+		// Not an expanded tool, execute as regular dynamic tool
+		return r.executeDynamicTool(ctx, dynamicTool, operation, params, passthroughAuth)
+	}
+	
+	// Fallback to the old logic for backward compatibility
 	// Only process if we haven't already extracted the operation
 	if operation == "" || operation == "execute" {
-		// Check if this is an expanded tool ID (format: parent_id_operation)
+		// Check if this is an old-style expanded tool ID (format: parent_id_operation)
 		if strings.Contains(toolID, "_") {
 			parts := strings.SplitN(toolID, "_", 2)
 			if len(parts) == 2 {
 				// This is an expanded tool, use the parent ID for lookup
 				actualToolID = parts[0]
 				operation = parts[1]
-				r.logger.Debug("Extracted operation from tool ID", map[string]interface{}{
+				r.logger.Debug("Extracted operation from tool ID (legacy)", map[string]interface{}{
 					"original_tool_id": toolID,
 					"parent_tool_id":   actualToolID,
 					"operation":        operation,
@@ -262,10 +300,12 @@ func (r *EnhancedToolRegistry) ExecuteToolWithPassthrough(
 		return r.executeOrganizationTool(ctx, orgTool, operation, params, passthroughAuth)
 	}
 
-	// Check if it's a dynamic tool
-	dynamicTool, err := r.dynamicToolRepo.GetByID(ctx, actualToolID)
-	if err == nil && dynamicTool != nil {
-		return r.executeDynamicTool(ctx, dynamicTool, operation, params, passthroughAuth)
+	// Check if it's a dynamic tool (that wasn't found earlier)
+	if actualToolID != toolID {
+		dynamicTool, err = r.dynamicToolRepo.GetByID(ctx, actualToolID)
+		if err == nil && dynamicTool != nil {
+			return r.executeDynamicTool(ctx, dynamicTool, operation, params, passthroughAuth)
+		}
 	}
 
 	return nil, fmt.Errorf("tool %s not found", actualToolID)
@@ -299,6 +339,24 @@ func (r *EnhancedToolRegistry) executeOrganizationTool(
 	if passthroughAuth != nil && passthroughAuth.Credentials != nil {
 		// Check if we have credentials for this provider
 		providerCred, hasProviderCred := passthroughAuth.Credentials[template.ProviderName]
+		
+		// If not found by provider name, check for wildcard/default key
+		if !hasProviderCred || providerCred == nil {
+			// Check for wildcard key "*"
+			providerCred, hasProviderCred = passthroughAuth.Credentials["*"]
+			if hasProviderCred && providerCred != nil {
+				r.logger.Debug("Using wildcard passthrough credentials", map[string]interface{}{
+					"provider": template.ProviderName,
+				})
+			}
+		}
+		
+		// Also check for the specific provider key variants
+		if !hasProviderCred || providerCred == nil {
+			// Try lowercase variant
+			providerCred, hasProviderCred = passthroughAuth.Credentials[strings.ToLower(template.ProviderName)]
+		}
+		
 		if hasProviderCred && providerCred != nil {
 			// Use passthrough credentials
 			// Map the token to the appropriate credential key based on auth type
@@ -319,6 +377,16 @@ func (r *EnhancedToolRegistry) executeOrganizationTool(
 				"has_token": providerCred.Token != "",
 				"token_len": len(providerCred.Token),
 				"auth_type": providerCred.Type,
+			})
+		} else {
+			// Log what keys are available for debugging
+			var availableKeys []string
+			for k := range passthroughAuth.Credentials {
+				availableKeys = append(availableKeys, k)
+			}
+			r.logger.Warn("No passthrough credentials found for provider", map[string]interface{}{
+				"provider":       template.ProviderName,
+				"available_keys": availableKeys,
 			})
 		}
 	}

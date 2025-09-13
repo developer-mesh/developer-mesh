@@ -795,10 +795,60 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 	// Check if this is an organization tool (expanded or not)
 	// Use the original tool ID for detection since we may have modified toolID
 	isOrganizationTool := false
-	if strings.Contains(originalToolID, "_") {
-		// This is an expanded organization tool
-		isOrganizationTool = true
-	} else if api.enhancedToolsAPI != nil {
+	var parentToolID string
+	var operationName string
+	
+	// First check if this looks like an expanded tool (provider_operation format)
+	if api.enhancedToolsAPI != nil && (strings.HasPrefix(originalToolID, "github_") || strings.HasPrefix(originalToolID, "harness_")) {
+		api.logger.Info("Checking for expanded organization tool", map[string]interface{}{
+			"tool_id":   originalToolID,
+			"tenant_id": tenantID,
+		})
+		// This might be an expanded organization tool
+		// Try to find it in our expanded tools list
+		orgTools, getErr := api.enhancedToolsAPI.GetToolsForTenant(c.Request.Context(), tenantID)
+		if getErr == nil && len(orgTools) > 0 {
+			api.logger.Info("Got organization tools for tenant", map[string]interface{}{
+				"count":     len(orgTools),
+				"tenant_id": tenantID,
+			})
+			// Check each org tool and its potential expansions
+			for _, orgTool := range orgTools {
+				if ot, ok := orgTool.(*models.OrganizationTool); ok && api.shouldExpandTool(ot) {
+					// Get the expanded tools for this org tool
+					expandedTools := api.expandOrganizationTool(c.Request.Context(), ot)
+					for _, expTool := range expandedTools {
+						if expTool.ID == originalToolID {
+							// Found it! Extract the parent tool ID and operation
+							if expTool.Config != nil {
+								if pid, ok := expTool.Config["parent_tool_id"].(string); ok {
+									parentToolID = pid
+								}
+								if op, ok := expTool.Config["operation"].(string); ok {
+									operationName = op
+								}
+							}
+							isOrganizationTool = true
+							toolID = parentToolID // Use the parent tool ID for execution
+							extractedOperation = operationName
+							api.logger.Info("Found expanded organization tool", map[string]interface{}{
+								"tool_id":        originalToolID,
+								"parent_tool_id": parentToolID,
+								"operation":      operationName,
+							})
+							break
+						}
+					}
+					if isOrganizationTool {
+						break
+					}
+				}
+			}
+		}
+	}
+	
+	// If not found as expanded tool, check if it's a direct organization tool
+	if !isOrganizationTool && api.enhancedToolsAPI != nil {
 		// Check if this is a non-expanded organization tool
 		// Try to get it from the enhanced registry first
 		tools, getErr := api.enhancedToolsAPI.GetToolsForTenant(c.Request.Context(), tenantID)

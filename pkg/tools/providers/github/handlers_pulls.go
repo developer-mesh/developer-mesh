@@ -45,7 +45,7 @@ func (h *GetPullRequestHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *GetPullRequestHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -122,7 +122,7 @@ func (h *ListPullRequestsHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *ListPullRequestsHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -205,7 +205,7 @@ func (h *GetPullRequestFilesHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *GetPullRequestFilesHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -274,7 +274,7 @@ func (h *SearchPullRequestsHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *SearchPullRequestsHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -306,7 +306,16 @@ func (h *SearchPullRequestsHandler) Execute(ctx context.Context, params map[stri
 		return NewToolError(fmt.Sprintf("Failed to search pull requests: %v", err)), nil
 	}
 
-	data, _ := json.Marshal(result)
+	// Return items with essential metadata only
+	response := map[string]interface{}{
+		"items":       result.Issues,
+		"total_count": *result.Total,
+		"has_more":    *result.Total > len(result.Issues),
+		"page":        opts.Page,
+		"per_page":    opts.PerPage,
+	}
+
+	data, _ := json.Marshal(response)
 	return NewToolResult(string(data)), nil
 }
 
@@ -361,7 +370,7 @@ func (h *CreatePullRequestHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *CreatePullRequestHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -441,7 +450,7 @@ func (h *MergePullRequestHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *MergePullRequestHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -518,7 +527,7 @@ func (h *UpdatePullRequestHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *UpdatePullRequestHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}

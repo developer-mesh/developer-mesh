@@ -46,7 +46,7 @@ func (h *GetIssueHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *GetIssueHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -107,7 +107,7 @@ func (h *SearchIssuesHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *SearchIssuesHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -136,7 +136,16 @@ func (h *SearchIssuesHandler) Execute(ctx context.Context, params map[string]int
 		return NewToolError(fmt.Sprintf("Failed to search issues: %v", err)), nil
 	}
 
-	data, _ := json.Marshal(result)
+	// Return items with essential metadata only
+	response := map[string]interface{}{
+		"items":       result.Issues,
+		"total_count": *result.Total,
+		"has_more":    *result.Total > len(result.Issues),
+		"page":        opts.Page,
+		"per_page":    opts.PerPage,
+	}
+
+	data, _ := json.Marshal(response)
 	return NewToolResult(string(data)), nil
 }
 
@@ -199,14 +208,14 @@ func (h *ListIssuesHandler) GetDefinition() ToolDefinition {
 
 func (h *ListIssuesHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
 	// For complex list operations, use GraphQL client for better performance
-	gqlClient, ok := ctx.Value("githubv4_client").(*githubv4.Client)
+	gqlClient, ok := GetGitHubV4ClientFromContext(ctx)
 	if ok {
 		// GraphQL implementation for better performance
 		return h.executeGraphQL(ctx, gqlClient, params)
 	}
 
 	// Fallback to REST API
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -250,6 +259,13 @@ func (h *ListIssuesHandler) Execute(ctx context.Context, params map[string]inter
 }
 
 func (h *ListIssuesHandler) executeGraphQL(ctx context.Context, client *githubv4.Client, params map[string]interface{}) (*ToolResult, error) {
+	// Extract owner and repo with safe type assertions
+	owner, _ := params["owner"].(string)
+	repo, _ := params["repo"].(string)
+	if owner == "" || repo == "" {
+		return NewToolError("owner and repo parameters are required"), nil
+	}
+
 	// GraphQL query for listing issues
 	var query struct {
 		Repository struct {
@@ -273,10 +289,19 @@ func (h *ListIssuesHandler) executeGraphQL(ctx context.Context, client *githubv4
 		} `graphql:"repository(owner: $owner, name: $name)"`
 	}
 
+	// Respect per_page parameter
+	perPage := 30 // default
+	if pp, ok := params["per_page"].(float64); ok && pp > 0 {
+		perPage = int(pp)
+		if perPage > 100 {
+			perPage = 100 // GitHub's max
+		}
+	}
+
 	variables := map[string]interface{}{
-		"owner": githubv4.String(params["owner"].(string)),
-		"name":  githubv4.String(params["repo"].(string)),
-		"first": githubv4.Int(100),
+		"owner": githubv4.String(owner),
+		"name":  githubv4.String(repo),
+		"first": githubv4.Int(perPage),
 		"after": (*githubv4.String)(nil),
 	}
 
@@ -344,7 +369,7 @@ func (h *GetIssueCommentsHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *GetIssueCommentsHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -423,7 +448,7 @@ func (h *CreateIssueHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *CreateIssueHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -508,7 +533,7 @@ func (h *AddIssueCommentHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *AddIssueCommentHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -592,7 +617,7 @@ func (h *UpdateIssueHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *UpdateIssueHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -681,7 +706,7 @@ func (h *LockIssueHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *LockIssueHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -738,7 +763,7 @@ func (h *UnlockIssueHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *UnlockIssueHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -798,7 +823,7 @@ func (h *GetIssueEventsHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *GetIssueEventsHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -867,7 +892,7 @@ func (h *GetIssueTimelineHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *GetIssueTimelineHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}

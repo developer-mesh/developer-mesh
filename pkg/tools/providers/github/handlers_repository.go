@@ -61,7 +61,7 @@ func (h *ListRepositoriesHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *ListRepositoriesHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -154,6 +154,12 @@ func (h *GetRepositoryHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *GetRepositoryHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
+	// Debug logging
+	h.provider.logger.Debug("GetRepositoryHandler.Execute called", map[string]interface{}{
+		"params": params,
+		"has_context": ctx != nil,
+	})
+
 	// Check cache first if enabled
 	if h.provider.cacheEnabled && h.provider.cache != nil {
 		owner := extractString(params, "owner")
@@ -171,8 +177,11 @@ func (h *GetRepositoryHandler) Execute(ctx context.Context, params map[string]in
 		}
 	}
 
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
+		h.provider.logger.Error("GitHub client not found in context", map[string]interface{}{
+			"context_keys": fmt.Sprintf("%v", ctx),
+		})
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
@@ -284,7 +293,7 @@ func (h *UpdateRepositoryHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *UpdateRepositoryHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -374,7 +383,7 @@ func (h *DeleteRepositoryHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *DeleteRepositoryHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -436,7 +445,7 @@ func (h *SearchRepositoriesHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *SearchRepositoriesHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -455,6 +464,12 @@ func (h *SearchRepositoriesHandler) Execute(ctx context.Context, params map[stri
 	}
 	if perPage, ok := params["per_page"].(float64); ok {
 		opts.PerPage = int(perPage)
+		h.provider.logger.Debug("Setting per_page for search_repositories", map[string]interface{}{
+			"per_page": opts.PerPage,
+		})
+	} else {
+		// Set a reasonable default
+		opts.PerPage = 30
 	}
 	if page, ok := params["page"].(float64); ok {
 		opts.Page = int(page)
@@ -465,7 +480,25 @@ func (h *SearchRepositoriesHandler) Execute(ctx context.Context, params map[stri
 		return NewToolError(fmt.Sprintf("Failed to search repositories: %v", err)), nil
 	}
 
-	data, _ := json.Marshal(result)
+	h.provider.logger.Debug("Search repositories result", map[string]interface{}{
+		"requested_per_page": opts.PerPage,
+		"items_returned":     len(result.Repositories),
+		"total_count":        *result.Total,
+	})
+
+	// Return items with essential metadata only
+	response := map[string]interface{}{
+		"items":       result.Repositories,
+		"total_count": *result.Total,
+		"has_more":    *result.Total > len(result.Repositories),
+		"page":        opts.Page,
+		"per_page":    opts.PerPage,
+	}
+
+	data, _ := json.Marshal(response)
+	h.provider.logger.Debug("Response size", map[string]interface{}{
+		"bytes": len(data),
+	})
 	return NewToolResult(string(data)), nil
 }
 
@@ -508,7 +541,7 @@ func (h *GetFileContentsHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *GetFileContentsHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -586,7 +619,7 @@ func (h *ListCommitsHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *ListCommitsHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -660,7 +693,7 @@ func (h *SearchCodeHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *SearchCodeHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -689,7 +722,16 @@ func (h *SearchCodeHandler) Execute(ctx context.Context, params map[string]inter
 		return NewToolError(fmt.Sprintf("Failed to search code: %v", err)), nil
 	}
 
-	data, _ := json.Marshal(result)
+	// Return items with essential metadata only
+	response := map[string]interface{}{
+		"items":       result.CodeResults,
+		"total_count": *result.Total,
+		"has_more":    *result.Total > len(result.CodeResults),
+		"page":        opts.Page,
+		"per_page":    opts.PerPage,
+	}
+
+	data, _ := json.Marshal(response)
 	return NewToolResult(string(data)), nil
 }
 
@@ -728,7 +770,7 @@ func (h *GetCommitHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *GetCommitHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -789,7 +831,7 @@ func (h *ListBranchesHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *ListBranchesHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -868,7 +910,7 @@ func (h *CreateOrUpdateFileHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *CreateOrUpdateFileHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -948,7 +990,7 @@ func (h *CreateRepositoryHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *CreateRepositoryHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -1010,7 +1052,7 @@ func (h *ForkRepositoryHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *ForkRepositoryHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -1070,7 +1112,7 @@ func (h *CreateBranchHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *CreateBranchHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -1162,7 +1204,7 @@ func (h *PushFilesHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *PushFilesHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -1292,7 +1334,7 @@ func (h *DeleteFileHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *DeleteFileHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}

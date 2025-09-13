@@ -46,7 +46,7 @@ func (h *GetBlobHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *GetBlobHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -117,7 +117,7 @@ func (h *CreateBlobHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *CreateBlobHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -186,7 +186,7 @@ func (h *GetTreeHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *GetTreeHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -269,7 +269,7 @@ func (h *CreateTreeHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *CreateTreeHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -349,7 +349,7 @@ func (h *GetGitCommitHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *GetGitCommitHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -425,7 +425,7 @@ func (h *CreateCommitHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *CreateCommitHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -510,7 +510,7 @@ func (h *GetRefHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *GetRefHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -563,7 +563,7 @@ func (h *ListRefsHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *ListRefsHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -635,7 +635,7 @@ func (h *CreateRefHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *CreateRefHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -704,7 +704,7 @@ func (h *UpdateRefHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *UpdateRefHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -766,7 +766,7 @@ func (h *DeleteRefHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *DeleteRefHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}

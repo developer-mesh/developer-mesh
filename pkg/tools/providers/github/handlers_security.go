@@ -57,7 +57,7 @@ func (h *ListCodeScanningAlertsHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *ListCodeScanningAlertsHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -124,7 +124,7 @@ func (h *GetCodeScanningAlertHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *GetCodeScanningAlertHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -189,7 +189,7 @@ func (h *UpdateCodeScanningAlertHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *UpdateCodeScanningAlertHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -270,7 +270,7 @@ func (h *ListDependabotAlertsHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *ListDependabotAlertsHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -340,7 +340,7 @@ func (h *GetDependabotAlertHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *GetDependabotAlertHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -405,7 +405,7 @@ func (h *UpdateDependabotAlertHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *UpdateDependabotAlertHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -489,7 +489,7 @@ func (h *ListSecretScanningAlertsHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *ListSecretScanningAlertsHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -559,7 +559,7 @@ func (h *GetSecretScanningAlertHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *GetSecretScanningAlertHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -624,7 +624,7 @@ func (h *UpdateSecretScanningAlertHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *UpdateSecretScanningAlertHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -697,7 +697,7 @@ func (h *ListSecretScanningLocationsHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *ListSecretScanningLocationsHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -768,7 +768,7 @@ func (h *ListSecurityAdvisoriesHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *ListSecurityAdvisoriesHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -879,7 +879,7 @@ func (h *ListGlobalSecurityAdvisoriesHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *ListGlobalSecurityAdvisoriesHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}

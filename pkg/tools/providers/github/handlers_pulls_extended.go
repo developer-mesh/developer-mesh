@@ -45,7 +45,7 @@ func (h *UpdatePullRequestBranchHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *UpdatePullRequestBranchHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -100,7 +100,7 @@ func (h *GetPullRequestDiffHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *GetPullRequestDiffHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -164,7 +164,7 @@ func (h *GetPullRequestReviewsHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *GetPullRequestReviewsHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -243,7 +243,7 @@ func (h *GetPullRequestReviewCommentsHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *GetPullRequestReviewCommentsHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -339,7 +339,7 @@ func (h *CreatePullRequestReviewHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *CreatePullRequestReviewHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -434,7 +434,7 @@ func (h *SubmitPullRequestReviewHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *SubmitPullRequestReviewHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -517,7 +517,7 @@ func (h *AddPullRequestReviewCommentHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *AddPullRequestReviewCommentHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}

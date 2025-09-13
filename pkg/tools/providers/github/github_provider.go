@@ -553,6 +553,18 @@ func (p *GitHubProvider) ExecuteOperation(ctx context.Context, operation string,
 	ctx = context.WithValue(ctx, contextKeyGitHubClient, clients.restClient)
 	ctx = context.WithValue(ctx, contextKeyGitHubV4Client, clients.gqlClient)
 
+	// Debug: verify clients are in context
+	if testClient, ok := GetGitHubClientFromContext(ctx); ok {
+		p.logger.Debug("GitHub client successfully set in context", map[string]interface{}{
+			"operation": operation,
+			"has_client": testClient != nil,
+		})
+	} else {
+		p.logger.Error("Failed to set GitHub client in context", map[string]interface{}{
+			"operation": operation,
+		})
+	}
+
 	// Find and execute the tool
 	tool, exists := p.toolRegistry[operation]
 	if !exists {
@@ -696,6 +708,21 @@ func (p *GitHubProvider) extractTenantID(ctx context.Context, params map[string]
 
 // extractAuthToken extracts authentication token from context or params
 func (p *GitHubProvider) extractAuthToken(ctx context.Context, params map[string]interface{}) (string, error) {
+	// Try from ProviderContext first (standard provider pattern)
+	if pctx, ok := providers.FromContext(ctx); ok && pctx != nil && pctx.Credentials != nil {
+		if pctx.Credentials.Token != "" {
+			return pctx.Credentials.Token, nil
+		}
+		// Also check custom credentials map
+		if token, ok := pctx.Credentials.Custom["token"]; ok && token != "" {
+			return token, nil
+		}
+		// Check for GitHub-specific key
+		if token, ok := pctx.Credentials.Custom["github_token"]; ok && token != "" {
+			return token, nil
+		}
+	}
+	
 	// Try passthrough auth from params
 	if auth, ok := params["__passthrough_auth"].(map[string]interface{}); ok {
 		if encryptedToken, ok := auth["encrypted_token"].(string); ok {

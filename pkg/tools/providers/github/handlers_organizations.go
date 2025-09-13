@@ -44,7 +44,7 @@ func (h *ListOrganizationsHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *ListOrganizationsHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -116,7 +116,7 @@ func (h *SearchOrganizationsHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *SearchOrganizationsHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -145,7 +145,16 @@ func (h *SearchOrganizationsHandler) Execute(ctx context.Context, params map[str
 		return NewToolError(fmt.Sprintf("Failed to search organizations: %v", err)), nil
 	}
 
-	data, _ := json.Marshal(result)
+	// Return items with essential metadata only
+	response := map[string]interface{}{
+		"items":       result.Users,
+		"total_count": *result.Total,
+		"has_more":    *result.Total > len(result.Users),
+		"page":        opts.Page,
+		"per_page":    opts.PerPage,
+	}
+
+	data, _ := json.Marshal(response)
 	return NewToolResult(string(data)), nil
 }
 
@@ -192,7 +201,7 @@ func (h *SearchUsersHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *SearchUsersHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -219,7 +228,16 @@ func (h *SearchUsersHandler) Execute(ctx context.Context, params map[string]inte
 		return NewToolError(fmt.Sprintf("Failed to search users: %v", err)), nil
 	}
 
-	data, _ := json.Marshal(result)
+	// Return items with essential metadata only
+	response := map[string]interface{}{
+		"items":       result.Users,
+		"total_count": *result.Total,
+		"has_more":    *result.Total > len(result.Users),
+		"page":        opts.Page,
+		"per_page":    opts.PerPage,
+	}
+
+	data, _ := json.Marshal(response)
 	return NewToolResult(string(data)), nil
 }
 
@@ -266,7 +284,7 @@ func (h *GetTeamMembersHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *GetTeamMembersHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -330,7 +348,7 @@ func (h *ListTeamsHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *ListTeamsHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -379,7 +397,7 @@ func (h *GetOrganizationHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *GetOrganizationHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}

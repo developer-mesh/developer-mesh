@@ -32,7 +32,7 @@ func (h *GetMeHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *GetMeHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
@@ -81,12 +81,12 @@ func (h *GetTeamsHandler) GetDefinition() ToolDefinition {
 
 func (h *GetTeamsHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
 	// Try GraphQL client first for better performance
-	if gqlClient, ok := ctx.Value("githubv4_client").(*githubv4.Client); ok {
+	if gqlClient, ok := GetGitHubV4ClientFromContext(ctx); ok {
 		return h.executeGraphQL(ctx, gqlClient, params)
 	}
 
 	// Fallback to REST API
-	client, ok := ctx.Value("github_client").(*github.Client)
+	client, ok := GetGitHubClientFromContext(ctx)
 	if !ok {
 		return NewToolError("GitHub client not found in context"), nil
 	}
