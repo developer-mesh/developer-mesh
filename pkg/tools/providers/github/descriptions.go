@@ -1,5 +1,7 @@
 package github
 
+import "strings"
+
 // GetOperationDescription returns a meaningful description for a GitHub operation
 func GetOperationDescription(operationName string) string {
 	descriptions := map[string]string{
@@ -214,4 +216,169 @@ func GetOperationMetadata(operationName string) map[string]interface{} {
 	}
 	
 	return metadata
+}
+
+// GetOperationResponseExample returns example response for operations
+func GetOperationResponseExample(operationName string) interface{} {
+	examples := map[string]interface{}{
+		// Repository operations
+		"get_repository": map[string]interface{}{
+			"id":          123456789,
+			"name":        "example-repo",
+			"full_name":   "owner/example-repo",
+			"private":     false,
+			"description": "An example repository",
+			"language":    "Go",
+			"stargazers_count": 42,
+			"forks_count": 10,
+		},
+		"list_repositories": []map[string]interface{}{
+			{
+				"id":       123456789,
+				"name":     "repo1",
+				"private":  false,
+				"language": "Go",
+			},
+			{
+				"id":       987654321,
+				"name":     "repo2",
+				"private":  true,
+				"language": "Python",
+			},
+		},
+		"create_repository": map[string]interface{}{
+			"id":          123456789,
+			"name":        "new-repo",
+			"full_name":   "owner/new-repo",
+			"private":     true,
+			"created_at":  "2024-01-01T00:00:00Z",
+		},
+		
+		// Issue operations
+		"create_issue": map[string]interface{}{
+			"id":     1,
+			"number": 42,
+			"state":  "open",
+			"title":  "Example issue",
+			"body":   "Issue description",
+			"user": map[string]interface{}{
+				"login": "username",
+			},
+		},
+		"list_issues": []map[string]interface{}{
+			{
+				"id":     1,
+				"number": 42,
+				"state":  "open",
+				"title":  "Bug report",
+			},
+			{
+				"id":     2,
+				"number": 43,
+				"state":  "closed",
+				"title":  "Feature request",
+			},
+		},
+		
+		// Pull request operations
+		"create_pull_request": map[string]interface{}{
+			"id":     1,
+			"number": 100,
+			"state":  "open",
+			"title":  "Add new feature",
+			"head": map[string]interface{}{
+				"ref": "feature-branch",
+			},
+			"base": map[string]interface{}{
+				"ref": "main",
+			},
+		},
+		"merge_pull_request": map[string]interface{}{
+			"sha":     "6dcb09b5b57875f334f61aebed695e2e4193db5e",
+			"merged":  true,
+			"message": "Pull Request successfully merged",
+		},
+		
+		// Workflow operations
+		"list_workflows": map[string]interface{}{
+			"total_count": 2,
+			"workflows": []map[string]interface{}{
+				{
+					"id":    161335,
+					"name":  "CI",
+					"state": "active",
+				},
+				{
+					"id":    161336,
+					"name":  "Deploy",
+					"state": "active",
+				},
+			},
+		},
+		"run_workflow": map[string]interface{}{
+			"message": "Workflow dispatch event triggered successfully",
+		},
+		
+		// Search operations
+		"search_repositories": map[string]interface{}{
+			"total_count": 40,
+			"items": []map[string]interface{}{
+				{
+					"id":       123,
+					"name":     "awesome-project",
+					"language": "Go",
+					"stars":    1000,
+				},
+			},
+		},
+		"search_code": map[string]interface{}{
+			"total_count": 5,
+			"items": []map[string]interface{}{
+				{
+					"name": "example.go",
+					"path": "src/example.go",
+					"repository": map[string]interface{}{
+						"name": "example-repo",
+					},
+				},
+			},
+		},
+		
+		// Generic list response for operations without specific examples
+		"default_list": []map[string]interface{}{
+			{"id": 1, "name": "item1"},
+			{"id": 2, "name": "item2"},
+		},
+		
+		// Generic single item response
+		"default_get": map[string]interface{}{
+			"id":   1,
+			"name": "example",
+		},
+		
+		// Generic success response
+		"default_success": map[string]interface{}{
+			"success": true,
+			"message": "Operation completed successfully",
+		},
+	}
+	
+	// Return specific example if available
+	if example, ok := examples[operationName]; ok {
+		return example
+	}
+	
+	// Return appropriate default based on operation type
+	if strings.HasPrefix(operationName, "list_") || strings.HasPrefix(operationName, "search_") {
+		return examples["default_list"]
+	}
+	if strings.HasPrefix(operationName, "get_") {
+		return examples["default_get"]
+	}
+	if strings.HasPrefix(operationName, "create_") || strings.HasPrefix(operationName, "update_") {
+		return examples["default_success"]
+	}
+	
+	// Default response
+	return examples["default_success"]
 }

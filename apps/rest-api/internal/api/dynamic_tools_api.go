@@ -1624,5 +1624,12 @@ func (api *DynamicToolsAPI) createSingleToolFromOrgTool(ot *models.OrganizationT
 
 // getGitHubOperationMetadata retrieves metadata for a GitHub operation
 func (api *DynamicToolsAPI) getGitHubOperationMetadata(operationName string) map[string]interface{} {
-	return githubprovider.GetOperationMetadata(operationName)
+	metadata := githubprovider.GetOperationMetadata(operationName)
+	
+	// Add response example to metadata
+	if example := githubprovider.GetOperationResponseExample(operationName); example != nil {
+		metadata["response_example"] = example
+	}
+	
+	return metadata
 }
