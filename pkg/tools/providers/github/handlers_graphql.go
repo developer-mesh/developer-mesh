@@ -252,36 +252,149 @@ func (h *ListIssuesGraphQLHandler) Execute(ctx context.Context, params map[strin
 func (h *ListIssuesGraphQLHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "issues_list_graphql",
-		Description: "List repository issues using GraphQL for efficient filtering and pagination",
+		Description: GetOperationDescription("issues_list_graphql"),
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
 				"owner": map[string]interface{}{
 					"type":        "string",
-					"description": "Repository owner",
+					"description": "Repository owner (username or organization)",
+					"example":     "octocat",
+					"pattern":     "^[a-zA-Z0-9][a-zA-Z0-9-]*$",
+					"minLength":   1,
+					"maxLength":   39,
 				},
 				"repo": map[string]interface{}{
 					"type":        "string",
 					"description": "Repository name",
+					"example":     "Hello-World",
+					"pattern":     "^[a-zA-Z0-9._-]+$",
+					"minLength":   1,
+					"maxLength":   100,
 				},
 				"state": map[string]interface{}{
 					"type":        "string",
 					"enum":        []string{"open", "closed", "all"},
-					"description": "Issue state filter",
+					"description": "Filter issues by state",
 					"default":     "open",
+					"example":     "open",
 				},
 				"labels": map[string]interface{}{
 					"type":        "array",
 					"items":       map[string]interface{}{"type": "string"},
-					"description": "Filter by labels",
+					"description": "Filter by one or more labels (AND condition)",
+					"example":     []string{"bug", "help wanted"},
+					"maxItems":    100,
 				},
 				"after": map[string]interface{}{
 					"type":        "string",
-					"description": "Cursor for pagination",
+					"description": "Cursor for pagination (from previous response's endCursor)",
+					"example":     "Y3Vyc29yOnYyOpHOAAAAAA==",
 				},
 			},
 			"required": []string{"owner", "repo"},
 		},
+		Metadata: map[string]interface{}{
+			"oauth_scopes": []string{"repo", "read:org"},
+			"rate_limit":   "graphql", // GraphQL has 5000 points/hour
+			"api_version":  "GraphQL",
+			"points_cost":  1, // Each GraphQL query costs points based on complexity
+		},
+		ResponseExample: map[string]interface{}{
+			"issues": []map[string]interface{}{
+				{
+					"id":        "I_kwDOABCD5M4Abcde",
+					"number":    42,
+					"title":     "Bug in login flow",
+					"body":      "When I try to login...",
+					"state":     "OPEN",
+					"createdAt": "2024-01-15T10:00:00Z",
+					"updatedAt": "2024-01-16T14:30:00Z",
+					"author":    map[string]interface{}{"login": "octocat"},
+					"labels": []map[string]interface{}{
+						{"name": "bug", "color": "d73a4a"},
+					},
+					"assignees":     []map[string]interface{}{{"login": "developer1"}},
+					"commentCount":  5,
+				},
+			},
+			"pageInfo": map[string]interface{}{
+				"hasNextPage": true,
+				"endCursor":   "Y3Vyc29yOnYyOpHOAAAAAA==",
+			},
+			"totalCount": 156,
+		},
+		CommonErrors: []map[string]interface{}{
+			{
+				"error":    "Repository not found",
+				"cause":    "Repository does not exist or you lack access",
+				"solution": "Verify repository name and permissions",
+			},
+			{
+				"error":    "Query complexity limit exceeded",
+				"cause":    "GraphQL query is too complex",
+				"solution": "Reduce the number of fields requested or pagination size",
+			},
+			{
+				"error":    "Rate limited",
+				"cause":    "Exceeded GraphQL API rate limit (5000 points/hour)",
+				"solution": "Wait for rate limit reset or reduce query frequency",
+			},
+		},
+		ExtendedHelp: `The issues_list_graphql operation uses GitHub's GraphQL API for efficient issue querying.
+
+Advantages over REST API:
+- Fetch only the fields you need
+- Better performance with nested data
+- More efficient pagination
+- Reduced number of API calls
+
+GraphQL-specific features:
+- Returns GraphQL node IDs (can be used in mutations)
+- Supports cursor-based pagination
+- Can fetch related data in single query
+- Consistent field naming across queries
+
+Pagination:
+- Uses cursor-based pagination (more efficient than offset)
+- Returns 30 issues per page by default
+- Use 'after' parameter with 'endCursor' from previous response
+- Check 'hasNextPage' to know if more results exist
+
+Examples:
+
+# Basic query for open issues
+{
+  "owner": "facebook",
+  "repo": "react"
+}
+
+# Filter by multiple labels
+{
+  "owner": "facebook",
+  "repo": "react",
+  "labels": ["bug", "help wanted"]
+}
+
+# Get all issues (open and closed)
+{
+  "owner": "facebook",
+  "repo": "react",
+  "state": "all"
+}
+
+# Paginate through results
+{
+  "owner": "facebook",
+  "repo": "react",
+  "after": "Y3Vyc29yOnYyOpHOAAAAAA=="
+}
+
+Rate limiting:
+- GraphQL uses a point system (5000 points/hour)
+- Simple queries cost 1 point
+- Complex queries with many fields cost more
+- Monitor X-RateLimit headers in responses`,
 	}
 }
 
@@ -374,21 +487,126 @@ func (h *SearchIssuesAndPRsGraphQLHandler) Execute(ctx context.Context, params m
 func (h *SearchIssuesAndPRsGraphQLHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "search_issues_prs_graphql",
-		Description: "Search issues and pull requests using GitHub's GraphQL search API",
+		Description: GetOperationDescription("search_issues_prs_graphql"),
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
 				"query": map[string]interface{}{
 					"type":        "string",
-					"description": "GitHub search query (e.g., 'repo:owner/name is:open label:bug')",
+					"description": "GitHub search query using advanced search syntax",
+					"example":     "repo:facebook/react is:open label:bug author:octocat",
+					"minLength":   1,
+					"maxLength":   1000,
 				},
 				"after": map[string]interface{}{
 					"type":        "string",
-					"description": "Cursor for pagination",
+					"description": "Cursor for pagination (from previous response's endCursor)",
+					"example":     "Y3Vyc29yOnYyOpHOAAAAAA==",
 				},
 			},
 			"required": []string{"query"},
 		},
+		Metadata: map[string]interface{}{
+			"oauth_scopes": []string{"repo", "read:org"},
+			"rate_limit":   "graphql",
+			"api_version":  "GraphQL",
+			"points_cost":  2, // Search queries cost more points
+		},
+		ResponseExample: map[string]interface{}{
+			"items": []map[string]interface{}{
+				{
+					"type":      "issue",
+					"id":        "I_kwDOABCD5M4Abcde",
+					"number":    42,
+					"title":     "Bug in authentication",
+					"state":     "OPEN",
+					"createdAt": "2024-01-15T10:00:00Z",
+					"author":    map[string]interface{}{"login": "octocat"},
+				},
+				{
+					"type":      "pull_request",
+					"id":        "PR_kwDOABCD5M4Abcde",
+					"number":    123,
+					"title":     "Fix authentication bug",
+					"state":     "OPEN",
+					"isDraft":   false,
+					"merged":    false,
+					"createdAt": "2024-01-16T09:00:00Z",
+				},
+			},
+			"totalCount": 42,
+			"pageInfo": map[string]interface{}{
+				"hasNextPage": true,
+				"endCursor":   "Y3Vyc29yOnYyOpHOAAAAAA==",
+			},
+		},
+		CommonErrors: []map[string]interface{}{
+			{
+				"error":    "Invalid search query",
+				"cause":    "Search query syntax is invalid",
+				"solution": "Check GitHub search syntax documentation",
+			},
+			{
+				"error":    "Search timeout",
+				"cause":    "Search query is too complex or matches too many results",
+				"solution": "Narrow your search criteria or add more specific filters",
+			},
+			{
+				"error":    "Rate limited",
+				"cause":    "Exceeded GraphQL API rate limit",
+				"solution": "Wait for rate limit reset or reduce query frequency",
+			},
+		},
+		ExtendedHelp: `The search_issues_prs_graphql operation provides powerful search across issues and pull requests.
+
+Search syntax qualifiers:
+- repo:owner/name - Search in specific repository
+- org:orgname - Search in organization
+- is:open/closed/merged - Filter by state
+- is:issue/pr - Filter by type
+- author:username - Filter by author
+- assignee:username - Filter by assignee
+- label:"bug" - Filter by label (use quotes for multi-word)
+- milestone:"v1.0" - Filter by milestone
+- created:>2024-01-01 - Filter by creation date
+- updated:<2024-01-01 - Filter by update date
+- comments:>10 - Filter by comment count
+- involves:username - User is author, assignee, or mentioned
+- team:orgname/teamname - Involves team members
+
+Combining qualifiers:
+- Use space to combine with AND logic
+- Use OR for alternative conditions
+- Use NOT or - to exclude
+- Group with parentheses (limited support)
+
+Examples:
+
+# Search for open bugs in React repo
+{
+  "query": "repo:facebook/react is:open is:issue label:bug"
+}
+
+# Find PRs authored by octocat that need review
+{
+  "query": "is:pr is:open author:octocat review:required"
+}
+
+# Search across organization
+{
+  "query": "org:microsoft is:open involves:@me"
+}
+
+# Complex date-based search
+{
+  "query": "repo:nodejs/node created:>2024-01-01 updated:<2024-02-01 is:closed"
+}
+
+Tips:
+- Returns both issues and PRs in single search
+- Check 'type' field to distinguish issues from PRs
+- More specific queries perform better
+- Use cursor pagination for large result sets`,
 	}
 }
 
@@ -480,21 +698,111 @@ func (h *GetRepositoryDetailsGraphQLHandler) Execute(ctx context.Context, params
 func (h *GetRepositoryDetailsGraphQLHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "repository_details_graphql",
-		Description: "Get comprehensive repository details using GraphQL",
+		Description: GetOperationDescription("repository_details_graphql"),
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
 				"owner": map[string]interface{}{
 					"type":        "string",
-					"description": "Repository owner",
+					"description": "Repository owner (username or organization)",
+					"example":     "facebook",
+					"pattern":     "^[a-zA-Z0-9][a-zA-Z0-9-]*$",
+					"minLength":   1,
+					"maxLength":   39,
 				},
 				"repo": map[string]interface{}{
 					"type":        "string",
 					"description": "Repository name",
+					"example":     "react",
+					"pattern":     "^[a-zA-Z0-9._-]+$",
+					"minLength":   1,
+					"maxLength":   100,
 				},
 			},
 			"required": []string{"owner", "repo"},
 		},
+		Metadata: map[string]interface{}{
+			"oauth_scopes": []string{"repo", "read:org"},
+			"rate_limit":   "graphql",
+			"api_version":  "GraphQL",
+			"points_cost":  1,
+		},
+		ResponseExample: map[string]interface{}{
+			"id":          "R_kgDOABCDEF",
+			"name":        "react",
+			"nameWithOwner": "facebook/react",
+			"description": "A declarative, efficient, and flexible JavaScript library for building user interfaces",
+			"isPrivate":   false,
+			"isArchived":  false,
+			"isFork":      false,
+			"isTemplate":  false,
+			"createdAt":   "2013-05-24T16:15:54Z",
+			"updatedAt":   "2024-01-20T10:30:00Z",
+			"pushedAt":    "2024-01-20T09:45:00Z",
+			"language": map[string]interface{}{
+				"name":  "JavaScript",
+				"color": "#f1e05a",
+			},
+			"languages": []map[string]interface{}{
+				{"name": "JavaScript", "percentage": 75.5},
+				{"name": "TypeScript", "percentage": 20.3},
+			},
+			"defaultBranch": "main",
+			"stats": map[string]interface{}{
+				"stars":       210000,
+				"forks":       42000,
+				"watchers":    6700,
+				"issues":      850,
+				"pullRequests": 320,
+			},
+			"topics": []string{"react", "javascript", "library", "ui", "frontend"},
+			"license": map[string]interface{}{
+				"key":  "mit",
+				"name": "MIT License",
+			},
+		},
+		CommonErrors: []map[string]interface{}{
+			{
+				"error":    "Repository not found",
+				"cause":    "Repository does not exist or you lack access",
+				"solution": "Verify repository name and permissions",
+			},
+			{
+				"error":    "Rate limited",
+				"cause":    "Exceeded GraphQL API rate limit",
+				"solution": "Wait for rate limit reset or reduce query frequency",
+			},
+		},
+		ExtendedHelp: `The repository_details_graphql operation fetches comprehensive repository information using GraphQL.
+
+Returned information includes:
+- Basic metadata (name, description, visibility)
+- Repository statistics (stars, forks, issues, PRs)
+- Language breakdown with percentages
+- Topics/tags
+- License information
+- Timestamps (created, updated, last push)
+- Default branch
+- Archive and template status
+
+Advantages over REST API:
+- Single request for all data (REST requires multiple endpoints)
+- Consistent field naming
+- More efficient data transfer
+- Includes calculated fields like language percentages
+
+Example:
+{
+  "owner": "facebook",
+  "repo": "react"
+}
+
+Use cases:
+- Repository analytics and reporting
+- Migration planning
+- Dependency analysis
+- License compliance checks
+- Technology stack discovery`,
 	}
 }
 

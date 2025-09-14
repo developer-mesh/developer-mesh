@@ -23,24 +23,81 @@ func NewGetIssueHandler(p *GitHubProvider) *GetIssueHandler {
 func (h *GetIssueHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "get_issue",
-		Description: "Get a specific issue from a GitHub repository",
+		Description: "Retrieve detailed information about a specific GitHub issue, including metadata, comments count, labels, and current state",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
 				"owner": map[string]interface{}{
 					"type":        "string",
-					"description": "Repository owner",
+					"description": "Repository owner username or organization name (e.g., 'facebook', 'microsoft')",
+					"example":     "facebook",
+					"pattern":     "^[a-zA-Z0-9][a-zA-Z0-9-]*$",
+					"minLength":   1,
+					"maxLength":   39,
 				},
 				"repo": map[string]interface{}{
 					"type":        "string",
-					"description": "Repository name",
+					"description": "Repository name (e.g., 'react', 'vscode')",
+					"example":     "react",
+					"pattern":     "^[a-zA-Z0-9._-]+$",
+					"minLength":   1,
+					"maxLength":   100,
 				},
 				"issue_number": map[string]interface{}{
 					"type":        "integer",
-					"description": "Issue number",
+					"description": "Issue number (positive integer)",
+					"example":     1234,
+					"minimum":     1,
+					"maximum":     999999999,
 				},
 			},
 			"required": []interface{}{"owner", "repo", "issue_number"},
+			"metadata": map[string]interface{}{
+				"requiredScopes":    []string{"repo"},
+				"minimumScopes":     []string{"public_repo"},
+				"rateLimitCategory": "core",
+				"requestsPerHour":   5000,
+				"complexityLevel":   "simple",
+			},
+			"responseExample": map[string]interface{}{
+				"success": map[string]interface{}{
+					"id":     123456789,
+					"number": 1234,
+					"title":  "Bug: Something is broken",
+					"state":  "open",
+					"user": map[string]interface{}{
+						"login": "octocat",
+					},
+					"labels": []interface{}{
+						map[string]interface{}{
+							"name":  "bug",
+							"color": "d73a4a",
+						},
+					},
+				},
+				"error": map[string]interface{}{
+					"message":           "Not Found",
+					"documentation_url": "https://docs.github.com/rest/issues/issues#get-an-issue",
+				},
+			},
+			"commonErrors": []map[string]interface{}{
+				{
+					"code":     404,
+					"reason":   "Issue not found or you lack access to the repository",
+					"solution": "Verify the issue exists and you have read permission to the repository",
+				},
+				{
+					"code":     403,
+					"reason":   "Rate limit exceeded or insufficient permissions",
+					"solution": "Wait for rate limit reset or check your authentication token permissions",
+				},
+				{
+					"code":     401,
+					"reason":   "Authentication required for private repository",
+					"solution": "Provide a valid GitHub token with appropriate repository access",
+				},
+			},
+			"extendedHelp": "This operation requires read access to the repository. Public repositories are accessible without authentication, but private repositories require appropriate permissions. See https://docs.github.com/en/rest/issues/issues#get-an-issue",
 		},
 	}
 }
@@ -76,32 +133,84 @@ func NewSearchIssuesHandler(p *GitHubProvider) *SearchIssuesHandler {
 func (h *SearchIssuesHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "search_issues",
-		Description: "Search for issues on GitHub",
+		Description: "Search for issues across GitHub using advanced search syntax with filters for repository, state, labels, and more",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
 				"query": map[string]interface{}{
 					"type":        "string",
-					"description": "Search query using GitHub issue search syntax",
+					"description": "Search query using GitHub search syntax (e.g., 'bug repo:facebook/react state:open')",
+					"example":     "memory leak repo:microsoft/vscode state:open label:bug",
+					"minLength":   1,
 				},
 				"sort": map[string]interface{}{
 					"type":        "string",
-					"description": "Sort results by: created, updated, comments",
+					"description": "Sort results by",
+					"enum":        []interface{}{"created", "updated", "comments"},
+					"default":     "created",
+					"example":     "updated",
 				},
 				"order": map[string]interface{}{
 					"type":        "string",
-					"description": "Order results: asc or desc",
+					"description": "Sort order",
+					"enum":        []interface{}{"asc", "desc"},
+					"default":     "desc",
+					"example":     "desc",
 				},
 				"per_page": map[string]interface{}{
 					"type":        "integer",
-					"description": "Results per page (max 100)",
+					"description": "Results per page (1-100)",
+					"minimum":     1,
+					"maximum":     100,
+					"default":     30,
+					"example":     50,
 				},
 				"page": map[string]interface{}{
 					"type":        "integer",
-					"description": "Page number to retrieve",
+					"description": "Page number (1-based, max 100 for search results)",
+					"minimum":     1,
+					"maximum":     100,
+					"default":     1,
+					"example":     2,
 				},
 			},
 			"required": []interface{}{"query"},
+			"metadata": map[string]interface{}{
+				"requiredScopes":    []string{"repo"},
+				"minimumScopes":     []string{"public_repo"},
+				"rateLimitCategory": "search",
+				"requestsPerHour":   30,
+				"complexityLevel":   "complex",
+			},
+			"responseExample": map[string]interface{}{
+				"success": map[string]interface{}{
+					"total_count": 2,
+					"items": []interface{}{
+						map[string]interface{}{
+							"number": 1234,
+							"title":  "Memory leak in component unmounting",
+							"state":  "open",
+							"repository": map[string]interface{}{
+								"name":      "vscode",
+								"full_name": "microsoft/vscode",
+							},
+						},
+					},
+				},
+			},
+			"commonErrors": []map[string]interface{}{
+				{
+					"code":     422,
+					"reason":   "Invalid search query syntax",
+					"solution": "Check GitHub search syntax documentation and verify query format",
+				},
+				{
+					"code":     403,
+					"reason":   "Rate limit exceeded (search API has lower limits)",
+					"solution": "Wait for rate limit reset - search API allows 30 requests per minute",
+				},
+			},
+			"extendedHelp": "Uses GitHub's powerful search syntax. Supports qualifiers like 'repo:owner/name', 'state:open', 'label:bug', 'author:username', etc. See https://docs.github.com/en/search-github/searching-on-github/searching-issues-and-pull-requests",
 		},
 	}
 }

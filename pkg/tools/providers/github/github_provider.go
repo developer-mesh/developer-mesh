@@ -86,9 +86,13 @@ type ToolHandler interface {
 
 // ToolDefinition describes a tool's schema
 type ToolDefinition struct {
-	Name        string                 `json:"name"`
-	Description string                 `json:"description"`
-	InputSchema map[string]interface{} `json:"inputSchema"`
+	Name            string                   `json:"name"`
+	Description     string                   `json:"description"`
+	InputSchema     map[string]interface{}   `json:"inputSchema"`
+	Metadata        map[string]interface{}   `json:"metadata,omitempty"`
+	ResponseExample map[string]interface{}   `json:"responseExample,omitempty"`
+	CommonErrors    []map[string]interface{} `json:"commonErrors,omitempty"`
+	ExtendedHelp    string                   `json:"extendedHelp,omitempty"`
 }
 
 // Toolset represents a group of related tools

@@ -331,40 +331,99 @@ func NewCreatePullRequestHandler(p *GitHubProvider) *CreatePullRequestHandler {
 func (h *CreatePullRequestHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "create_pull_request",
-		Description: "Create a new pull request in a GitHub repository",
+		Description: "Create a new pull request from one branch to another, enabling code review and collaboration",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
 				"owner": map[string]interface{}{
 					"type":        "string",
-					"description": "Repository owner",
+					"description": "Repository owner username or organization (e.g., 'facebook', 'microsoft')",
+					"example":     "octocat",
+					"pattern":     "^[a-zA-Z0-9][a-zA-Z0-9-]*$",
+					"minLength":   1,
+					"maxLength":   39,
 				},
 				"repo": map[string]interface{}{
 					"type":        "string",
-					"description": "Repository name",
+					"description": "Repository name (e.g., 'react', 'vscode')",
+					"example":     "Hello-World",
+					"pattern":     "^[a-zA-Z0-9._-]+$",
+					"minLength":   1,
+					"maxLength":   100,
 				},
 				"title": map[string]interface{}{
 					"type":        "string",
-					"description": "Pull request title",
+					"description": "Pull request title (concise description of changes)",
+					"example":     "Add user authentication feature",
+					"minLength":   1,
+					"maxLength":   256,
 				},
 				"body": map[string]interface{}{
 					"type":        "string",
-					"description": "Pull request body",
+					"description": "Detailed description of changes, motivation, and testing notes (supports Markdown)",
+					"example":     "## Summary\n\nThis PR adds OAuth2 authentication...\n\n## Changes\n- Added login endpoint\n- Integrated OAuth2\n\n## Testing\n- Unit tests added\n- Manual testing completed",
+					"maxLength":   65536,
 				},
 				"head": map[string]interface{}{
 					"type":        "string",
-					"description": "The name of the branch where changes are implemented",
+					"description": "Source branch containing changes (e.g., 'feature/auth', 'username:branch' for forks)",
+					"example":     "feature/new-authentication",
+					"minLength":   1,
 				},
 				"base": map[string]interface{}{
 					"type":        "string",
-					"description": "The name of the branch you want changes pulled into",
+					"description": "Target branch to merge changes into (typically 'main' or 'master')",
+					"example":     "main",
+					"default":     "main",
+					"minLength":   1,
 				},
 				"draft": map[string]interface{}{
 					"type":        "boolean",
-					"description": "Create as draft pull request",
+					"description": "Create as draft PR (not ready for review, useful for work-in-progress)",
+					"default":     false,
+					"example":     false,
 				},
 			},
 			"required": []interface{}{"owner", "repo", "title", "head", "base"},
+			"metadata": map[string]interface{}{
+				"requiredScopes":    []string{"repo", "public_repo"},
+				"minimumScopes":     []string{"public_repo"},
+				"rateLimitCategory": "core",
+				"requestsPerHour":   5000,
+			},
+			"responseExample": map[string]interface{}{
+				"success": map[string]interface{}{
+					"id":     1,
+					"number": 100,
+					"state":  "open",
+					"title":  "Add user authentication feature",
+					"html_url": "https://github.com/octocat/Hello-World/pull/100",
+					"mergeable": true,
+					"draft": false,
+				},
+				"error": map[string]interface{}{
+					"message":           "Validation Failed",
+					"documentation_url": "https://docs.github.com/rest/pulls/pulls#create-a-pull-request",
+				},
+			},
+			"commonErrors": []map[string]interface{}{
+				{
+					"code":     422,
+					"reason":   "Invalid head branch, base branch, or no changes between branches",
+					"solution": "Ensure both branches exist, head has changes, and you have push access",
+				},
+				{
+					"code":     404,
+					"reason":   "Repository, head branch, or base branch not found",
+					"solution": "Verify repository exists and both branches are pushed to GitHub",
+				},
+				{
+					"code":     403,
+					"reason":   "Insufficient permissions to create pull request",
+					"solution": "Ensure you have write access to the repository or fork permissions",
+				},
+			},
+			"extendedHelp": "Creates a pull request for code review. For cross-fork PRs, use 'username:branch' format for head. Draft PRs are useful for early feedback. See https://docs.github.com/rest/pulls/pulls#create-a-pull-request",
 		},
 	}
 }
@@ -415,36 +474,94 @@ func NewMergePullRequestHandler(p *GitHubProvider) *MergePullRequestHandler {
 func (h *MergePullRequestHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "merge_pull_request",
-		Description: "Merge a pull request",
+		Description: "Merge an approved pull request into the base branch using specified merge strategy",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
 				"owner": map[string]interface{}{
 					"type":        "string",
-					"description": "Repository owner",
+					"description": "Repository owner username or organization (e.g., 'facebook', 'microsoft')",
+					"example":     "octocat",
+					"pattern":     "^[a-zA-Z0-9][a-zA-Z0-9-]*$",
 				},
 				"repo": map[string]interface{}{
 					"type":        "string",
-					"description": "Repository name",
+					"description": "Repository name (e.g., 'react', 'vscode')",
+					"example":     "Hello-World",
+					"pattern":     "^[a-zA-Z0-9._-]+$",
 				},
 				"pull_number": map[string]interface{}{
 					"type":        "integer",
-					"description": "Pull request number",
+					"description": "Pull request number to merge",
+					"example":     42,
+					"minimum":     1,
 				},
 				"commit_title": map[string]interface{}{
 					"type":        "string",
-					"description": "Title for the merge commit",
+					"description": "Custom merge commit title (defaults to PR title)",
+					"example":     "Merge PR #42: Add authentication feature",
+					"maxLength":   256,
 				},
 				"commit_message": map[string]interface{}{
 					"type":        "string",
-					"description": "Message for the merge commit",
+					"description": "Custom merge commit message body (defaults to PR description)",
+					"example":     "This adds OAuth2 authentication with comprehensive test coverage",
+					"maxLength":   65536,
 				},
 				"merge_method": map[string]interface{}{
 					"type":        "string",
-					"description": "Merge method: merge, squash, or rebase",
+					"description": "How to merge the pull request",
+					"enum":        []interface{}{"merge", "squash", "rebase"},
+					"default":     "merge",
+					"example":     "squash",
 				},
 			},
 			"required": []interface{}{"owner", "repo", "pull_number"},
+			"metadata": map[string]interface{}{
+				"requiredScopes":    []string{"repo"},
+				"minimumScopes":     []string{"repo"},
+				"rateLimitCategory": "core",
+				"requestsPerHour":   5000,
+			},
+			"mergeMethodDetails": map[string]interface{}{
+				"merge":  "Creates a merge commit with all individual commits preserved",
+				"squash": "Combines all commits into a single commit on the base branch",
+				"rebase": "Adds commits onto the base branch without a merge commit",
+			},
+			"responseExample": map[string]interface{}{
+				"success": map[string]interface{}{
+					"sha":     "6dcb09b5b57875f334f61aebed695e2e4193db5e",
+					"merged":  true,
+					"message": "Pull Request successfully merged",
+				},
+				"error": map[string]interface{}{
+					"message":           "Pull Request is not mergeable",
+					"documentation_url": "https://docs.github.com/rest/pulls/pulls#merge-a-pull-request",
+				},
+			},
+			"commonErrors": []map[string]interface{}{
+				{
+					"code":     405,
+					"reason":   "Pull request is not mergeable (conflicts or checks failing)",
+					"solution": "Resolve merge conflicts, ensure CI checks pass, and PR is approved",
+				},
+				{
+					"code":     404,
+					"reason":   "Pull request not found",
+					"solution": "Verify the pull request number and repository are correct",
+				},
+				{
+					"code":     403,
+					"reason":   "Insufficient permissions or branch protection rules",
+					"solution": "Ensure you have write access and meet branch protection requirements",
+				},
+				{
+					"code":     422,
+					"reason":   "Invalid merge method for repository settings",
+					"solution": "Check repository settings for allowed merge methods",
+				},
+			},
+			"extendedHelp": "Merges a PR after review. Ensure checks pass and approvals are met. Repository settings control available merge methods. See https://docs.github.com/rest/pulls/pulls#merge-a-pull-request",
 		},
 	}
 }

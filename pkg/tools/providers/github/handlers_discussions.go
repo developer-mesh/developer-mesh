@@ -155,29 +155,135 @@ func (h *ListDiscussionsHandler) Execute(ctx context.Context, params map[string]
 func (h *ListDiscussionsHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "discussions_list",
-		Description: "List discussions in a repository",
+		Description: GetOperationDescription("discussions_list"),
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
 				"owner": map[string]interface{}{
 					"type":        "string",
-					"description": "Repository owner",
+					"description": "Repository owner (username or organization)",
+					"example":     "octocat",
+					"pattern":     "^[a-zA-Z0-9][a-zA-Z0-9-]*$",
+					"minLength":   1,
+					"maxLength":   39,
 				},
 				"repo": map[string]interface{}{
 					"type":        "string",
 					"description": "Repository name",
+					"example":     "Hello-World",
+					"pattern":     "^[a-zA-Z0-9._-]+$",
+					"minLength":   1,
+					"maxLength":   100,
 				},
 				"category_id": map[string]interface{}{
 					"type":        "string",
-					"description": "Filter by discussion category ID",
+					"description": "Filter by discussion category ID (GraphQL node ID)",
+					"example":     "DIC_kwDOABCD5M4CABCD",
+					"pattern":     "^DIC_[a-zA-Z0-9]+$",
 				},
 				"after": map[string]interface{}{
 					"type":        "string",
-					"description": "Cursor for pagination",
+					"description": "Cursor for pagination (from previous response's endCursor)",
+					"example":     "Y3Vyc29yOnYyOpHOAAAAAA==",
 				},
 			},
 			"required": []string{"owner", "repo"},
 		},
+		Metadata: map[string]interface{}{
+			"oauth_scopes": []string{"repo", "read:discussion"},
+			"rate_limit":   "graphql",
+			"api_version":  "GraphQL",
+			"points_cost":  1,
+			"graphql_only": true, // Discussions API is GraphQL-only
+		},
+		ResponseExample: map[string]interface{}{
+			"discussions": []map[string]interface{}{
+				{
+					"id":              "D_kwDOABCD5M4AABCD",
+					"number":          42,
+					"title":           "How to contribute?",
+					"body":            "I'd like to contribute to this project...",
+					"author":          "newcontributor",
+					"category":        "Q&A",
+					"created_at":      "2024-01-15T10:00:00Z",
+					"updated_at":      "2024-01-16T14:30:00Z",
+					"answer_chosen_at": "2024-01-16T15:00:00Z",
+					"is_answered":     true,
+					"locked":          false,
+					"comments":        5,
+					"url":             "https://github.com/octocat/Hello-World/discussions/42",
+				},
+			},
+			"pageInfo": map[string]interface{}{
+				"hasNextPage": true,
+				"endCursor":   "Y3Vyc29yOnYyOpHOAAAAAA==",
+			},
+			"totalCount": 123,
+		},
+		CommonErrors: []map[string]interface{}{
+			{
+				"error":    "Discussions not enabled",
+				"cause":    "Repository has discussions disabled",
+				"solution": "Enable discussions in repository settings",
+			},
+			{
+				"error":    "Category not found",
+				"cause":    "Invalid category ID provided",
+				"solution": "Use discussion_categories_list to get valid category IDs",
+			},
+			{
+				"error":    "GraphQL required",
+				"cause":    "Discussions API only available via GraphQL",
+				"solution": "Ensure GraphQL client is configured",
+			},
+		},
+		ExtendedHelp: `The discussions_list operation retrieves repository discussions using GitHub's GraphQL API.
+
+Discussions are:
+- Community conversations for Q&A, ideas, and general discussion
+- Different from issues (not for tracking work)
+- Organized by categories
+- Can be marked as answered (for Q&A categories)
+
+Category types:
+- 💬 General: Open-ended conversations
+- 🙏 Q&A: Questions with accepted answers
+- 💡 Ideas: Feature requests and suggestions
+- 🎆 Show and tell: Share creations
+- 📣 Announcements: Updates and news
+
+Filtering:
+- By category: Use category_id from discussion_categories_list
+- Pagination: Use cursor-based pagination with 'after'
+- Default ordering: Most recently updated first
+
+Examples:
+
+# List all discussions
+{
+  "owner": "facebook",
+  "repo": "react"
+}
+
+# Filter by category
+{
+  "owner": "facebook",
+  "repo": "react",
+  "category_id": "DIC_kwDOABCD5M4CABCD"
+}
+
+# Paginate through results
+{
+  "owner": "facebook",
+  "repo": "react",
+  "after": "Y3Vyc29yOnYyOpHOAAAAAA=="
+}
+
+Use cases:
+- Community support forums
+- Feature request tracking
+- Project announcements
+- Knowledge base Q&A`,
 	}
 }
 
@@ -333,25 +439,106 @@ func (h *GetDiscussionHandler) Execute(ctx context.Context, params map[string]in
 func (h *GetDiscussionHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "discussion_get",
-		Description: "Get a specific discussion by number",
+		Description: GetOperationDescription("discussion_get"),
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
 				"owner": map[string]interface{}{
 					"type":        "string",
-					"description": "Repository owner",
+					"description": "Repository owner (username or organization)",
+					"example":     "octocat",
+					"pattern":     "^[a-zA-Z0-9][a-zA-Z0-9-]*$",
+					"minLength":   1,
+					"maxLength":   39,
 				},
 				"repo": map[string]interface{}{
 					"type":        "string",
 					"description": "Repository name",
+					"example":     "Hello-World",
+					"pattern":     "^[a-zA-Z0-9._-]+$",
+					"minLength":   1,
+					"maxLength":   100,
 				},
 				"discussion_number": map[string]interface{}{
 					"type":        "integer",
-					"description": "Discussion number",
+					"description": "Discussion number (sequential ID in repository)",
+					"example":     42,
+					"minimum":     1,
 				},
 			},
 			"required": []string{"owner", "repo", "discussion_number"},
 		},
+		Metadata: map[string]interface{}{
+			"oauth_scopes": []string{"repo", "read:discussion"},
+			"rate_limit":   "graphql",
+			"api_version":  "GraphQL",
+			"points_cost":  1,
+			"graphql_only": true,
+		},
+		ResponseExample: map[string]interface{}{
+			"id":              "D_kwDOABCD5M4AABCD",
+			"number":          42,
+			"title":           "How to contribute?",
+			"body":            "I'd like to contribute to this project. What's the best way to get started?",
+			"author":          "newcontributor",
+			"category":        "Q&A",
+			"created_at":      "2024-01-15T10:00:00Z",
+			"updated_at":      "2024-01-16T14:30:00Z",
+			"answer_chosen_at": "2024-01-16T15:00:00Z",
+			"answer_chosen_by": "maintainer1",
+			"is_answered":     true,
+			"locked":          false,
+			"locked_at":       nil,
+			"comments":        5,
+			"reactions": map[string]interface{}{
+				"thumbs_up":   10,
+				"thumbs_down": 0,
+				"heart":       3,
+			},
+			"url": "https://github.com/octocat/Hello-World/discussions/42",
+		},
+		CommonErrors: []map[string]interface{}{
+			{
+				"error":    "Discussion not found",
+				"cause":    "Discussion doesn't exist or was deleted",
+				"solution": "Verify discussion number exists",
+			},
+			{
+				"error":    "Discussions not enabled",
+				"cause":    "Repository has discussions disabled",
+				"solution": "Enable discussions in repository settings",
+			},
+		},
+		ExtendedHelp: `The discussion_get operation retrieves detailed information about a specific discussion.
+
+Returned information includes:
+- Full discussion content
+- Author information
+- Category and tags
+- Answer status (for Q&A)
+- Lock status
+- Reaction counts
+- Comment count
+- Timestamps
+
+Discussion states:
+- Open: Accepting new comments
+- Answered: Has accepted answer (Q&A only)
+- Locked: No new comments allowed
+- Unanswered: Q&A without accepted answer
+
+Example:
+{
+  "owner": "facebook",
+  "repo": "react",
+  "discussion_number": 42
+}
+
+Use this to:
+- Display full discussion thread
+- Check if question is answered
+- Get discussion metadata
+- Monitor discussion activity`,
 	}
 }
 
@@ -489,29 +676,131 @@ func (h *GetDiscussionCommentsHandler) Execute(ctx context.Context, params map[s
 func (h *GetDiscussionCommentsHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "discussion_comments_get",
-		Description: "Get comments for a discussion",
+		Description: GetOperationDescription("discussion_comments_get"),
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
 				"owner": map[string]interface{}{
 					"type":        "string",
-					"description": "Repository owner",
+					"description": "Repository owner (username or organization)",
+					"example":     "octocat",
+					"pattern":     "^[a-zA-Z0-9][a-zA-Z0-9-]*$",
+					"minLength":   1,
+					"maxLength":   39,
 				},
 				"repo": map[string]interface{}{
 					"type":        "string",
 					"description": "Repository name",
+					"example":     "Hello-World",
+					"pattern":     "^[a-zA-Z0-9._-]+$",
+					"minLength":   1,
+					"maxLength":   100,
 				},
 				"discussion_number": map[string]interface{}{
 					"type":        "integer",
-					"description": "Discussion number",
+					"description": "Discussion number to get comments for",
+					"example":     42,
+					"minimum":     1,
 				},
 				"after": map[string]interface{}{
 					"type":        "string",
-					"description": "Cursor for pagination",
+					"description": "Cursor for pagination (from previous response's endCursor)",
+					"example":     "Y3Vyc29yOnYyOpHOAAAAAA==",
 				},
 			},
 			"required": []string{"owner", "repo", "discussion_number"},
 		},
+		Metadata: map[string]interface{}{
+			"oauth_scopes": []string{"repo", "read:discussion"},
+			"rate_limit":   "graphql",
+			"api_version":  "GraphQL",
+			"points_cost":  1,
+			"graphql_only": true,
+		},
+		ResponseExample: map[string]interface{}{
+			"comments": []map[string]interface{}{
+				{
+					"id":          "DC_kwDOABCD5M4AABCD",
+					"body":        "Great question! Here's how you can get started...",
+					"author":      "maintainer1",
+					"created_at":  "2024-01-15T11:00:00Z",
+					"updated_at":  "2024-01-15T11:30:00Z",
+					"is_answer":   true,
+					"is_minimized": false,
+					"reactions": map[string]interface{}{
+						"thumbs_up": 5,
+						"heart":    2,
+					},
+					"replies_count": 3,
+				},
+				{
+					"id":          "DC_kwDOABCD5M4AABCE",
+					"body":        "Thanks for the help!",
+					"author":      "newcontributor",
+					"created_at":  "2024-01-15T12:00:00Z",
+					"is_answer":   false,
+					"replies_count": 0,
+				},
+			},
+			"pageInfo": map[string]interface{}{
+				"hasNextPage": false,
+				"endCursor":   "Y3Vyc29yOnYyOpHOAAAAAA==",
+			},
+			"totalCount": 5,
+		},
+		CommonErrors: []map[string]interface{}{
+			{
+				"error":    "Discussion not found",
+				"cause":    "Discussion doesn't exist",
+				"solution": "Verify discussion number",
+			},
+			{
+				"error":    "Discussions not enabled",
+				"cause":    "Repository has discussions disabled",
+				"solution": "Enable discussions in repository settings",
+			},
+		},
+		ExtendedHelp: `The discussion_comments_get operation retrieves all comments for a specific discussion.
+
+Comment types:
+- Regular comments: Standard replies
+- Answers: Marked solutions (Q&A categories only)
+- Minimized: Hidden due to abuse/spam
+- Replies: Nested responses to comments
+
+Comment features:
+- Rich text with Markdown
+- Reactions (emoji responses)
+- Threading (replies to comments)
+- Answer marking (Q&A only)
+
+Pagination:
+- Returns 30 comments per page
+- Use 'after' cursor for next page
+- Comments ordered chronologically
+
+Examples:
+
+# Get first page of comments
+{
+  "owner": "facebook",
+  "repo": "react",
+  "discussion_number": 42
+}
+
+# Get next page
+{
+  "owner": "facebook",
+  "repo": "react",
+  "discussion_number": 42,
+  "after": "Y3Vyc29yOnYyOpHOAAAAAA=="
+}
+
+Use for:
+- Building discussion threads
+- Finding accepted answers
+- Analyzing community engagement
+- Moderating discussions`,
 	}
 }
 
@@ -593,20 +882,112 @@ func (h *ListDiscussionCategoriesHandler) Execute(ctx context.Context, params ma
 func (h *ListDiscussionCategoriesHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "discussion_categories_list",
-		Description: "List discussion categories in a repository",
+		Description: GetOperationDescription("discussion_categories_list"),
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
 				"owner": map[string]interface{}{
 					"type":        "string",
-					"description": "Repository owner",
+					"description": "Repository owner (username or organization)",
+					"example":     "octocat",
+					"pattern":     "^[a-zA-Z0-9][a-zA-Z0-9-]*$",
+					"minLength":   1,
+					"maxLength":   39,
 				},
 				"repo": map[string]interface{}{
 					"type":        "string",
 					"description": "Repository name",
+					"example":     "Hello-World",
+					"pattern":     "^[a-zA-Z0-9._-]+$",
+					"minLength":   1,
+					"maxLength":   100,
 				},
 			},
 			"required": []string{"owner", "repo"},
 		},
+		Metadata: map[string]interface{}{
+			"oauth_scopes": []string{"repo", "read:discussion"},
+			"rate_limit":   "graphql",
+			"api_version":  "GraphQL",
+			"points_cost":  1,
+			"graphql_only": true,
+		},
+		ResponseExample: map[string]interface{}{
+			"categories": []map[string]interface{}{
+				{
+					"id":            "DIC_kwDOABCD5M4CABCD",
+					"name":          "Q&A",
+					"description":   "Ask the community for help",
+					"emoji":         "🙏",
+					"created_at":    "2023-01-01T00:00:00Z",
+					"updated_at":    "2023-01-01T00:00:00Z",
+					"is_answerable": true,
+				},
+				{
+					"id":            "DIC_kwDOABCD5M4CABCE",
+					"name":          "General",
+					"description":   "General discussions",
+					"emoji":         "💬",
+					"is_answerable": false,
+				},
+				{
+					"id":            "DIC_kwDOABCD5M4CABCF",
+					"name":          "Ideas",
+					"description":   "Share ideas for new features",
+					"emoji":         "💡",
+					"is_answerable": false,
+				},
+				{
+					"id":            "DIC_kwDOABCD5M4CABCG",
+					"name":          "Show and tell",
+					"description":   "Show off something you've made",
+					"emoji":         "🎆",
+					"is_answerable": false,
+				},
+			},
+			"totalCount": 5,
+		},
+		CommonErrors: []map[string]interface{}{
+			{
+				"error":    "Discussions not enabled",
+				"cause":    "Repository has discussions disabled",
+				"solution": "Enable discussions in repository settings",
+			},
+			{
+				"error":    "Repository not found",
+				"cause":    "Repository doesn't exist or you lack access",
+				"solution": "Verify repository name and permissions",
+			},
+		},
+		ExtendedHelp: `The discussion_categories_list operation retrieves all discussion categories for a repository.
+
+Default categories:
+- 💬 General: Open discussions
+- 💡 Ideas: Feature requests
+- 🙏 Q&A: Questions with answers
+- 🎆 Show and tell: Showcase projects
+- 📣 Announcements: Updates (usually locked)
+
+Category properties:
+- is_answerable: Whether answers can be marked (Q&A)
+- emoji: Visual identifier
+- description: Purpose of category
+
+Custom categories:
+- Can be created by maintainers
+- Custom emojis supported
+- Can be answerable or discussion-only
+
+Example:
+{
+  "owner": "facebook",
+  "repo": "react"
+}
+
+Use categories to:
+- Filter discussions by type
+- Organize community content
+- Set expectations for interaction
+- Create custom workflows (e.g., RFCs, Support)`,
 	}
 }

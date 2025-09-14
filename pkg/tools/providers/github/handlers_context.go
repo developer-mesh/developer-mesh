@@ -58,24 +58,80 @@ func NewGetTeamsHandler(p *GitHubProvider) *GetTeamsHandler {
 func (h *GetTeamsHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "get_teams",
-		Description: "Get teams for the authenticated user",
+		Description: "Get teams for the authenticated user across all organizations or from a specific organization.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
 				"org": map[string]interface{}{
 					"type":        "string",
-					"description": "Organization name (optional, returns all teams if not specified)",
+					"description": "Organization name to filter teams. Leave empty to get teams from all organizations.",
+					"example":     "github",
+					"pattern":     "^[a-zA-Z0-9][a-zA-Z0-9-]*$",
+					"minLength":   1,
+					"maxLength":   39,
 				},
 				"per_page": map[string]interface{}{
 					"type":        "integer",
-					"description": "Results per page (max 100)",
+					"description": "Number of results per page (1-100)",
+					"default":     30,
+					"minimum":     1,
+					"maximum":     100,
 				},
 				"page": map[string]interface{}{
 					"type":        "integer",
-					"description": "Page number to retrieve",
+					"description": "Page number for pagination",
+					"default":     1,
+					"minimum":     1,
 				},
 			},
 		},
+		Metadata: map[string]interface{}{
+			"scopes": []interface{}{"read:org"},
+			"rateLimit": map[string]interface{}{
+				"requests": 5000,
+				"period":   "hour",
+			},
+			"apiVersion": "2022-11-28",
+			"pagination": true,
+		},
+		ResponseExample: map[string]interface{}{
+			"teams": []interface{}{
+				map[string]interface{}{
+					"id":           1,
+					"name":         "Justice League",
+					"slug":         "justice-league",
+					"description":  "A great team.",
+					"privacy":      "closed",
+					"permission":   "admin",
+					"organization": "github",
+				},
+			},
+		},
+		CommonErrors: []map[string]interface{}{
+			{
+				"error":    "404 Not Found",
+				"cause":    "Organization not found",
+				"solution": "Verify the organization name if specified",
+			},
+			{
+				"error":    "403 Forbidden",
+				"cause":    "Insufficient permissions",
+				"solution": "Ensure you have read:org scope",
+			},
+		},
+		ExtendedHelp: `Lists teams that the authenticated user belongs to.
+
+This endpoint uses GraphQL for better performance when available.
+
+Team permissions:
+- admin: Can add/remove members and change team settings
+- push: Can push to team repositories
+- pull: Can pull from team repositories
+
+Use cases:
+- List all your teams across organizations
+- Filter teams by organization
+- Check team membership and permissions`,
 	}
 }
 
