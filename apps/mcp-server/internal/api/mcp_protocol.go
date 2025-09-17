@@ -759,9 +759,9 @@ func (h *MCPProtocolHandler) generateMinimalInputSchema(toolName string) map[str
 				"enum":        []string{"list", "get", "create", "update", "delete", "search"},
 			},
 			"parameters": map[string]interface{}{
-				"type":        "object",
-				"description": "All parameters for the operation (owner, repo, issue_number, etc. go here)",
-				"properties":  map[string]interface{}{},
+				"type":                 "object",
+				"description":          "All parameters for the operation (owner, repo, issue_number, etc. go here)",
+				"properties":           map[string]interface{}{},
 				"additionalProperties": true,
 			},
 		},
