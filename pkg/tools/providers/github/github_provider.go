@@ -544,11 +544,24 @@ func (p *GitHubProvider) getParameterDescription(prop map[string]interface{}) st
 
 // ExecuteOperation executes a GitHub operation
 func (p *GitHubProvider) ExecuteOperation(ctx context.Context, operation string, params map[string]interface{}) (interface{}, error) {
-	// Extract tenant ID from context or params
-	tenantID := p.extractTenantID(ctx, params)
+	// Normalize parameters: handle MCP-style nested parameters
+	// MCP tools may send parameters in a nested structure where some params (owner, repo)
+	// are at the top level while others are nested in a "parameters" object
+	p.logger.Info("ExecuteOperation: before normalization", map[string]interface{}{
+		"operation": operation,
+		"raw_params": params,
+	})
+	normalizedParams := p.normalizeParameters(params)
+	p.logger.Info("ExecuteOperation: after normalization", map[string]interface{}{
+		"operation": operation,
+		"normalized_params": normalizedParams,
+	})
+
+	// Extract tenant ID from context or normalized params
+	tenantID := p.extractTenantID(ctx, normalizedParams)
 
 	// Get or create client for tenant
-	clients, err := p.getOrCreateClients(ctx, tenantID, params)
+	clients, err := p.getOrCreateClients(ctx, tenantID, normalizedParams)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get client: %w", err)
 	}
@@ -573,7 +586,7 @@ func (p *GitHubProvider) ExecuteOperation(ctx context.Context, operation string,
 	tool, exists := p.toolRegistry[operation]
 	if !exists {
 		// Try to resolve operation name
-		resolvedOp := p.resolveOperationName(operation, params)
+		resolvedOp := p.resolveOperationName(operation, normalizedParams)
 		tool, exists = p.toolRegistry[resolvedOp]
 		if !exists {
 			return nil, fmt.Errorf("unknown operation: %s", operation)
@@ -587,7 +600,7 @@ func (p *GitHubProvider) ExecuteOperation(ctx context.Context, operation string,
 	// Apply circuit breaker if configured
 	if p.circuitBreaker != nil {
 		cbResult, cbErr := p.circuitBreaker.Execute(ctx, func() (interface{}, error) {
-			res, err := tool.Execute(ctx, params)
+			res, err := tool.Execute(ctx, normalizedParams)
 			return res, err
 		})
 		if cbErr != nil {
@@ -596,7 +609,7 @@ func (p *GitHubProvider) ExecuteOperation(ctx context.Context, operation string,
 		result = cbResult.(*ToolResult)
 	} else {
 		// Execute directly without circuit breaker
-		result, execErr = tool.Execute(ctx, params)
+		result, execErr = tool.Execute(ctx, normalizedParams)
 		if execErr != nil {
 			return nil, execErr
 		}
@@ -708,6 +721,50 @@ func (p *GitHubProvider) extractTenantID(ctx context.Context, params map[string]
 
 	// Default tenant
 	return "default"
+}
+
+// normalizeParameters handles MCP-style nested parameters
+// MCP tools may send parameters in a nested structure where some params (owner, repo, etc.)
+// are at the top level while operation-specific parameters are nested in a "parameters" object.
+// This method flattens the structure for handlers that expect all parameters at the top level.
+func (p *GitHubProvider) normalizeParameters(params map[string]interface{}) map[string]interface{} {
+	if params == nil {
+		return make(map[string]interface{})
+	}
+
+	// Create a new map with all top-level parameters
+	normalized := make(map[string]interface{})
+	for k, v := range params {
+		normalized[k] = v
+	}
+
+	// If there's a nested "parameters" object, merge its contents into the top level
+	if nestedParams, ok := params["parameters"].(map[string]interface{}); ok {
+		p.logger.Info("Normalizing nested parameters", map[string]interface{}{
+			"nested_count": len(nestedParams),
+			"nested_params": nestedParams,
+			"top_level_count": len(params),
+			"has_owner": normalized["owner"] != nil,
+			"has_repo": normalized["repo"] != nil,
+		})
+
+		// Merge nested parameters into normalized map
+		// Top-level parameters take precedence over nested ones
+		for k, v := range nestedParams {
+			if _, exists := normalized[k]; !exists {
+				normalized[k] = v
+				p.logger.Info("Added nested param to normalized", map[string]interface{}{
+					"key": k,
+					"value": v,
+				})
+			}
+		}
+
+		// Remove the nested "parameters" key since we've flattened it
+		delete(normalized, "parameters")
+	}
+
+	return normalized
 }
 
 // extractAuthToken extracts authentication token from context or params

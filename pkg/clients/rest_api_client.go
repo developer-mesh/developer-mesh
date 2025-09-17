@@ -352,11 +352,22 @@ func (c *restAPIClient) ExecuteTool(ctx context.Context, tenantID, toolID, actio
 	// Use the new endpoint that accepts action in the body
 	apiURL := fmt.Sprintf("%s/api/v1/tools/%s/execute", c.baseURL, toolID)
 
-	// Prepare request body with action included
+	// Prepare request body
+	// The params passed here are what should go in the "parameters" field
+	// MCP already sends the correct structure, so we just pass it through
 	requestBody := map[string]interface{}{
 		"action":     action,
 		"parameters": params,
 	}
+
+	// Log to help debug parameter flow
+	c.logger.Info("REST API client sending request", map[string]interface{}{
+		"tool_id":     toolID,
+		"action":      action,
+		"params":      params,
+		"params_keys": getKeys(params),
+	})
+
 	body, err := json.Marshal(requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal params: %w", err)
@@ -494,6 +505,18 @@ func (c *restAPIClient) GenerateEmbedding(ctx context.Context, tenantID, agentID
 	})
 
 	return &result, nil
+}
+
+// getKeys returns the keys from a map for logging purposes
+func getKeys(m map[string]interface{}) []string {
+	if m == nil {
+		return nil
+	}
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }
 
 // setHeaders sets common headers for all requests

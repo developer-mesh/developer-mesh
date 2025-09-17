@@ -3,6 +3,7 @@ package github
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -49,6 +50,16 @@ func extractInt(params map[string]interface{}, key string) int {
 	}
 	if v, ok := params[key].(int); ok {
 		return v
+	}
+	// Try to parse from string
+	if v, ok := params[key].(string); ok {
+		if intVal, err := strconv.Atoi(v); err == nil {
+			return intVal
+		}
+	}
+	// Try int64 (sometimes JSON unmarshaling uses int64)
+	if v, ok := params[key].(int64); ok {
+		return int(v)
 	}
 	return 0
 }

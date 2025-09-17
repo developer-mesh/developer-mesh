@@ -720,30 +720,39 @@ func (h *SearchRepositoriesHandler) Execute(ctx context.Context, params map[stri
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	query, ok := params["query"].(string)
-	if !ok {
+	query := extractString(params, "query")
+	if query == "" {
 		return NewToolError("query parameter is required"), nil
 	}
 
 	opts := &github.SearchOptions{}
-	if sort, ok := params["sort"].(string); ok {
+	if sort := extractString(params, "sort"); sort != "" {
 		opts.Sort = sort
 	}
-	if order, ok := params["order"].(string); ok {
+	if order := extractString(params, "order"); order != "" {
 		opts.Order = order
 	}
-	if perPage, ok := params["per_page"].(float64); ok {
-		opts.PerPage = int(perPage)
-		h.provider.logger.Debug("Setting per_page for search_repositories", map[string]interface{}{
-			"per_page": opts.PerPage,
-		})
-	} else {
-		// Set a reasonable default
-		opts.PerPage = 30
+
+	// Use extractInt for pagination parameters with defaults
+	perPage := extractInt(params, "per_page")
+	if perPage == 0 {
+		perPage = 30 // Default per_page
+	} else if perPage > 100 {
+		perPage = 100 // Max allowed by GitHub
 	}
-	if page, ok := params["page"].(float64); ok {
-		opts.Page = int(page)
+	opts.PerPage = perPage
+
+	page := extractInt(params, "page")
+	if page == 0 {
+		page = 1 // Default to first page
 	}
+	opts.Page = page
+
+	h.provider.logger.Info("Search repositories pagination", map[string]interface{}{
+		"query":    query,
+		"per_page": perPage,
+		"page":     page,
+	})
 
 	result, _, err := client.Search.Repositories(ctx, query, opts)
 	if err != nil {
@@ -1013,24 +1022,39 @@ func (h *SearchCodeHandler) Execute(ctx context.Context, params map[string]inter
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	query, ok := params["query"].(string)
-	if !ok {
+	query := extractString(params, "query")
+	if query == "" {
 		return NewToolError("query parameter is required"), nil
 	}
 
 	opts := &github.SearchOptions{}
-	if sort, ok := params["sort"].(string); ok {
+	if sort := extractString(params, "sort"); sort != "" {
 		opts.Sort = sort
 	}
-	if order, ok := params["order"].(string); ok {
+	if order := extractString(params, "order"); order != "" {
 		opts.Order = order
 	}
-	if perPage, ok := params["per_page"].(float64); ok {
-		opts.PerPage = int(perPage)
+
+	// Use extractInt for pagination parameters with defaults
+	perPage := extractInt(params, "per_page")
+	if perPage == 0 {
+		perPage = 30 // Default per_page
+	} else if perPage > 100 {
+		perPage = 100 // Max allowed by GitHub
 	}
-	if page, ok := params["page"].(float64); ok {
-		opts.Page = int(page)
+	opts.PerPage = perPage
+
+	page := extractInt(params, "page")
+	if page == 0 {
+		page = 1 // Default to first page
 	}
+	opts.Page = page
+
+	h.provider.logger.Info("Search code pagination", map[string]interface{}{
+		"query":    query,
+		"per_page": perPage,
+		"page":     page,
+	})
 
 	result, _, err := client.Search.Code(ctx, query, opts)
 	if err != nil {

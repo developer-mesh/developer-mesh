@@ -213,6 +213,9 @@ func (h *SearchOrganizationsHandler) Execute(ctx context.Context, params map[str
 	}
 
 	query := extractString(params, "query")
+	if query == "" {
+		return NewToolError("query parameter is required"), nil
+	}
 
 	pagination := ExtractPagination(params)
 	opts := &github.SearchOptions{
@@ -349,6 +352,9 @@ func (h *SearchUsersHandler) Execute(ctx context.Context, params map[string]inte
 	}
 
 	query := extractString(params, "query")
+	if query == "" {
+		return NewToolError("query parameter is required"), nil
+	}
 
 	pagination := ExtractPagination(params)
 	opts := &github.SearchOptions{

@@ -70,23 +70,25 @@ func WithCursorPagination() []ParamDef {
 
 // ExtractPagination extracts pagination parameters from a map
 func ExtractPagination(params map[string]interface{}) PaginationParams {
-	page := 1
-	if p, ok := params["page"].(float64); ok {
-		page = int(p)
+	// Use extractInt for robust type conversion
+	page := extractInt(params, "page")
+	if page == 0 {
+		page = 1 // Default to first page
 	}
 
-	perPage := 30 // Default
-	if pp, ok := params["perPage"].(float64); ok {
-		perPage = int(pp)
-		if perPage > 100 {
-			perPage = 100
-		}
+	// Check for both per_page (snake_case) and perPage (camelCase) for compatibility
+	perPage := extractInt(params, "per_page")
+	if perPage == 0 {
+		// Fallback to camelCase for backwards compatibility
+		perPage = extractInt(params, "perPage")
+	}
+	if perPage == 0 {
+		perPage = 30 // Default
+	} else if perPage > 100 {
+		perPage = 100 // Max allowed by GitHub
 	}
 
-	after := ""
-	if a, ok := params["after"].(string); ok {
-		after = a
-	}
+	after := extractString(params, "after")
 
 	return PaginationParams{
 		Page:    page,
@@ -97,18 +99,19 @@ func ExtractPagination(params map[string]interface{}) PaginationParams {
 
 // ExtractCursorPagination extracts cursor pagination parameters
 func ExtractCursorPagination(params map[string]interface{}) CursorPaginationParams {
-	perPage := 30 // Default
-	if pp, ok := params["perPage"].(float64); ok {
-		perPage = int(pp)
-		if perPage > 100 {
-			perPage = 100
-		}
+	// Check for both per_page (snake_case) and perPage (camelCase) for compatibility
+	perPage := extractInt(params, "per_page")
+	if perPage == 0 {
+		// Fallback to camelCase for backwards compatibility
+		perPage = extractInt(params, "perPage")
+	}
+	if perPage == 0 {
+		perPage = 30 // Default
+	} else if perPage > 100 {
+		perPage = 100 // Max allowed by GitHub
 	}
 
-	after := ""
-	if a, ok := params["after"].(string); ok {
-		after = a
-	}
+	after := extractString(params, "after")
 
 	return CursorPaginationParams{
 		PerPage: perPage,

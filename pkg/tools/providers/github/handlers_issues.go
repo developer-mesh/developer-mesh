@@ -221,24 +221,40 @@ func (h *SearchIssuesHandler) Execute(ctx context.Context, params map[string]int
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	query, ok := params["query"].(string)
-	if !ok {
+	query := extractString(params, "query")
+	if query == "" {
 		return NewToolError("query parameter is required"), nil
 	}
 
 	opts := &github.SearchOptions{}
-	if sort, ok := params["sort"].(string); ok {
+	if sort := extractString(params, "sort"); sort != "" {
 		opts.Sort = sort
 	}
-	if order, ok := params["order"].(string); ok {
+	if order := extractString(params, "order"); order != "" {
 		opts.Order = order
 	}
-	if perPage, ok := params["per_page"].(float64); ok {
-		opts.PerPage = int(perPage)
+
+	// Use extractInt for pagination parameters with defaults
+	perPage := extractInt(params, "per_page")
+	if perPage == 0 {
+		perPage = 30 // Default per_page
+	} else if perPage > 100 {
+		perPage = 100 // Max allowed by GitHub
 	}
-	if page, ok := params["page"].(float64); ok {
-		opts.Page = int(page)
+	opts.PerPage = perPage
+
+	page := extractInt(params, "page")
+	if page == 0 {
+		page = 1 // Default to first page
 	}
+	opts.Page = page
+
+	// Log pagination parameters for debugging
+	h.provider.logger.Info("Search issues pagination", map[string]interface{}{
+		"query":    query,
+		"per_page": perPage,
+		"page":     page,
+	})
 
 	result, _, err := client.Search.Issues(ctx, query, opts)
 	if err != nil {
@@ -316,6 +332,13 @@ func (h *ListIssuesHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *ListIssuesHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
+	// Log incoming parameters for debugging
+	h.provider.logger.Info("ListIssuesHandler.Execute called", map[string]interface{}{
+		"params": params,
+		"has_owner": params["owner"] != nil,
+		"has_repo": params["repo"] != nil,
+	})
+
 	// For complex list operations, use GraphQL client for better performance
 	gqlClient, ok := GetGitHubV4ClientFromContext(ctx)
 	if ok {
@@ -329,8 +352,8 @@ func (h *ListIssuesHandler) Execute(ctx context.Context, params map[string]inter
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	owner, _ := params["owner"].(string)
-	repo, _ := params["repo"].(string)
+	owner := extractString(params, "owner")
+	repo := extractString(params, "repo")
 
 	opts := &github.IssueListByRepoOptions{}
 	if state, ok := params["state"].(string); ok {
@@ -368,10 +391,16 @@ func (h *ListIssuesHandler) Execute(ctx context.Context, params map[string]inter
 }
 
 func (h *ListIssuesHandler) executeGraphQL(ctx context.Context, client *githubv4.Client, params map[string]interface{}) (*ToolResult, error) {
-	// Extract owner and repo with safe type assertions
-	owner, _ := params["owner"].(string)
-	repo, _ := params["repo"].(string)
+	// Extract owner and repo using the helper function to handle various types
+	owner := extractString(params, "owner")
+	repo := extractString(params, "repo")
 	if owner == "" || repo == "" {
+		// Info logging to understand what parameters we received
+		h.provider.logger.Info("Missing owner or repo in executeGraphQL", map[string]interface{}{
+			"owner": owner,
+			"repo": repo,
+			"params": params,
+		})
 		return NewToolError("owner and repo parameters are required"), nil
 	}
 
