@@ -617,14 +617,14 @@ func (a *OrganizationToolAdapter) RefreshOrganizationTool(ctx context.Context, o
 
 	// Get the latest AI-optimized definitions from the provider
 	aiDefs := provider.GetAIOptimizedDefinitions()
-	
+
 	// Update the template with the latest operation mappings
 	newOperationMappings := make(map[string]providers.OperationMapping)
 	for _, def := range aiDefs {
 		// Create operation mapping from AI definition
 		requiredParams := make([]string, 0)
 		optionalParams := make([]string, 0)
-		
+
 		for name := range def.InputSchema.Properties {
 			isRequired := false
 			for _, req := range def.InputSchema.Required {
@@ -639,7 +639,7 @@ func (a *OrganizationToolAdapter) RefreshOrganizationTool(ctx context.Context, o
 				optionalParams = append(optionalParams, name)
 			}
 		}
-		
+
 		newOperationMappings[def.Name] = providers.OperationMapping{
 			OperationID:    def.Name,
 			Method:         "POST", // Default for tool operations
@@ -692,4 +692,3 @@ func (a *OrganizationToolAdapter) RefreshOrganizationTool(ctx context.Context, o
 
 	return nil
 }
-

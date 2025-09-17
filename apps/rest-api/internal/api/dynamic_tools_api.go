@@ -685,14 +685,14 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 	// Add pagination defaults for operations that can return large responses
 	needsPagination := false
 	defaultPerPage := 30 // Reasonable default to prevent token limit issues
-	
+
 	// Check if this is a list, search, or get-multiple operation
 	if strings.Contains(req.Action, "list") || strings.Contains(req.Action, "_list") ||
 		strings.Contains(req.Action, "search") || strings.Contains(req.Action, "_search") ||
 		strings.Contains(req.Action, "get_all") || strings.Contains(req.Action, "fetch_all") {
 		needsPagination = true
 	}
-	
+
 	// Special cases for specific GitHub operations that return arrays
 	paginatedOps := []string{
 		"get_issue_comments", "get_issue_events", "get_pull_request_files",
@@ -702,14 +702,14 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 		"list_notifications", "list_gists", "get_team_members",
 		"discussion_comments_get", "get_issue_timeline",
 	}
-	
+
 	for _, op := range paginatedOps {
 		if strings.Contains(req.Action, op) {
 			needsPagination = true
 			break
 		}
 	}
-	
+
 	if needsPagination {
 		if req.Parameters == nil {
 			req.Parameters = make(map[string]interface{})
@@ -731,7 +731,7 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 		if _, hasPage := req.Parameters["page"]; !hasPage {
 			req.Parameters["page"] = 1
 		}
-		
+
 		// Add limit parameter for operations that use it instead of per_page
 		if _, hasLimit := req.Parameters["limit"]; !hasLimit {
 			req.Parameters["limit"] = defaultPerPage
@@ -797,7 +797,7 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 	isOrganizationTool := false
 	var parentToolID string
 	var operationName string
-	
+
 	// First check if this looks like an expanded tool (provider_operation format)
 	if api.enhancedToolsAPI != nil && (strings.HasPrefix(originalToolID, "github_") || strings.HasPrefix(originalToolID, "harness_")) {
 		api.logger.Info("Checking for expanded organization tool", map[string]interface{}{
@@ -846,7 +846,7 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 			}
 		}
 	}
-	
+
 	// If not found as expanded tool, check if it's a direct organization tool
 	if !isOrganizationTool && api.enhancedToolsAPI != nil {
 		// Check if this is a non-expanded organization tool
@@ -1521,7 +1521,7 @@ func (api *DynamicToolsAPI) expandOrganizationTool(ctx context.Context, ot *mode
 		displayName := operationName
 		description := fmt.Sprintf("Execute %s operation", operationName)
 		category := "general"
-		
+
 		// Try to get better description from AI definitions
 		if aiDefMap != nil {
 			if aiDef, ok := aiDefMap[operationName]; ok {
@@ -1567,7 +1567,7 @@ func (api *DynamicToolsAPI) expandOrganizationTool(ctx context.Context, ot *mode
 				}
 			}
 		}
-		
+
 		// If no schema from AI definitions, build basic schema from operation parameters
 		if inputSchema == nil && (len(mapping.RequiredParams) > 0 || len(mapping.OptionalParams) > 0) {
 			properties := make(map[string]interface{})
@@ -1675,11 +1675,11 @@ func (api *DynamicToolsAPI) createSingleToolFromOrgTool(ot *models.OrganizationT
 // getGitHubOperationMetadata retrieves metadata for a GitHub operation
 func (api *DynamicToolsAPI) getGitHubOperationMetadata(operationName string) map[string]interface{} {
 	metadata := githubprovider.GetOperationMetadata(operationName)
-	
+
 	// Add response example to metadata
 	if example := githubprovider.GetOperationResponseExample(operationName); example != nil {
 		metadata["response_example"] = example
 	}
-	
+
 	return metadata
 }

@@ -108,8 +108,8 @@ func (h *ListWorkflowsHandler) Execute(ctx context.Context, params map[string]in
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	owner, _ := params["owner"].(string)
-	repo, _ := params["repo"].(string)
+	owner := extractString(params, "owner")
+	repo := extractString(params, "repo")
 
 	opts := &github.ListOptions{}
 	if perPage, ok := params["per_page"].(float64); ok {
@@ -255,8 +255,8 @@ func (h *ListWorkflowRunsHandler) Execute(ctx context.Context, params map[string
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	owner, _ := params["owner"].(string)
-	repo, _ := params["repo"].(string)
+	owner := extractString(params, "owner")
+	repo := extractString(params, "repo")
 
 	opts := &github.ListWorkflowRunsOptions{}
 	if actor, ok := params["actor"].(string); ok {
@@ -344,23 +344,23 @@ func (h *GetWorkflowRunHandler) GetDefinition() ToolDefinition {
 			"destructive": false,
 		},
 		ResponseExample: map[string]interface{}{
-			"id":            1234567890,
-			"name":          "CI",
-			"status":        "completed",
-			"conclusion":    "success",
-			"workflow_id":   161335,
-			"workflow_url":  "https://api.github.com/repos/facebook/react/actions/workflows/161335",
-			"run_number":    42,
-			"run_attempt":   1,
-			"event":         "push",
-			"head_branch":   "main",
-			"head_sha":      "abc123def456",
-			"html_url":      "https://github.com/facebook/react/actions/runs/1234567890",
-			"jobs_url":      "https://api.github.com/repos/facebook/react/actions/runs/1234567890/jobs",
-			"logs_url":      "https://api.github.com/repos/facebook/react/actions/runs/1234567890/logs",
-			"artifacts_url": "https://api.github.com/repos/facebook/react/actions/runs/1234567890/artifacts",
-			"created_at":    "2024-01-15T12:00:00Z",
-			"updated_at":    "2024-01-15T12:05:00Z",
+			"id":             1234567890,
+			"name":           "CI",
+			"status":         "completed",
+			"conclusion":     "success",
+			"workflow_id":    161335,
+			"workflow_url":   "https://api.github.com/repos/facebook/react/actions/workflows/161335",
+			"run_number":     42,
+			"run_attempt":    1,
+			"event":          "push",
+			"head_branch":    "main",
+			"head_sha":       "abc123def456",
+			"html_url":       "https://github.com/facebook/react/actions/runs/1234567890",
+			"jobs_url":       "https://api.github.com/repos/facebook/react/actions/runs/1234567890/jobs",
+			"logs_url":       "https://api.github.com/repos/facebook/react/actions/runs/1234567890/logs",
+			"artifacts_url":  "https://api.github.com/repos/facebook/react/actions/runs/1234567890/artifacts",
+			"created_at":     "2024-01-15T12:00:00Z",
+			"updated_at":     "2024-01-15T12:05:00Z",
 			"run_started_at": "2024-01-15T12:00:05Z",
 		},
 		CommonErrors: []map[string]interface{}{
@@ -383,9 +383,9 @@ func (h *GetWorkflowRunHandler) Execute(ctx context.Context, params map[string]i
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	owner, _ := params["owner"].(string)
-	repo, _ := params["repo"].(string)
-	runID := int64(params["run_id"].(float64))
+	owner := extractString(params, "owner")
+	repo := extractString(params, "repo")
+	runID := int64(extractInt(params, "run_id"))
 
 	run, _, err := client.Actions.GetWorkflowRunByID(ctx, owner, repo, runID)
 	if err != nil {
@@ -469,29 +469,29 @@ func (h *ListWorkflowJobsHandler) GetDefinition() ToolDefinition {
 			"total_count": 3,
 			"jobs": []map[string]interface{}{
 				{
-					"id":          21511112,
-					"run_id":      1234567890,
+					"id":            21511112,
+					"run_id":        1234567890,
 					"workflow_name": "CI",
-					"name":        "test",
-					"status":      "completed",
-					"conclusion":  "success",
-					"started_at":  "2024-01-15T12:00:10Z",
-					"completed_at": "2024-01-15T12:02:30Z",
+					"name":          "test",
+					"status":        "completed",
+					"conclusion":    "success",
+					"started_at":    "2024-01-15T12:00:10Z",
+					"completed_at":  "2024-01-15T12:02:30Z",
 					"steps": []map[string]interface{}{
 						{
-							"name":        "Set up Node",
-							"status":      "completed",
-							"conclusion":  "success",
-							"number":      1,
+							"name":       "Set up Node",
+							"status":     "completed",
+							"conclusion": "success",
+							"number":     1,
 						},
 						{
-							"name":        "Run tests",
-							"status":      "completed",
-							"conclusion":  "success",
-							"number":      2,
+							"name":       "Run tests",
+							"status":     "completed",
+							"conclusion": "success",
+							"number":     2,
 						},
 					},
-					"runner_name": "GitHub Actions 2",
+					"runner_name":       "GitHub Actions 2",
 					"runner_group_name": "GitHub Actions",
 				},
 			},
@@ -516,9 +516,9 @@ func (h *ListWorkflowJobsHandler) Execute(ctx context.Context, params map[string
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	owner, _ := params["owner"].(string)
-	repo, _ := params["repo"].(string)
-	runID := int64(params["run_id"].(float64))
+	owner := extractString(params, "owner")
+	repo := extractString(params, "repo")
+	runID := int64(extractInt(params, "run_id"))
 
 	opts := &github.ListWorkflowJobsOptions{}
 	if filter, ok := params["filter"].(string); ok {
@@ -632,11 +632,11 @@ func (h *RunWorkflowHandler) Execute(ctx context.Context, params map[string]inte
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	owner, _ := params["owner"].(string)
-	repo, _ := params["repo"].(string)
-	workflowIDStr, _ := params["workflow_id"].(string)
+	owner := extractString(params, "owner")
+	repo := extractString(params, "repo")
+	workflowIDStr := extractString(params, "workflow_id")
 	workflowID, _ := strconv.ParseInt(workflowIDStr, 10, 64)
-	ref, _ := params["ref"].(string)
+	ref := extractString(params, "ref")
 
 	event := github.CreateWorkflowDispatchEventRequest{
 		Ref: ref,
@@ -728,9 +728,9 @@ func (h *RerunWorkflowRunHandler) Execute(ctx context.Context, params map[string
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	owner, _ := params["owner"].(string)
-	repo, _ := params["repo"].(string)
-	runID := int64(params["run_id"].(float64))
+	owner := extractString(params, "owner")
+	repo := extractString(params, "repo")
+	runID := int64(extractInt(params, "run_id"))
 
 	_, err := client.Actions.RerunWorkflowByID(ctx, owner, repo, runID)
 	if err != nil {
@@ -814,9 +814,9 @@ func (h *CancelWorkflowRunHandler) Execute(ctx context.Context, params map[strin
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	owner, _ := params["owner"].(string)
-	repo, _ := params["repo"].(string)
-	runID := int64(params["run_id"].(float64))
+	owner := extractString(params, "owner")
+	repo := extractString(params, "repo")
+	runID := int64(extractInt(params, "run_id"))
 
 	_, err := client.Actions.CancelWorkflowRunByID(ctx, owner, repo, runID)
 	if err != nil {

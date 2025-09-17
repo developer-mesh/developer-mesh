@@ -658,9 +658,9 @@ func (h *MergePullRequestGraphQLHandler) GetDefinition() ToolDefinition {
 		},
 		ResponseExample: map[string]interface{}{
 			"mergeCommit": map[string]interface{}{
-				"oid":       "6dcb09b5b57875f334f61aebed695e2e4193db5e",
-				"message":   "Merge pull request #42 from feature-branch",
-				"url":       "https://github.com/octocat/Hello-World/commit/6dcb09b5b57875f334f61aebed695e2e4193db5e",
+				"oid":     "6dcb09b5b57875f334f61aebed695e2e4193db5e",
+				"message": "Merge pull request #42 from feature-branch",
+				"url":     "https://github.com/octocat/Hello-World/commit/6dcb09b5b57875f334f61aebed695e2e4193db5e",
 			},
 			"pullRequest": map[string]interface{}{
 				"state":    "MERGED",

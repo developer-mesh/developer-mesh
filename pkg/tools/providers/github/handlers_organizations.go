@@ -212,9 +212,13 @@ func (h *SearchOrganizationsHandler) Execute(ctx context.Context, params map[str
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	query := extractString(params, "query")
+	// Check for both 'q' and 'query' for compatibility
+	query := extractString(params, "q")
 	if query == "" {
-		return NewToolError("query parameter is required"), nil
+		query = extractString(params, "query")
+	}
+	if query == "" {
+		return NewToolError("query parameter is required (use 'q' or 'query')"), nil
 	}
 
 	pagination := ExtractPagination(params)
@@ -351,9 +355,13 @@ func (h *SearchUsersHandler) Execute(ctx context.Context, params map[string]inte
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	query := extractString(params, "query")
+	// Check for both 'q' and 'query' for compatibility
+	query := extractString(params, "q")
 	if query == "" {
-		return NewToolError("query parameter is required"), nil
+		query = extractString(params, "query")
+	}
+	if query == "" {
+		return NewToolError("query parameter is required (use 'q' or 'query')"), nil
 	}
 
 	pagination := ExtractPagination(params)
@@ -647,32 +655,32 @@ func (h *GetOrganizationHandler) GetDefinition() ToolDefinition {
 			"apiVersion": "2022-11-28",
 		},
 		ResponseExample: map[string]interface{}{
-			"login":                        "github",
-			"id":                           9919,
-			"description":                  "How people build software",
-			"name":                         "GitHub",
-			"company":                      "GitHub, Inc.",
-			"blog":                         "https://github.blog",
-			"location":                     "San Francisco, CA",
-			"email":                        "support@github.com",
-			"twitter_username":             "github",
-			"is_verified":                  true,
-			"has_organization_projects":    true,
-			"has_repository_projects":      true,
-			"public_repos":                 410,
-			"public_gists":                 0,
-			"followers":                    5000,
-			"following":                    0,
-			"html_url":                     "https://github.com/github",
-			"created_at":                   "2008-05-11T04:37:31Z",
-			"type":                         "Organization",
-			"total_private_repos":          100,
-			"owned_private_repos":          100,
-			"private_gists":                0,
-			"disk_usage":                   10000,
-			"collaborators":                0,
-			"billing_email":                "billing@github.com",
-			"default_repository_permission": "read",
+			"login":                           "github",
+			"id":                              9919,
+			"description":                     "How people build software",
+			"name":                            "GitHub",
+			"company":                         "GitHub, Inc.",
+			"blog":                            "https://github.blog",
+			"location":                        "San Francisco, CA",
+			"email":                           "support@github.com",
+			"twitter_username":                "github",
+			"is_verified":                     true,
+			"has_organization_projects":       true,
+			"has_repository_projects":         true,
+			"public_repos":                    410,
+			"public_gists":                    0,
+			"followers":                       5000,
+			"following":                       0,
+			"html_url":                        "https://github.com/github",
+			"created_at":                      "2008-05-11T04:37:31Z",
+			"type":                            "Organization",
+			"total_private_repos":             100,
+			"owned_private_repos":             100,
+			"private_gists":                   0,
+			"disk_usage":                      10000,
+			"collaborators":                   0,
+			"billing_email":                   "billing@github.com",
+			"default_repository_permission":   "read",
 			"members_can_create_repositories": true,
 		},
 		CommonErrors: []map[string]interface{}{

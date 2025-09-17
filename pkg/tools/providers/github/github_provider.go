@@ -416,8 +416,8 @@ func (p *GitHubProvider) enableDefaultToolsets() {
 		"collaboration",
 		"git",
 		"organizations",
-		"graphql",      // New GraphQL operations
-		"discussions",  // New Discussions API
+		"graphql",     // New GraphQL operations
+		"discussions", // New Discussions API
 	}
 	for _, name := range defaultToolsets {
 		if err := p.EnableToolset(name); err != nil {
@@ -548,12 +548,12 @@ func (p *GitHubProvider) ExecuteOperation(ctx context.Context, operation string,
 	// MCP tools may send parameters in a nested structure where some params (owner, repo)
 	// are at the top level while others are nested in a "parameters" object
 	p.logger.Info("ExecuteOperation: before normalization", map[string]interface{}{
-		"operation": operation,
+		"operation":  operation,
 		"raw_params": params,
 	})
 	normalizedParams := p.normalizeParameters(params)
 	p.logger.Info("ExecuteOperation: after normalization", map[string]interface{}{
-		"operation": operation,
+		"operation":         operation,
 		"normalized_params": normalizedParams,
 	})
 
@@ -573,7 +573,7 @@ func (p *GitHubProvider) ExecuteOperation(ctx context.Context, operation string,
 	// Debug: verify clients are in context
 	if testClient, ok := GetGitHubClientFromContext(ctx); ok {
 		p.logger.Debug("GitHub client successfully set in context", map[string]interface{}{
-			"operation": operation,
+			"operation":  operation,
 			"has_client": testClient != nil,
 		})
 	} else {
@@ -741,11 +741,11 @@ func (p *GitHubProvider) normalizeParameters(params map[string]interface{}) map[
 	// If there's a nested "parameters" object, merge its contents into the top level
 	if nestedParams, ok := params["parameters"].(map[string]interface{}); ok {
 		p.logger.Info("Normalizing nested parameters", map[string]interface{}{
-			"nested_count": len(nestedParams),
-			"nested_params": nestedParams,
+			"nested_count":    len(nestedParams),
+			"nested_params":   nestedParams,
 			"top_level_count": len(params),
-			"has_owner": normalized["owner"] != nil,
-			"has_repo": normalized["repo"] != nil,
+			"has_owner":       normalized["owner"] != nil,
+			"has_repo":        normalized["repo"] != nil,
 		})
 
 		// Merge nested parameters into normalized map
@@ -754,7 +754,7 @@ func (p *GitHubProvider) normalizeParameters(params map[string]interface{}) map[
 			if _, exists := normalized[k]; !exists {
 				normalized[k] = v
 				p.logger.Info("Added nested param to normalized", map[string]interface{}{
-					"key": k,
+					"key":   k,
 					"value": v,
 				})
 			}
@@ -783,7 +783,7 @@ func (p *GitHubProvider) extractAuthToken(ctx context.Context, params map[string
 			return token, nil
 		}
 	}
-	
+
 	// Try passthrough auth from params
 	if auth, ok := params["__passthrough_auth"].(map[string]interface{}); ok {
 		if encryptedToken, ok := auth["encrypted_token"].(string); ok {
@@ -1087,7 +1087,7 @@ func (p *GitHubProvider) GetAIOptimizedDefinitions() []providers.AIOptimizedTool
 		if description == "" {
 			description = tool.Description
 		}
-		
+
 		aiTool := providers.AIOptimizedToolDefinition{
 			Name:        tool.Name,
 			DisplayName: tool.Name,

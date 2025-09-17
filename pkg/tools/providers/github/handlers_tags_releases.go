@@ -190,9 +190,9 @@ func (h *GetTagHandler) GetDefinition() ToolDefinition {
 			"apiVersion": "2022-11-28",
 		},
 		ResponseExample: map[string]interface{}{
-			"tag":         "v1.0.0",
-			"sha":         "940bd336248efae0f9ee5bc7b2d5c985887b16ac",
-			"url":         "https://api.github.com/repos/octocat/Hello-World/git/tags/940bd336248efae0f9ee5bc7b2d5c985887b16ac",
+			"tag": "v1.0.0",
+			"sha": "940bd336248efae0f9ee5bc7b2d5c985887b16ac",
+			"url": "https://api.github.com/repos/octocat/Hello-World/git/tags/940bd336248efae0f9ee5bc7b2d5c985887b16ac",
 			"tagger": map[string]interface{}{
 				"name":  "Monalisa Octocat",
 				"email": "octocat@github.com",
@@ -347,9 +347,9 @@ func (h *ListReleasesHandler) GetDefinition() ToolDefinition {
 					},
 					"assets": []interface{}{
 						map[string]interface{}{
-							"name":                "app-v1.0.0.zip",
-							"size":                1024000,
-							"download_count":      42,
+							"name":                 "app-v1.0.0.zip",
+							"size":                 1024000,
+							"download_count":       42,
 							"browser_download_url": "https://github.com/octocat/Hello-World/releases/download/v1.0.0/app-v1.0.0.zip",
 						},
 					},
@@ -470,9 +470,9 @@ func (h *GetLatestReleaseHandler) GetDefinition() ToolDefinition {
 			"html_url":         "https://github.com/octocat/Hello-World/releases/tag/v1.0.0",
 			"assets": []interface{}{
 				map[string]interface{}{
-					"name":                "app-v1.0.0.zip",
-					"size":                1024000,
-					"download_count":      42,
+					"name":                 "app-v1.0.0.zip",
+					"size":                 1024000,
+					"download_count":       42,
 					"browser_download_url": "https://github.com/octocat/Hello-World/releases/download/v1.0.0/app-v1.0.0.zip",
 				},
 			},
@@ -586,8 +586,8 @@ func (h *GetReleaseByTagHandler) GetDefinition() ToolDefinition {
 			},
 			"assets": []interface{}{
 				map[string]interface{}{
-					"name":                "app-v1.0.0.zip",
-					"size":                1024000,
+					"name":                 "app-v1.0.0.zip",
+					"size":                 1024000,
 					"browser_download_url": "https://github.com/octocat/Hello-World/releases/download/v1.0.0/app-v1.0.0.zip",
 				},
 			},

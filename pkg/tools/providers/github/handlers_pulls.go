@@ -50,9 +50,9 @@ func (h *GetPullRequestHandler) Execute(ctx context.Context, params map[string]i
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	owner, _ := params["owner"].(string)
-	repo, _ := params["repo"].(string)
-	pullNumber := int(params["pull_number"].(float64))
+	owner := extractString(params, "owner")
+	repo := extractString(params, "repo")
+	pullNumber := extractInt(params, "pull_number")
 
 	pr, _, err := client.PullRequests.Get(ctx, owner, repo, pullNumber)
 	if err != nil {
@@ -127,8 +127,8 @@ func (h *ListPullRequestsHandler) Execute(ctx context.Context, params map[string
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	owner, _ := params["owner"].(string)
-	repo, _ := params["repo"].(string)
+	owner := extractString(params, "owner")
+	repo := extractString(params, "repo")
 
 	opts := &github.PullRequestListOptions{}
 	if state, ok := params["state"].(string); ok {
@@ -210,9 +210,9 @@ func (h *GetPullRequestFilesHandler) Execute(ctx context.Context, params map[str
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	owner, _ := params["owner"].(string)
-	repo, _ := params["repo"].(string)
-	pullNumber := int(params["pull_number"].(float64))
+	owner := extractString(params, "owner")
+	repo := extractString(params, "repo")
+	pullNumber := extractInt(params, "pull_number")
 
 	opts := &github.ListOptions{}
 	if perPage, ok := params["per_page"].(float64); ok {
@@ -279,9 +279,13 @@ func (h *SearchPullRequestsHandler) Execute(ctx context.Context, params map[stri
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	query := extractString(params, "query")
+	// Check for both 'q' and 'query' for compatibility
+	query := extractString(params, "q")
 	if query == "" {
-		return NewToolError("query parameter is required"), nil
+		query = extractString(params, "query")
+	}
+	if query == "" {
+		return NewToolError("query parameter is required (use 'q' or 'query')"), nil
 	}
 
 	// Add type:pr to ensure we're searching for pull requests
@@ -408,13 +412,13 @@ func (h *CreatePullRequestHandler) GetDefinition() ToolDefinition {
 			},
 			"responseExample": map[string]interface{}{
 				"success": map[string]interface{}{
-					"id":     1,
-					"number": 100,
-					"state":  "open",
-					"title":  "Add user authentication feature",
-					"html_url": "https://github.com/octocat/Hello-World/pull/100",
+					"id":        1,
+					"number":    100,
+					"state":     "open",
+					"title":     "Add user authentication feature",
+					"html_url":  "https://github.com/octocat/Hello-World/pull/100",
 					"mergeable": true,
-					"draft": false,
+					"draft":     false,
 				},
 				"error": map[string]interface{}{
 					"message":           "Validation Failed",
@@ -449,11 +453,11 @@ func (h *CreatePullRequestHandler) Execute(ctx context.Context, params map[strin
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	owner, _ := params["owner"].(string)
-	repo, _ := params["repo"].(string)
-	title, _ := params["title"].(string)
-	head, _ := params["head"].(string)
-	base, _ := params["base"].(string)
+	owner := extractString(params, "owner")
+	repo := extractString(params, "repo")
+	title := extractString(params, "title")
+	head := extractString(params, "head")
+	base := extractString(params, "base")
 
 	prRequest := &github.NewPullRequest{
 		Title: &title,
@@ -587,9 +591,9 @@ func (h *MergePullRequestHandler) Execute(ctx context.Context, params map[string
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	owner, _ := params["owner"].(string)
-	repo, _ := params["repo"].(string)
-	pullNumber := int(params["pull_number"].(float64))
+	owner := extractString(params, "owner")
+	repo := extractString(params, "repo")
+	pullNumber := extractInt(params, "pull_number")
 
 	mergeOptions := &github.PullRequestOptions{}
 	if commitTitle, ok := params["commit_title"].(string); ok {
@@ -664,9 +668,9 @@ func (h *UpdatePullRequestHandler) Execute(ctx context.Context, params map[strin
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	owner, _ := params["owner"].(string)
-	repo, _ := params["repo"].(string)
-	pullNumber := int(params["pull_number"].(float64))
+	owner := extractString(params, "owner")
+	repo := extractString(params, "repo")
+	pullNumber := extractInt(params, "pull_number")
 
 	prRequest := &github.PullRequest{}
 

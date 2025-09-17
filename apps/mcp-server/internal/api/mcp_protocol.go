@@ -748,80 +748,116 @@ func (h *MCPProtocolHandler) handleDevMeshTool(conn *websocket.Conn, connID, ten
 // This analyzes the tool name and creates a generic schema with common parameters
 func (h *MCPProtocolHandler) generateMinimalInputSchema(toolName string) map[string]interface{} {
 	// Create base schema structure
+	// IMPORTANT: All tool parameters should go in the "parameters" field
+	// The REST API expects everything in parameters, not at the top level
 	schema := map[string]interface{}{
-		"type":       "object",
-		"properties": map[string]interface{}{},
-		"required":   []string{},
+		"type": "object",
+		"properties": map[string]interface{}{
+			"action": map[string]interface{}{
+				"type":        "string",
+				"description": "Action to perform",
+				"enum":        []string{"list", "get", "create", "update", "delete", "search"},
+			},
+			"parameters": map[string]interface{}{
+				"type":        "object",
+				"description": "All parameters for the operation (owner, repo, issue_number, etc. go here)",
+				"properties":  map[string]interface{}{},
+				"additionalProperties": true,
+			},
+		},
+		"required": []string{"action"},
 	}
 
-	properties := schema["properties"].(map[string]interface{})
+	// Get the nested parameters properties
+	parametersProps := schema["properties"].(map[string]interface{})["parameters"].(map[string]interface{})["properties"].(map[string]interface{})
 
-	// Parse tool name to determine resource type and operation
+	// Parse tool name to determine resource type and add helpful parameter hints
 	// Examples: github_repos, github_issues, gitlab_merge_requests
 	parts := strings.Split(toolName, "_")
 
-	// Common parameters for most operations
 	if len(parts) >= 2 {
 		provider := parts[0] // e.g., "github", "gitlab", "bitbucket"
 
-		// Add common repository parameters for source control tools
+		// Add hints for common repository parameters for source control tools
 		if provider == "github" || provider == "gitlab" || provider == "bitbucket" {
-			properties["owner"] = map[string]interface{}{
+			parametersProps["owner"] = map[string]interface{}{
 				"type":        "string",
 				"description": "Repository owner or organization",
 			}
-			properties["repo"] = map[string]interface{}{
+			parametersProps["repo"] = map[string]interface{}{
 				"type":        "string",
 				"description": "Repository name",
 			}
 
-			// Check for specific resource types
+			// Check for specific resource types and add relevant parameter hints
 			if len(parts) > 1 {
 				resource := parts[len(parts)-1]
-
 				switch resource {
 				case "issues", "issue":
-					properties["issue_number"] = map[string]interface{}{
+					parametersProps["issue_number"] = map[string]interface{}{
 						"type":        "integer",
 						"description": "Issue number",
 					}
-				case "pulls", "pull", "pr", "merge":
-					properties["pull_number"] = map[string]interface{}{
+					parametersProps["state"] = map[string]interface{}{
+						"type":        "string",
+						"description": "Filter by state (open, closed, all)",
+						"enum":        []string{"open", "closed", "all"},
+					}
+				case "pulls", "pull", "pr", "merge", "requests":
+					parametersProps["pull_number"] = map[string]interface{}{
 						"type":        "integer",
 						"description": "Pull request number",
 					}
+					parametersProps["state"] = map[string]interface{}{
+						"type":        "string",
+						"description": "Filter by state (open, closed, all)",
+						"enum":        []string{"open", "closed", "all"},
+					}
 				case "branches", "branch":
-					properties["branch"] = map[string]interface{}{
+					parametersProps["branch"] = map[string]interface{}{
 						"type":        "string",
 						"description": "Branch name",
 					}
+				case "commits", "commit":
+					parametersProps["sha"] = map[string]interface{}{
+						"type":        "string",
+						"description": "Commit SHA or branch name",
+					}
+				case "workflows", "workflow", "actions":
+					parametersProps["workflow_id"] = map[string]interface{}{
+						"type":        "integer",
+						"description": "Workflow ID",
+					}
+				case "organizations", "organization", "orgs":
+					parametersProps["org"] = map[string]interface{}{
+						"type":        "string",
+						"description": "Organization name",
+					}
+				}
+
+				// Add search-specific parameters
+				if strings.Contains(toolName, "search") {
+					parametersProps["q"] = map[string]interface{}{
+						"type":        "string",
+						"description": "Search query",
+					}
 				}
 			}
-		}
 
-		// Add action parameter for all tools
-		properties["action"] = map[string]interface{}{
-			"type":        "string",
-			"description": "Action to perform",
-			"enum":        []string{"list", "get", "create", "update", "delete"},
-		}
-
-		// Add generic parameters object for additional tool-specific params
-		properties["parameters"] = map[string]interface{}{
-			"type":                 "object",
-			"description":          "Additional parameters specific to the action",
-			"additionalProperties": true,
-		}
-	} else {
-		// For unrecognized tool patterns, provide a completely generic schema
-		properties["action"] = map[string]interface{}{
-			"type":        "string",
-			"description": "Action to perform",
-		}
-		properties["parameters"] = map[string]interface{}{
-			"type":                 "object",
-			"description":          "Parameters for the action",
-			"additionalProperties": true,
+			// Add common pagination parameters
+			parametersProps["per_page"] = map[string]interface{}{
+				"type":        "integer",
+				"description": "Results per page (1-100)",
+				"minimum":     1,
+				"maximum":     100,
+				"default":     30,
+			}
+			parametersProps["page"] = map[string]interface{}{
+				"type":        "integer",
+				"description": "Page number",
+				"minimum":     1,
+				"default":     1,
+			}
 		}
 	}
 

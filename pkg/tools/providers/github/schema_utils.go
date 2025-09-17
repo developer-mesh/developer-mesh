@@ -88,8 +88,8 @@ func LabelsSchema() map[string]interface{} {
 			"pattern":   "^[a-zA-Z0-9][a-zA-Z0-9 ._-]*[a-zA-Z0-9]$|^[a-zA-Z0-9]$",
 			"maxLength": 50,
 		},
-		"example":   []string{"bug", "enhancement"},
-		"maxItems":  20,
+		"example":     []string{"bug", "enhancement"},
+		"maxItems":    20,
 		"uniqueItems": true,
 	}
 }

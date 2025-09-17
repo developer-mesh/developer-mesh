@@ -7,15 +7,15 @@ import (
 
 // EnhancedToolDefinition extends the basic ToolDefinition with AI-optimized metadata
 type EnhancedToolDefinition struct {
-	Name           string                 `json:"name"`
-	DisplayName    string                 `json:"displayName"`
-	Description    string                 `json:"description"`
-	ExtendedHelp   string                 `json:"extendedHelp,omitempty"`
-	InputSchema    map[string]interface{} `json:"inputSchema"`
-	Metadata       ToolMetadata           `json:"metadata,omitempty"`
-	ResponseExample ResponseExample       `json:"responseExample,omitempty"`
-	CommonErrors   []CommonError          `json:"commonErrors,omitempty"`
-	SemanticTags   []string              `json:"semanticTags,omitempty"`
+	Name            string                 `json:"name"`
+	DisplayName     string                 `json:"displayName"`
+	Description     string                 `json:"description"`
+	ExtendedHelp    string                 `json:"extendedHelp,omitempty"`
+	InputSchema     map[string]interface{} `json:"inputSchema"`
+	Metadata        ToolMetadata           `json:"metadata,omitempty"`
+	ResponseExample ResponseExample        `json:"responseExample,omitempty"`
+	CommonErrors    []CommonError          `json:"commonErrors,omitempty"`
+	SemanticTags    []string               `json:"semanticTags,omitempty"`
 }
 
 // ToolMetadata provides additional metadata for tools
@@ -59,9 +59,9 @@ var (
 func GetEnhancedIssueToolDefinitions() []EnhancedToolDefinition {
 	return []EnhancedToolDefinition{
 		{
-			Name:        "get_issue",
-			DisplayName: "Get Issue",
-			Description: "Retrieve detailed information about a specific GitHub issue, including metadata, comments count, labels, and current state",
+			Name:         "get_issue",
+			DisplayName:  "Get Issue",
+			Description:  "Retrieve detailed information about a specific GitHub issue, including metadata, comments count, labels, and current state",
 			ExtendedHelp: "This operation requires read access to the repository. Public repositories are accessible without authentication, but private repositories require appropriate permissions. See https://docs.github.com/en/rest/issues/issues#get-an-issue",
 			InputSchema: map[string]interface{}{
 				"type": "object",
@@ -140,9 +140,9 @@ func GetEnhancedIssueToolDefinitions() []EnhancedToolDefinition {
 			SemanticTags: []string{"github", "issues", "read", "fetch", "metadata"},
 		},
 		{
-			Name:        "list_issues",
-			DisplayName: "List Issues",
-			Description: "Retrieve a paginated list of issues for a repository with comprehensive filtering options",
+			Name:         "list_issues",
+			DisplayName:  "List Issues",
+			Description:  "Retrieve a paginated list of issues for a repository with comprehensive filtering options",
 			ExtendedHelp: "Returns issues in descending order by creation date. Supports filtering by state, labels, assignee, and milestone. Use 'state=all' to get both open and closed issues.",
 			InputSchema: map[string]interface{}{
 				"type": "object",
@@ -259,9 +259,9 @@ func GetEnhancedIssueToolDefinitions() []EnhancedToolDefinition {
 			SemanticTags: []string{"github", "issues", "list", "filter", "pagination"},
 		},
 		{
-			Name:        "create_issue",
-			DisplayName: "Create Issue",
-			Description: "Create a new issue in a GitHub repository with title, body, labels, and assignees",
+			Name:         "create_issue",
+			DisplayName:  "Create Issue",
+			Description:  "Create a new issue in a GitHub repository with title, body, labels, and assignees",
 			ExtendedHelp: "Requires write access to the repository. Assignees must be collaborators on the repository. Labels must exist in the repository before they can be assigned.",
 			InputSchema: map[string]interface{}{
 				"type": "object",
@@ -325,10 +325,10 @@ func GetEnhancedIssueToolDefinitions() []EnhancedToolDefinition {
 			},
 			ResponseExample: ResponseExample{
 				Success: map[string]interface{}{
-					"id":     123456789,
-					"number": 1234,
-					"title":  "Found a bug in the login system",
-					"state":  "open",
+					"id":       123456789,
+					"number":   1234,
+					"title":    "Found a bug in the login system",
+					"state":    "open",
 					"html_url": "https://github.com/octocat/Hello-World/issues/1234",
 				},
 			},
@@ -347,9 +347,9 @@ func GetEnhancedIssueToolDefinitions() []EnhancedToolDefinition {
 			SemanticTags: []string{"github", "issues", "create", "write", "collaboration"},
 		},
 		{
-			Name:        "update_issue",
-			DisplayName: "Update Issue",
-			Description: "Update an existing GitHub issue's title, body, state, labels, assignees, or milestone",
+			Name:         "update_issue",
+			DisplayName:  "Update Issue",
+			Description:  "Update an existing GitHub issue's title, body, state, labels, assignees, or milestone",
 			ExtendedHelp: "Requires write access to update issues. Only specified fields will be updated - omitted fields remain unchanged. State can be 'open' or 'closed'.",
 			InputSchema: map[string]interface{}{
 				"type": "object",
@@ -445,9 +445,9 @@ func GetEnhancedIssueToolDefinitions() []EnhancedToolDefinition {
 			SemanticTags: []string{"github", "issues", "update", "modify", "state-management"},
 		},
 		{
-			Name:        "search_issues",
-			DisplayName: "Search Issues",
-			Description: "Search for issues across GitHub using advanced search syntax with filters for repository, state, labels, and more",
+			Name:         "search_issues",
+			DisplayName:  "Search Issues",
+			Description:  "Search for issues across GitHub using advanced search syntax with filters for repository, state, labels, and more",
 			ExtendedHelp: "Uses GitHub's powerful search syntax. Supports qualifiers like 'repo:owner/name', 'state:open', 'label:bug', 'author:username', etc. See https://docs.github.com/en/search-github/searching-on-github/searching-issues-and-pull-requests",
 			InputSchema: map[string]interface{}{
 				"type": "object",
@@ -535,9 +535,9 @@ func GetEnhancedIssueToolDefinitions() []EnhancedToolDefinition {
 func GetEnhancedPullRequestToolDefinitions() []EnhancedToolDefinition {
 	return []EnhancedToolDefinition{
 		{
-			Name:        "get_pull_request",
-			DisplayName: "Get Pull Request",
-			Description: "Retrieve detailed information about a specific GitHub pull request, including review status, checks, and merge state",
+			Name:         "get_pull_request",
+			DisplayName:  "Get Pull Request",
+			Description:  "Retrieve detailed information about a specific GitHub pull request, including review status, checks, and merge state",
 			ExtendedHelp: "Returns comprehensive PR data including diff stats, review decisions, status checks, and merge conflict information. Requires read access to the repository.",
 			InputSchema: map[string]interface{}{
 				"type": "object",
@@ -573,12 +573,12 @@ func GetEnhancedPullRequestToolDefinitions() []EnhancedToolDefinition {
 			},
 			ResponseExample: ResponseExample{
 				Success: map[string]interface{}{
-					"id":     123456789,
-					"number": 1234,
-					"title":  "Fix memory leak in useEffect cleanup",
-					"state":  "open",
-					"draft":  false,
-					"mergeable": true,
+					"id":              123456789,
+					"number":          1234,
+					"title":           "Fix memory leak in useEffect cleanup",
+					"state":           "open",
+					"draft":           false,
+					"mergeable":       true,
 					"mergeable_state": "clean",
 					"base": map[string]interface{}{
 						"ref": "main",
@@ -598,9 +598,9 @@ func GetEnhancedPullRequestToolDefinitions() []EnhancedToolDefinition {
 			SemanticTags: []string{"github", "pull-requests", "read", "code-review"},
 		},
 		{
-			Name:        "create_pull_request",
-			DisplayName: "Create Pull Request",
-			Description: "Create a new pull request to propose changes from one branch to another",
+			Name:         "create_pull_request",
+			DisplayName:  "Create Pull Request",
+			Description:  "Create a new pull request to propose changes from one branch to another",
 			ExtendedHelp: "Creates a PR between two branches. The head branch contains your changes, and the base branch is where you want your changes merged. Both branches must exist.",
 			InputSchema: map[string]interface{}{
 				"type": "object",
@@ -664,11 +664,11 @@ func GetEnhancedPullRequestToolDefinitions() []EnhancedToolDefinition {
 			},
 			ResponseExample: ResponseExample{
 				Success: map[string]interface{}{
-					"id":     123456789,
-					"number": 1234,
-					"title":  "Fix memory leak in useEffect cleanup",
-					"state":  "open",
-					"draft":  false,
+					"id":       123456789,
+					"number":   1234,
+					"title":    "Fix memory leak in useEffect cleanup",
+					"state":    "open",
+					"draft":    false,
 					"html_url": "https://github.com/octocat/Hello-World/pull/1234",
 				},
 			},
@@ -687,9 +687,9 @@ func GetEnhancedPullRequestToolDefinitions() []EnhancedToolDefinition {
 			SemanticTags: []string{"github", "pull-requests", "create", "collaboration", "code-review"},
 		},
 		{
-			Name:        "merge_pull_request",
-			DisplayName: "Merge Pull Request",
-			Description: "Merge a pull request using the specified merge method (merge, squash, or rebase)",
+			Name:         "merge_pull_request",
+			DisplayName:  "Merge Pull Request",
+			Description:  "Merge a pull request using the specified merge method (merge, squash, or rebase)",
 			ExtendedHelp: "Requires write access and the PR must be mergeable. Different merge methods: 'merge' creates merge commit, 'squash' combines all commits into one, 'rebase' applies commits individually.",
 			InputSchema: map[string]interface{}{
 				"type": "object",
@@ -778,12 +778,12 @@ func GetEnhancedPullRequestToolDefinitions() []EnhancedToolDefinition {
 // Note: The main GetOperationDescription is in descriptions.go
 func GetEnhancedOperationDescription(operationName string) string {
 	descriptions := map[string]string{
-		"get_issue":          "Retrieve detailed information about a specific GitHub issue, including metadata, comments count, labels, and current state",
-		"list_issues":        "Retrieve a paginated list of issues for a repository with comprehensive filtering options",
-		"create_issue":       "Create a new issue in a GitHub repository with title, body, labels, and assignees",
-		"update_issue":       "Update an existing GitHub issue's title, body, state, labels, assignees, or milestone",
-		"search_issues":      "Search for issues across GitHub using advanced search syntax with filters for repository, state, labels, and more",
-		"get_pull_request":   "Retrieve detailed information about a specific GitHub pull request, including review status, checks, and merge state",
+		"get_issue":           "Retrieve detailed information about a specific GitHub issue, including metadata, comments count, labels, and current state",
+		"list_issues":         "Retrieve a paginated list of issues for a repository with comprehensive filtering options",
+		"create_issue":        "Create a new issue in a GitHub repository with title, body, labels, and assignees",
+		"update_issue":        "Update an existing GitHub issue's title, body, state, labels, assignees, or milestone",
+		"search_issues":       "Search for issues across GitHub using advanced search syntax with filters for repository, state, labels, and more",
+		"get_pull_request":    "Retrieve detailed information about a specific GitHub pull request, including review status, checks, and merge state",
 		"create_pull_request": "Create a new pull request to propose changes from one branch to another",
 		"merge_pull_request":  "Merge a pull request using the specified merge method (merge, squash, or rebase)",
 		"list_pull_requests":  "Retrieve a paginated list of pull requests for a repository with filtering by state, head, base, and more",

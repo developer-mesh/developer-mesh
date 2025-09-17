@@ -80,12 +80,12 @@ func (h *ListCodeScanningAlertsHandler) GetDefinition() ToolDefinition {
 		ResponseExample: map[string]interface{}{
 			"alerts": []map[string]interface{}{
 				{
-					"number":      1,
-					"state":       "open",
-					"rule":        map[string]interface{}{"id": "js/sql-injection", "severity": "error", "description": "Database query built from user-controlled sources"},
-					"tool":        map[string]interface{}{"name": "CodeQL", "version": "2.0.0"},
-					"created_at":  "2024-01-15T12:00:00Z",
-					"html_url":    "https://github.com/owner/repo/security/code-scanning/1",
+					"number":     1,
+					"state":      "open",
+					"rule":       map[string]interface{}{"id": "js/sql-injection", "severity": "error", "description": "Database query built from user-controlled sources"},
+					"tool":       map[string]interface{}{"name": "CodeQL", "version": "2.0.0"},
+					"created_at": "2024-01-15T12:00:00Z",
+					"html_url":   "https://github.com/owner/repo/security/code-scanning/1",
 				},
 			},
 		},
@@ -184,12 +184,12 @@ func (h *GetCodeScanningAlertHandler) GetDefinition() ToolDefinition {
 			"destructive": false,
 		},
 		ResponseExample: map[string]interface{}{
-			"number":      42,
-			"state":       "open",
-			"rule":        map[string]interface{}{"id": "js/sql-injection", "severity": "error"},
-			"tool":        map[string]interface{}{"name": "CodeQL"},
-			"instances":   []map[string]interface{}{{"location": map[string]interface{}{"path": "src/db.js", "start_line": 15}}},
-			"created_at":  "2024-01-15T12:00:00Z",
+			"number":     42,
+			"state":      "open",
+			"rule":       map[string]interface{}{"id": "js/sql-injection", "severity": "error"},
+			"tool":       map[string]interface{}{"name": "CodeQL"},
+			"instances":  []map[string]interface{}{{"location": map[string]interface{}{"path": "src/db.js", "start_line": 15}}},
+			"created_at": "2024-01-15T12:00:00Z",
 		},
 		CommonErrors: []map[string]interface{}{
 			{
@@ -422,11 +422,11 @@ func (h *ListDependabotAlertsHandler) GetDefinition() ToolDefinition {
 		ResponseExample: map[string]interface{}{
 			"alerts": []map[string]interface{}{
 				{
-					"number":      1,
-					"state":       "open",
-					"dependency":  map[string]interface{}{"package": map[string]interface{}{"ecosystem": "npm", "name": "lodash"}},
+					"number":            1,
+					"state":             "open",
+					"dependency":        map[string]interface{}{"package": map[string]interface{}{"ecosystem": "npm", "name": "lodash"}},
 					"security_advisory": map[string]interface{}{"severity": "high", "summary": "Prototype Pollution"},
-					"created_at":  "2024-01-15T12:00:00Z",
+					"created_at":        "2024-01-15T12:00:00Z",
 				},
 			},
 		},
@@ -528,9 +528,9 @@ func (h *GetDependabotAlertHandler) GetDefinition() ToolDefinition {
 			"destructive": false,
 		},
 		ResponseExample: map[string]interface{}{
-			"number":      1,
-			"state":       "open",
-			"dependency":  map[string]interface{}{"package": map[string]interface{}{"ecosystem": "npm", "name": "lodash", "version": "4.17.20"}},
+			"number":     1,
+			"state":      "open",
+			"dependency": map[string]interface{}{"package": map[string]interface{}{"ecosystem": "npm", "name": "lodash", "version": "4.17.20"}},
 			"security_advisory": map[string]interface{}{
 				"ghsa_id":     "GHSA-xxxxx",
 				"severity":    "high",
@@ -639,11 +639,11 @@ func (h *UpdateDependabotAlertHandler) GetDefinition() ToolDefinition {
 			"destructive": false,
 		},
 		ResponseExample: map[string]interface{}{
-			"number":           1,
-			"state":            "dismissed",
-			"dismissed_by":     map[string]interface{}{"login": "octocat"},
-			"dismissed_at":     "2024-01-15T12:30:00Z",
-			"dismissed_reason": "tolerable_risk",
+			"number":            1,
+			"state":             "dismissed",
+			"dismissed_by":      map[string]interface{}{"login": "octocat"},
+			"dismissed_at":      "2024-01-15T12:30:00Z",
+			"dismissed_reason":  "tolerable_risk",
 			"dismissed_comment": "This dependency is only used in development",
 		},
 		CommonErrors: []map[string]interface{}{
@@ -880,13 +880,13 @@ func (h *GetSecretScanningAlertHandler) GetDefinition() ToolDefinition {
 			"destructive": false,
 		},
 		ResponseExample: map[string]interface{}{
-			"number":          1,
-			"state":           "open",
-			"secret_type":     "github_personal_access_token",
+			"number":                   1,
+			"state":                    "open",
+			"secret_type":              "github_personal_access_token",
 			"secret_type_display_name": "GitHub Personal Access Token",
-			"secret":          "ghp_****",
-			"created_at":      "2024-01-15T12:00:00Z",
-			"locations_url":   "https://api.github.com/repos/owner/repo/secret-scanning/alerts/1/locations",
+			"secret":                   "ghp_****",
+			"created_at":               "2024-01-15T12:00:00Z",
+			"locations_url":            "https://api.github.com/repos/owner/repo/secret-scanning/alerts/1/locations",
 		},
 		CommonErrors: []map[string]interface{}{
 			{
@@ -1229,12 +1229,12 @@ func (h *ListSecurityAdvisoriesHandler) GetDefinition() ToolDefinition {
 		ResponseExample: map[string]interface{}{
 			"advisories": []map[string]interface{}{
 				{
-					"ghsa_id":     "GHSA-xxxx-yyyy-zzzz",
-					"cve_id":      "CVE-2024-1234",
-					"summary":     "Cross-site scripting vulnerability",
-					"description": "A cross-site scripting vulnerability was found...",
-					"severity":    "high",
-					"state":       "published",
+					"ghsa_id":      "GHSA-xxxx-yyyy-zzzz",
+					"cve_id":       "CVE-2024-1234",
+					"summary":      "Cross-site scripting vulnerability",
+					"description":  "A cross-site scripting vulnerability was found...",
+					"severity":     "high",
+					"state":        "published",
 					"published_at": "2024-01-15T12:00:00Z",
 				},
 			},

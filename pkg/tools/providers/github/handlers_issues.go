@@ -108,9 +108,9 @@ func (h *GetIssueHandler) Execute(ctx context.Context, params map[string]interfa
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	owner, _ := params["owner"].(string)
-	repo, _ := params["repo"].(string)
-	issueNumber := int(params["issue_number"].(float64))
+	owner := extractString(params, "owner")
+	repo := extractString(params, "repo")
+	issueNumber := extractInt(params, "issue_number")
 
 	issue, _, err := client.Issues.Get(ctx, owner, repo, issueNumber)
 	if err != nil {
@@ -221,9 +221,13 @@ func (h *SearchIssuesHandler) Execute(ctx context.Context, params map[string]int
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	query := extractString(params, "query")
+	// Check for both 'q' and 'query' for compatibility
+	query := extractString(params, "q")
 	if query == "" {
-		return NewToolError("query parameter is required"), nil
+		query = extractString(params, "query")
+	}
+	if query == "" {
+		return NewToolError("query parameter is required (use 'q' or 'query')"), nil
 	}
 
 	opts := &github.SearchOptions{}
@@ -334,9 +338,9 @@ func (h *ListIssuesHandler) GetDefinition() ToolDefinition {
 func (h *ListIssuesHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
 	// Log incoming parameters for debugging
 	h.provider.logger.Info("ListIssuesHandler.Execute called", map[string]interface{}{
-		"params": params,
+		"params":    params,
 		"has_owner": params["owner"] != nil,
-		"has_repo": params["repo"] != nil,
+		"has_repo":  params["repo"] != nil,
 	})
 
 	// For complex list operations, use GraphQL client for better performance
@@ -397,8 +401,8 @@ func (h *ListIssuesHandler) executeGraphQL(ctx context.Context, client *githubv4
 	if owner == "" || repo == "" {
 		// Info logging to understand what parameters we received
 		h.provider.logger.Info("Missing owner or repo in executeGraphQL", map[string]interface{}{
-			"owner": owner,
-			"repo": repo,
+			"owner":  owner,
+			"repo":   repo,
 			"params": params,
 		})
 		return NewToolError("owner and repo parameters are required"), nil
@@ -512,9 +516,9 @@ func (h *GetIssueCommentsHandler) Execute(ctx context.Context, params map[string
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	owner, _ := params["owner"].(string)
-	repo, _ := params["repo"].(string)
-	issueNumber := int(params["issue_number"].(float64))
+	owner := extractString(params, "owner")
+	repo := extractString(params, "repo")
+	issueNumber := extractInt(params, "issue_number")
 
 	opts := &github.IssueListCommentsOptions{}
 	if perPage, ok := params["per_page"].(float64); ok {
@@ -591,9 +595,9 @@ func (h *CreateIssueHandler) Execute(ctx context.Context, params map[string]inte
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	owner, _ := params["owner"].(string)
-	repo, _ := params["repo"].(string)
-	title, _ := params["title"].(string)
+	owner := extractString(params, "owner")
+	repo := extractString(params, "repo")
+	title := extractString(params, "title")
 
 	issueRequest := &github.IssueRequest{
 		Title: &title,
@@ -676,10 +680,10 @@ func (h *AddIssueCommentHandler) Execute(ctx context.Context, params map[string]
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	owner, _ := params["owner"].(string)
-	repo, _ := params["repo"].(string)
-	issueNumber := int(params["issue_number"].(float64))
-	body, _ := params["body"].(string)
+	owner := extractString(params, "owner")
+	repo := extractString(params, "repo")
+	issueNumber := extractInt(params, "issue_number")
+	body := extractString(params, "body")
 
 	comment := &github.IssueComment{
 		Body: &body,
@@ -760,9 +764,9 @@ func (h *UpdateIssueHandler) Execute(ctx context.Context, params map[string]inte
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	owner, _ := params["owner"].(string)
-	repo, _ := params["repo"].(string)
-	issueNumber := int(params["issue_number"].(float64))
+	owner := extractString(params, "owner")
+	repo := extractString(params, "repo")
+	issueNumber := extractInt(params, "issue_number")
 
 	issueRequest := &github.IssueRequest{}
 
@@ -849,9 +853,9 @@ func (h *LockIssueHandler) Execute(ctx context.Context, params map[string]interf
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	owner, _ := params["owner"].(string)
-	repo, _ := params["repo"].(string)
-	issueNumber := int(params["issue_number"].(float64))
+	owner := extractString(params, "owner")
+	repo := extractString(params, "repo")
+	issueNumber := extractInt(params, "issue_number")
 
 	opts := &github.LockIssueOptions{}
 	if reason, ok := params["lock_reason"].(string); ok {
@@ -906,9 +910,9 @@ func (h *UnlockIssueHandler) Execute(ctx context.Context, params map[string]inte
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	owner, _ := params["owner"].(string)
-	repo, _ := params["repo"].(string)
-	issueNumber := int(params["issue_number"].(float64))
+	owner := extractString(params, "owner")
+	repo := extractString(params, "repo")
+	issueNumber := extractInt(params, "issue_number")
 
 	_, err := client.Issues.Unlock(ctx, owner, repo, issueNumber)
 	if err != nil {
@@ -966,9 +970,9 @@ func (h *GetIssueEventsHandler) Execute(ctx context.Context, params map[string]i
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	owner, _ := params["owner"].(string)
-	repo, _ := params["repo"].(string)
-	issueNumber := int(params["issue_number"].(float64))
+	owner := extractString(params, "owner")
+	repo := extractString(params, "repo")
+	issueNumber := extractInt(params, "issue_number")
 
 	opts := &github.ListOptions{}
 	if perPage, ok := params["per_page"].(float64); ok {
@@ -1035,9 +1039,9 @@ func (h *GetIssueTimelineHandler) Execute(ctx context.Context, params map[string
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	owner, _ := params["owner"].(string)
-	repo, _ := params["repo"].(string)
-	issueNumber := int(params["issue_number"].(float64))
+	owner := extractString(params, "owner")
+	repo := extractString(params, "repo")
+	issueNumber := extractInt(params, "issue_number")
 
 	opts := &github.ListOptions{}
 	if perPage, ok := params["per_page"].(float64); ok {

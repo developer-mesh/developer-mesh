@@ -215,17 +215,17 @@ func (h *GetRepositoryHandler) GetDefinition() ToolDefinition {
 			},
 			"responseExample": map[string]interface{}{
 				"success": map[string]interface{}{
-					"id":           1296269,
-					"name":         "Hello-World",
-					"full_name":    "octocat/Hello-World",
-					"private":      false,
-					"html_url":     "https://github.com/octocat/Hello-World",
-					"description":  "This your first repo!",
-					"language":     "C",
-					"stargazers_count": 80,
-					"forks_count":  9,
+					"id":                1296269,
+					"name":              "Hello-World",
+					"full_name":         "octocat/Hello-World",
+					"private":           false,
+					"html_url":          "https://github.com/octocat/Hello-World",
+					"description":       "This your first repo!",
+					"language":          "C",
+					"stargazers_count":  80,
+					"forks_count":       9,
 					"open_issues_count": 0,
-					"default_branch": "main",
+					"default_branch":    "main",
 				},
 				"error": map[string]interface{}{
 					"message":           "Not Found",
@@ -252,7 +252,7 @@ func (h *GetRepositoryHandler) GetDefinition() ToolDefinition {
 func (h *GetRepositoryHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
 	// Debug logging
 	h.provider.logger.Debug("GetRepositoryHandler.Execute called", map[string]interface{}{
-		"params": params,
+		"params":      params,
 		"has_context": ctx != nil,
 	})
 
@@ -422,11 +422,11 @@ func (h *UpdateRepositoryHandler) GetDefinition() ToolDefinition {
 			},
 			"responseExample": map[string]interface{}{
 				"success": map[string]interface{}{
-					"id":           1296269,
-					"name":         "Hello-World-Updated",
-					"full_name":    "octocat/Hello-World-Updated",
-					"description":  "Updated description",
-					"private":      false,
+					"id":             1296269,
+					"name":           "Hello-World-Updated",
+					"full_name":      "octocat/Hello-World-Updated",
+					"description":    "Updated description",
+					"private":        false,
 					"default_branch": "main",
 				},
 				"error": map[string]interface{}{
@@ -672,10 +672,10 @@ func (h *SearchRepositoriesHandler) GetDefinition() ToolDefinition {
 					"items": []map[string]interface{}{
 						{
 							"id":               3081286,
-							"name":            "Tetris",
-							"full_name":       "dtrupenn/Tetris",
-							"description":     "A C implementation of Tetris using Pennsim through LC4",
-							"language":        "C",
+							"name":             "Tetris",
+							"full_name":        "dtrupenn/Tetris",
+							"description":      "A C implementation of Tetris using Pennsim through LC4",
+							"language":         "C",
 							"stargazers_count": 1,
 						},
 					},
@@ -720,9 +720,13 @@ func (h *SearchRepositoriesHandler) Execute(ctx context.Context, params map[stri
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	query := extractString(params, "query")
+	// Check for both 'q' and 'query' for compatibility
+	query := extractString(params, "q")
 	if query == "" {
-		return NewToolError("query parameter is required"), nil
+		query = extractString(params, "query")
+	}
+	if query == "" {
+		return NewToolError("query parameter is required (use 'q' or 'query')"), nil
 	}
 
 	opts := &github.SearchOptions{}
@@ -870,9 +874,9 @@ func (h *GetFileContentsHandler) Execute(ctx context.Context, params map[string]
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	owner, _ := params["owner"].(string)
-	repo, _ := params["repo"].(string)
-	path, _ := params["path"].(string)
+	owner := extractString(params, "owner")
+	repo := extractString(params, "repo")
+	path := extractString(params, "path")
 
 	opts := &github.RepositoryContentGetOptions{}
 	if ref, ok := params["ref"].(string); ok {
@@ -948,8 +952,8 @@ func (h *ListCommitsHandler) Execute(ctx context.Context, params map[string]inte
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	owner, _ := params["owner"].(string)
-	repo, _ := params["repo"].(string)
+	owner := extractString(params, "owner")
+	repo := extractString(params, "repo")
 
 	opts := &github.CommitsListOptions{}
 	if sha, ok := params["sha"].(string); ok {
@@ -1022,9 +1026,13 @@ func (h *SearchCodeHandler) Execute(ctx context.Context, params map[string]inter
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	query := extractString(params, "query")
+	// Check for both 'q' and 'query' for compatibility
+	query := extractString(params, "q")
 	if query == "" {
-		return NewToolError("query parameter is required"), nil
+		query = extractString(params, "query")
+	}
+	if query == "" {
+		return NewToolError("query parameter is required (use 'q' or 'query')"), nil
 	}
 
 	opts := &github.SearchOptions{}
@@ -1114,9 +1122,9 @@ func (h *GetCommitHandler) Execute(ctx context.Context, params map[string]interf
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	owner, _ := params["owner"].(string)
-	repo, _ := params["repo"].(string)
-	sha, _ := params["sha"].(string)
+	owner := extractString(params, "owner")
+	repo := extractString(params, "repo")
+	sha := extractString(params, "sha")
 
 	commit, _, err := client.Repositories.GetCommit(ctx, owner, repo, sha, nil)
 	if err != nil {
@@ -1175,8 +1183,8 @@ func (h *ListBranchesHandler) Execute(ctx context.Context, params map[string]int
 		return NewToolError("GitHub client not found in context"), nil
 	}
 
-	owner, _ := params["owner"].(string)
-	repo, _ := params["repo"].(string)
+	owner := extractString(params, "owner")
+	repo := extractString(params, "repo")
 
 	opts := &github.BranchListOptions{}
 	if protected, ok := params["protected"].(bool); ok {
@@ -1464,26 +1472,26 @@ func (h *ForkRepositoryHandler) GetDefinition() ToolDefinition {
 			"async":        true, // Forking can be asynchronous for large repos
 		},
 		ResponseExample: map[string]interface{}{
-			"id":          1296269,
-			"name":        "Hello-World",
-			"full_name":   "your-username/Hello-World",
+			"id":        1296269,
+			"name":      "Hello-World",
+			"full_name": "your-username/Hello-World",
 			"owner": map[string]interface{}{
 				"login": "your-username",
 				"type":  "User",
 			},
-			"private":      false,
-			"fork":         true,
-			"created_at":   "2024-01-15T12:00:00Z",
-			"updated_at":   "2024-01-15T12:00:00Z",
+			"private":    false,
+			"fork":       true,
+			"created_at": "2024-01-15T12:00:00Z",
+			"updated_at": "2024-01-15T12:00:00Z",
 			"parent": map[string]interface{}{
 				"full_name": "octocat/Hello-World",
 				"owner": map[string]interface{}{
 					"login": "octocat",
 				},
 			},
-			"html_url":    "https://github.com/your-username/Hello-World",
-			"clone_url":   "https://github.com/your-username/Hello-World.git",
-			"ssh_url":     "git@github.com:your-username/Hello-World.git",
+			"html_url":       "https://github.com/your-username/Hello-World",
+			"clone_url":      "https://github.com/your-username/Hello-World.git",
+			"ssh_url":        "git@github.com:your-username/Hello-World.git",
 			"default_branch": "main",
 		},
 		CommonErrors: []map[string]interface{}{

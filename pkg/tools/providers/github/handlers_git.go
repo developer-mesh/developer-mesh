@@ -696,9 +696,9 @@ func (h *CreateCommitHandler) GetDefinition() ToolDefinition {
 					"type":        "array",
 					"description": "SHAs of parent commits",
 					"items": map[string]interface{}{
-						"type":      "string",
-						"pattern":   "^[a-f0-9]{40}$",
-						"example":   "553c2077f0edc3d5dc5d17262f6aa498e69d6f8e",
+						"type":    "string",
+						"pattern": "^[a-f0-9]{40}$",
+						"example": "553c2077f0edc3d5dc5d17262f6aa498e69d6f8e",
 					},
 				},
 				"author": map[string]interface{}{

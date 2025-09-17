@@ -245,7 +245,7 @@ func (api *EnhancedToolsAPI) UpdateOrganizationTool(c *gin.Context) {
 		api.RefreshOrganizationTool(c)
 		return
 	}
-	
+
 	// Regular update not yet implemented
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "Tool update not implemented. Use ?action=refresh to refresh tool capabilities"})
 }
@@ -254,7 +254,7 @@ func (api *EnhancedToolsAPI) UpdateOrganizationTool(c *gin.Context) {
 func (api *EnhancedToolsAPI) RefreshOrganizationTool(c *gin.Context) {
 	orgID := c.Param("orgId")
 	toolID := c.Param("toolId")
-	
+
 	// Refresh the tool using the registry
 	err := api.toolRegistry.RefreshOrganizationTool(
 		c.Request.Context(),
@@ -267,16 +267,16 @@ func (api *EnhancedToolsAPI) RefreshOrganizationTool(c *gin.Context) {
 			"tool_id": toolID,
 			"error":   err.Error(),
 		})
-		
+
 		if err.Error() == "tool does not belong to organization" {
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 			return
 		}
-		
+
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to refresh tool"})
 		return
 	}
-	
+
 	// Return success with updated tool info
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Tool refreshed successfully",
