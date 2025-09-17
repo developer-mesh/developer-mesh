@@ -157,14 +157,14 @@ func CommonErrors(operation string) []map[string]interface{} {
 	}
 
 	// Add operation-specific errors
-	switch {
-	case operation == "create" || operation == "update":
+	switch operation {
+	case "create", "update":
 		errors = append(errors, map[string]interface{}{
 			"code":     422,
 			"reason":   "Validation failed - invalid or missing parameters",
 			"solution": "Check required parameters and ensure values meet GitHub's validation rules",
 		})
-	case operation == "search":
+	case "search":
 		errors = append(errors, map[string]interface{}{
 			"code":     422,
 			"reason":   "Validation failed - invalid search syntax",
