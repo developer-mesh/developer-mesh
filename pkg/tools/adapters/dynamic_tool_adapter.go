@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/repository"
 	"github.com/developer-mesh/developer-mesh/pkg/security"
 	"github.com/developer-mesh/developer-mesh/pkg/tools"
+	"github.com/developer-mesh/developer-mesh/pkg/utils"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/routers"
 	"github.com/getkin/kin-openapi/routers/gorillamux"
@@ -35,6 +37,7 @@ type DynamicToolAdapter struct {
 	resourceResolver     *tools.ResourceScopeResolver
 	allowedOperations    map[string]bool      // Cache of allowed operations based on permissions
 	resourceScope        *tools.ResourceScope // Resource scope for this tool
+	urlValidator         *security.URLValidator
 }
 
 // NewDynamicToolAdapter creates a new adapter for a dynamic tool
@@ -60,6 +63,11 @@ func NewDynamicToolAdapter(
 	// Extract resource scope from tool name
 	resourceScope := resourceResolver.ExtractResourceScopeFromToolName(tool.ToolName)
 
+	// Create URL validator with environment-based configuration
+	urlValidator := security.NewURLValidator()
+	urlValidator.AllowLocalhost = os.Getenv("ALLOW_LOCALHOST_URLS") == "true"
+	urlValidator.AllowPrivateNetworks = os.Getenv("ALLOW_PRIVATE_NETWORK_URLS") == "true"
+
 	return &DynamicToolAdapter{
 		tool:                 tool,
 		specCache:            specCache,
@@ -72,6 +80,7 @@ func NewDynamicToolAdapter(
 		resourceResolver:     resourceResolver,
 		allowedOperations:    make(map[string]bool),
 		resourceScope:        resourceScope,
+		urlValidator:         urlValidator,
 	}, nil
 }
 
@@ -497,7 +506,14 @@ func (a *DynamicToolAdapter) getOpenAPISpec(ctx context.Context) (*openapi3.T, e
 		reqCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
 
-		req, err := http.NewRequestWithContext(reqCtx, "GET", specURL, nil)
+		// Validate URL to prevent SSRF
+		validatedURL, err := a.urlValidator.ValidateAndSanitizeURL(specURL)
+		if err != nil {
+			lastErr = fmt.Errorf("URL validation failed: %w", err)
+			continue
+		}
+
+		req, err := http.NewRequestWithContext(reqCtx, "GET", validatedURL, nil)
 		if err != nil {
 			lastErr = err
 			continue
@@ -924,15 +940,29 @@ func (a *DynamicToolAdapter) buildRequest(
 			body = bytes.NewReader(bodyData)
 			headers.Set("Content-Type", "application/json")
 
-			// Log the JSON being sent
-			a.logger.Info("Request body JSON", map[string]interface{}{
-				"json": string(bodyData),
-			})
+			// Log the JSON being sent (with sensitive data redacted)
+			var bodyForLog map[string]interface{}
+			if err := json.Unmarshal(bodyData, &bodyForLog); err == nil {
+				a.logger.Info("Request body JSON", map[string]interface{}{
+					"json": utils.RedactSensitiveData(bodyForLog),
+				})
+			} else {
+				// If it's not valid JSON or an object, just log that we're sending data
+				a.logger.Info("Request body", map[string]interface{}{
+					"size": len(bodyData),
+				})
+			}
 		}
 	}
 
+	// Validate URL to prevent SSRF
+	validatedURL, err := a.urlValidator.ValidateAndSanitizeURL(fullURL)
+	if err != nil {
+		return nil, fmt.Errorf("URL validation failed: %w", err)
+	}
+
 	// Create request
-	req, err := http.NewRequestWithContext(ctx, method, fullURL, body)
+	req, err := http.NewRequestWithContext(ctx, method, validatedURL, body)
 	if err != nil {
 		return nil, err
 	}

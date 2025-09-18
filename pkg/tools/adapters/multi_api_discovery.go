@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/security"
 	"github.com/developer-mesh/developer-mesh/pkg/tools"
 	"github.com/getkin/kin-openapi/openapi3"
 	"golang.org/x/text/cases"
@@ -129,6 +131,7 @@ type MultiAPIDiscoveryService struct {
 	formatDetector *FormatDetector
 	concurrency    int
 	timeout        time.Duration
+	urlValidator   *security.URLValidator
 }
 
 // NewMultiAPIDiscoveryService creates a new multi-API discovery service
@@ -144,12 +147,19 @@ func NewMultiAPIDiscoveryService(logger observability.Logger) *MultiAPIDiscovery
 		},
 	}
 
+	// Create URL validator with secure defaults
+	urlValidator := security.NewURLValidator()
+	// Default to secure (false) unless explicitly enabled
+	urlValidator.AllowLocalhost = os.Getenv("ALLOW_LOCALHOST_URLS") == "true"
+	urlValidator.AllowPrivateNetworks = os.Getenv("ALLOW_PRIVATE_NETWORK_URLS") == "true"
+
 	return &MultiAPIDiscoveryService{
 		logger:         logger,
 		httpClient:     httpClient,
 		formatDetector: NewFormatDetector(httpClient),
 		concurrency:    5, // Limit concurrent API spec fetches
 		timeout:        5 * time.Minute,
+		urlValidator:   urlValidator,
 	}
 }
 
@@ -294,7 +304,14 @@ func (s *MultiAPIDiscoveryService) discoverByPatterns(ctx context.Context, baseU
 
 // discoverByCrawling crawls HTML pages to find API documentation links
 func (s *MultiAPIDiscoveryService) discoverByCrawling(ctx context.Context, portalURL string, discoveries chan<- APIDefinition, errors chan<- error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", portalURL, nil)
+	// Validate URL to prevent SSRF
+	validatedURL, err := s.urlValidator.ValidateAndSanitizeURL(portalURL)
+	if err != nil {
+		errors <- fmt.Errorf("URL validation failed for %s: %w", portalURL, err)
+		return
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", validatedURL, nil)
 	if err != nil {
 		errors <- err
 		return
@@ -448,7 +465,14 @@ func (s *MultiAPIDiscoveryService) discoverByCatalogEndpoints(ctx context.Contex
 	for _, endpoint := range catalogEndpoints {
 		catalogURL := parsedBase.Scheme + "://" + parsedBase.Host + endpoint
 
-		req, err := http.NewRequestWithContext(ctx, "GET", catalogURL, nil)
+		// Validate URL to prevent SSRF
+		validatedURL, err := s.urlValidator.ValidateAndSanitizeURL(catalogURL)
+		if err != nil {
+			// Skip this endpoint if validation fails
+			continue
+		}
+
+		req, err := http.NewRequestWithContext(ctx, "GET", validatedURL, nil)
 		if err != nil {
 			continue
 		}
@@ -519,7 +543,14 @@ func (s *MultiAPIDiscoveryService) parseAPIEntry(ctx context.Context, entry map[
 
 // tryDiscoverAPI attempts to fetch and validate an API specification
 func (s *MultiAPIDiscoveryService) tryDiscoverAPI(ctx context.Context, specURL string, categoryExtractor func(string) string, discoveries chan<- APIDefinition) {
-	req, err := http.NewRequestWithContext(ctx, "GET", specURL, nil)
+	// Validate URL to prevent SSRF
+	validatedURL, err := s.urlValidator.ValidateAndSanitizeURL(specURL)
+	if err != nil {
+		// Skip invalid URLs silently
+		return
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", validatedURL, nil)
 	if err != nil {
 		return
 	}

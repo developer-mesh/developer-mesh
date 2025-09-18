@@ -11,6 +11,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/resilience"
 	"github.com/developer-mesh/developer-mesh/pkg/security"
 	"github.com/developer-mesh/developer-mesh/pkg/tools/providers"
+	"github.com/developer-mesh/developer-mesh/pkg/utils"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/google/go-github/v74/github"
 	"github.com/shurcooL/githubv4"
@@ -549,12 +550,12 @@ func (p *GitHubProvider) ExecuteOperation(ctx context.Context, operation string,
 	// are at the top level while others are nested in a "parameters" object
 	p.logger.Info("ExecuteOperation: before normalization", map[string]interface{}{
 		"operation":  operation,
-		"raw_params": params,
+		"raw_params": utils.RedactSensitiveData(params),
 	})
 	normalizedParams := p.normalizeParameters(params)
 	p.logger.Info("ExecuteOperation: after normalization", map[string]interface{}{
 		"operation":         operation,
-		"normalized_params": normalizedParams,
+		"normalized_params": utils.RedactSensitiveData(normalizedParams),
 	})
 
 	// Extract tenant ID from context or normalized params

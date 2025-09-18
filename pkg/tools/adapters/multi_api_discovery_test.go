@@ -68,6 +68,10 @@ func TestMultiAPIDiscoveryService_DetectPortalType(t *testing.T) {
 }
 
 func TestMultiAPIDiscoveryService_DiscoverMultipleAPIs(t *testing.T) {
+	// Allow localhost for testing
+	t.Setenv("ALLOW_LOCALHOST_URLS", "true")
+	t.Setenv("ALLOW_PRIVATE_NETWORK_URLS", "true")
+
 	logger := &mockLogger{}
 	service := NewMultiAPIDiscoveryService(logger)
 
@@ -630,6 +634,10 @@ func TestMultiAPIDiscoveryService_ParseAPICatalog(t *testing.T) {
 }
 
 func TestMultiAPIDiscoveryService_Concurrency(t *testing.T) {
+	// Allow localhost for testing
+	t.Setenv("ALLOW_LOCALHOST_URLS", "true")
+	t.Setenv("ALLOW_PRIVATE_NETWORK_URLS", "true")
+
 	logger := &mockLogger{}
 	service := NewMultiAPIDiscoveryService(logger)
 	service.concurrency = 2 // Limit concurrency for testing

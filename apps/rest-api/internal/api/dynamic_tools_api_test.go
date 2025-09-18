@@ -202,10 +202,10 @@ func TestExpandOrganizationTool(t *testing.T) {
 		}
 
 		// Check ci/pipelines/list tool
-		ciListTool, exists := toolsByName["harness-devmesh-ci-pipelines-list"]
+		ciListTool, exists := toolsByName["harness_ci_pipelines_list"]
 		assert.True(t, exists, "Should have ci/pipelines/list tool")
 		if exists {
-			assert.Equal(t, "org-tool-123-ci-pipelines-list", ciListTool.ID)
+			assert.Equal(t, "harness_ci_pipelines_list", ciListTool.ID)
 			assert.Equal(t, "Harness DevMesh - ci/pipelines/list", ciListTool.DisplayName)
 			assert.Equal(t, tenantID, ciListTool.TenantID)
 			assert.Equal(t, "https://app.harness.io", ciListTool.BaseURL)
@@ -227,7 +227,7 @@ func TestExpandOrganizationTool(t *testing.T) {
 		}
 
 		// Check ci/pipelines/create tool
-		ciCreateTool, exists := toolsByName["harness-devmesh-ci-pipelines-create"]
+		ciCreateTool, exists := toolsByName["harness_ci_pipelines_create"]
 		assert.True(t, exists, "Should have ci/pipelines/create tool")
 		if exists {
 			assert.Equal(t, "POST", ciCreateTool.Config["method"])
@@ -235,7 +235,7 @@ func TestExpandOrganizationTool(t *testing.T) {
 		}
 
 		// Check cd/services/list tool
-		cdListTool, exists := toolsByName["harness-devmesh-cd-services-list"]
+		cdListTool, exists := toolsByName["harness_cd_services_list"]
 		assert.True(t, exists, "Should have cd/services/list tool")
 		if exists {
 			assert.Equal(t, "cd", cdListTool.Config["category"])
@@ -243,7 +243,7 @@ func TestExpandOrganizationTool(t *testing.T) {
 		}
 
 		// Check ff/flags/toggle tool
-		ffToggleTool, exists := toolsByName["harness-devmesh-ff-flags-toggle"]
+		ffToggleTool, exists := toolsByName["harness_ff_flags_toggle"]
 		assert.True(t, exists, "Should have ff/flags/toggle tool")
 		if exists {
 			assert.Equal(t, "feature_flags", ffToggleTool.Config["category"])
@@ -416,9 +416,9 @@ func TestExpandOrganizationTool(t *testing.T) {
 		}
 
 		// Check tool names follow expected format
-		assert.True(t, toolNames["github-devmesh-repos-list"], "Should have repos-list tool")
-		assert.True(t, toolNames["github-devmesh-issues-create"], "Should have issues-create tool")
-		assert.True(t, toolNames["github-devmesh-pulls-merge"], "Should have pulls-merge tool")
+		assert.True(t, toolNames["github_repos_list"], "Should have repos-list tool")
+		assert.True(t, toolNames["github_issues_create"], "Should have issues-create tool")
+		assert.True(t, toolNames["github_pulls_merge"], "Should have pulls-merge tool")
 
 		mockRepo.AssertExpectations(t)
 	})

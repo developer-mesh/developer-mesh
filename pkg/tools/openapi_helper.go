@@ -6,29 +6,41 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/security"
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
 // OpenAPIHelper provides helper functions for OpenAPI operations
 type OpenAPIHelper struct {
-	httpClient *http.Client
-	logger     observability.Logger
-	auth       *DynamicAuthenticator
+	httpClient   *http.Client
+	logger       observability.Logger
+	auth         *DynamicAuthenticator
+	urlValidator *security.URLValidator
 }
 
 // NewOpenAPIHelper creates a new OpenAPI helper
 func NewOpenAPIHelper(logger observability.Logger) *OpenAPIHelper {
+	// Create URL validator with secure defaults
+	urlValidator := security.NewURLValidator()
+
+	// Default to secure (false) unless explicitly enabled via environment variables
+	// Must explicitly set to "true" to allow localhost/private networks
+	urlValidator.AllowLocalhost = os.Getenv("ALLOW_LOCALHOST_URLS") == "true"
+	urlValidator.AllowPrivateNetworks = os.Getenv("ALLOW_PRIVATE_NETWORK_URLS") == "true"
+
 	return &OpenAPIHelper{
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		logger: logger,
-		auth:   NewDynamicAuthenticator(),
+		logger:       logger,
+		auth:         NewDynamicAuthenticator(),
+		urlValidator: urlValidator,
 	}
 }
 
@@ -39,7 +51,13 @@ func (h *OpenAPIHelper) MakeAuthenticatedRequest(
 	body io.Reader,
 	creds *models.TokenCredential,
 ) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, method, url, body)
+	// Validate URL to prevent SSRF attacks
+	validatedURL, err := h.urlValidator.ValidateAndSanitizeURL(url)
+	if err != nil {
+		return nil, fmt.Errorf("URL validation failed: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, validatedURL, body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

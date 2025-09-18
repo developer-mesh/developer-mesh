@@ -93,6 +93,9 @@ services:
       - RATE_LIMIT_REQUESTS=100
       - RATE_LIMIT_PERIOD=1m
       - ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY:-dev_master_key_32_chars_long123}
+      # URL Validation Settings (for local development)
+      - ALLOW_LOCALHOST_URLS=true
+      - ALLOW_PRIVATE_NETWORK_URLS=true
       # Legacy keys for backward compatibility (deprecated - will be removed)
       - DEVMESH_ENCRYPTION_KEY=${ENCRYPTION_MASTER_KEY:-dev_master_key_32_chars_long123}
       # Feature Flags
@@ -208,6 +211,9 @@ services:
       - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080
       - RATE_LIMIT_ENABLED=true
       - ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY:-dev_master_key_32_chars_long123}
+      # URL Validation Settings (for local development)
+      - ALLOW_LOCALHOST_URLS=true
+      - ALLOW_PRIVATE_NETWORK_URLS=true
       # Legacy keys for backward compatibility (deprecated - will be removed)
       - DEVMESH_ENCRYPTION_KEY=${ENCRYPTION_MASTER_KEY:-dev_master_key_32_chars_long123}
       # Feature Flags
