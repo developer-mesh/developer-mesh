@@ -127,7 +127,7 @@ func (h *ListWorkflowsHandler) Execute(ctx context.Context, params map[string]in
 	// Create simplified response to reduce token usage
 	simplified := map[string]interface{}{
 		"total_count": workflows.GetTotalCount(),
-		"workflows": make([]map[string]interface{}, 0, len(workflows.Workflows)),
+		"workflows":   make([]map[string]interface{}, 0, len(workflows.Workflows)),
 	}
 
 	for _, workflow := range workflows.Workflows {
@@ -316,7 +316,7 @@ func (h *ListWorkflowRunsHandler) Execute(ctx context.Context, params map[string
 
 	// Create simplified response to reduce token usage
 	simplified := map[string]interface{}{
-		"total_count": runs.GetTotalCount(),
+		"total_count":   runs.GetTotalCount(),
 		"workflow_runs": make([]map[string]interface{}, 0, len(runs.WorkflowRuns)),
 	}
 

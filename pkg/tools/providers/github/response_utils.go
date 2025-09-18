@@ -54,19 +54,19 @@ func simplifyWorkflowRun(run *github.WorkflowRun) map[string]interface{} {
 	}
 
 	simplified := map[string]interface{}{
-		"id":           run.GetID(),
-		"name":         run.GetName(),
-		"status":       run.GetStatus(),
-		"conclusion":   run.GetConclusion(),
-		"workflow_id":  run.GetWorkflowID(),
-		"run_number":   run.GetRunNumber(),
-		"run_attempt":  run.GetRunAttempt(),
-		"event":        run.GetEvent(),
-		"head_branch":  run.GetHeadBranch(),
-		"head_sha":     run.GetHeadSHA(),
-		"html_url":     run.GetHTMLURL(),
-		"created_at":   run.GetCreatedAt().Format("2006-01-02T15:04:05Z"),
-		"updated_at":   run.GetUpdatedAt().Format("2006-01-02T15:04:05Z"),
+		"id":          run.GetID(),
+		"name":        run.GetName(),
+		"status":      run.GetStatus(),
+		"conclusion":  run.GetConclusion(),
+		"workflow_id": run.GetWorkflowID(),
+		"run_number":  run.GetRunNumber(),
+		"run_attempt": run.GetRunAttempt(),
+		"event":       run.GetEvent(),
+		"head_branch": run.GetHeadBranch(),
+		"head_sha":    run.GetHeadSHA(),
+		"html_url":    run.GetHTMLURL(),
+		"created_at":  run.GetCreatedAt().Format("2006-01-02T15:04:05Z"),
+		"updated_at":  run.GetUpdatedAt().Format("2006-01-02T15:04:05Z"),
 	}
 
 	// Add actor if available
@@ -100,21 +100,21 @@ func simplifyPullRequest(pr *github.PullRequest) map[string]interface{} {
 	}
 
 	simplified := map[string]interface{}{
-		"number":      pr.GetNumber(),
-		"id":          pr.GetID(),
-		"state":       pr.GetState(),
-		"title":       pr.GetTitle(),
-		"body":        truncateString(pr.GetBody(), MaxBodyLength),
-		"html_url":    pr.GetHTMLURL(),
-		"created_at":  pr.GetCreatedAt().Format("2006-01-02T15:04:05Z"),
-		"updated_at":  pr.GetUpdatedAt().Format("2006-01-02T15:04:05Z"),
-		"merged":      pr.GetMerged(),
-		"mergeable":   pr.GetMergeable(),
-		"draft":       pr.GetDraft(),
-		"comments":    pr.GetComments(),
-		"commits":     pr.GetCommits(),
-		"additions":   pr.GetAdditions(),
-		"deletions":   pr.GetDeletions(),
+		"number":        pr.GetNumber(),
+		"id":            pr.GetID(),
+		"state":         pr.GetState(),
+		"title":         pr.GetTitle(),
+		"body":          truncateString(pr.GetBody(), MaxBodyLength),
+		"html_url":      pr.GetHTMLURL(),
+		"created_at":    pr.GetCreatedAt().Format("2006-01-02T15:04:05Z"),
+		"updated_at":    pr.GetUpdatedAt().Format("2006-01-02T15:04:05Z"),
+		"merged":        pr.GetMerged(),
+		"mergeable":     pr.GetMergeable(),
+		"draft":         pr.GetDraft(),
+		"comments":      pr.GetComments(),
+		"commits":       pr.GetCommits(),
+		"additions":     pr.GetAdditions(),
+		"deletions":     pr.GetDeletions(),
 		"changed_files": pr.GetChangedFiles(),
 	}
 
@@ -332,7 +332,6 @@ func simplifyRepository(repo *github.Repository) map[string]interface{} {
 	return simplified
 }
 
-
 // simplifyCodeResult creates a simplified version of a code search result
 func simplifyCodeResult(result *github.CodeResult) map[string]interface{} {
 	if result == nil {
@@ -340,10 +339,10 @@ func simplifyCodeResult(result *github.CodeResult) map[string]interface{} {
 	}
 
 	simplified := map[string]interface{}{
-		"name":      result.GetName(),
-		"path":      result.GetPath(),
-		"sha":       result.GetSHA(),
-		"html_url":  result.GetHTMLURL(),
+		"name":     result.GetName(),
+		"path":     result.GetPath(),
+		"sha":      result.GetSHA(),
+		"html_url": result.GetHTMLURL(),
 	}
 
 	// Add repository name if available

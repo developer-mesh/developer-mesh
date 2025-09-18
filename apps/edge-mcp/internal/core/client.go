@@ -379,7 +379,7 @@ func (c *Client) createProxyHandler(toolName string, toolID string) tools.ToolHa
 				if key != "parameters" && key != "action" {
 					// Include fields like owner, repo, branch, pull_number, issue_number
 					if key == "owner" || key == "repo" || key == "branch" ||
-					   key == "pull_number" || key == "issue_number" || key == "ref" {
+						key == "pull_number" || key == "issue_number" || key == "ref" {
 						parameters[key] = value
 					}
 				}
