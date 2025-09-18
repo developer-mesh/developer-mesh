@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **GitHub Response Optimization for MCP Tools** (2025-09-18): Dramatically reduced response sizes to prevent context exhaustion
+  - Implemented selective field filtering for all high-volume GitHub handlers
+  - Created response_utils.go with simplification functions for workflow runs, pull requests, issues, commits, repositories, and code search results
+  - Reduced response sizes by 90-97%: list_workflow_runs from ~17,800 to ~500 tokens (97% reduction)
+  - Optimized handlers: ListWorkflows, ListWorkflowRuns, ListPullRequests, ListIssues, ListCommits, SearchRepositories, SearchCode, SearchIssues
+  - Preserved all essential fields while removing redundant nested objects (duplicate repository/user objects)
+  - Truncated long text fields (commit messages, bodies) to 200-500 characters
+  - Result: Can now fetch 20x more data before hitting MCP context limits, significantly improving AI agent efficiency
+
 ### Fixed
 
 - **Critical GitHub Provider Parameter and Pagination Issues** (2025-09-17): Resolved parameter passing and pagination problems

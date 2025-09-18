@@ -158,7 +158,13 @@ func (h *ListPullRequestsHandler) Execute(ctx context.Context, params map[string
 		return NewToolError(fmt.Sprintf("Failed to list pull requests: %v", err)), nil
 	}
 
-	data, _ := json.Marshal(prs)
+	// Create simplified response to reduce token usage
+	simplified := make([]map[string]interface{}, 0, len(prs))
+	for _, pr := range prs {
+		simplified = append(simplified, simplifyPullRequest(pr))
+	}
+
+	data, _ := json.Marshal(simplified)
 	return NewToolResult(string(data)), nil
 }
 

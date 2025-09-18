@@ -667,6 +667,23 @@ func (h *MCPProtocolHandler) handleToolCall(conn *websocket.Conn, connID, tenant
 	// Get circuit breaker for this tool
 	breaker := h.circuitBreakers.GetBreaker(toolID)
 
+	// For GitHub tools, ensure all required parameters are included
+	// GitHub operations expect owner, repo, and other params at the same level
+	executionParams := params.Arguments
+	if executionParams == nil {
+		executionParams = make(map[string]interface{})
+	}
+
+	// Log what parameters we're about to send for debugging
+	h.logger.Info("Preparing to execute tool", map[string]interface{}{
+		"tool_id":     toolID,
+		"tool_name":   toolName,
+		"action":      action,
+		"params_keys": getMapKeys(executionParams),
+		"has_owner":   executionParams["owner"] != nil,
+		"has_repo":    executionParams["repo"] != nil,
+	})
+
 	// Execute via existing tool execution endpoint with circuit breaker protection
 	resultInterface, err := breaker.Call(ctx, toolID, func() (interface{}, error) {
 		return h.restAPIClient.ExecuteTool(
@@ -674,7 +691,7 @@ func (h *MCPProtocolHandler) handleToolCall(conn *websocket.Conn, connID, tenant
 			tenantID,
 			toolID,
 			action,
-			params.Arguments,
+			executionParams,
 		)
 	})
 
@@ -2092,4 +2109,13 @@ func (h *MCPProtocolHandler) handleToolsBatch(conn *websocket.Conn, connID, tena
 	return h.sendResult(conn, msg.ID, map[string]interface{}{
 		"results": results,
 	})
+}
+
+// getMapKeys returns the keys from a map as a slice
+func getMapKeys(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }

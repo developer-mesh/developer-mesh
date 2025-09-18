@@ -265,9 +265,14 @@ func (h *SearchIssuesHandler) Execute(ctx context.Context, params map[string]int
 		return NewToolError(fmt.Sprintf("Failed to search issues: %v", err)), nil
 	}
 
-	// Return items with essential metadata only
+	// Return simplified items with essential metadata only
+	simplifiedIssues := make([]map[string]interface{}, 0, len(result.Issues))
+	for _, issue := range result.Issues {
+		simplifiedIssues = append(simplifiedIssues, simplifyIssue(issue))
+	}
+
 	response := map[string]interface{}{
-		"items":       result.Issues,
+		"items":       simplifiedIssues,
 		"total_count": *result.Total,
 		"has_more":    *result.Total > len(result.Issues),
 		"page":        opts.Page,
@@ -390,7 +395,13 @@ func (h *ListIssuesHandler) Execute(ctx context.Context, params map[string]inter
 		return NewToolError(fmt.Sprintf("Failed to list issues: %v", err)), nil
 	}
 
-	data, _ := json.Marshal(issues)
+	// Create simplified response to reduce token usage
+	simplified := make([]map[string]interface{}, 0, len(issues))
+	for _, issue := range issues {
+		simplified = append(simplified, simplifyIssue(issue))
+	}
+
+	data, _ := json.Marshal(simplified)
 	return NewToolResult(string(data)), nil
 }
 

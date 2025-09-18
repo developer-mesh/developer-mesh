@@ -769,9 +769,14 @@ func (h *SearchRepositoriesHandler) Execute(ctx context.Context, params map[stri
 		"total_count":        *result.Total,
 	})
 
-	// Return items with essential metadata only
+	// Return simplified items with essential metadata only
+	simplifiedRepos := make([]map[string]interface{}, 0, len(result.Repositories))
+	for _, repo := range result.Repositories {
+		simplifiedRepos = append(simplifiedRepos, simplifyRepository(repo))
+	}
+
 	response := map[string]interface{}{
-		"items":       result.Repositories,
+		"items":       simplifiedRepos,
 		"total_count": *result.Total,
 		"has_more":    *result.Total > len(result.Repositories),
 		"page":        opts.Page,
@@ -974,7 +979,13 @@ func (h *ListCommitsHandler) Execute(ctx context.Context, params map[string]inte
 		return NewToolError(fmt.Sprintf("Failed to list commits: %v", err)), nil
 	}
 
-	data, _ := json.Marshal(commits)
+	// Create simplified response to reduce token usage
+	simplified := make([]map[string]interface{}, 0, len(commits))
+	for _, commit := range commits {
+		simplified = append(simplified, simplifyCommit(commit))
+	}
+
+	data, _ := json.Marshal(simplified)
 	return NewToolResult(string(data)), nil
 }
 
@@ -1069,9 +1080,14 @@ func (h *SearchCodeHandler) Execute(ctx context.Context, params map[string]inter
 		return NewToolError(fmt.Sprintf("Failed to search code: %v", err)), nil
 	}
 
-	// Return items with essential metadata only
+	// Return simplified items with essential metadata only
+	simplifiedResults := make([]map[string]interface{}, 0, len(result.CodeResults))
+	for _, codeResult := range result.CodeResults {
+		simplifiedResults = append(simplifiedResults, simplifyCodeResult(codeResult))
+	}
+
 	response := map[string]interface{}{
-		"items":       result.CodeResults,
+		"items":       simplifiedResults,
 		"total_count": *result.Total,
 		"has_more":    *result.Total > len(result.CodeResults),
 		"page":        opts.Page,

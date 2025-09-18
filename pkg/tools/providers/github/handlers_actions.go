@@ -124,7 +124,29 @@ func (h *ListWorkflowsHandler) Execute(ctx context.Context, params map[string]in
 		return NewToolError(fmt.Sprintf("Failed to list workflows: %v", err)), nil
 	}
 
-	data, _ := json.Marshal(workflows)
+	// Create simplified response to reduce token usage
+	simplified := map[string]interface{}{
+		"total_count": workflows.GetTotalCount(),
+		"workflows": make([]map[string]interface{}, 0, len(workflows.Workflows)),
+	}
+
+	for _, workflow := range workflows.Workflows {
+		simplified["workflows"] = append(
+			simplified["workflows"].([]map[string]interface{}),
+			map[string]interface{}{
+				"id":         workflow.GetID(),
+				"name":       workflow.GetName(),
+				"path":       workflow.GetPath(),
+				"state":      workflow.GetState(),
+				"created_at": workflow.GetCreatedAt().Format("2006-01-02T15:04:05Z"),
+				"updated_at": workflow.GetUpdatedAt().Format("2006-01-02T15:04:05Z"),
+				"html_url":   workflow.GetHTMLURL(),
+				"badge_url":  workflow.GetBadgeURL(),
+			},
+		)
+	}
+
+	data, _ := json.Marshal(simplified)
 	return NewToolResult(string(data)), nil
 }
 
@@ -292,7 +314,20 @@ func (h *ListWorkflowRunsHandler) Execute(ctx context.Context, params map[string
 		return NewToolError(fmt.Sprintf("Failed to list workflow runs: %v", err)), nil
 	}
 
-	data, _ := json.Marshal(runs)
+	// Create simplified response to reduce token usage
+	simplified := map[string]interface{}{
+		"total_count": runs.GetTotalCount(),
+		"workflow_runs": make([]map[string]interface{}, 0, len(runs.WorkflowRuns)),
+	}
+
+	for _, run := range runs.WorkflowRuns {
+		simplified["workflow_runs"] = append(
+			simplified["workflow_runs"].([]map[string]interface{}),
+			simplifyWorkflowRun(run),
+		)
+	}
+
+	data, _ := json.Marshal(simplified)
 	return NewToolResult(string(data)), nil
 }
 

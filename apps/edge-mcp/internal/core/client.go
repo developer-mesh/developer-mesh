@@ -370,9 +370,20 @@ func (c *Client) createProxyHandler(toolName string, toolID string) tools.ToolHa
 			}
 		}
 
-		// Handle parameters
+		// Handle parameters - merge top-level GitHub fields with nested parameters
 		if params, ok := parsedArgs["parameters"].(map[string]interface{}); ok {
 			parameters = params
+			// For GitHub tools, also include owner, repo, and other top-level fields
+			// These are passed at the top level by MCP but need to be in parameters for REST API
+			for key, value := range parsedArgs {
+				if key != "parameters" && key != "action" {
+					// Include fields like owner, repo, branch, pull_number, issue_number
+					if key == "owner" || key == "repo" || key == "branch" ||
+					   key == "pull_number" || key == "issue_number" || key == "ref" {
+						parameters[key] = value
+					}
+				}
+			}
 		} else {
 			// Use all arguments as parameters (action was already removed if present)
 			parameters = parsedArgs
