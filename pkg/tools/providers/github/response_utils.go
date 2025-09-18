@@ -332,32 +332,6 @@ func simplifyRepository(repo *github.Repository) map[string]interface{} {
 	return simplified
 }
 
-// simplifySearchResult creates a simplified search result with items and metadata
-func simplifySearchResult(total int, incompleteResults bool, items []map[string]interface{}) map[string]interface{} {
-	return map[string]interface{}{
-		"total_count":        total,
-		"incomplete_results": incompleteResults,
-		"items":              items,
-	}
-}
-
-// simplifyUser creates a simplified version of a user
-func simplifyUser(user *github.User) map[string]interface{} {
-	if user == nil {
-		return nil
-	}
-
-	return map[string]interface{}{
-		"id":         user.GetID(),
-		"login":      user.GetLogin(),
-		"name":       user.GetName(),
-		"email":      user.GetEmail(),
-		"avatar_url": user.GetAvatarURL(),
-		"html_url":   user.GetHTMLURL(),
-		"type":       user.GetType(),
-		"site_admin": user.GetSiteAdmin(),
-	}
-}
 
 // simplifyCodeResult creates a simplified version of a code search result
 func simplifyCodeResult(result *github.CodeResult) map[string]interface{} {
