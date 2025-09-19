@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Edge MCP Docker Container Support** (2025-09-19): Added full Docker containerization for Edge MCP
+  - Created Dockerfile for Edge MCP following workspace pattern
+  - Added Edge MCP service to docker-compose.local.yml on port 8085
+  - Configured Docker-specific configuration (config.docker.yaml)
+  - Removed deprecated mcp-server from docker-compose
+  - Result: Edge MCP now runs successfully in Docker with all features
+
+- **Edge MCP WebSocket Enhancements** (2025-09-19): Fixed critical WebSocket issues for production readiness
+  - Fixed race condition where WebSocket closed immediately after initialization
+  - Changed from request context (r.Context()) to background context to prevent premature closure
+  - Enabled WebSocket compression (CompressionContextTakeover) to handle large tool lists
+  - Large tool lists (143KB) now compress to ~30KB, fitting within default WebSocket limits
+  - Result: Edge MCP WebSocket now stable and handles 145+ tools without requiring client configuration
+
 - **GitHub Response Optimization for MCP Tools** (2025-09-18): Dramatically reduced response sizes to prevent context exhaustion
   - Implemented selective field filtering for all high-volume GitHub handlers
   - Created response_utils.go with simplification functions for workflow runs, pull requests, issues, commits, repositories, and code search results

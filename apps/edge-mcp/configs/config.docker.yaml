@@ -1,0 +1,29 @@
+# Edge MCP Docker Configuration
+# This configuration is used when running Edge MCP in Docker
+
+server:
+  port: 8082
+
+auth:
+  # API key is set via environment variable EDGE_MCP_API_KEY
+  api_key: ""
+
+core:
+  # Connection to REST API service
+  # URL is set via EDGE_MCP_CORE_URL environment variable
+  url: "http://rest-api:8080"
+  # API key is set via EDGE_MCP_CORE_API_KEY environment variable
+  api_key: ""
+  # Edge MCP ID will be auto-generated
+  edge_mcp_id: ""
+
+# Cache settings
+cache:
+  type: "memory"
+  max_items: 1000
+  ttl: 300
+
+# Logging
+log:
+  level: "info"
+  format: "json"

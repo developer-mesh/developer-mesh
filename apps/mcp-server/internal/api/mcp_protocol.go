@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/adapters/mcp/resources"
 	"github.com/developer-mesh/developer-mesh/pkg/clients"
 	"github.com/developer-mesh/developer-mesh/pkg/feature"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
@@ -45,10 +47,11 @@ const (
 
 // MCPSession represents an active MCP session
 type MCPSession struct {
-	ID        string
-	TenantID  string
-	AgentID   string
-	CreatedAt time.Time
+	ID              string
+	TenantID        string
+	AgentID         string
+	CreatedAt       time.Time
+	PassthroughAuth *models.PassthroughAuthBundle // User-specific credentials
 }
 
 // MCPProtocolHandler handles MCP protocol messages
@@ -67,14 +70,31 @@ type MCPProtocolHandler struct {
 	telemetry       *MCPTelemetry
 	// Resilience
 	circuitBreakers *ToolCircuitBreakerManager
+	// Tool refresh management
+	refreshManager *ToolRefreshManager
+	// Server reference for accessing connection state
+	server interface {
+		GetConnectionPassthroughAuth(connID string) *models.PassthroughAuthBundle
+	}
 }
 
-// NewMCPProtocolHandler creates a new MCP protocol handler
+// NewMCPProtocolHandler creates a new MCP protocol handler (backward compatibility)
 func NewMCPProtocolHandler(
 	restClient clients.RESTAPIClient,
 	logger observability.Logger,
 ) *MCPProtocolHandler {
-	return &MCPProtocolHandler{
+	return NewMCPProtocolHandlerWithServer(restClient, logger, nil)
+}
+
+// NewMCPProtocolHandlerWithServer creates a new MCP protocol handler with server reference
+func NewMCPProtocolHandlerWithServer(
+	restClient clients.RESTAPIClient,
+	logger observability.Logger,
+	server interface {
+		GetConnectionPassthroughAuth(connID string) *models.PassthroughAuthBundle
+	},
+) *MCPProtocolHandler {
+	h := &MCPProtocolHandler{
 		restAPIClient:    restClient,
 		sessions:         make(map[string]*MCPSession),
 		logger:           logger,
@@ -84,7 +104,29 @@ func NewMCPProtocolHandler(
 		toolNameCache:    make(map[string]map[string]string),
 		telemetry:        NewMCPTelemetry(logger),
 		circuitBreakers:  NewToolCircuitBreakerManager(logger),
+		server:           server,
 	}
+
+	// Initialize refresh manager if REST client is available
+	// Skip automatic start in test environment
+	if restClient != nil && os.Getenv("DISABLE_TOOL_REFRESH") != "true" {
+		h.refreshManager = NewToolRefreshManager(
+			restClient,
+			h,
+			5*time.Minute, // Default refresh interval
+			logger,
+		)
+		// Start automatic refresh in the background
+		go func() {
+			if err := h.refreshManager.Start(context.Background()); err != nil {
+				logger.Error("Failed to start tool refresh manager", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+		}()
+	}
+
+	return h
 }
 
 // SetMetricsClient sets the metrics client for telemetry
@@ -235,6 +277,8 @@ func (h *MCPProtocolHandler) HandleMessage(conn *websocket.Conn, connID string, 
 		return h.handleSemanticSearch(conn, connID, tenantID, msg)
 	case "x-devmesh/tools/batch":
 		return h.handleToolsBatch(conn, connID, tenantID, msg)
+	case "x-devmesh/tools/refresh":
+		return h.handleToolsRefresh(conn, connID, tenantID, msg)
 
 	default:
 		return h.sendError(conn, msg.ID, MCPErrorMethodNotFound, fmt.Sprintf("Method not found: %s", msg.Method))
@@ -266,13 +310,26 @@ func (h *MCPProtocolHandler) handleInitialize(conn *websocket.Conn, connID, tena
 		return h.sendError(conn, msg.ID, MCPErrorInternalError, "Failed to initialize session")
 	}
 
+	// Get passthrough auth from connection if server is available
+	var passthroughAuth *models.PassthroughAuthBundle
+	if h.server != nil {
+		passthroughAuth = h.server.GetConnectionPassthroughAuth(connID)
+		if passthroughAuth != nil {
+			h.logger.Debug("Retrieved passthrough auth for session", map[string]interface{}{
+				"connection_id": connID,
+				"services":      len(passthroughAuth.Credentials),
+			})
+		}
+	}
+
 	// Create or update session
 	h.sessionsMu.Lock()
 	session := &MCPSession{
-		ID:        connID,
-		TenantID:  tenantID,
-		AgentID:   adapterSession.AgentID,
-		CreatedAt: time.Now(),
+		ID:              connID,
+		TenantID:        tenantID,
+		AgentID:         adapterSession.AgentID,
+		CreatedAt:       time.Now(),
+		PassthroughAuth: passthroughAuth,
 	}
 	h.sessions[connID] = session
 	h.sessionsMu.Unlock()
@@ -583,11 +640,58 @@ func (h *MCPProtocolHandler) handleToolsList(conn *websocket.Conn, connID, tenan
 			description = fmt.Sprintf("%s integration", name)
 		}
 
-		mcpTools = append(mcpTools, map[string]interface{}{
+		mcpTool := map[string]interface{}{
 			"name":        name,
 			"description": description,
 			"inputSchema": inputSchema,
-		})
+		}
+
+		// Add enhanced metadata if available
+		if tool.Metadata != nil {
+			// Unmarshal the metadata from json.RawMessage
+			var metadata map[string]interface{}
+			if err := json.Unmarshal(*tool.Metadata, &metadata); err == nil {
+				// Preserve response examples
+				if examples, ok := metadata["responseExample"]; ok {
+					mcpTool["responseExample"] = examples
+				} else if examples, ok := metadata["response_example"]; ok {
+					mcpTool["responseExample"] = examples
+				}
+
+				// Preserve common errors
+				if errors, ok := metadata["commonErrors"]; ok {
+					mcpTool["commonErrors"] = errors
+				} else if errors, ok := metadata["common_errors"]; ok {
+					mcpTool["commonErrors"] = errors
+				}
+
+				// Preserve extended help
+				if help, ok := metadata["extendedHelp"]; ok {
+					mcpTool["extendedHelp"] = help
+				} else if help, ok := metadata["extended_help"]; ok {
+					mcpTool["extendedHelp"] = help
+				}
+
+				// Preserve rate limits
+				if limits, ok := metadata["rateLimits"]; ok {
+					mcpTool["rateLimits"] = limits
+				} else if limits, ok := metadata["rate_limits"]; ok {
+					mcpTool["rateLimits"] = limits
+				}
+
+				// Preserve required scopes
+				if scopes, ok := metadata["requiredScopes"]; ok {
+					mcpTool["requiredScopes"] = scopes
+				} else if scopes, ok := metadata["required_scopes"]; ok {
+					mcpTool["requiredScopes"] = scopes
+				}
+
+				// Include the full metadata as well for any additional fields
+				mcpTool["metadata"] = metadata
+			}
+		}
+
+		mcpTools = append(mcpTools, mcpTool)
 	}
 
 	// Cache the tools list
@@ -675,23 +779,33 @@ func (h *MCPProtocolHandler) handleToolCall(conn *websocket.Conn, connID, tenant
 	}
 
 	// Log what parameters we're about to send for debugging
-	h.logger.Info("Preparing to execute tool", map[string]interface{}{
+	logData := map[string]interface{}{
 		"tool_id":     toolID,
 		"tool_name":   toolName,
 		"action":      action,
 		"params_keys": getMapKeys(executionParams),
 		"has_owner":   executionParams["owner"] != nil,
 		"has_repo":    executionParams["repo"] != nil,
-	})
+	}
+
+	// Add passthrough auth info if available
+	if session.PassthroughAuth != nil {
+		logData["has_passthrough_auth"] = true
+		logData["passthrough_services"] = len(session.PassthroughAuth.Credentials)
+	}
+
+	h.logger.Info("Preparing to execute tool", logData)
 
 	// Execute via existing tool execution endpoint with circuit breaker protection
+	// Pass the passthrough auth from the session if available
 	resultInterface, err := breaker.Call(ctx, toolID, func() (interface{}, error) {
-		return h.restAPIClient.ExecuteTool(
+		return h.restAPIClient.ExecuteToolWithAuth(
 			ctx,
 			tenantID,
 			toolID,
 			action,
 			executionParams,
+			session.PassthroughAuth,
 		)
 	})
 
@@ -1634,6 +1748,15 @@ func (tc *ToolsCache) Set(tools []interface{}) {
 	tc.lastUpdate = time.Now()
 }
 
+// Clear clears the cache
+func (tc *ToolsCache) Clear() {
+	tc.mu.Lock()
+	defer tc.mu.Unlock()
+
+	tc.tools = nil
+	tc.lastUpdate = time.Time{}
+}
+
 // MCPTelemetry tracks MCP protocol metrics
 type MCPTelemetry struct {
 	mu      sync.RWMutex
@@ -2108,6 +2231,27 @@ func (h *MCPProtocolHandler) handleToolsBatch(conn *websocket.Conn, connID, tena
 
 	return h.sendResult(conn, msg.ID, map[string]interface{}{
 		"results": results,
+	})
+}
+
+// handleToolsRefresh handles manual tool refresh requests
+func (h *MCPProtocolHandler) handleToolsRefresh(conn *websocket.Conn, connID, tenantID string, msg MCPMessage) error {
+	if h.refreshManager != nil {
+		ctx := context.Background()
+		if err := h.refreshManager.ForceRefresh(ctx); err != nil {
+			return h.sendError(conn, msg.ID, MCPErrorInternalError, fmt.Sprintf("Refresh failed: %v", err))
+		}
+
+		status := h.refreshManager.GetStatus()
+		return h.sendResult(conn, msg.ID, map[string]interface{}{
+			"status": "refreshed",
+			"info":   status,
+		})
+	}
+
+	return h.sendResult(conn, msg.ID, map[string]interface{}{
+		"status":  "no_refresh_manager",
+		"message": "Tool refresh manager not available",
 	})
 }
 

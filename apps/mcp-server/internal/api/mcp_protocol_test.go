@@ -42,6 +42,14 @@ func (m *MockRESTAPIClient) ExecuteTool(ctx context.Context, tenantID, toolID, a
 	return nil, args.Error(1)
 }
 
+func (m *MockRESTAPIClient) ExecuteToolWithAuth(ctx context.Context, tenantID, toolID, action string, params map[string]interface{}, passthroughAuth *models.PassthroughAuthBundle) (*models.ToolExecutionResponse, error) {
+	args := m.Called(ctx, tenantID, toolID, action, params, passthroughAuth)
+	if resp := args.Get(0); resp != nil {
+		return resp.(*models.ToolExecutionResponse), args.Error(1)
+	}
+	return nil, args.Error(1)
+}
+
 func (m *MockRESTAPIClient) GetToolHealth(ctx context.Context, tenantID, toolID string) (*models.HealthStatus, error) {
 	args := m.Called(ctx, tenantID, toolID)
 	if health := args.Get(0); health != nil {

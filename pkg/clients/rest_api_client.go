@@ -14,6 +14,14 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
+// minInt returns the smaller of two ints
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 // RESTAPIClient defines the interface for interacting with the REST API
 type RESTAPIClient interface {
 	// ListTools returns all available tools for a tenant
@@ -24,6 +32,9 @@ type RESTAPIClient interface {
 
 	// ExecuteTool executes a tool action
 	ExecuteTool(ctx context.Context, tenantID, toolID, action string, params map[string]interface{}) (*models.ToolExecutionResponse, error)
+
+	// ExecuteToolWithAuth executes a tool action with passthrough authentication
+	ExecuteToolWithAuth(ctx context.Context, tenantID, toolID, action string, params map[string]interface{}, passthroughAuth *models.PassthroughAuthBundle) (*models.ToolExecutionResponse, error)
 
 	// GetToolHealth checks the health status of a tool
 	GetToolHealth(ctx context.Context, tenantID, toolID string) (*models.HealthStatus, error)
@@ -289,13 +300,31 @@ func (c *restAPIClient) ListTools(ctx context.Context, tenantID string) ([]*mode
 		}
 	}()
 
+	// Read the response body for debugging
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Log the raw response for debugging
+	c.logger.Debug("REST API raw response", map[string]interface{}{
+		"tenant_id":      tenantID,
+		"response_size":  len(bodyBytes),
+		"response_start": string(bodyBytes[:minInt(500, len(bodyBytes))]), // First 500 chars
+	})
+
 	// Parse response
 	// The REST API returns {"count": N, "tools": [...]}
 	var response struct {
 		Count int                   `json:"count"`
 		Tools []*models.DynamicTool `json:"tools"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+	if err := json.Unmarshal(bodyBytes, &response); err != nil {
+		c.logger.Error("Failed to unmarshal response", map[string]interface{}{
+			"error":        err.Error(),
+			"response":     string(bodyBytes[:minInt(1000, len(bodyBytes))]),
+			"content_type": resp.Header.Get("Content-Type"),
+		})
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 	tools := response.Tools
@@ -347,8 +376,13 @@ func (c *restAPIClient) GetTool(ctx context.Context, tenantID, toolID string) (*
 	return &tool, nil
 }
 
-// ExecuteTool executes a tool action
+// ExecuteTool executes a tool action (without passthrough auth)
 func (c *restAPIClient) ExecuteTool(ctx context.Context, tenantID, toolID, action string, params map[string]interface{}) (*models.ToolExecutionResponse, error) {
+	return c.ExecuteToolWithAuth(ctx, tenantID, toolID, action, params, nil)
+}
+
+// ExecuteToolWithAuth executes a tool action with passthrough authentication
+func (c *restAPIClient) ExecuteToolWithAuth(ctx context.Context, tenantID, toolID, action string, params map[string]interface{}, passthroughAuth *models.PassthroughAuthBundle) (*models.ToolExecutionResponse, error) {
 	// Use the new endpoint that accepts action in the body
 	apiURL := fmt.Sprintf("%s/api/v1/tools/%s/execute", c.baseURL, toolID)
 
@@ -358,6 +392,11 @@ func (c *restAPIClient) ExecuteTool(ctx context.Context, tenantID, toolID, actio
 	requestBody := map[string]interface{}{
 		"action":     action,
 		"parameters": params,
+	}
+
+	// Add passthrough auth if provided
+	if passthroughAuth != nil {
+		requestBody["passthrough_auth"] = passthroughAuth
 	}
 
 	// Log to help debug parameter flow

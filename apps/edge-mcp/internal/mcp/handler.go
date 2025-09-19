@@ -132,7 +132,8 @@ func (h *Handler) HandleConnection(conn *websocket.Conn, r *http.Request) {
 	}()
 
 	// Create a context for this connection
-	ctx := r.Context()
+	// Use background context, not request context which gets cancelled after upgrade
+	ctx := context.Background()
 
 	// Start ping ticker to keep connection alive
 	ticker := time.NewTicker(30 * time.Second)

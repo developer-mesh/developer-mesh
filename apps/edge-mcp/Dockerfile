@@ -1,59 +1,61 @@
+# syntax=docker/dockerfile:1
+# Edge MCP Dockerfile following the workspace pattern
+
+# Build arguments
+ARG VERSION=dev
+ARG COMMIT_SHA=unknown
+ARG BUILD_DATE
+
 # Build stage
-FROM golang:1.21-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 # Install build dependencies
-RUN apk add --no-cache git make
+RUN apk add --no-cache git ca-certificates tzdata
 
 # Set working directory
-WORKDIR /app
+WORKDIR /workspace
 
-# Copy go mod files
-COPY go.mod go.sum ./
-
-# Download dependencies
-RUN go mod download
-
-# Copy source code
+# Copy everything
 COPY . .
 
+# Explicitly set GOWORK to use workspace mode
+ENV GOWORK=/workspace/go.work
+
 # Build the binary
-RUN CGO_ENABLED=0 GOOS=linux go build \
-    -ldflags="-s -w" \
-    -o edge-mcp \
-    cmd/server/main.go
+RUN cd apps/edge-mcp && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags="-w -s -X main.version=${VERSION} -X main.commit=${COMMIT_SHA}" \
+    -o /tmp/edge-mcp ./cmd/server
 
-# Runtime stage
-FROM alpine:latest
+# Final stage
+FROM gcr.io/distroless/static:nonroot
 
-# Install runtime dependencies
-RUN apk --no-cache add ca-certificates git docker-cli
+# Copy binary
+COPY --from=builder /tmp/edge-mcp /app/edge-mcp
 
-# Create non-root user
-RUN addgroup -g 1000 edge && \
-    adduser -D -u 1000 -G edge edge
+# Copy configuration files
+COPY --chown=nonroot:nonroot apps/edge-mcp/configs /app/configs
 
 # Set working directory
 WORKDIR /app
 
-# Copy binary from builder
-COPY --from=builder /app/edge-mcp /app/edge-mcp
-
-# Copy configuration
-COPY configs/config.yaml /app/configs/config.yaml
-
-# Change ownership
-RUN chown -R edge:edge /app
-
-# Switch to non-root user
-USER edge
+# Use non-root user
+USER nonroot
 
 # Expose port
 EXPOSE 8082
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8082/health || exit 1
+# Minimal environment variables
+ENV PORT=8082
 
-# Run the binary
+# Metadata labels
+ARG VERSION
+ARG COMMIT_SHA
+ARG BUILD_DATE
+LABEL org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${COMMIT_SHA}" \
+      org.opencontainers.image.created="${BUILD_DATE}"
+
+# Run the application with Docker config by default
 ENTRYPOINT ["/app/edge-mcp"]
-CMD ["--config", "/app/configs/config.yaml"]
+CMD ["--config", "/app/configs/config.docker.yaml", "--port", "8082"]

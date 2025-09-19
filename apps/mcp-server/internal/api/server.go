@@ -258,18 +258,7 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 		modelAPIProxy:  modelProxy,
 	}
 
-	// Initialize MCP protocol handler if REST API is enabled
-	if restAPIEnabled && restClientFactory != nil {
-		restAPIClient := clients.NewRESTAPIClient(clients.RESTClientConfig{
-			BaseURL: restAPIBaseURL,
-			APIKey:  restAPIKey,
-			Logger:  observability.DefaultLogger,
-		})
-		s.mcpProtocolHandler = NewMCPProtocolHandler(restAPIClient, observability.DefaultLogger)
-		observability.DefaultLogger.Info("MCP protocol handler initialized", nil)
-	}
-
-	// Initialize WebSocket server if enabled
+	// Initialize WebSocket server first if enabled (needed for MCP handler)
 	if cfg.WebSocket.Enabled {
 		wsConfig := websocket.Config{
 			MaxConnections:  cfg.WebSocket.MaxConnections,
@@ -283,9 +272,27 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 		}
 
 		s.wsServer = websocket.NewServer(authService, metrics, observability.DefaultLogger, wsConfig)
+		observability.DefaultLogger.Info("WebSocket server initialized", nil)
+	}
 
-		// Set MCP handler if available
-		if s.mcpProtocolHandler != nil {
+	// Initialize MCP protocol handler if REST API is enabled
+	if restAPIEnabled && restClientFactory != nil {
+		restAPIClient := clients.NewRESTAPIClient(clients.RESTClientConfig{
+			BaseURL: restAPIBaseURL,
+			APIKey:  restAPIKey,
+			Logger:  observability.DefaultLogger,
+		})
+
+		// Create MCP handler with server reference if WebSocket server exists
+		if s.wsServer != nil {
+			s.mcpProtocolHandler = NewMCPProtocolHandlerWithServer(restAPIClient, observability.DefaultLogger, s.wsServer)
+		} else {
+			s.mcpProtocolHandler = NewMCPProtocolHandler(restAPIClient, observability.DefaultLogger)
+		}
+		observability.DefaultLogger.Info("MCP protocol handler initialized", nil)
+
+		// Set MCP handler on WebSocket server if both are available
+		if s.wsServer != nil {
 			s.wsServer.SetMCPHandler(s.mcpProtocolHandler)
 
 			// Initialize APIL if enabled

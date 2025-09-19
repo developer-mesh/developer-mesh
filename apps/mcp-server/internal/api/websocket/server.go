@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/auth"
 	"github.com/developer-mesh/developer-mesh/pkg/clients"
 	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 	ws "github.com/developer-mesh/developer-mesh/pkg/models/websocket"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	agentRepository "github.com/developer-mesh/developer-mesh/pkg/repository/agent"
@@ -188,6 +190,61 @@ func NewServer(auth *auth.Service, metrics observability.MetricsClient, logger o
 	return s
 }
 
+// extractPassthroughAuth extracts passthrough authentication from request headers
+func (s *Server) extractPassthroughAuth(r *http.Request) *models.PassthroughAuthBundle {
+	bundle := &models.PassthroughAuthBundle{
+		Credentials: make(map[string]*models.PassthroughCredential),
+	}
+
+	// Check for X-Passthrough-Auth header (JSON encoded bundle)
+	if authHeader := r.Header.Get("X-Passthrough-Auth"); authHeader != "" {
+		var tempBundle models.PassthroughAuthBundle
+		if err := json.Unmarshal([]byte(authHeader), &tempBundle); err == nil {
+			return &tempBundle
+		}
+	}
+
+	// Check for individual service credentials
+	// GitHub Token
+	if githubToken := r.Header.Get("X-GitHub-Token"); githubToken != "" {
+		bundle.Credentials["github"] = &models.PassthroughCredential{
+			Type:  "bearer",
+			Token: githubToken,
+		}
+	}
+
+	// Harness Token
+	if harnessToken := r.Header.Get("X-Harness-Token"); harnessToken != "" {
+		bundle.Credentials["harness"] = &models.PassthroughCredential{
+			Type:  "x-api-key",
+			Token: harnessToken,
+		}
+	}
+
+	// Generic API Key
+	if apiKey := r.Header.Get("X-API-Key"); apiKey != "" {
+		bundle.Credentials["default"] = &models.PassthroughCredential{
+			Type:  "api-key",
+			Token: apiKey,
+		}
+	}
+
+	// OAuth Bearer Token
+	if bearerToken := r.Header.Get("X-Bearer-Token"); bearerToken != "" {
+		bundle.Credentials["oauth"] = &models.PassthroughCredential{
+			Type:  "bearer",
+			Token: bearerToken,
+		}
+	}
+
+	// Return nil if no credentials were found
+	if len(bundle.Credentials) == 0 {
+		return nil
+	}
+
+	return bundle
+}
+
 func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	// Check IP rate limit
 	if s.ipRateLimiter != nil {
@@ -231,6 +288,14 @@ func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	// Set connection limits
 	conn.SetReadLimit(s.config.MaxMessageSize)
+
+	// Extract passthrough authentication from headers
+	passthroughAuth := s.extractPassthroughAuth(r)
+	if passthroughAuth != nil {
+		s.logger.Debug("Passthrough authentication extracted", map[string]interface{}{
+			"services": len(passthroughAuth.Credentials),
+		})
+	}
 
 	// Get connection from pool
 	connection := s.connectionPool.Get()
@@ -306,6 +371,7 @@ func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		connection.state = &ConnectionState{}
 	}
 	connection.state.Claims = claims
+	connection.state.PassthroughAuth = passthroughAuth
 
 	// Detect connection mode based on headers and user agent
 	connectionMode := s.detectConnectionMode(r)
@@ -411,6 +477,17 @@ func (s *Server) ConnectionCount() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return len(s.connections)
+}
+
+// GetConnectionPassthroughAuth returns the passthrough auth for a connection
+func (s *Server) GetConnectionPassthroughAuth(connID string) *models.PassthroughAuthBundle {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if conn, ok := s.connections[connID]; ok && conn.state != nil {
+		return conn.state.PassthroughAuth
+	}
+	return nil
 }
 
 // addConnection registers a new connection

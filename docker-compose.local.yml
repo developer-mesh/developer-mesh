@@ -1,111 +1,31 @@
 version: '3.8'
 
 services:
-  mcp-server:
+  edge-mcp:
     build:
       context: .
-      dockerfile: apps/mcp-server/Dockerfile
+      dockerfile: apps/edge-mcp/Dockerfile
     ports:
-      - "8080:8080"
+      - "8085:8082"  # Edge MCP runs on 8082 internally, map to 8085 externally
     environment:
-      # Core settings
-      - ENVIRONMENT=docker
-      - MCP_CONFIG_FILE=/app/configs/config.docker.yaml
-      - API_HOST=0.0.0.0
-      - API_PORT=8080
-      # Authentication
-      - JWT_SECRET=${JWT_SECRET:-docker-jwt-secret-change-in-production}
-      - ADMIN_API_KEY=${ADMIN_API_KEY:-dev-admin-key-1234567890}
-      - READER_API_KEY=${READER_API_KEY:-dev-readonly-key-1234567890}
-      - MCP_API_KEY=${MCP_API_KEY:-dev-admin-key-1234567890}
-      # REST API Integration (container-to-container)
-      - MCP_MCP_SERVER_REST_API_BASE_URL=http://rest-api:8080
-      - MCP_MCP_SERVER_REST_API_ENABLED=true
-      - MCP_MCP_SERVER_REST_API_API_KEY=dev-admin-key-1234567890
-      # Database (using service names)
+      # Edge MCP configuration
+      - EDGE_MCP_API_KEY=devmesh_ab80cbb2438dbb43339c0e3317ab2fc6dd0e046f3b50360df06abb5bae31a210
+      - DEV_MESH_URL=http://rest-api:8080
+      - DEV_MESH_API_KEY=devmesh_ab80cbb2438dbb43339c0e3317ab2fc6dd0e046f3b50360df06abb5bae31a210
+      - EDGE_MCP_ID=edge-docker-001
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      # Database (if Edge MCP needs direct access)
       - DATABASE_HOST=database
-      - DB_HOST=database
       - DATABASE_PORT=5432
-      - DB_PORT=5432
       - DATABASE_NAME=devmesh_development
-      - DB_NAME=devmesh_development
       - DATABASE_USER=devmesh
-      - DB_USER=devmesh
       - DATABASE_PASSWORD=devmesh
-      - DB_PASSWORD=devmesh
       - DATABASE_SSL_MODE=disable
-      - DB_SSLMODE=disable
-      - DATABASE_DSN=postgres://devmesh:devmesh@database:5432/devmesh_development?sslmode=disable&search_path=mcp,public
-      # Redis (using service names)
+      # Redis (for caching)
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - REDIS_ADDR=redis:6379
-      - REDIS_ADDRESS=redis:6379
-      - CACHE_TYPE=redis
-      # ElastiCache configuration for functional tests
-      - ELASTICACHE_ENDPOINT=redis
-      - ELASTICACHE_PORT=6379
-      # AWS Configuration
-      - AWS_REGION=${AWS_REGION:-us-east-1}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      # - AWS_ENDPOINT_URL=http://localstack:4566  # Commented out to use real AWS
-      - S3_BUCKET=${S3_BUCKET:-mcp-contexts}
-      - S3_ENDPOINT=http://localstack:4566
-      - S3_USE_PATH_STYLE=true
-      # GitHub Integration
-      - GITHUB_TOKEN=${GITHUB_TOKEN:-test-github-token}
-      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET:-docker-github-webhook-secret}
-      - GITHUB_OWNER=${GITHUB_OWNER:-test-org}
-      - GITHUB_REPO=${GITHUB_REPO:-test-repo}
-      - GITHUB_APP_ID=${GITHUB_APP_ID:-}
-      - GITHUB_INSTALLATION_ID=${GITHUB_INSTALLATION_ID:-}
-      - GITHUB_PRIVATE_KEY_PATH=${GITHUB_PRIVATE_KEY_PATH:-}
-      # Mock Server
-      - MOCKSERVER_URL=http://mockserver:8081
-      - MOCK_RESPONSES_ENABLED=${MOCK_RESPONSES_ENABLED:-true}
-      # Embedding Configuration
-      - EMBEDDING_ENABLED=${EMBEDDING_ENABLED:-true}
-      # OpenAI Provider
-      - OPENAI_ENABLED=${OPENAI_ENABLED:-false}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      # AWS Bedrock Provider
-      - BEDROCK_ENABLED=${BEDROCK_ENABLED:-true}
-      - BEDROCK_REGION=${AWS_REGION:-us-east-1}
-      - BEDROCK_ENDPOINT=${BEDROCK_ENDPOINT:-}
-      - BEDROCK_ROLE_ARN=${BEDROCK_ROLE_ARN:-}
-      # Google AI Provider
-      - GOOGLE_AI_ENABLED=${GOOGLE_AI_ENABLED:-false}
-      - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY:-}
-      # Legacy Vector Search (for compatibility)
-      - VECTOR_ENABLED=${VECTOR_ENABLED:-true}
-      - VECTOR_DEFAULT_MODEL=${VECTOR_DEFAULT_MODEL:-text-embedding-ada-002}
-      - VECTOR_DEFAULT_DIMENSION=${VECTOR_DEFAULT_DIMENSION:-1536}
-      # Monitoring
-      - LOG_LEVEL=${LOG_LEVEL:-debug}
-      - LOG_FORMAT=json
-      - PROMETHEUS_ENABLED=true
-      - METRICS_PATH=/metrics
-      # Security
-      - CORS_ENABLED=true
-      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080
-      - RATE_LIMIT_ENABLED=true
-      - RATE_LIMIT_REQUESTS=100
-      - RATE_LIMIT_PERIOD=1m
-      - ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY:-dev_master_key_32_chars_long123}
-      # URL Validation Settings (for local development)
-      - ALLOW_LOCALHOST_URLS=true
-      - ALLOW_PRIVATE_NETWORK_URLS=true
-      # Legacy keys for backward compatibility (deprecated - will be removed)
-      - DEVMESH_ENCRYPTION_KEY=${ENCRYPTION_MASTER_KEY:-dev_master_key_32_chars_long123}
-      # Feature Flags
-      - FEATURE_WEBHOOKS_ENABLED=true
-      - FEATURE_VECTOR_SEARCH_ENABLED=true
-      - FEATURE_GITHUB_INTEGRATION_ENABLED=true
     volumes:
-      - ./configs:/app/configs:ro
-      - ./apps/mcp-server/configs:/app/server-configs:ro
-      - ./apps/rest-api/migrations:/app/migrations:ro
+      - ./apps/edge-mcp/configs:/app/configs:ro
     depends_on:
       rest-api:
         condition: service_healthy
@@ -139,7 +59,7 @@ services:
       - API_HOST=0.0.0.0
       - API_PORT=8080
       - PORT=8080
-      - MCP_SERVER_URL=http://mcp-server:8080
+      - MCP_SERVER_URL=http://edge-mcp:8082
       # Authentication
       - JWT_SECRET=${JWT_SECRET:-docker-jwt-secret-change-in-production}
       - ADMIN_API_KEY=${ADMIN_API_KEY:-dev-admin-key-1234567890}

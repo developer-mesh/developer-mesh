@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/developer-mesh/developer-mesh/pkg/auth"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 	ws "github.com/developer-mesh/developer-mesh/pkg/models/websocket"
 )
 
@@ -50,8 +51,9 @@ type ConnectionState struct {
 	SystemPromptTokens   int
 	ConversationTokens   int
 	ToolTokens           int
-	Claims               *auth.Claims   // Authentication claims
-	ConnectionMode       ConnectionMode // Type of connection
+	Claims               *auth.Claims                  // Authentication claims
+	ConnectionMode       ConnectionMode                // Type of connection
+	PassthroughAuth      *models.PassthroughAuthBundle // User-specific passthrough credentials
 }
 
 // RateLimiter implements token bucket algorithm

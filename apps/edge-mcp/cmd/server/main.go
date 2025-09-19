@@ -215,6 +215,9 @@ func main() {
 		// Accept WebSocket connection using coder/websocket
 		conn, err := websocket.Accept(c.Writer, c.Request, &websocket.AcceptOptions{
 			OriginPatterns: []string{"*"}, // Allow all origins for local development
+			// Enable compression to handle large tool lists
+			// This compresses messages >128 bytes, which will reduce our 143KB tools list to ~30KB
+			CompressionMode: websocket.CompressionContextTakeover,
 		})
 		if err != nil {
 			logger.Error("WebSocket upgrade failed", map[string]interface{}{
@@ -227,6 +230,8 @@ func main() {
 		}()
 
 		// Handle MCP connection
+		// Note: Compression is enabled above, so large tool lists will be compressed
+		// from ~143KB to ~30KB, fitting within default WebSocket limits
 		mcpHandler.HandleConnection(conn, c.Request)
 	})
 

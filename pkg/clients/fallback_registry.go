@@ -250,8 +250,13 @@ func (c *FallbackClient) GetTool(ctx context.Context, tenantID, toolID string) (
 
 // ExecuteTool always uses primary (no fallback for execution)
 func (c *FallbackClient) ExecuteTool(ctx context.Context, tenantID, toolID, action string, params map[string]interface{}) (*models.ToolExecutionResponse, error) {
+	return c.ExecuteToolWithAuth(ctx, tenantID, toolID, action, params, nil)
+}
+
+// ExecuteToolWithAuth always uses primary (no fallback for execution)
+func (c *FallbackClient) ExecuteToolWithAuth(ctx context.Context, tenantID, toolID, action string, params map[string]interface{}, passthroughAuth *models.PassthroughAuthBundle) (*models.ToolExecutionResponse, error) {
 	// Tool execution cannot use fallback - must go through primary
-	result, err := c.primary.ExecuteTool(ctx, tenantID, toolID, action, params)
+	result, err := c.primary.ExecuteToolWithAuth(ctx, tenantID, toolID, action, params, passthroughAuth)
 	if err != nil {
 		c.metrics.mu.Lock()
 		c.metrics.PrimaryFailures++
