@@ -267,7 +267,7 @@ func NewAddPullRequestReviewGraphQLHandler(p *GitHubProvider) *AddPullRequestRev
 func (h *AddPullRequestReviewGraphQLHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
 	owner := extractString(params, "owner")
 	repo := extractString(params, "repo")
-	pullNumber := extractInt(params, "pull_number")
+	pullNumber := extractInt32(params, "pull_number")
 	event := extractString(params, "event") // APPROVE, REQUEST_CHANGES, COMMENT
 	body := extractString(params, "body")
 
@@ -488,7 +488,7 @@ func NewMergePullRequestGraphQLHandler(p *GitHubProvider) *MergePullRequestGraph
 func (h *MergePullRequestGraphQLHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
 	owner := extractString(params, "owner")
 	repo := extractString(params, "repo")
-	pullNumber := extractInt(params, "pull_number")
+	pullNumber := extractInt32(params, "pull_number")
 	mergeMethod := extractString(params, "merge_method") // MERGE, SQUASH, REBASE
 	commitTitle := extractString(params, "commit_title")
 	commitMessage := extractString(params, "commit_message")

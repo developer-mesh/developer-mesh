@@ -301,7 +301,7 @@ func NewGetDiscussionHandler(p *GitHubProvider) *GetDiscussionHandler {
 func (h *GetDiscussionHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
 	owner := extractString(params, "owner")
 	repo := extractString(params, "repo")
-	discussionNumber := extractInt(params, "discussion_number")
+	discussionNumber := extractInt32(params, "discussion_number")
 
 	if owner == "" || repo == "" || discussionNumber == 0 {
 		return ErrorResult("owner, repo, and discussion_number are required"), nil
@@ -556,7 +556,7 @@ func NewGetDiscussionCommentsHandler(p *GitHubProvider) *GetDiscussionCommentsHa
 func (h *GetDiscussionCommentsHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
 	owner := extractString(params, "owner")
 	repo := extractString(params, "repo")
-	discussionNumber := extractInt(params, "discussion_number")
+	discussionNumber := extractInt32(params, "discussion_number")
 
 	if owner == "" || repo == "" || discussionNumber == 0 {
 		return ErrorResult("owner, repo, and discussion_number are required"), nil

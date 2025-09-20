@@ -5,7 +5,17 @@ All notable changes to Developer Mesh will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.0.3] - 2025-09-20
+
+### Security
+
+- **Critical Security Vulnerabilities Fixed** (2025-09-20): Addressed multiple high and medium severity issues
+  - Fixed SSRF vulnerability in mockserver by adding port validation (apps/mockserver/cmd/main.go)
+  - Fixed credential logging in database.go by implementing sanitizeDSN function to mask passwords
+  - Fixed integer overflow vulnerabilities in GitHub provider by implementing extractInt32 with bounds checking
+  - Updated Docker dependency from v28.2.2 to v28.3.3 to fix CVE-2025-54388 (firewalld reload vulnerability)
+  - Added proper int32 conversion with bounds validation in 4 locations across GraphQL handlers
+  - Result: Eliminated all high-severity security vulnerabilities identified by CodeQL and Snyk
 
 ### Added
 

@@ -3,6 +3,7 @@ package github
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 )
@@ -60,6 +61,42 @@ func extractInt(params map[string]interface{}, key string) int {
 	// Try int64 (sometimes JSON unmarshaling uses int64)
 	if v, ok := params[key].(int64); ok {
 		return int(v)
+	}
+	return 0
+}
+
+// extractInt32 safely extracts an int32 from params with bounds checking
+func extractInt32(params map[string]interface{}, key string) int32 {
+	// Try float64 first (common in JSON)
+	if v, ok := params[key].(float64); ok {
+		if v <= math.MaxInt32 && v >= math.MinInt32 {
+			return int32(v)
+		}
+		return 0 // Return 0 if out of bounds
+	}
+	// Try int32 directly
+	if v, ok := params[key].(int32); ok {
+		return v
+	}
+	// Try int
+	if v, ok := params[key].(int); ok {
+		if v <= math.MaxInt32 && v >= math.MinInt32 {
+			return int32(v)
+		}
+		return 0 // Return 0 if out of bounds
+	}
+	// Try to parse from string with proper bit size
+	if v, ok := params[key].(string); ok {
+		if intVal, err := strconv.ParseInt(v, 10, 32); err == nil {
+			return int32(intVal)
+		}
+	}
+	// Try int64
+	if v, ok := params[key].(int64); ok {
+		if v <= math.MaxInt32 && v >= math.MinInt32 {
+			return int32(v)
+		}
+		return 0 // Return 0 if out of bounds
 	}
 	return 0
 }
