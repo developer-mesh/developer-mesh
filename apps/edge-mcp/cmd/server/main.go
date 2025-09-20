@@ -18,6 +18,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/mcp"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/platform"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tools"
+	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tools/builtin"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/gin-gonic/gin"
 )
@@ -134,6 +135,23 @@ func main() {
 
 	// Initialize tool registry
 	toolRegistry := tools.NewRegistry()
+
+	// Register built-in MCP tools for agent orchestration
+	// These tools provide core functionality for DevMesh operations
+	builtinProviders := []interface{ GetDefinitions() []tools.ToolDefinition }{
+		builtin.NewAgentProvider(),
+		builtin.NewWorkflowProvider(),
+		builtin.NewTaskProvider(),
+		builtin.NewContextProvider(),
+		builtin.NewTemplateProvider(), // Workflow templates for common patterns
+	}
+
+	for _, provider := range builtinProviders {
+		toolRegistry.Register(provider)
+	}
+	logger.Info("Registered built-in tools", map[string]interface{}{
+		"count": toolRegistry.Count(),
+	})
 
 	// Command executor no longer needed since we're not using local tools
 	// All execution happens via remote tools through the Core Platform
