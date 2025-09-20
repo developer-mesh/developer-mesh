@@ -121,8 +121,8 @@ func TestIsMCPMessage(t *testing.T) {
 func TestMCPProtocolHandler_HandleInitialize(t *testing.T) {
 	// Disable tool refresh for tests to avoid background goroutine issues
 	oldEnv := os.Getenv("DISABLE_TOOL_REFRESH")
-	os.Setenv("DISABLE_TOOL_REFRESH", "true")
-	defer os.Setenv("DISABLE_TOOL_REFRESH", oldEnv)
+	_ = os.Setenv("DISABLE_TOOL_REFRESH", "true")
+	defer func() { _ = os.Setenv("DISABLE_TOOL_REFRESH", oldEnv) }()
 
 	// Create mock REST client
 	mockClient := new(MockRESTAPIClient)
@@ -161,8 +161,8 @@ func TestMCPProtocolHandler_HandleInitialize(t *testing.T) {
 func TestMCPProtocolHandler_HandleToolsList(t *testing.T) {
 	// Disable tool refresh for tests to avoid background goroutine issues
 	oldEnv := os.Getenv("DISABLE_TOOL_REFRESH")
-	os.Setenv("DISABLE_TOOL_REFRESH", "true")
-	defer os.Setenv("DISABLE_TOOL_REFRESH", oldEnv)
+	_ = os.Setenv("DISABLE_TOOL_REFRESH", "true")
+	defer func() { _ = os.Setenv("DISABLE_TOOL_REFRESH", oldEnv) }()
 
 	// Create mock REST client
 	mockClient := new(MockRESTAPIClient)
@@ -203,8 +203,8 @@ func TestMCPProtocolHandler_HandleToolsList(t *testing.T) {
 func TestMCPProtocolHandler_HandleToolCall(t *testing.T) {
 	// Disable tool refresh for tests to avoid background goroutine issues
 	oldEnv := os.Getenv("DISABLE_TOOL_REFRESH")
-	os.Setenv("DISABLE_TOOL_REFRESH", "true")
-	defer os.Setenv("DISABLE_TOOL_REFRESH", oldEnv)
+	_ = os.Setenv("DISABLE_TOOL_REFRESH", "true")
+	defer func() { _ = os.Setenv("DISABLE_TOOL_REFRESH", oldEnv) }()
 
 	// Create mock REST client
 	mockClient := new(MockRESTAPIClient)
@@ -243,8 +243,8 @@ func TestMCPProtocolHandler_HandleToolCall(t *testing.T) {
 func TestMCPProtocolHandler_SessionManagement(t *testing.T) {
 	// Disable tool refresh for tests to avoid background goroutine issues
 	oldEnv := os.Getenv("DISABLE_TOOL_REFRESH")
-	os.Setenv("DISABLE_TOOL_REFRESH", "true")
-	defer os.Setenv("DISABLE_TOOL_REFRESH", oldEnv)
+	_ = os.Setenv("DISABLE_TOOL_REFRESH", "true")
+	defer func() { _ = os.Setenv("DISABLE_TOOL_REFRESH", oldEnv) }()
 
 	mockClient := new(MockRESTAPIClient)
 	logger := observability.NewStandardLogger("test")
