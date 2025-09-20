@@ -20,8 +20,8 @@ func GetEnhancedAgentTools() []EnhancedToolDefinition {
 				NextTools: []string{"agent_status", "agent_list", "task_assign"},
 				RateLimit: &RateLimitInfo{
 					RequestsPerMinute: 600,
-					BurstSize:        20,
-					Description:      "High frequency allowed for maintaining agent liveness",
+					BurstSize:         20,
+					Description:       "High frequency allowed for maintaining agent liveness",
 				},
 				Limits: map[string]interface{}{
 					"timeout_minutes":       5,
@@ -47,8 +47,8 @@ func GetEnhancedAgentTools() []EnhancedToolDefinition {
 				NextTools: []string{"agent_status", "task_assign", "agent_heartbeat"},
 				RateLimit: &RateLimitInfo{
 					RequestsPerMinute: 100,
-					BurstSize:        10,
-					Description:      "Standard rate limit for list operations",
+					BurstSize:         10,
+					Description:       "Standard rate limit for list operations",
 				},
 				Limits: map[string]interface{}{
 					"max_limit":     100,
@@ -83,13 +83,13 @@ func GetEnhancedWorkflowTools() []EnhancedToolDefinition {
 				NextTools: []string{"workflow_execute", "workflow_get", "workflow_list"},
 				RateLimit: &RateLimitInfo{
 					RequestsPerMinute: 60,
-					BurstSize:        10,
-					Description:      "Moderate limit for workflow creation",
+					BurstSize:         10,
+					Description:       "Moderate limit for workflow creation",
 				},
 				Limits: map[string]interface{}{
-					"max_steps":        100,
-					"max_name_length":  255,
-					"max_description":  1000,
+					"max_steps":       100,
+					"max_name_length": 255,
+					"max_description": 1000,
 				},
 				Examples: []Example{
 					{
@@ -122,8 +122,8 @@ func GetEnhancedWorkflowTools() []EnhancedToolDefinition {
 				NextTools: []string{"workflow_execution_get", "workflow_execution_list", "workflow_cancel"},
 				RateLimit: &RateLimitInfo{
 					RequestsPerMinute: 60,
-					BurstSize:        10,
-					Description:      "Controlled rate to prevent workflow flooding",
+					BurstSize:         10,
+					Description:       "Controlled rate to prevent workflow flooding",
 				},
 				Limits: map[string]interface{}{
 					"simulation_delay_ms": 100,
@@ -158,8 +158,8 @@ func GetEnhancedTaskTools() []EnhancedToolDefinition {
 				NextTools: []string{"task_assign", "task_get", "task_list"},
 				RateLimit: &RateLimitInfo{
 					RequestsPerMinute: 120,
-					BurstSize:        20,
-					Description:      "Standard limit for task creation",
+					BurstSize:         20,
+					Description:       "Standard limit for task creation",
 				},
 				Limits: map[string]interface{}{
 					"max_title_length":       255,
@@ -187,8 +187,8 @@ func GetEnhancedTaskTools() []EnhancedToolDefinition {
 				NextTools: []string{"task_assign", "task_complete", "task_list"},
 				RateLimit: &RateLimitInfo{
 					RequestsPerMinute: 30,
-					BurstSize:        5,
-					Description:      "Lower limit for batch operations to prevent overload",
+					BurstSize:         5,
+					Description:       "Lower limit for batch operations to prevent overload",
 				},
 				Limits: map[string]interface{}{
 					"max_tasks_per_request": 50,
@@ -212,8 +212,8 @@ func GetEnhancedTaskTools() []EnhancedToolDefinition {
 				NextTools: []string{"task_list", "task_create", "workflow_execute"},
 				RateLimit: &RateLimitInfo{
 					RequestsPerMinute: 100,
-					BurstSize:        10,
-					Description:      "Standard rate limit",
+					BurstSize:         10,
+					Description:       "Standard rate limit",
 				},
 				Limits: map[string]interface{}{
 					"max_result_size_kb": 100,
@@ -248,8 +248,8 @@ func GetEnhancedContextTools() []EnhancedToolDefinition {
 				NextTools: []string{"context_get", "context_append", "workflow_execute"},
 				RateLimit: &RateLimitInfo{
 					RequestsPerMinute: 300,
-					BurstSize:        50,
-					Description:      "High limit for context management",
+					BurstSize:         50,
+					Description:       "High limit for context management",
 				},
 				Limits: map[string]interface{}{
 					"max_context_size_kb": 1000,
@@ -283,11 +283,11 @@ func GetEnhancedContextTools() []EnhancedToolDefinition {
 				NextTools: []string{"context_get", "context_list"},
 				RateLimit: &RateLimitInfo{
 					RequestsPerMinute: 300,
-					BurstSize:        50,
-					Description:      "High limit for context management",
+					BurstSize:         50,
+					Description:       "High limit for context management",
 				},
 				Limits: map[string]interface{}{
-					"max_array_size":   1000,
+					"max_array_size":    1000,
 					"max_value_size_kb": 100,
 				},
 				Examples: []Example{

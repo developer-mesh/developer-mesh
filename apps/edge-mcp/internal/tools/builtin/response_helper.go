@@ -174,37 +174,37 @@ func GetRateLimitForTool(toolName string) *RateLimitInfo {
 	// Default rate limits - in production these would be configurable
 	rateLimits := map[string]*RateLimitInfo{
 		"agent_heartbeat": {
-			RequestsPerMinute: 600,  // High frequency for heartbeats
-			BurstSize:        20,
-			Description:      "Higher limit for maintaining agent liveness",
+			RequestsPerMinute: 600, // High frequency for heartbeats
+			BurstSize:         20,
+			Description:       "Higher limit for maintaining agent liveness",
 		},
 		"workflow_execute": {
 			RequestsPerMinute: 60,
-			BurstSize:        10,
-			Description:      "Moderate limit to prevent workflow flooding",
+			BurstSize:         10,
+			Description:       "Moderate limit to prevent workflow flooding",
 		},
 		"task_create": {
 			RequestsPerMinute: 120,
-			BurstSize:        20,
-			Description:      "Standard limit for task creation",
+			BurstSize:         20,
+			Description:       "Standard limit for task creation",
 		},
 		"task_get_batch": {
 			RequestsPerMinute: 30,
-			BurstSize:        5,
-			Description:      "Lower limit for batch operations",
+			BurstSize:         5,
+			Description:       "Lower limit for batch operations",
 		},
 		"context_update": {
 			RequestsPerMinute: 300,
-			BurstSize:        50,
-			Description:      "High limit for context management",
+			BurstSize:         50,
+			Description:       "High limit for context management",
 		},
 	}
 
 	// Default rate limit for tools not explicitly configured
 	defaultLimit := &RateLimitInfo{
 		RequestsPerMinute: 100,
-		BurstSize:        10,
-		Description:      "Standard rate limit",
+		BurstSize:         10,
+		Description:       "Standard rate limit",
 	}
 
 	if limit, exists := rateLimits[toolName]; exists {

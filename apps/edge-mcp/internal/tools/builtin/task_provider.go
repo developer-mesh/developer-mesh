@@ -222,12 +222,12 @@ func (p *TaskProvider) handleCreate(ctx context.Context, args json.RawMessage) (
 	}
 
 	var params struct {
-		Title           string `json:"title"`
-		Description     string `json:"description,omitempty"`
-		Type            string `json:"type,omitempty"`
-		Priority        string `json:"priority,omitempty"`
-		AgentType       string `json:"agent_type,omitempty"`
-		IdempotencyKey  string `json:"idempotency_key,omitempty"`
+		Title          string `json:"title"`
+		Description    string `json:"description,omitempty"`
+		Type           string `json:"type,omitempty"`
+		Priority       string `json:"priority,omitempty"`
+		AgentType      string `json:"agent_type,omitempty"`
+		IdempotencyKey string `json:"idempotency_key,omitempty"`
 	}
 
 	if err := json.Unmarshal(args, &params); err != nil {
@@ -269,13 +269,13 @@ func (p *TaskProvider) handleCreate(ctx context.Context, args json.RawMessage) (
 	p.tasksMu.Unlock()
 
 	result := map[string]interface{}{
-		"id":          task.ID,
-		"title":       task.Title,
-		"type":        task.Type,
-		"priority":    task.Priority,
-		"status":      task.Status,
-		"created_at":  task.CreatedAt.Format(time.RFC3339),
-		"message":     fmt.Sprintf("Task created: %s", task.Title),
+		"id":         task.ID,
+		"title":      task.Title,
+		"type":       task.Type,
+		"priority":   task.Priority,
+		"status":     task.Status,
+		"created_at": task.CreatedAt.Format(time.RFC3339),
+		"message":    fmt.Sprintf("Task created: %s", task.Title),
 	}
 
 	// Store for idempotency
@@ -611,8 +611,8 @@ func (p *TaskProvider) handleGetBatch(ctx context.Context, args json.RawMessage)
 	}
 
 	result := map[string]interface{}{
-		"tasks":       tasks,
-		"found_count": len(tasks),
+		"tasks":           tasks,
+		"found_count":     len(tasks),
 		"total_requested": len(params.TaskIDs),
 	}
 

@@ -31,10 +31,10 @@ type Workflow struct {
 
 // WorkflowStep represents a step in a workflow
 type WorkflowStep struct {
-	Name        string                 `json:"name"`
-	Type        string                 `json:"type"`
-	Config      map[string]interface{} `json:"config,omitempty"`
-	DependsOn   []string               `json:"depends_on,omitempty"`
+	Name      string                 `json:"name"`
+	Type      string                 `json:"type"`
+	Config    map[string]interface{} `json:"config,omitempty"`
+	DependsOn []string               `json:"depends_on,omitempty"`
 }
 
 // WorkflowExecution represents a workflow execution instance
@@ -399,7 +399,7 @@ func (p *WorkflowProvider) handleExecute(ctx context.Context, args json.RawMessa
 		execution.Status = "completed"
 		execution.EndedAt = &now
 		execution.Output = map[string]interface{}{
-			"result": "success",
+			"result":         "success",
 			"steps_executed": len(workflow.Steps),
 		}
 		p.workflowsMu.Unlock()

@@ -7,17 +7,17 @@ import (
 
 // RateLimiter provides simple rate limiting for tools
 type RateLimiter struct {
-	mu       sync.RWMutex
-	buckets  map[string]*TokenBucket
-	configs  map[string]*RateLimitInfo
+	mu      sync.RWMutex
+	buckets map[string]*TokenBucket
+	configs map[string]*RateLimitInfo
 }
 
 // TokenBucket implements a simple token bucket algorithm
 type TokenBucket struct {
-	tokens       int
-	maxTokens    int
-	refillRate   int       // tokens per minute
-	lastRefill   time.Time
+	tokens     int
+	maxTokens  int
+	refillRate int // tokens per minute
+	lastRefill time.Time
 }
 
 // GlobalRateLimiter is a singleton rate limiter for all tools

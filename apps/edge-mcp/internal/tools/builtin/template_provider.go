@@ -95,11 +95,11 @@ func (p *TemplateProvider) handleList(ctx context.Context, args json.RawMessage)
 		}
 
 		templates = append(templates, map[string]interface{}{
-			"id":                tmpl.ID,
-			"name":              tmpl.Name,
-			"description":       tmpl.Description,
-			"category":          tmpl.Category,
-			"steps_count":       len(tmpl.Steps),
+			"id":                 tmpl.ID,
+			"name":               tmpl.Name,
+			"description":        tmpl.Description,
+			"category":           tmpl.Category,
+			"steps_count":        len(tmpl.Steps),
 			"required_variables": tmpl.RequiredVariables,
 			"optional_variables": tmpl.OptionalVariables,
 		})
@@ -133,11 +133,11 @@ func (p *TemplateProvider) handleGet(ctx context.Context, args json.RawMessage) 
 	for _, tmpl := range WorkflowTemplates {
 		if tmpl.ID == params.TemplateID {
 			result := map[string]interface{}{
-				"id":                tmpl.ID,
-				"name":              tmpl.Name,
-				"description":       tmpl.Description,
-				"category":          tmpl.Category,
-				"steps":             tmpl.Steps,
+				"id":                 tmpl.ID,
+				"name":               tmpl.Name,
+				"description":        tmpl.Description,
+				"category":           tmpl.Category,
+				"steps":              tmpl.Steps,
 				"required_variables": tmpl.RequiredVariables,
 				"optional_variables": tmpl.OptionalVariables,
 			}

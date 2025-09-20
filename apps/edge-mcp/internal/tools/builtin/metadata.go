@@ -26,8 +26,8 @@ type ToolMetadata struct {
 // RateLimitInfo describes rate limiting for a tool
 type RateLimitInfo struct {
 	RequestsPerMinute int    `json:"requests_per_minute"`
-	BurstSize        int    `json:"burst_size"`
-	Description      string `json:"description"`
+	BurstSize         int    `json:"burst_size"`
+	Description       string `json:"description"`
 }
 
 // Example shows a sample usage of a tool
@@ -39,19 +39,19 @@ type Example struct {
 
 // StandardResponse wraps tool responses with metadata
 type StandardResponse struct {
-	Success   bool                   `json:"success"`
-	Data      interface{}           `json:"data,omitempty"`
-	Error     string                `json:"error,omitempty"`
-	Metadata  *ResponseMetadata     `json:"metadata"`
-	NextSteps []string              `json:"next_steps,omitempty"`
+	Success   bool              `json:"success"`
+	Data      interface{}       `json:"data,omitempty"`
+	Error     string            `json:"error,omitempty"`
+	Metadata  *ResponseMetadata `json:"metadata"`
+	NextSteps []string          `json:"next_steps,omitempty"`
 }
 
 // ResponseMetadata provides operation metadata
 type ResponseMetadata struct {
-	RequestID       string    `json:"request_id"`
-	Timestamp       time.Time `json:"timestamp"`
-	Duration        string    `json:"duration,omitempty"`
-	IdempotencyKey  string    `json:"idempotency_key,omitempty"`
+	RequestID       string           `json:"request_id"`
+	Timestamp       time.Time        `json:"timestamp"`
+	Duration        string           `json:"duration,omitempty"`
+	IdempotencyKey  string           `json:"idempotency_key,omitempty"`
 	RateLimitStatus *RateLimitStatus `json:"rate_limit_status,omitempty"`
 }
 
@@ -138,13 +138,13 @@ func (s *IdempotencyStore) cleanupExpired() {
 
 // WorkflowTemplate defines a pre-configured workflow pattern
 type WorkflowTemplate struct {
-	ID               string                 `json:"id"`
-	Name             string                 `json:"name"`
-	Description      string                 `json:"description"`
-	Category         string                 `json:"category"`
-	Steps            []WorkflowTemplateStep `json:"steps"`
-	RequiredVariables []TemplateVariable    `json:"required_variables,omitempty"`
-	OptionalVariables []TemplateVariable    `json:"optional_variables,omitempty"`
+	ID                string                 `json:"id"`
+	Name              string                 `json:"name"`
+	Description       string                 `json:"description"`
+	Category          string                 `json:"category"`
+	Steps             []WorkflowTemplateStep `json:"steps"`
+	RequiredVariables []TemplateVariable     `json:"required_variables,omitempty"`
+	OptionalVariables []TemplateVariable     `json:"optional_variables,omitempty"`
 }
 
 // TemplateVariable defines a variable for a workflow template

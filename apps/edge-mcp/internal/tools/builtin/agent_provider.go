@@ -18,11 +18,11 @@ type AgentProvider struct {
 
 // AgentStatus represents the status of an agent
 type AgentStatus struct {
-	AgentID      string    `json:"agent_id"`
-	Status       string    `json:"status"`
+	AgentID       string    `json:"agent_id"`
+	Status        string    `json:"status"`
 	LastHeartbeat time.Time `json:"last_heartbeat"`
-	Version      string    `json:"version,omitempty"`
-	Capabilities []string  `json:"capabilities,omitempty"`
+	Version       string    `json:"version,omitempty"`
+	Capabilities  []string  `json:"capabilities,omitempty"`
 }
 
 // NewAgentProvider creates a new agent provider
