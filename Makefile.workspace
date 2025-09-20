@@ -59,8 +59,8 @@ clean:
 	rm -rf $(BIN_DIR)/*
 
 # Special targets for specific applications
-mcp-server:
-	$(MAKE) -C apps/mcp-server $(MAKECMDGOALS)
+edge-mcp:
+	$(MAKE) -C apps/edge-mcp $(MAKECMDGOALS)
 
 worker:
 	$(MAKE) -C apps/worker $(MAKECMDGOALS)
@@ -68,6 +68,6 @@ worker:
 migrate:
 	$(MAKE) -C apps/migrate $(MAKECMDGOALS)
 
-# Run specified app (usage: make run-mcp-server)
+# Run specified app (usage: make run-edge-mcp)
 run-%:
 	$(MAKE) -C apps/$* run

@@ -15,10 +15,10 @@ Comprehensive debugging strategies for the Developer Mesh platform, from develop
 make health-check
 
 # View real-time logs
-make logs-follow service=mcp-server
+make logs-follow service=edge-mcp
 
 # Debug mode with verbose logging
-LOG_LEVEL=debug make run service=mcp-server
+LOG_LEVEL=debug make run service=edge-mcp
 
 # Interactive debugging
 make debug service=rest-api
@@ -280,18 +280,18 @@ docker network ls
 docker network inspect developer-mesh_default
 
 # 2. Test connectivity
-docker exec mcp-server ping postgres
-docker exec mcp-server nc -zv postgres 5432
+docker exec edge-mcp ping postgres
+docker exec edge-mcp nc -zv postgres 5432
 
 # 3. View container details
-docker inspect mcp-server | jq '.[0].NetworkSettings'
+docker inspect edge-mcp | jq '.[0].NetworkSettings'
 
 # 4. Debug DNS
-docker exec mcp-server nslookup postgres
-docker exec mcp-server cat /etc/resolv.conf
+docker exec edge-mcp nslookup postgres
+docker exec edge-mcp cat /etc/resolv.conf
 
 # 5. Port mapping issues
-docker port mcp-server
+docker port edge-mcp
 netstat -tlnp | grep 8080
 ```
 
@@ -309,13 +309,13 @@ healthcheck:
 
 ```bash
 # Check health status
-docker inspect mcp-server | jq '.[0].State.Health'
+docker inspect edge-mcp | jq '.[0].State.Health'
 
 # View health check logs
-docker inspect mcp-server | jq '.[0].State.Health.Log'
+docker inspect edge-mcp | jq '.[0].State.Health.Log'
 
 # Manual health check
-docker exec mcp-server curl -v http://localhost:8080/health
+docker exec edge-mcp curl -v http://localhost:8080/health
 ```
 
 ## Advanced Debugging Tools
@@ -535,7 +535,7 @@ cb.OnStateChange = func(from, to gobreaker.State) {
 - [ ] Check port availability: `lsof -i :8080 (MCP Server)`
 - [ ] Verify config file: `make validate-config`
 - [ ] Check permissions: `ls -la configs/`
-- [ ] Review logs: `journalctl -u mcp-server -f`
+- [ ] Review logs: `journalctl -u edge-mcp -f`
 
 ### Database Issues
 - [ ] Test connection: `pg_isready -h localhost -p 5432`

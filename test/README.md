@@ -17,7 +17,7 @@ The project has multiple test levels:
 make test
 
 # Run tests for specific application
-make test-mcp-server
+make test-edge-mcp
 make test-rest-api
 make test-worker
 

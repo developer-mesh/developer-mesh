@@ -90,5 +90,5 @@ If tests fail:
 
 1. Check server is running: `curl http://localhost:8080/health`
 2. Verify API key: `echo $MCP_API_KEY`
-3. Check logs: `make docker-compose-logs service=mcp-server`
+3. Check logs: `make docker-compose-logs service=edge-mcp`
 4. Enable debug mode: `export GINKGO_VERBOSE=true`

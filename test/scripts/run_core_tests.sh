@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# This script runs key tests for the Developer Mesh Server
+# This script runs key tests for the Edge MCP Server
 # focusing on core functionality
 
 set -e  # Exit on error
@@ -25,8 +25,8 @@ echo "Cleaning up previous build artifacts..."
 make clean
 
 # Build the server
-echo "Building the server..."
-$GO_PATH build -o mcp-server ./cmd/server
+echo "Building Edge MCP server..."
+cd ../../apps/edge-mcp && $GO_PATH build -o edge-mcp ./cmd/server && cd ../../test/scripts
 
 # Run key tests that don't require Docker
 echo "Running core tests..."

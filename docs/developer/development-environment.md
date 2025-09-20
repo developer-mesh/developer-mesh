@@ -68,7 +68,7 @@ make migrate-up-docker
 
 # Build and run services locally
 make build
-make run-mcp-server   # Terminal 1
+make run-edge-mcp   # Terminal 1
 make run-rest-api     # Terminal 2
 make run-worker       # Terminal 3
 ```
@@ -202,7 +202,7 @@ make lint
 
 # Run services locally
 # Terminal 1: MCP Server (WebSocket) <!-- Source: pkg/models/websocket/binary.go -->
-cd apps/mcp-server && go run cmd/server/main.go
+cd apps/edge-mcp && go run cmd/server/main.go
 
 # Terminal 2: REST API
 cd apps/rest-api && go run cmd/api/main.go
@@ -261,7 +261,7 @@ make dev-native  # Runs all services
 ```
 developer-mesh/
 ├── apps/                    # Application modules
-│   ├── mcp-server/         # MCP protocol server
+│   ├── edge-mcp/         # MCP protocol server
 │   │   ├── cmd/            # Entry points
 │   │   ├── internal/       # Private packages
 │   │   └── go.mod         # Module definition
@@ -281,7 +281,7 @@ developer-mesh/
 
 ```bash
 # Add new dependency to specific module
-cd apps/mcp-server
+cd apps/edge-mcp
 go get github.com/some/package
 
 # Run tests for specific module
@@ -481,7 +481,7 @@ make pre-commit   # All checks
 go install github.com/cosmtrek/air@latest
 
 # Create .air.toml in each app directory
-cat > apps/mcp-server/.air.toml << 'EOF'
+cat > apps/edge-mcp/.air.toml << 'EOF'
 root = "."
 tmp_dir = "tmp"
 
@@ -517,7 +517,7 @@ tmp_dir = "tmp"
 EOF
 
 # Run with hot reload
-cd apps/mcp-server && air
+cd apps/edge-mcp && air
 ```
 
 ### Database Management
@@ -549,7 +549,7 @@ GITHUB_USERNAME=your-github-username ./scripts/pull-images.sh v1.2.3
 docker run -it --rm \
   -e DATABASE_URL=postgres://dev:dev@host.docker.internal:5432/dev \
   -p 8080:8080 \
-  ghcr.io/${GITHUB_USERNAME}/developer-mesh-mcp-server:latest
+  ghcr.io/${GITHUB_USERNAME}/developer-mesh-edge-mcp:latest
 
 # Override configuration
 docker run -it --rm \
@@ -561,7 +561,7 @@ docker run -it --rm \
 
 ```bash
 # Build single service
-make docker-build-mcp-server
+make docker-build-edge-mcp
 
 # Build all services with proper metadata
 make docker-build-all VERSION=dev
@@ -572,7 +572,7 @@ docker build \
   --build-arg COMMIT_SHA=$(git rev-parse HEAD) \
   --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
   -t developer-mesh-local:dev \
-  -f apps/mcp-server/Dockerfile .
+  -f apps/edge-mcp/Dockerfile .
 ```
 
 #### Testing with Different Image Versions
@@ -663,7 +663,7 @@ go install golang.org/x/vuln/cmd/govulncheck@latest
 govulncheck ./...
 
 # Update dependencies safely (per module)
-cd apps/mcp-server && go get -u ./... && go mod tidy
+cd apps/edge-mcp && go get -u ./... && go mod tidy
 cd apps/rest-api && go get -u ./... && go mod tidy
 cd apps/worker && go get -u ./... && go mod tidy
 

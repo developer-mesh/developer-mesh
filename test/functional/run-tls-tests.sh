@@ -40,7 +40,7 @@ echo "Checking TLS endpoints..."
 if ! curl -k --connect-timeout 2 "$TEST_TLS_API_URL/health" >/dev/null 2>&1; then
     echo "⚠️  Warning: TLS API endpoint not reachable at $TEST_TLS_API_URL"
     echo "Make sure services are running with TLS enabled:"
-    echo "  MCP_CONFIG_FILE=./test/functional/configs/config.tls.yaml ./apps/mcp-server/mcp-server"
+    echo "  MCP_CONFIG_FILE=./test/functional/configs/config.tls.yaml ./apps/edge-mcp/edge-mcp"
     echo "  MCP_CONFIG_FILE=./test/functional/configs/config.tls.yaml ./apps/rest-api/api"
 fi
 

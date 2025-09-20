@@ -883,7 +883,7 @@ metadata:
 spec:
   appinfo:
     appns: mcp-prod
-    applabel: app=mcp-server
+    applabel: app=edge-mcp
   chaosServiceAccount: litmus-admin
   experiments:
     - name: pod-network-latency

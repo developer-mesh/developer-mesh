@@ -243,7 +243,7 @@ graph LR
 
 ### Core Components
 <!-- Source verified against actual codebase -->
-- **MCP Server**: WebSocket server for real-time agent communication (apps/mcp-server) <!-- Source: pkg/models/websocket/binary.go -->
+- **MCP Server**: WebSocket server for real-time agent communication (apps/edge-mcp) <!-- Source: pkg/models/websocket/binary.go -->
 - **REST API**: HTTP API for tool management and integrations (apps/rest-api)
 - **Worker Service**: Asynchronous task processing (apps/worker)
 - **Assignment Engine**: Task distribution algorithms (pkg/services/assignment_engine.go) <!-- Source: pkg/services/assignment_engine.go -->
@@ -299,7 +299,7 @@ make migrate-up
 make dev  # Starts docker-compose.local.yml
 
 # OR start services manually:
-make run-mcp-server  # Port 8080
+make run-edge-mcp  # Port 8080
 make run-rest-api    # Port 8081
 make run-worker      # Background worker
 
@@ -502,7 +502,7 @@ Monitor system state via MCP resources:
 ### API Reference
 - [MCP Protocol Guide](docs/MCP_PROTOCOL.md) - Complete MCP implementation details
 - [REST API Reference](docs/api-reference/rest-api-reference.md)
-- [MCP Server Reference](docs/api-reference/mcp-server-reference.md)
+- [MCP Server Reference](docs/api-reference/edge-mcp-reference.md)
 - [Webhook API Reference](docs/api-reference/webhook-api-reference.md)
 - [Embedding API Reference](docs/api-reference/embedding-api-reference.md)
 - [Dynamic Tools API](docs/dynamic_tools_api.md)

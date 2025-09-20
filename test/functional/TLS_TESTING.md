@@ -34,7 +34,7 @@ export TLS_CERT_FILE=./certs/server.crt
 export TLS_KEY_FILE=./certs/server.key
 
 # Start MCP Server with TLS
-MCP_CONFIG_FILE=./test/functional/configs/config.tls.yaml ./apps/mcp-server/mcp-server
+MCP_CONFIG_FILE=./test/functional/configs/config.tls.yaml ./apps/edge-mcp/edge-mcp
 
 # Start REST API with TLS (in another terminal)
 MCP_CONFIG_FILE=./test/functional/configs/config.tls.yaml ./apps/rest-api/api

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Integration Test Script for MCP Server
+# Integration Test Script for Edge MCP
 
 set -e  # Exit on error
 
@@ -14,8 +14,8 @@ echo "Starting integration tests from $PROJECT_ROOT"
 SERVER_RUNNING=false
 MOCKSERVER_RUNNING=false
 
-if pgrep -f "./mcp-server" > /dev/null; then
-    echo "MCP Server is already running"
+if pgrep -f "./edge-mcp" > /dev/null; then
+    echo "Edge MCP Server is already running"
     SERVER_RUNNING=true
 fi
 
@@ -28,9 +28,9 @@ fi
 cleanup() {
     echo "Cleaning up resources..."
 
-    if [ "$SERVER_RUNNING" = false ] && pgrep -f "./mcp-server" > /dev/null; then
-        echo "Stopping MCP Server..."
-        pkill -f "./mcp-server"
+    if [ "$SERVER_RUNNING" = false ] && pgrep -f "./edge-mcp" > /dev/null; then
+        echo "Stopping Edge MCP Server..."
+        pkill -f "./edge-mcp"
     fi
 
     if [ "$MOCKSERVER_RUNNING" = false ] && pgrep -f "./mockserver" > /dev/null; then
@@ -73,24 +73,24 @@ if ! docker-compose -f docker-compose.local.yml ps mockserver | grep -q "Up"; th
 fi
 
 # Build if needed
-if [ ! -f "./mcp-server" ] || [ ! -f "./mockserver" ]; then
-    echo "Building MCP Server and Mock Server..."
+if [ ! -f "./edge-mcp" ] || [ ! -f "./mockserver" ]; then
+    echo "Building Edge MCP Server and Mock Server..."
     make build
     make mockserver-build
 fi
 
 # Start the server if not already running
 if [ "$SERVER_RUNNING" = false ]; then
-    echo "Starting MCP Server..."
-    ./mcp-server &
-    
+    echo "Starting Edge MCP Server..."
+    ./edge-mcp &
+
     # Wait for server to start
-    echo "Waiting for MCP Server to be ready..."
+    echo "Waiting for Edge MCP Server to be ready..."
     sleep 5
 fi
 
 # Set environment variables for the tests
-export MCP_SERVER_ADDR="http://localhost:8080"
+export EDGE_MCP_ADDR="http://localhost:8085"
 export MCP_API_KEY="local-admin-api-key"
 export ENABLE_INTEGRATION_TESTS="true"
 

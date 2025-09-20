@@ -39,7 +39,7 @@ jobs:
           # Docker metadata action creates shortened SHA tags (7 chars)
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           
-          for service in mcp-server rest-api worker; do
+          for service in edge-mcp rest-api worker; do
             # Try both latest and SHA-based tags
             IMAGE_BASE="ghcr.io/${OWNER}/developer-mesh-${service}"
             echo "Checking image: ${IMAGE_BASE}:latest"
@@ -215,7 +215,7 @@ jobs:
               '# Services',
               'MCP_WEBHOOK_ENABLED=true',
               'MCP_GITHUB_IP_VALIDATION=false',
-              'MCP_SERVER_URL=http://mcp-server:8080',
+              'EDGE_MCP_URL=http://edge-mcp:8085',
               'MCP_PORT=8080',
               'REST_API_PORT=8081',
               'API_LISTEN_ADDRESS=:8081',
@@ -276,7 +276,7 @@ jobs:
               '',
               '# Check logs for startup errors',
               'log \"Checking service health...\"',
-              'for service in mcp-server rest-api worker; do',
+              'for service in edge-mcp rest-api worker; do',
               '  if docker ps | grep -q \$service; then',
               '    log \"✓ \$service is running\"',
               '  else',
@@ -395,7 +395,7 @@ jobs:
                 'docker-compose ps',
                 'echo \"\"',
                 'echo \"=== Recent Logs ===\"',
-                'for service in mcp-server rest-api worker; do',
+                'for service in edge-mcp rest-api worker; do',
                 '  echo \"--- \$service logs ---\"',
                 '  docker-compose logs --tail=20 \$service 2>&1 | grep -E \"ERROR|FATAL|Failed|error:\" || echo \"No errors found\"',
                 'done'

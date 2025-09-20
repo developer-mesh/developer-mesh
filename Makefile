@@ -58,12 +58,12 @@ GOFMT=gofmt
 GOVET=$(GOCMD) vet
 
 # Application directories
-MCP_SERVER_DIR=./apps/mcp-server
+EDGE_MCP_DIR=./apps/edge-mcp
 REST_API_DIR=./apps/rest-api
 WORKER_DIR=./apps/worker
 
 # Binary names
-MCP_SERVER_BINARY=mcp-server
+EDGE_MCP_BINARY=edge-mcp
 REST_API_BINARY=rest-api
 WORKER_BINARY=worker
 
@@ -87,7 +87,7 @@ dev: dev-setup docker-up wait-for-healthy ## Start development environment with 
 	@echo "✅ Development environment is ready!"
 	@echo ""
 	@echo "Services available at:"
-	@echo "  MCP Server: http://localhost:8080"
+	@echo "  Edge MCP: http://localhost:8085"
 	@echo "  REST API: http://localhost:8081"
 	@echo "  Mock Server: http://localhost:8082"
 	@echo "  PostgreSQL: localhost:5432"
@@ -99,7 +99,7 @@ dev: dev-setup docker-up wait-for-healthy ## Start development environment with 
 dev-native: dev-setup ## Setup for running services locally (without Docker)
 	@echo "Starting services locally requires PostgreSQL and Redis running."
 	@echo "Run: brew services start postgresql redis"
-	@echo "Then run each service: make run-mcp-server, run-rest-api, run-worker"
+	@echo "Then run each service: make run-edge-mcp, run-rest-api, run-worker"
 
 .PHONY: mcp-check
 mcp-check: ## Reminder to use MCP tools instead of CLI
@@ -152,11 +152,7 @@ dev-certs: ## Generate development TLS certificates
 # ==============================================================================
 
 .PHONY: build
-build: build-mcp-server build-rest-api build-worker build-edge-mcp ## Build all applications
-
-.PHONY: build-mcp-server
-build-mcp-server: ## Build MCP server
-	$(GOBUILD) -o $(MCP_SERVER_DIR)/$(MCP_SERVER_BINARY) -v $(MCP_SERVER_DIR)/cmd/server
+build: build-edge-mcp build-rest-api build-worker ## Build all applications
 
 .PHONY: build-edge-mcp
 build-edge-mcp: ## Build Edge MCP binary
@@ -196,7 +192,7 @@ build-worker: ## Build worker service
 .PHONY: clean
 clean: ## Clean build artifacts
 	$(GOCLEAN)
-	rm -f $(MCP_SERVER_DIR)/$(MCP_SERVER_BINARY) $(REST_API_DIR)/$(REST_API_BINARY) $(WORKER_DIR)/$(WORKER_BINARY)
+	rm -f $(EDGE_MCP_DIR)/$(EDGE_MCP_BINARY) $(REST_API_DIR)/$(REST_API_BINARY) $(WORKER_DIR)/$(WORKER_BINARY)
 
 # ==============================================================================
 # Testing Commands
@@ -205,7 +201,7 @@ clean: ## Clean build artifacts
 .PHONY: test
 test: ## Run all unit tests (excludes integration tests and Redis-dependent tests)
 	@echo "Running unit tests..."
-	@cd apps/mcp-server && $(GOTEST) -v -short ./... && cd ../.. && \
+	@cd apps/edge-mcp && $(GOTEST) -v -short ./... && cd ../.. && \
 	cd apps/rest-api && $(GOTEST) -v -short ./... && cd ../.. && \
 	cd apps/worker && $(GOTEST) -v -short ./... && cd ../.. && \
 	cd apps/mockserver && $(GOTEST) -v -short ./... && cd ../.. && \
@@ -214,12 +210,12 @@ test: ## Run all unit tests (excludes integration tests and Redis-dependent test
 .PHONY: test-with-services
 test-with-services: start-test-env ## Run unit tests that require Redis/PostgreSQL
 	@echo "Running unit tests with Docker services..."
-	@TEST_REDIS_ADDR=127.0.0.1:6379 $(GOTEST) -v -short ./apps/mcp-server/... ./apps/rest-api/... ./apps/worker/... ./pkg/... || (make stop-test-env && exit 1)
+	@TEST_REDIS_ADDR=127.0.0.1:6379 $(GOTEST) -v -short ./apps/edge-mcp/... ./apps/rest-api/... ./apps/worker/... ./pkg/... || (make stop-test-env && exit 1)
 	@make stop-test-env
 
 .PHONY: test-coverage
 test-coverage: ## Run tests with coverage report
-	$(GOTEST) -coverprofile=coverage.out ./apps/mcp-server/... ./apps/rest-api/... ./apps/worker/... ./pkg/...
+	$(GOTEST) -coverprofile=coverage.out ./apps/edge-mcp/... ./apps/rest-api/... ./apps/worker/... ./pkg/...
 	$(GOCMD) tool cover -func=coverage.out
 
 .PHONY: test-coverage-html
@@ -259,7 +255,7 @@ test-integration test-int: start-test-env ## Run integration tests
 	export TEST_REDIS_ADDR=127.0.0.1:6379 && \
 	export TEST_DATABASE_URL="postgres://test:test@127.0.0.1:5433/test?sslmode=disable" && \
 	echo "Running integration tests for each module..." && \
-	(cd apps/mcp-server && $(GOTEST) -tags=integration -v ./... || exit 1) && \
+	(cd apps/edge-mcp && $(GOTEST) -tags=integration -v ./... || exit 1) && \
 	(cd apps/rest-api && $(GOTEST) -tags=integration -v ./... || exit 1) && \
 	(cd apps/worker && $(GOTEST) -tags=integration -v ./... || exit 1) && \
 	(cd apps/mockserver && $(GOTEST) -tags=integration -v ./... || exit 1) && \
@@ -286,7 +282,7 @@ lint: ## Run linters
 	@which golangci-lint > /dev/null || (echo "Installing golangci-lint..." && go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest)
 	@echo "Running golangci-lint on all workspace modules..."
 	@cd pkg && golangci-lint run ./...
-	@cd apps/mcp-server && golangci-lint run ./...
+	@cd apps/edge-mcp && golangci-lint run ./...
 	@cd apps/rest-api && golangci-lint run ./...
 	@cd apps/worker && golangci-lint run ./...
 	@cd apps/mockserver && golangci-lint run ./...
@@ -300,7 +296,7 @@ fmt: ## Format code (excludes .claude templates which are not valid Go)
 .PHONY: vet
 vet: ## Run go vet
 	@echo "Running go vet for all modules..."
-	@cd apps/mcp-server && $(GOVET) ./... || exit 1
+	@cd apps/edge-mcp && $(GOVET) ./... || exit 1
 	@cd apps/rest-api && $(GOVET) ./... || exit 1
 	@cd apps/worker && $(GOVET) ./... || exit 1
 	@cd apps/mockserver && $(GOVET) ./... || exit 1
@@ -383,9 +379,9 @@ migrate-status: ## Show migration status
 -include .env.local
 export
 
-.PHONY: run-mcp-server
-run-mcp-server: ## Run MCP server locally
-	cd $(MCP_SERVER_DIR) && MCP_CONFIG_FILE=../../configs/config.development.yaml ./$(MCP_SERVER_BINARY)
+.PHONY: run-edge-mcp
+run-edge-mcp: ## Run Edge MCP server locally
+	cd $(EDGE_MCP_DIR) && MCP_CONFIG_FILE=../../configs/config.development.yaml ./$(EDGE_MCP_BINARY)
 
 .PHONY: run-rest-api
 run-rest-api: ## Run REST API locally
@@ -395,10 +391,10 @@ run-rest-api: ## Run REST API locally
 run-worker: ## Run worker service locally
 	cd $(WORKER_DIR) && MCP_CONFIG_FILE=../../configs/config.development.yaml ./$(WORKER_BINARY)
 
-.PHONY: stop-mcp-server
-stop-mcp-server: ## Stop MCP server
-	@echo "Stopping MCP server..."
-	@pkill -f "mcp-server.*MCP_CONFIG_FILE" || echo "MCP server not running"
+.PHONY: stop-edge-mcp
+stop-edge-mcp: ## Stop Edge MCP server
+	@echo "Stopping Edge MCP server..."
+	@pkill -f "edge-mcp.*MCP_CONFIG_FILE" || echo "Edge MCP server not running"
 
 .PHONY: stop-rest-api
 stop-rest-api: ## Stop REST API
@@ -411,22 +407,22 @@ stop-worker: ## Stop worker service
 	@pkill -f "worker.*MCP_CONFIG_FILE" || echo "Worker not running"
 
 .PHONY: stop-all
-stop-all: stop-mcp-server stop-rest-api stop-worker ## Stop all services
+stop-all: stop-edge-mcp stop-rest-api stop-worker ## Stop all services
 	@echo "All services stopped"
 
 .PHONY: swagger
 swagger: ## Generate Swagger documentation
 	@which swag > /dev/null || go install github.com/swaggo/swag/cmd/swag@$(SWAG_VERSION)
-	cd $(MCP_SERVER_DIR) && swag init -g ./cmd/server/main.go -o ./docs --parseDependency --parseInternal
+	cd $(EDGE_MCP_DIR) && swag init -g ./cmd/server/main.go -o ./docs --parseDependency --parseInternal
 	cd $(REST_API_DIR) && swag init -g ./cmd/api/main.go -o ./docs --parseDependency --parseInternal
 	@echo "Swagger UI available at:"
-	@echo "  MCP Server: http://localhost:8080/swagger/index.html"
+	@echo "  Edge MCP: http://localhost:8085/swagger/index.html"
 	@echo "  REST API: http://localhost:8081/swagger/index.html"
 
 .PHONY: deps
 deps: ## Update and sync dependencies
 	$(GOMOD) tidy
-	cd $(MCP_SERVER_DIR) && $(GOMOD) tidy
+	cd $(EDGE_MCP_DIR) && $(GOMOD) tidy
 	cd $(REST_API_DIR) && $(GOMOD) tidy
 	cd $(WORKER_DIR) && $(GOMOD) tidy
 	$(GOWORKCMD) sync
@@ -611,7 +607,7 @@ env-check: ## Check current environment configuration
 	@echo "Current Environment Configuration:"
 	@echo "================================="
 	@echo "ENVIRONMENT: $${ENVIRONMENT:-not set}"
-	@echo "MCP_SERVER_URL: $${MCP_SERVER_URL:-not set}"
+	@echo "EDGE_MCP_URL: $${EDGE_MCP_URL:-not set}"
 	@echo "REST_API_URL: $${REST_API_URL:-not set}"
 	@echo "DATABASE_HOST: $${DATABASE_HOST:-not set}:$${DATABASE_PORT:-5432}"
 	@echo "REDIS_ADDR: $${REDIS_ADDR:-not set}"
@@ -853,7 +849,7 @@ reset-test-data: ## Reset test data to clean state
 #
 # AWS-integrated workflow (uses real AWS services):
 #   make local-aws                         # Setup with AWS backends
-#   make run-mcp-server                    # In terminal 1
+#   make run-edge-mcp                      # In terminal 1
 #   make run-rest-api                      # In terminal 2
 #   make run-worker                        # In terminal 3
 #   make test-e2e-local                    # Run tests
@@ -873,7 +869,7 @@ local-docker: docker-clean wait-for-healthy migrate-up-docker seed-test-data tes
 	@echo ""
 	@echo "Next steps:"
 	@echo "  make test-e2e-local    # Run E2E tests"
-	@echo "  make logs service=mcp-server  # View specific service logs"
+	@echo "  make logs service=edge-mcp    # View specific service logs"
 	@echo "  make health           # Check service health"
 
 .PHONY: local-aws
@@ -888,7 +884,7 @@ local-aws: env-aws validate-environment tunnel-all local-aws-wait test-e2e-setup
 	@echo "  Bedrock:      Direct AWS access"
 	@echo ""
 	@echo "Start services manually:"
-	@echo "  make run-mcp-server    # Terminal 1"
+	@echo "  make run-edge-mcp      # Terminal 1"
 	@echo "  make run-rest-api      # Terminal 2"
 	@echo "  make run-worker        # Terminal 3 (optional)"
 	@echo ""

@@ -66,8 +66,8 @@ jobs:
           All images are available on GitHub Container Registry:
           
           ```bash
-          # MCP Server
-          docker pull ghcr.io/${{ github.repository_owner }}/developer-mesh-mcp-server:${{ steps.version.outputs.version }}
+          # Edge MCP
+          docker pull ghcr.io/${{ github.repository_owner }}/developer-mesh-edge-mcp:${{ steps.version.outputs.version }}
           
           # REST API
           docker pull ghcr.io/${{ github.repository_owner }}/developer-mesh-rest-api:${{ steps.version.outputs.version }}
@@ -89,7 +89,7 @@ jobs:
           
           ### ✨ Key Features
           
-          - **MCP Server**: WebSocket server for AI agent communication via Model Context Protocol
+          - **Edge MCP**: WebSocket server for AI agent communication via Model Context Protocol with built-in tools
           - **REST API**: Dynamic tools integration and management 
           - **Worker**: Redis-based webhook and event processing
           - **Edge MCP**: Lightweight gateway for Claude Code integration
@@ -99,7 +99,7 @@ jobs:
           ### 🔧 Configuration
           
           Default endpoints:
-          - MCP WebSocket: `ws://localhost:8080/ws`
+          - Edge MCP WebSocket: `ws://localhost:8085/ws`
           - REST API: `http://localhost:8081`
           - Health checks: `/health` on each service
           
@@ -153,7 +153,7 @@ jobs:
       packages: write
     strategy:
       matrix:
-        app: [mcp-server, rest-api, worker]
+        app: [edge-mcp, rest-api, worker]
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4

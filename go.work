@@ -2,7 +2,6 @@ go 1.24
 
 use (
 	./apps/edge-mcp
-	./apps/mcp-server
 	./apps/mockserver
 	./apps/rest-api
 	./apps/worker

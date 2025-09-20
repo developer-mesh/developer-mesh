@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Legacy MCP-Server Removal and Edge-MCP Migration** (2025-09-20): Completed full migration to edge-mcp
+  - Removed legacy apps/mcp-server directory completely
+  - Updated all GitHub Actions workflows (CI and Release) to build edge-mcp Docker images
+  - Modified all docker-compose files to use edge-mcp service on port 8085
+  - Updated Makefile targets replacing mcp-server with edge-mcp
+  - Updated go.work to remove mcp-server module reference
+  - Updated all test scripts to use edge-mcp
+  - Updated documentation references across README and developer guides
+  - Fixed orphan container warning by removing old mcp-server containers
+  - Result: Edge-MCP is now the sole MCP implementation with all functionality preserved
+
 - **Edge MCP Built-in Tools with Anthropic Patterns** (2025-09-20): Implemented 23 core MCP tools for agent orchestration
   - Added 5 providers: AgentProvider, WorkflowProvider, TaskProvider, ContextProvider, TemplateProvider
   - Implemented all 8 Anthropic-recommended patterns:

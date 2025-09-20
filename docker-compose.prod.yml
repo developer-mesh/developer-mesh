@@ -37,12 +37,12 @@ services:
     networks:
       - mcp-network
 
-  mcp-server:
+  edge-mcp:
     # Replace {github-username} with your GitHub username
-    image: ghcr.io/{github-username}/developer-mesh-mcp-server:${VERSION:-latest}
+    image: ghcr.io/{github-username}/developer-mesh-edge-mcp:${VERSION:-latest}
     restart: unless-stopped
     ports:
-      - "${MCP_SERVER_PORT:-8080}:8080"
+      - "${EDGE_MCP_PORT:-8085}:8085"
     environment:
       MCP_CONFIG_FILE: /app/configs/config.docker.yaml
       DATABASE_HOST: database
@@ -69,7 +69,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "/app/mcp-server", "-health-check"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8085/health"]
       interval: 30s
       timeout: 5s
       retries: 3
