@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -32,7 +33,13 @@ func main() {
 
 	// Handle health check mode
 	if *healthCheck {
-		resp, err := http.Get(fmt.Sprintf("http://localhost:%s/health", *port))
+		// Validate port before using it
+		portNum, err := strconv.Atoi(*port)
+		if err != nil || portNum < 1 || portNum > 65535 {
+			log.Fatalf("Invalid port number: %s", *port)
+		}
+
+		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/health", portNum))
 		if err != nil {
 			os.Exit(1)
 		}

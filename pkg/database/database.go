@@ -28,6 +28,35 @@ var (
 
 // Config is defined in config.go
 
+// sanitizeDSN removes sensitive information from a DSN for safe logging
+func sanitizeDSN(dsn string) string {
+	// Handle PostgreSQL DSN format
+	if strings.Contains(dsn, "password=") {
+		parts := strings.Split(dsn, " ")
+		var sanitized []string
+		for _, part := range parts {
+			if strings.HasPrefix(part, "password=") {
+				sanitized = append(sanitized, "password=***")
+			} else {
+				sanitized = append(sanitized, part)
+			}
+		}
+		return strings.Join(sanitized, " ")
+	}
+	// Handle URL format DSN
+	if strings.Contains(dsn, "@") {
+		// Find the @ symbol and mask everything between :// and @
+		if idx := strings.Index(dsn, "://"); idx != -1 {
+			if atIdx := strings.Index(dsn[idx:], "@"); atIdx != -1 {
+				prefix := dsn[:idx+3]     // Keep protocol://
+				suffix := dsn[idx+atIdx:] // Keep @host...
+				return prefix + "***:***" + suffix
+			}
+		}
+	}
+	return dsn
+}
+
 // Database represents the database access layer
 type Database struct {
 	db         *sqlx.DB
@@ -90,7 +119,7 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 				dsn = dsn + "?search_path=mcp,public"
 			}
 		}
-		log.Printf("Using DSN: %s", dsn)
+		log.Printf("Using DSN: %s", sanitizeDSN(dsn))
 	} else {
 		// Build DSN from individual components (least recommended option)
 		log.Println("Warning: Building database connection string from components instead of using IAM authentication")
