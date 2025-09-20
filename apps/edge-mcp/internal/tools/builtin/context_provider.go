@@ -146,7 +146,7 @@ func (p *ContextProvider) handleUpdate(ctx context.Context, args json.RawMessage
 	allowed, rateLimitStatus := GlobalRateLimiter.CheckAndConsume("context_update")
 	if !allowed {
 		return rb.ErrorWithMetadata(
-			fmt.Errorf("rate limit exceeded, please retry after %v", rateLimitStatus.Reset.Sub(time.Now())),
+			fmt.Errorf("rate limit exceeded, please retry after %v", time.Until(rateLimitStatus.Reset)),
 			&ResponseMetadata{
 				RateLimitStatus: rateLimitStatus,
 			},
@@ -244,7 +244,7 @@ func (p *ContextProvider) handleAppend(ctx context.Context, args json.RawMessage
 	allowed, rateLimitStatus := GlobalRateLimiter.CheckAndConsume("context_append")
 	if !allowed {
 		return rb.ErrorWithMetadata(
-			fmt.Errorf("rate limit exceeded, please retry after %v", rateLimitStatus.Reset.Sub(time.Now())),
+			fmt.Errorf("rate limit exceeded, please retry after %v", time.Until(rateLimitStatus.Reset)),
 			&ResponseMetadata{
 				RateLimitStatus: rateLimitStatus,
 			},

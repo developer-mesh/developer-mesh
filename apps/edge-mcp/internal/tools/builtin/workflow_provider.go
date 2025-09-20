@@ -262,7 +262,7 @@ func (p *WorkflowProvider) handleCreate(ctx context.Context, args json.RawMessag
 	allowed, rateLimitStatus := GlobalRateLimiter.CheckAndConsume("workflow_create")
 	if !allowed {
 		return rb.ErrorWithMetadata(
-			fmt.Errorf("rate limit exceeded, please retry after %v", rateLimitStatus.Reset.Sub(time.Now())),
+			fmt.Errorf("rate limit exceeded, please retry after %v", time.Until(rateLimitStatus.Reset)),
 			&ResponseMetadata{
 				RateLimitStatus: rateLimitStatus,
 			},
@@ -348,7 +348,7 @@ func (p *WorkflowProvider) handleExecute(ctx context.Context, args json.RawMessa
 	allowed, rateLimitStatus := GlobalRateLimiter.CheckAndConsume("workflow_execute")
 	if !allowed {
 		return rb.ErrorWithMetadata(
-			fmt.Errorf("rate limit exceeded, please retry after %v", rateLimitStatus.Reset.Sub(time.Now())),
+			fmt.Errorf("rate limit exceeded, please retry after %v", time.Until(rateLimitStatus.Reset)),
 			&ResponseMetadata{
 				RateLimitStatus: rateLimitStatus,
 			},

@@ -214,7 +214,7 @@ func (p *TaskProvider) handleCreate(ctx context.Context, args json.RawMessage) (
 	allowed, rateLimitStatus := GlobalRateLimiter.CheckAndConsume("task_create")
 	if !allowed {
 		return rb.ErrorWithMetadata(
-			fmt.Errorf("rate limit exceeded, please retry after %v", rateLimitStatus.Reset.Sub(time.Now())),
+			fmt.Errorf("rate limit exceeded, please retry after %v", time.Until(rateLimitStatus.Reset)),
 			&ResponseMetadata{
 				RateLimitStatus: rateLimitStatus,
 			},
