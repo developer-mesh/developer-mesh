@@ -39,7 +39,7 @@ jobs:
           # Docker metadata action creates shortened SHA tags (7 chars)
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           
-          for service in mcp-server rest-api worker; do
+          for service in edge-mcp rest-api worker; do
             # Try both latest and SHA-based tags
             IMAGE_BASE="ghcr.io/${OWNER}/developer-mesh-${service}"
             echo "Checking image: ${IMAGE_BASE}:latest"
@@ -126,7 +126,7 @@ jobs:
           MCP_CONFIG_FILE=/app/configs/config.production.yaml
           ADMIN_API_KEY=${{ secrets.ADMIN_API_KEY }}
           GITHUB_TOKEN=${{ github.token }}
-          MCP_SERVER_URL=http://mcp-server:8080
+          MCP_SERVER_URL=http://edge-mcp:8080
           # Remove global PORT - each service should use its own
           MCP_PORT=8080
           REST_API_PORT=8081
@@ -228,7 +228,7 @@ jobs:
               "GITHUB_WEBHOOK_SECRET=${{ secrets.MCP_WEBHOOK_SECRET }}",
               "MCP_WEBHOOK_ENABLED=true",
               "MCP_GITHUB_IP_VALIDATION=false",
-              "MCP_SERVER_URL=http://mcp-server:8080",
+              "MCP_SERVER_URL=http://edge-mcp:8080",
               "MCP_PORT=8080",
               "REST_API_PORT=8081",
               "API_LISTEN_ADDRESS=:8081",
@@ -392,7 +392,7 @@ jobs:
           docker ps
           
           # Show logs if any container is unhealthy
-          for container in mcp-server rest-api worker; do
+          for container in edge-mcp rest-api worker; do
             if docker ps | grep -q "$container"; then
               echo "✓ $container is running"
             else

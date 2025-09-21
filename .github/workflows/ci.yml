@@ -77,7 +77,7 @@ jobs:
           # Download dependencies for workspace
           go mod download
           # Download dependencies for each module
-          cd apps/mcp-server && go mod download && cd ../..
+          cd apps/edge-mcp && go mod download && cd ../..
           cd apps/rest-api && go mod download && cd ../..
           cd apps/worker && go mod download && cd ../..
           cd apps/mockserver && go mod download && cd ../..
@@ -97,7 +97,7 @@ jobs:
       - name: Run go vet
         run: |
           # Run go vet for each module in the workspace
-          cd apps/mcp-server && go vet ./... && cd ../..
+          cd apps/edge-mcp && go vet ./... && cd ../..
           cd apps/rest-api && go vet ./... && cd ../..
           cd apps/worker && go vet ./... && cd ../..
           cd apps/mockserver && go vet ./... && cd ../..
@@ -132,8 +132,8 @@ jobs:
           # Run unit tests with -short flag (excludes integration tests) in each module for Go workspace compatibility
           failed=0
           
-          echo "Running unit tests for apps/mcp-server..."
-          (cd apps/mcp-server && go test -v -short ./...) || failed=1
+          echo "Running unit tests for apps/edge-mcp..."
+          (cd apps/edge-mcp && go test -v -short ./...) || failed=1
           
           echo "Running unit tests for apps/rest-api..."
           (cd apps/rest-api && go test -v -short ./...) || failed=1
@@ -164,8 +164,8 @@ jobs:
           # Run integration tests in each module directory for Go workspace compatibility
           failed=0
           
-          echo "Testing apps/mcp-server..."
-          (cd apps/mcp-server && ENABLE_INTEGRATION_TESTS=true TEST_REDIS_ADDR=localhost:6379 go test -tags=integration -v ./...) || failed=1
+          echo "Testing apps/edge-mcp..."
+          (cd apps/edge-mcp && ENABLE_INTEGRATION_TESTS=true TEST_REDIS_ADDR=localhost:6379 go test -tags=integration -v ./...) || failed=1
           
           echo "Testing apps/rest-api..."
           (cd apps/rest-api && ENABLE_INTEGRATION_TESTS=true TEST_REDIS_ADDR=localhost:6379 go test -tags=integration -v ./...) || failed=1
