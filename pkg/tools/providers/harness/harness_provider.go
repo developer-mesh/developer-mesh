@@ -24,15 +24,32 @@ var harnessOpenAPISpecJSON []byte
 type HarnessModule string
 
 const (
-	ModulePipeline  HarnessModule = "pipeline"
-	ModuleProject   HarnessModule = "project"
-	ModuleConnector HarnessModule = "connector"
-	ModuleCCM       HarnessModule = "ccm"
-	ModuleGitOps    HarnessModule = "gitops"
-	ModuleIaCM      HarnessModule = "iacm"
-	ModuleCV        HarnessModule = "cv"
-	ModuleSTO       HarnessModule = "sto"
-	ModuleFF        HarnessModule = "cf"
+	ModulePipeline    HarnessModule = "pipeline"
+	ModuleProject     HarnessModule = "project"
+	ModuleConnector   HarnessModule = "connector"
+	ModuleCCM         HarnessModule = "ccm"
+	ModuleGitOps      HarnessModule = "gitops"
+	ModuleIaCM        HarnessModule = "iacm"
+	ModuleCV          HarnessModule = "cv"
+	ModuleSTO         HarnessModule = "sto"
+	ModuleFF          HarnessModule = "cf"
+	ModuleService     HarnessModule = "service"
+	ModuleEnvironment HarnessModule = "environment"
+	ModuleInfra       HarnessModule = "infrastructure"
+	ModulePullRequest HarnessModule = "pullrequest"
+	ModuleRepository  HarnessModule = "repository"
+	ModuleRegistry    HarnessModule = "registry"
+	ModuleDashboard   HarnessModule = "dashboard"
+	ModuleChaos       HarnessModule = "chaos"
+	ModuleSSCA        HarnessModule = "ssca"
+	ModuleLogs        HarnessModule = "logs"
+	ModuleTemplate    HarnessModule = "template"
+	ModuleIDP         HarnessModule = "idp"
+	ModuleAudit       HarnessModule = "audit"
+	ModuleDatabase    HarnessModule = "database"
+	ModuleExecution   HarnessModule = "execution"
+	ModuleSecret      HarnessModule = "secret"
+	ModuleUser        HarnessModule = "user"
 )
 
 // HarnessProvider implements the StandardToolProvider interface for Harness
@@ -68,15 +85,32 @@ func NewHarnessProvider(logger observability.Logger) *HarnessProvider {
 		},
 		baseURL: "https://app.harness.io",
 		enabledModules: map[HarnessModule]bool{
-			ModulePipeline:  true,
-			ModuleProject:   true,
-			ModuleConnector: true,
-			ModuleCCM:       true,
-			ModuleGitOps:    true,
-			ModuleCV:        true,
-			ModuleSTO:       true,
-			ModuleFF:        true,
-			ModuleIaCM:      true,
+			ModulePipeline:    true,
+			ModuleProject:     true,
+			ModuleConnector:   true,
+			ModuleCCM:         true,
+			ModuleGitOps:      true,
+			ModuleCV:          true,
+			ModuleSTO:         true,
+			ModuleFF:          true,
+			ModuleIaCM:        true,
+			ModuleService:     true,
+			ModuleEnvironment: true,
+			ModuleInfra:       true,
+			ModulePullRequest: true,
+			ModuleRepository:  true,
+			ModuleRegistry:    true,
+			ModuleDashboard:   true,
+			ModuleChaos:       true,
+			ModuleSSCA:        true,
+			ModuleLogs:        true,
+			ModuleTemplate:    true,
+			ModuleIDP:         true,
+			ModuleAudit:       true,
+			ModuleDatabase:    true,
+			ModuleExecution:   true,
+			ModuleSecret:      true,
+			ModuleUser:        true,
 		},
 	}
 
@@ -552,6 +586,695 @@ func (p *HarnessProvider) GetOperationMappings() map[string]providers.OperationM
 		}
 	}
 
+	// Service operations
+	if p.enabledModules[ModuleService] {
+		mappings["services/list"] = providers.OperationMapping{
+			OperationID:    "listServices",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/servicesV2",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "page", "size", "sort"},
+		}
+		mappings["services/get"] = providers.OperationMapping{
+			OperationID:    "getService",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/servicesV2/{serviceIdentifier}",
+			RequiredParams: []string{"serviceIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["services/create"] = providers.OperationMapping{
+			OperationID:    "createService",
+			Method:         "POST",
+			PathTemplate:   "/ng/api/servicesV2",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["services/update"] = providers.OperationMapping{
+			OperationID:    "updateService",
+			Method:         "PUT",
+			PathTemplate:   "/ng/api/servicesV2/{serviceIdentifier}",
+			RequiredParams: []string{"serviceIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["services/delete"] = providers.OperationMapping{
+			OperationID:    "deleteService",
+			Method:         "DELETE",
+			PathTemplate:   "/ng/api/servicesV2/{serviceIdentifier}",
+			RequiredParams: []string{"serviceIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+	}
+
+	// Environment operations
+	if p.enabledModules[ModuleEnvironment] {
+		mappings["environments/list"] = providers.OperationMapping{
+			OperationID:    "listEnvironments",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/environmentsV2",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "page", "size", "sort"},
+		}
+		mappings["environments/get"] = providers.OperationMapping{
+			OperationID:    "getEnvironment",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/environmentsV2/{environmentIdentifier}",
+			RequiredParams: []string{"environmentIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["environments/create"] = providers.OperationMapping{
+			OperationID:    "createEnvironment",
+			Method:         "POST",
+			PathTemplate:   "/ng/api/environmentsV2",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["environments/update"] = providers.OperationMapping{
+			OperationID:    "updateEnvironment",
+			Method:         "PUT",
+			PathTemplate:   "/ng/api/environmentsV2/{environmentIdentifier}",
+			RequiredParams: []string{"environmentIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["environments/delete"] = providers.OperationMapping{
+			OperationID:    "deleteEnvironment",
+			Method:         "DELETE",
+			PathTemplate:   "/ng/api/environmentsV2/{environmentIdentifier}",
+			RequiredParams: []string{"environmentIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+	}
+
+	// Infrastructure operations
+	if p.enabledModules[ModuleInfra] {
+		mappings["infrastructures/list"] = providers.OperationMapping{
+			OperationID:    "listInfrastructures",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/infrastructures",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "environmentIdentifier", "page", "size"},
+		}
+		mappings["infrastructures/get"] = providers.OperationMapping{
+			OperationID:    "getInfrastructure",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/infrastructures/{infrastructureIdentifier}",
+			RequiredParams: []string{"infrastructureIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "environmentIdentifier"},
+		}
+		mappings["infrastructures/create"] = providers.OperationMapping{
+			OperationID:    "createInfrastructure",
+			Method:         "POST",
+			PathTemplate:   "/ng/api/infrastructures",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["infrastructures/update"] = providers.OperationMapping{
+			OperationID:    "updateInfrastructure",
+			Method:         "PUT",
+			PathTemplate:   "/ng/api/infrastructures/{infrastructureIdentifier}",
+			RequiredParams: []string{"infrastructureIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["infrastructures/delete"] = providers.OperationMapping{
+			OperationID:    "deleteInfrastructure",
+			Method:         "DELETE",
+			PathTemplate:   "/ng/api/infrastructures/{infrastructureIdentifier}",
+			RequiredParams: []string{"infrastructureIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+	}
+
+	// Pull Request operations
+	if p.enabledModules[ModulePullRequest] {
+		mappings["pullrequests/list"] = providers.OperationMapping{
+			OperationID:    "listPullRequests",
+			Method:         "GET",
+			PathTemplate:   "/code/api/v1/repos/{repoIdentifier}/pullreq",
+			RequiredParams: []string{"repoIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "page", "limit", "state"},
+		}
+		mappings["pullrequests/get"] = providers.OperationMapping{
+			OperationID:    "getPullRequest",
+			Method:         "GET",
+			PathTemplate:   "/code/api/v1/repos/{repoIdentifier}/pullreq/{pullRequestNumber}",
+			RequiredParams: []string{"repoIdentifier", "pullRequestNumber"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["pullrequests/create"] = providers.OperationMapping{
+			OperationID:    "createPullRequest",
+			Method:         "POST",
+			PathTemplate:   "/code/api/v1/repos/{repoIdentifier}/pullreq",
+			RequiredParams: []string{"repoIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["pullrequests/merge"] = providers.OperationMapping{
+			OperationID:    "mergePullRequest",
+			Method:         "POST",
+			PathTemplate:   "/code/api/v1/repos/{repoIdentifier}/pullreq/{pullRequestNumber}/merge",
+			RequiredParams: []string{"repoIdentifier", "pullRequestNumber"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["pullrequests/review"] = providers.OperationMapping{
+			OperationID:    "reviewPullRequest",
+			Method:         "POST",
+			PathTemplate:   "/code/api/v1/repos/{repoIdentifier}/pullreq/{pullRequestNumber}/reviews",
+			RequiredParams: []string{"repoIdentifier", "pullRequestNumber"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+	}
+
+	// Repository operations
+	if p.enabledModules[ModuleRepository] {
+		mappings["repositories/list"] = providers.OperationMapping{
+			OperationID:    "listRepositories",
+			Method:         "GET",
+			PathTemplate:   "/code/api/v1/repos",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "page", "limit"},
+		}
+		mappings["repositories/get"] = providers.OperationMapping{
+			OperationID:    "getRepository",
+			Method:         "GET",
+			PathTemplate:   "/code/api/v1/repos/{repoIdentifier}",
+			RequiredParams: []string{"repoIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["repositories/branches"] = providers.OperationMapping{
+			OperationID:    "listBranches",
+			Method:         "GET",
+			PathTemplate:   "/code/api/v1/repos/{repoIdentifier}/branches",
+			RequiredParams: []string{"repoIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "page", "limit"},
+		}
+		mappings["repositories/commits"] = providers.OperationMapping{
+			OperationID:    "listCommits",
+			Method:         "GET",
+			PathTemplate:   "/code/api/v1/repos/{repoIdentifier}/commits",
+			RequiredParams: []string{"repoIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "branch", "since", "until", "page", "limit"},
+		}
+	}
+
+	// Registry operations
+	if p.enabledModules[ModuleRegistry] {
+		mappings["registries/list"] = providers.OperationMapping{
+			OperationID:    "listRegistries",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/artifactregistries",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "page", "size"},
+		}
+		mappings["registries/get"] = providers.OperationMapping{
+			OperationID:    "getRegistry",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/artifactregistries/{registryIdentifier}",
+			RequiredParams: []string{"registryIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["registries/artifacts"] = providers.OperationMapping{
+			OperationID:    "listArtifacts",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/artifacts",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "connectorRef", "repositoryName", "page", "size"},
+		}
+	}
+
+	// Dashboard operations
+	if p.enabledModules[ModuleDashboard] {
+		mappings["dashboards/list"] = providers.OperationMapping{
+			OperationID:    "listDashboards",
+			Method:         "GET",
+			PathTemplate:   "/dashboard/api/dashboards",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "page", "size"},
+		}
+		mappings["dashboards/get"] = providers.OperationMapping{
+			OperationID:    "getDashboard",
+			Method:         "GET",
+			PathTemplate:   "/dashboard/api/dashboards/{dashboardId}",
+			RequiredParams: []string{"dashboardId"},
+			OptionalParams: []string{"accountIdentifier"},
+		}
+		mappings["dashboards/data"] = providers.OperationMapping{
+			OperationID:    "getDashboardData",
+			Method:         "POST",
+			PathTemplate:   "/dashboard/api/dashboards/{dashboardId}/data",
+			RequiredParams: []string{"dashboardId"},
+			OptionalParams: []string{"accountIdentifier", "startTime", "endTime"},
+		}
+	}
+
+	// Chaos Engineering operations
+	if p.enabledModules[ModuleChaos] {
+		mappings["chaos/experiments/list"] = providers.OperationMapping{
+			OperationID:    "listChaosExperiments",
+			Method:         "GET",
+			PathTemplate:   "/chaos/api/experiments",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "page", "limit"},
+		}
+		mappings["chaos/experiments/get"] = providers.OperationMapping{
+			OperationID:    "getChaosExperiment",
+			Method:         "GET",
+			PathTemplate:   "/chaos/api/experiments/{experimentId}",
+			RequiredParams: []string{"experimentId"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["chaos/experiments/run"] = providers.OperationMapping{
+			OperationID:    "runChaosExperiment",
+			Method:         "POST",
+			PathTemplate:   "/chaos/api/experiments/{experimentId}/run",
+			RequiredParams: []string{"experimentId"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["chaos/experiments/results"] = providers.OperationMapping{
+			OperationID:    "getChaosResults",
+			Method:         "GET",
+			PathTemplate:   "/chaos/api/experiments/{experimentId}/runs",
+			RequiredParams: []string{"experimentId"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "page", "limit"},
+		}
+	}
+
+	// Supply Chain Security operations
+	if p.enabledModules[ModuleSSCA] {
+		mappings["ssca/sbom/generate"] = providers.OperationMapping{
+			OperationID:    "generateSBOM",
+			Method:         "POST",
+			PathTemplate:   "/ssca/api/sbom/generate",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "artifactId"},
+		}
+		mappings["ssca/sbom/get"] = providers.OperationMapping{
+			OperationID:    "getSBOM",
+			Method:         "GET",
+			PathTemplate:   "/ssca/api/sbom/{sbomId}",
+			RequiredParams: []string{"sbomId"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["ssca/artifacts/scan"] = providers.OperationMapping{
+			OperationID:    "scanArtifact",
+			Method:         "POST",
+			PathTemplate:   "/ssca/api/artifacts/scan",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["ssca/vulnerabilities/list"] = providers.OperationMapping{
+			OperationID:    "listSSCAVulnerabilities",
+			Method:         "GET",
+			PathTemplate:   "/ssca/api/vulnerabilities",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "severity", "page", "limit"},
+		}
+	}
+
+	// Logs operations
+	if p.enabledModules[ModuleLogs] {
+		mappings["logs/download"] = providers.OperationMapping{
+			OperationID:    "downloadLogs",
+			Method:         "GET",
+			PathTemplate:   "/log-service/stream",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountID", "key", "prefix"},
+		}
+		mappings["logs/stream"] = providers.OperationMapping{
+			OperationID:    "streamLogs",
+			Method:         "GET",
+			PathTemplate:   "/log-service/stream/v2",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountID", "key", "prefix", "follow"},
+		}
+	}
+
+	// Template operations
+	if p.enabledModules[ModuleTemplate] {
+		mappings["templates/list"] = providers.OperationMapping{
+			OperationID:    "listTemplates",
+			Method:         "GET",
+			PathTemplate:   "/template/api/templates",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "templateType", "page", "size", "sort"},
+		}
+		mappings["templates/get"] = providers.OperationMapping{
+			OperationID:    "getTemplate",
+			Method:         "GET",
+			PathTemplate:   "/template/api/templates/{templateIdentifier}",
+			RequiredParams: []string{"templateIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "versionLabel"},
+		}
+		mappings["templates/create"] = providers.OperationMapping{
+			OperationID:    "createTemplate",
+			Method:         "POST",
+			PathTemplate:   "/template/api/templates",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["templates/update"] = providers.OperationMapping{
+			OperationID:    "updateTemplate",
+			Method:         "PUT",
+			PathTemplate:   "/template/api/templates/{templateIdentifier}",
+			RequiredParams: []string{"templateIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "versionLabel"},
+		}
+		mappings["templates/delete"] = providers.OperationMapping{
+			OperationID:    "deleteTemplate",
+			Method:         "DELETE",
+			PathTemplate:   "/template/api/templates/{templateIdentifier}",
+			RequiredParams: []string{"templateIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "versionLabel"},
+		}
+	}
+
+	// IDP operations
+	if p.enabledModules[ModuleIDP] {
+		mappings["idp/entities/list"] = providers.OperationMapping{
+			OperationID:    "listIDPEntities",
+			Method:         "GET",
+			PathTemplate:   "/idp/api/entities",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "page", "limit", "kind"},
+		}
+		mappings["idp/entities/get"] = providers.OperationMapping{
+			OperationID:    "getIDPEntity",
+			Method:         "GET",
+			PathTemplate:   "/idp/api/entities/{entityId}",
+			RequiredParams: []string{"entityId"},
+			OptionalParams: []string{"accountIdentifier"},
+		}
+		mappings["idp/scorecards/list"] = providers.OperationMapping{
+			OperationID:    "listScorecards",
+			Method:         "GET",
+			PathTemplate:   "/idp/api/scorecards",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "page", "limit"},
+		}
+		mappings["idp/scorecards/get"] = providers.OperationMapping{
+			OperationID:    "getScorecard",
+			Method:         "GET",
+			PathTemplate:   "/idp/api/scorecards/{scorecardId}",
+			RequiredParams: []string{"scorecardId"},
+			OptionalParams: []string{"accountIdentifier"},
+		}
+		mappings["idp/catalog/list"] = providers.OperationMapping{
+			OperationID:    "listCatalog",
+			Method:         "GET",
+			PathTemplate:   "/idp/api/catalog",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "page", "limit", "filter"},
+		}
+	}
+
+	// Audit operations
+	if p.enabledModules[ModuleAudit] {
+		mappings["audit/events/list"] = providers.OperationMapping{
+			OperationID:    "listAuditEvents",
+			Method:         "POST",
+			PathTemplate:   "/audit/api/audits/list",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["audit/events/get"] = providers.OperationMapping{
+			OperationID:    "getAuditEvent",
+			Method:         "GET",
+			PathTemplate:   "/audit/api/audits/{auditId}",
+			RequiredParams: []string{"auditId"},
+			OptionalParams: []string{"accountIdentifier"},
+		}
+	}
+
+	// Database operations
+	if p.enabledModules[ModuleDatabase] {
+		mappings["database/schema/list"] = providers.OperationMapping{
+			OperationID:    "listDatabaseSchemas",
+			Method:         "GET",
+			PathTemplate:   "/db/api/schemas",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["database/schema/get"] = providers.OperationMapping{
+			OperationID:    "getDatabaseSchema",
+			Method:         "GET",
+			PathTemplate:   "/db/api/schemas/{schemaId}",
+			RequiredParams: []string{"schemaId"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["database/migrations/list"] = providers.OperationMapping{
+			OperationID:    "listMigrations",
+			Method:         "GET",
+			PathTemplate:   "/db/api/migrations",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+	}
+
+	// Feature Flag operations
+	if p.enabledModules[ModuleFF] {
+		mappings["featureflags/list"] = providers.OperationMapping{
+			OperationID:    "listFeatureFlags",
+			Method:         "GET",
+			PathTemplate:   "/cf/admin/features",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "environmentIdentifier", "page", "pageSize"},
+		}
+		mappings["featureflags/get"] = providers.OperationMapping{
+			OperationID:    "getFeatureFlag",
+			Method:         "GET",
+			PathTemplate:   "/cf/admin/features/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "environmentIdentifier"},
+		}
+		mappings["featureflags/create"] = providers.OperationMapping{
+			OperationID:    "createFeatureFlag",
+			Method:         "POST",
+			PathTemplate:   "/cf/admin/features",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["featureflags/update"] = providers.OperationMapping{
+			OperationID:    "updateFeatureFlag",
+			Method:         "PATCH",
+			PathTemplate:   "/cf/admin/features/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "environmentIdentifier"},
+		}
+		mappings["featureflags/toggle"] = providers.OperationMapping{
+			OperationID:    "toggleFeatureFlag",
+			Method:         "PATCH",
+			PathTemplate:   "/cf/admin/features/{identifier}/toggle",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "environmentIdentifier"},
+		}
+	}
+
+	// Continuous Verification operations
+	if p.enabledModules[ModuleCV] {
+		mappings["cv/monitored-services/list"] = providers.OperationMapping{
+			OperationID:    "listMonitoredServices",
+			Method:         "GET",
+			PathTemplate:   "/cv/api/monitored-service",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountId", "orgIdentifier", "projectIdentifier", "offset", "pageSize"},
+		}
+		mappings["cv/monitored-services/get"] = providers.OperationMapping{
+			OperationID:    "getMonitoredService",
+			Method:         "GET",
+			PathTemplate:   "/cv/api/monitored-service/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountId", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["cv/health-sources/list"] = providers.OperationMapping{
+			OperationID:    "listHealthSources",
+			Method:         "GET",
+			PathTemplate:   "/cv/api/monitored-service/{monitoredServiceIdentifier}/health-sources",
+			RequiredParams: []string{"monitoredServiceIdentifier"},
+			OptionalParams: []string{"accountId", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["cv/sli/list"] = providers.OperationMapping{
+			OperationID:    "listSLIs",
+			Method:         "GET",
+			PathTemplate:   "/cv/api/sli",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountId", "orgIdentifier", "projectIdentifier", "userJourneyIdentifiers", "monitoredServiceIdentifier", "page", "size"},
+		}
+		mappings["cv/slo/list"] = providers.OperationMapping{
+			OperationID:    "listSLOs",
+			Method:         "GET",
+			PathTemplate:   "/cv/api/slo",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountId", "orgIdentifier", "projectIdentifier", "userJourneyIdentifiers", "offset", "pageSize"},
+		}
+	}
+
+	// IaCM operations
+	if p.enabledModules[ModuleIaCM] {
+		mappings["iacm/workspaces/list"] = providers.OperationMapping{
+			OperationID:    "listWorkspaces",
+			Method:         "GET",
+			PathTemplate:   "/iacm/api/workspaces",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "page", "limit"},
+		}
+		mappings["iacm/workspaces/get"] = providers.OperationMapping{
+			OperationID:    "getWorkspace",
+			Method:         "GET",
+			PathTemplate:   "/iacm/api/workspaces/{workspaceId}",
+			RequiredParams: []string{"workspaceId"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["iacm/workspaces/create"] = providers.OperationMapping{
+			OperationID:    "createWorkspace",
+			Method:         "POST",
+			PathTemplate:   "/iacm/api/workspaces",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["iacm/stacks/list"] = providers.OperationMapping{
+			OperationID:    "listStacks",
+			Method:         "GET",
+			PathTemplate:   "/iacm/api/stacks",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "page", "limit"},
+		}
+		mappings["iacm/cost-estimation"] = providers.OperationMapping{
+			OperationID:    "estimateCost",
+			Method:         "POST",
+			PathTemplate:   "/iacm/api/cost/estimate",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+	}
+
+	// Execution operations
+	if p.enabledModules[ModuleExecution] {
+		mappings["executions/list"] = providers.OperationMapping{
+			OperationID:    "listExecutions",
+			Method:         "POST",
+			PathTemplate:   "/pipeline/api/pipelines/execution/summary",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "pipelineIdentifier", "page", "size", "status"},
+		}
+		mappings["executions/get"] = providers.OperationMapping{
+			OperationID:    "getExecution",
+			Method:         "GET",
+			PathTemplate:   "/pipeline/api/pipelines/execution/{planExecutionId}/summary",
+			RequiredParams: []string{"planExecutionId"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["executions/status"] = providers.OperationMapping{
+			OperationID:    "getExecutionStatus",
+			Method:         "GET",
+			PathTemplate:   "/pipeline/api/pipelines/execution/{planExecutionId}/status",
+			RequiredParams: []string{"planExecutionId"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["executions/rollback"] = providers.OperationMapping{
+			OperationID:    "rollbackExecution",
+			Method:         "POST",
+			PathTemplate:   "/pipeline/api/pipelines/execution/{planExecutionId}/rollback",
+			RequiredParams: []string{"planExecutionId"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["executions/abort"] = providers.OperationMapping{
+			OperationID:    "abortExecution",
+			Method:         "PUT",
+			PathTemplate:   "/pipeline/api/pipelines/execution/{planExecutionId}/abort",
+			RequiredParams: []string{"planExecutionId"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+	}
+
+	// Secret operations
+	if p.enabledModules[ModuleSecret] {
+		mappings["secrets/list"] = providers.OperationMapping{
+			OperationID:    "listSecrets",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/v2/secrets",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "searchTerm", "page", "limit", "type"},
+		}
+		mappings["secrets/get"] = providers.OperationMapping{
+			OperationID:    "getSecret",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/v2/secrets/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["secrets/create"] = providers.OperationMapping{
+			OperationID:    "createSecret",
+			Method:         "POST",
+			PathTemplate:   "/ng/api/v2/secrets",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["secrets/update"] = providers.OperationMapping{
+			OperationID:    "updateSecret",
+			Method:         "PUT",
+			PathTemplate:   "/ng/api/v2/secrets/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["secrets/delete"] = providers.OperationMapping{
+			OperationID:    "deleteSecret",
+			Method:         "DELETE",
+			PathTemplate:   "/ng/api/v2/secrets/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+	}
+
+	// User and Role operations
+	if p.enabledModules[ModuleUser] {
+		mappings["users/list"] = providers.OperationMapping{
+			OperationID:    "listUsers",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/user/users",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "searchTerm", "offset", "limit"},
+		}
+		mappings["users/get"] = providers.OperationMapping{
+			OperationID:    "getUser",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/user/users/{userIdentifier}",
+			RequiredParams: []string{"userIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["usergroups/list"] = providers.OperationMapping{
+			OperationID:    "listUserGroups",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/user-groups",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "searchTerm", "page", "limit"},
+		}
+		mappings["usergroups/get"] = providers.OperationMapping{
+			OperationID:    "getUserGroup",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/user-groups/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["roles/list"] = providers.OperationMapping{
+			OperationID:    "listRoles",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/roles",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "page", "limit"},
+		}
+		mappings["roles/get"] = providers.OperationMapping{
+			OperationID:    "getRole",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/roles/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["permissions/list"] = providers.OperationMapping{
+			OperationID:    "listPermissions",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/permissions",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+	}
+
 	return mappings
 }
 
@@ -653,6 +1376,251 @@ func (p *HarnessProvider) getOperationGroups() []providers.OperationGroup {
 			Operations: []string{
 				"ccm/costs/overview", "ccm/budgets/list",
 				"ccm/recommendations/list", "ccm/anomalies/list",
+			},
+		})
+	}
+
+	// Service and Deployment groups
+	if p.enabledModules[ModuleService] {
+		groups = append(groups, providers.OperationGroup{
+			Name:        "services",
+			DisplayName: "Service Management",
+			Description: "Manage application services and configurations",
+			Operations: []string{
+				"services/list", "services/get", "services/create",
+				"services/update", "services/delete",
+			},
+		})
+	}
+
+	if p.enabledModules[ModuleEnvironment] {
+		groups = append(groups, providers.OperationGroup{
+			Name:        "environments",
+			DisplayName: "Environment Management",
+			Description: "Configure deployment environments",
+			Operations: []string{
+				"environments/list", "environments/get", "environments/create",
+				"environments/update", "environments/delete",
+			},
+		})
+	}
+
+	if p.enabledModules[ModuleInfra] {
+		groups = append(groups, providers.OperationGroup{
+			Name:        "infrastructure",
+			DisplayName: "Infrastructure Definitions",
+			Description: "Define and manage infrastructure configurations",
+			Operations: []string{
+				"infrastructures/list", "infrastructures/get", "infrastructures/create",
+				"infrastructures/update", "infrastructures/delete",
+			},
+		})
+	}
+
+	// Code and Repository groups
+	if p.enabledModules[ModulePullRequest] {
+		groups = append(groups, providers.OperationGroup{
+			Name:        "pullrequests",
+			DisplayName: "Pull Request Management",
+			Description: "Create and manage pull requests",
+			Operations: []string{
+				"pullrequests/list", "pullrequests/get", "pullrequests/create",
+				"pullrequests/merge", "pullrequests/review",
+			},
+		})
+	}
+
+	if p.enabledModules[ModuleRepository] {
+		groups = append(groups, providers.OperationGroup{
+			Name:        "repositories",
+			DisplayName: "Repository Management",
+			Description: "Manage code repositories",
+			Operations: []string{
+				"repositories/list", "repositories/get",
+				"repositories/branches", "repositories/commits",
+			},
+		})
+	}
+
+	if p.enabledModules[ModuleRegistry] {
+		groups = append(groups, providers.OperationGroup{
+			Name:        "registries",
+			DisplayName: "Artifact Registries",
+			Description: "Manage artifact registries and images",
+			Operations: []string{
+				"registries/list", "registries/get", "registries/artifacts",
+			},
+		})
+	}
+
+	// Monitoring and Analytics groups
+	if p.enabledModules[ModuleDashboard] {
+		groups = append(groups, providers.OperationGroup{
+			Name:        "dashboards",
+			DisplayName: "Dashboards",
+			Description: "View and manage dashboards",
+			Operations: []string{
+				"dashboards/list", "dashboards/get", "dashboards/data",
+			},
+		})
+	}
+
+	if p.enabledModules[ModuleChaos] {
+		groups = append(groups, providers.OperationGroup{
+			Name:        "chaos",
+			DisplayName: "Chaos Engineering",
+			Description: "Run chaos experiments for resilience testing",
+			Operations: []string{
+				"chaos/experiments/list", "chaos/experiments/get",
+				"chaos/experiments/run", "chaos/experiments/results",
+			},
+		})
+	}
+
+	if p.enabledModules[ModuleSSCA] {
+		groups = append(groups, providers.OperationGroup{
+			Name:        "ssca",
+			DisplayName: "Supply Chain Security",
+			Description: "Manage supply chain security and compliance",
+			Operations: []string{
+				"ssca/sbom/generate", "ssca/sbom/get",
+				"ssca/artifacts/scan", "ssca/vulnerabilities/list",
+			},
+		})
+	}
+
+	if p.enabledModules[ModuleLogs] {
+		groups = append(groups, providers.OperationGroup{
+			Name:        "logs",
+			DisplayName: "Logs Management",
+			Description: "Access and stream execution logs",
+			Operations: []string{
+				"logs/download", "logs/stream",
+			},
+		})
+	}
+
+	// Platform and Configuration groups
+	if p.enabledModules[ModuleTemplate] {
+		groups = append(groups, providers.OperationGroup{
+			Name:        "templates",
+			DisplayName: "Template Management",
+			Description: "Create and manage reusable templates",
+			Operations: []string{
+				"templates/list", "templates/get", "templates/create",
+				"templates/update", "templates/delete",
+			},
+		})
+	}
+
+	if p.enabledModules[ModuleIDP] {
+		groups = append(groups, providers.OperationGroup{
+			Name:        "idp",
+			DisplayName: "Internal Developer Portal",
+			Description: "Manage developer portal entities and scorecards",
+			Operations: []string{
+				"idp/entities/list", "idp/entities/get",
+				"idp/scorecards/list", "idp/scorecards/get",
+				"idp/catalog/list",
+			},
+		})
+	}
+
+	if p.enabledModules[ModuleAudit] {
+		groups = append(groups, providers.OperationGroup{
+			Name:        "audit",
+			DisplayName: "Audit Trail",
+			Description: "Track user activities and changes",
+			Operations: []string{
+				"audit/events/list", "audit/events/get",
+			},
+		})
+	}
+
+	if p.enabledModules[ModuleDatabase] {
+		groups = append(groups, providers.OperationGroup{
+			Name:        "database",
+			DisplayName: "Database Operations",
+			Description: "Manage database schemas and migrations",
+			Operations: []string{
+				"database/schema/list", "database/schema/get",
+				"database/migrations/list",
+			},
+		})
+	}
+
+	// Feature Management groups
+	if p.enabledModules[ModuleFF] {
+		groups = append(groups, providers.OperationGroup{
+			Name:        "featureflags",
+			DisplayName: "Feature Flags",
+			Description: "Manage feature flags and targeting",
+			Operations: []string{
+				"featureflags/list", "featureflags/get", "featureflags/create",
+				"featureflags/update", "featureflags/toggle",
+			},
+		})
+	}
+
+	if p.enabledModules[ModuleCV] {
+		groups = append(groups, providers.OperationGroup{
+			Name:        "cv",
+			DisplayName: "Continuous Verification",
+			Description: "Monitor service health and SLOs",
+			Operations: []string{
+				"cv/monitored-services/list", "cv/monitored-services/get",
+				"cv/health-sources/list", "cv/sli/list", "cv/slo/list",
+			},
+		})
+	}
+
+	if p.enabledModules[ModuleIaCM] {
+		groups = append(groups, providers.OperationGroup{
+			Name:        "iacm",
+			DisplayName: "Infrastructure as Code",
+			Description: "Manage Terraform/OpenTofu workspaces",
+			Operations: []string{
+				"iacm/workspaces/list", "iacm/workspaces/get", "iacm/workspaces/create",
+				"iacm/stacks/list", "iacm/cost-estimation",
+			},
+		})
+	}
+
+	// Execution and Operations groups
+	if p.enabledModules[ModuleExecution] {
+		groups = append(groups, providers.OperationGroup{
+			Name:        "executions",
+			DisplayName: "Execution Management",
+			Description: "Track and manage pipeline executions",
+			Operations: []string{
+				"executions/list", "executions/get", "executions/status",
+				"executions/rollback", "executions/abort",
+			},
+		})
+	}
+
+	if p.enabledModules[ModuleSecret] {
+		groups = append(groups, providers.OperationGroup{
+			Name:        "secrets",
+			DisplayName: "Secrets Management",
+			Description: "Manage secrets and credentials",
+			Operations: []string{
+				"secrets/list", "secrets/get", "secrets/create",
+				"secrets/update", "secrets/delete",
+			},
+		})
+	}
+
+	if p.enabledModules[ModuleUser] {
+		groups = append(groups, providers.OperationGroup{
+			Name:        "users",
+			DisplayName: "User & Access Management",
+			Description: "Manage users, groups, roles and permissions",
+			Operations: []string{
+				"users/list", "users/get",
+				"usergroups/list", "usergroups/get",
+				"roles/list", "roles/get",
+				"permissions/list",
 			},
 		})
 	}
