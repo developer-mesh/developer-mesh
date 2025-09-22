@@ -398,6 +398,13 @@ func (p *HarnessProvider) GetOperationMappings() map[string]providers.OperationM
 			RequiredParams: []string{"org", "project", "pipeline"},
 			OptionalParams: []string{"branch", "repo_identifier"},
 		}
+		mappings["pipelines/execution-url"] = providers.OperationMapping{
+			OperationID:    "fetchExecutionUrl",
+			Method:         "GET",
+			PathTemplate:   "/pipeline/api/pipelines/execution/{planExecutionId}/url",
+			RequiredParams: []string{"planExecutionId"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
 	}
 
 	// Project operations
@@ -453,6 +460,13 @@ func (p *HarnessProvider) GetOperationMappings() map[string]providers.OperationM
 
 	// Connector operations
 	if p.enabledModules[ModuleConnector] {
+		mappings["connectors/catalogue"] = providers.OperationMapping{
+			OperationID:    "listConnectorCatalogue",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/connectors/catalogue",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier"},
+		}
 		mappings["connectors/list"] = providers.OperationMapping{
 			OperationID:    "listConnectors",
 			Method:         "GET",
@@ -526,6 +540,41 @@ func (p *HarnessProvider) GetOperationMappings() map[string]providers.OperationM
 			PathTemplate:   "/gitops/api/v1/applications/{app_name}/rollback",
 			RequiredParams: []string{"app_name"},
 			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "agentIdentifier", "targetRevision"},
+		}
+		mappings["gitops/applications/create"] = providers.OperationMapping{
+			OperationID:    "createGitOpsApplication",
+			Method:         "POST",
+			PathTemplate:   "/gitops/api/v1/applications",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "agentIdentifier"},
+		}
+		mappings["gitops/applications/get"] = providers.OperationMapping{
+			OperationID:    "getGitOpsApplication",
+			Method:         "GET",
+			PathTemplate:   "/gitops/api/v1/applications/{app_name}",
+			RequiredParams: []string{"app_name"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "agentIdentifier"},
+		}
+		mappings["gitops/applications/update"] = providers.OperationMapping{
+			OperationID:    "updateGitOpsApplication",
+			Method:         "PUT",
+			PathTemplate:   "/gitops/api/v1/applications/{app_name}",
+			RequiredParams: []string{"app_name"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "agentIdentifier"},
+		}
+		mappings["gitops/applications/delete"] = providers.OperationMapping{
+			OperationID:    "deleteGitOpsApplication",
+			Method:         "DELETE",
+			PathTemplate:   "/gitops/api/v1/applications/{app_name}",
+			RequiredParams: []string{"app_name"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "agentIdentifier"},
+		}
+		mappings["gitops/applications/resources"] = providers.OperationMapping{
+			OperationID:    "getGitOpsApplicationResources",
+			Method:         "GET",
+			PathTemplate:   "/gitops/api/v1/applications/{app_name}/resource-tree",
+			RequiredParams: []string{"app_name"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "agentIdentifier"},
 		}
 	}
 
@@ -662,6 +711,13 @@ func (p *HarnessProvider) GetOperationMappings() map[string]providers.OperationM
 			RequiredParams: []string{"environmentIdentifier"},
 			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
 		}
+		mappings["environments/move-configs"] = providers.OperationMapping{
+			OperationID:    "moveEnvironmentConfigs",
+			Method:         "POST",
+			PathTemplate:   "/ng/api/environmentsV2/{environmentIdentifier}/move-configs",
+			RequiredParams: []string{"environmentIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "targetEnvironment"},
+		}
 	}
 
 	// Infrastructure operations
@@ -701,6 +757,13 @@ func (p *HarnessProvider) GetOperationMappings() map[string]providers.OperationM
 			RequiredParams: []string{"infrastructureIdentifier"},
 			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
 		}
+		mappings["infrastructures/move-configs"] = providers.OperationMapping{
+			OperationID:    "moveInfrastructureConfigs",
+			Method:         "POST",
+			PathTemplate:   "/ng/api/infrastructures/{infrastructureIdentifier}/move-configs",
+			RequiredParams: []string{"infrastructureIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "targetInfrastructure"},
+		}
 	}
 
 	// Pull Request operations
@@ -739,6 +802,20 @@ func (p *HarnessProvider) GetOperationMappings() map[string]providers.OperationM
 			PathTemplate:   "/code/api/v1/repos/{repoIdentifier}/pullreq/{pullRequestNumber}/reviews",
 			RequiredParams: []string{"repoIdentifier", "pullRequestNumber"},
 			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["pullrequests/checks"] = providers.OperationMapping{
+			OperationID:    "getPullRequestChecks",
+			Method:         "GET",
+			PathTemplate:   "/code/api/v1/repos/{repoIdentifier}/pullreq/{pullRequestNumber}/checks",
+			RequiredParams: []string{"repoIdentifier", "pullRequestNumber"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["pullrequests/activities"] = providers.OperationMapping{
+			OperationID:    "getPullRequestActivities",
+			Method:         "GET",
+			PathTemplate:   "/code/api/v1/repos/{repoIdentifier}/pullreq/{pullRequestNumber}/activities",
+			RequiredParams: []string{"repoIdentifier", "pullRequestNumber"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "page", "limit"},
 		}
 	}
 
@@ -797,6 +874,20 @@ func (p *HarnessProvider) GetOperationMappings() map[string]providers.OperationM
 			RequiredParams: []string{},
 			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "connectorRef", "repositoryName", "page", "size"},
 		}
+		mappings["registries/artifacts/files"] = providers.OperationMapping{
+			OperationID:    "listArtifactFiles",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/artifacts/files",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "connectorRef", "repositoryName", "artifactPath", "page", "size"},
+		}
+		mappings["registries/artifacts/versions"] = providers.OperationMapping{
+			OperationID:    "listArtifactVersions",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/artifacts/versions",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "connectorRef", "repositoryName", "artifactPath", "page", "size"},
+		}
 	}
 
 	// Dashboard operations
@@ -852,6 +943,48 @@ func (p *HarnessProvider) GetOperationMappings() map[string]providers.OperationM
 			Method:         "GET",
 			PathTemplate:   "/chaos/api/experiments/{experimentId}/runs",
 			RequiredParams: []string{"experimentId"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "page", "limit"},
+		}
+		mappings["chaos/experiments/create"] = providers.OperationMapping{
+			OperationID:    "createChaosExperiment",
+			Method:         "POST",
+			PathTemplate:   "/chaos/api/experiments",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["chaos/experiments/update"] = providers.OperationMapping{
+			OperationID:    "updateChaosExperiment",
+			Method:         "PUT",
+			PathTemplate:   "/chaos/api/experiments/{experimentId}",
+			RequiredParams: []string{"experimentId"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["chaos/experiments/delete"] = providers.OperationMapping{
+			OperationID:    "deleteChaosExperiment",
+			Method:         "DELETE",
+			PathTemplate:   "/chaos/api/experiments/{experimentId}",
+			RequiredParams: []string{"experimentId"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["chaos/experiments/stop"] = providers.OperationMapping{
+			OperationID:    "stopChaosExperiment",
+			Method:         "POST",
+			PathTemplate:   "/chaos/api/experiments/{experimentId}/stop",
+			RequiredParams: []string{"experimentId"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["chaos/hubs/list"] = providers.OperationMapping{
+			OperationID:    "listChaosHubs",
+			Method:         "GET",
+			PathTemplate:   "/chaos/api/hubs",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "page", "limit"},
+		}
+		mappings["chaos/infrastructure/list"] = providers.OperationMapping{
+			OperationID:    "listChaosInfrastructures",
+			Method:         "GET",
+			PathTemplate:   "/chaos/api/infrastructures",
+			RequiredParams: []string{},
 			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "page", "limit"},
 		}
 	}
@@ -982,6 +1115,48 @@ func (p *HarnessProvider) GetOperationMappings() map[string]providers.OperationM
 			RequiredParams: []string{},
 			OptionalParams: []string{"accountIdentifier", "page", "limit", "filter"},
 		}
+		mappings["idp/entities/create"] = providers.OperationMapping{
+			OperationID:    "createIDPEntity",
+			Method:         "POST",
+			PathTemplate:   "/idp/api/entities",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier"},
+		}
+		mappings["idp/entities/update"] = providers.OperationMapping{
+			OperationID:    "updateIDPEntity",
+			Method:         "PUT",
+			PathTemplate:   "/idp/api/entities/{entityId}",
+			RequiredParams: []string{"entityId"},
+			OptionalParams: []string{"accountIdentifier"},
+		}
+		mappings["idp/entities/delete"] = providers.OperationMapping{
+			OperationID:    "deleteIDPEntity",
+			Method:         "DELETE",
+			PathTemplate:   "/idp/api/entities/{entityId}",
+			RequiredParams: []string{"entityId"},
+			OptionalParams: []string{"accountIdentifier"},
+		}
+		mappings["idp/scorecards/create"] = providers.OperationMapping{
+			OperationID:    "createScorecard",
+			Method:         "POST",
+			PathTemplate:   "/idp/api/scorecards",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier"},
+		}
+		mappings["idp/scorecards/update"] = providers.OperationMapping{
+			OperationID:    "updateScorecard",
+			Method:         "PUT",
+			PathTemplate:   "/idp/api/scorecards/{scorecardId}",
+			RequiredParams: []string{"scorecardId"},
+			OptionalParams: []string{"accountIdentifier"},
+		}
+		mappings["idp/scorecards/delete"] = providers.OperationMapping{
+			OperationID:    "deleteScorecard",
+			Method:         "DELETE",
+			PathTemplate:   "/idp/api/scorecards/{scorecardId}",
+			RequiredParams: []string{"scorecardId"},
+			OptionalParams: []string{"accountIdentifier"},
+		}
 	}
 
 	// Audit operations
@@ -1064,6 +1239,55 @@ func (p *HarnessProvider) GetOperationMappings() map[string]providers.OperationM
 			RequiredParams: []string{"identifier"},
 			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "environmentIdentifier"},
 		}
+		mappings["featureflags/delete"] = providers.OperationMapping{
+			OperationID:    "deleteFeatureFlag",
+			Method:         "DELETE",
+			PathTemplate:   "/cf/admin/features/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["featureflags/evaluations"] = providers.OperationMapping{
+			OperationID:    "getFeatureFlagEvaluations",
+			Method:         "GET",
+			PathTemplate:   "/cf/admin/features/{identifier}/evaluations",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "environmentIdentifier", "startTime", "endTime"},
+		}
+		mappings["featureflags/metrics"] = providers.OperationMapping{
+			OperationID:    "getFeatureFlagMetrics",
+			Method:         "GET",
+			PathTemplate:   "/cf/admin/features/{identifier}/metrics",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "environmentIdentifier", "startTime", "endTime"},
+		}
+		mappings["featureflags/targets/list"] = providers.OperationMapping{
+			OperationID:    "listFeatureFlagTargets",
+			Method:         "GET",
+			PathTemplate:   "/cf/admin/targets",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "environmentIdentifier", "page", "pageSize"},
+		}
+		mappings["featureflags/targets/create"] = providers.OperationMapping{
+			OperationID:    "createFeatureFlagTarget",
+			Method:         "POST",
+			PathTemplate:   "/cf/admin/targets",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "environmentIdentifier"},
+		}
+		mappings["featureflags/segments/list"] = providers.OperationMapping{
+			OperationID:    "listFeatureFlagSegments",
+			Method:         "GET",
+			PathTemplate:   "/cf/admin/segments",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "environmentIdentifier", "page", "pageSize"},
+		}
+		mappings["featureflags/segments/create"] = providers.OperationMapping{
+			OperationID:    "createFeatureFlagSegment",
+			Method:         "POST",
+			PathTemplate:   "/cf/admin/segments",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "environmentIdentifier"},
+		}
 	}
 
 	// Continuous Verification operations
@@ -1082,9 +1306,30 @@ func (p *HarnessProvider) GetOperationMappings() map[string]providers.OperationM
 			RequiredParams: []string{"identifier"},
 			OptionalParams: []string{"accountId", "orgIdentifier", "projectIdentifier"},
 		}
+		mappings["cv/monitored-services/create"] = providers.OperationMapping{
+			OperationID:    "createMonitoredService",
+			Method:         "POST",
+			PathTemplate:   "/cv/api/monitored-service",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountId", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["cv/monitored-services/update"] = providers.OperationMapping{
+			OperationID:    "updateMonitoredService",
+			Method:         "PUT",
+			PathTemplate:   "/cv/api/monitored-service/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountId", "orgIdentifier", "projectIdentifier"},
+		}
 		mappings["cv/health-sources/list"] = providers.OperationMapping{
 			OperationID:    "listHealthSources",
 			Method:         "GET",
+			PathTemplate:   "/cv/api/monitored-service/{monitoredServiceIdentifier}/health-sources",
+			RequiredParams: []string{"monitoredServiceIdentifier"},
+			OptionalParams: []string{"accountId", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["cv/health-sources/create"] = providers.OperationMapping{
+			OperationID:    "createHealthSource",
+			Method:         "POST",
 			PathTemplate:   "/cv/api/monitored-service/{monitoredServiceIdentifier}/health-sources",
 			RequiredParams: []string{"monitoredServiceIdentifier"},
 			OptionalParams: []string{"accountId", "orgIdentifier", "projectIdentifier"},
@@ -1102,6 +1347,34 @@ func (p *HarnessProvider) GetOperationMappings() map[string]providers.OperationM
 			PathTemplate:   "/cv/api/slo",
 			RequiredParams: []string{},
 			OptionalParams: []string{"accountId", "orgIdentifier", "projectIdentifier", "userJourneyIdentifiers", "offset", "pageSize"},
+		}
+		mappings["cv/sli/create"] = providers.OperationMapping{
+			OperationID:    "createSLI",
+			Method:         "POST",
+			PathTemplate:   "/cv/api/sli",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountId", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["cv/slo/create"] = providers.OperationMapping{
+			OperationID:    "createSLO",
+			Method:         "POST",
+			PathTemplate:   "/cv/api/slo",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountId", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["cv/change-events/list"] = providers.OperationMapping{
+			OperationID:    "listChangeEvents",
+			Method:         "GET",
+			PathTemplate:   "/cv/api/change-event",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountId", "orgIdentifier", "projectIdentifier", "monitoredServiceIdentifier", "startTime", "endTime"},
+		}
+		mappings["cv/incidents/list"] = providers.OperationMapping{
+			OperationID:    "listIncidents",
+			Method:         "GET",
+			PathTemplate:   "/cv/api/incidents",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountId", "orgIdentifier", "projectIdentifier", "monitoredServiceIdentifier", "startTime", "endTime", "page", "size"},
 		}
 	}
 
@@ -1271,6 +1544,83 @@ func (p *HarnessProvider) GetOperationMappings() map[string]providers.OperationM
 			Method:         "GET",
 			PathTemplate:   "/ng/api/permissions",
 			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["users/create"] = providers.OperationMapping{
+			OperationID:    "createUser",
+			Method:         "POST",
+			PathTemplate:   "/ng/api/user/users",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["users/update"] = providers.OperationMapping{
+			OperationID:    "updateUser",
+			Method:         "PUT",
+			PathTemplate:   "/ng/api/user/users/{userIdentifier}",
+			RequiredParams: []string{"userIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["users/delete"] = providers.OperationMapping{
+			OperationID:    "deleteUser",
+			Method:         "DELETE",
+			PathTemplate:   "/ng/api/user/users/{userIdentifier}",
+			RequiredParams: []string{"userIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["usergroups/create"] = providers.OperationMapping{
+			OperationID:    "createUserGroup",
+			Method:         "POST",
+			PathTemplate:   "/ng/api/user-groups",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["usergroups/update"] = providers.OperationMapping{
+			OperationID:    "updateUserGroup",
+			Method:         "PUT",
+			PathTemplate:   "/ng/api/user-groups/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["usergroups/delete"] = providers.OperationMapping{
+			OperationID:    "deleteUserGroup",
+			Method:         "DELETE",
+			PathTemplate:   "/ng/api/user-groups/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["roles/create"] = providers.OperationMapping{
+			OperationID:    "createRole",
+			Method:         "POST",
+			PathTemplate:   "/ng/api/roles",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["roles/update"] = providers.OperationMapping{
+			OperationID:    "updateRole",
+			Method:         "PUT",
+			PathTemplate:   "/ng/api/roles/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["roles/delete"] = providers.OperationMapping{
+			OperationID:    "deleteRole",
+			Method:         "DELETE",
+			PathTemplate:   "/ng/api/roles/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["role-assignments/create"] = providers.OperationMapping{
+			OperationID:    "createRoleAssignment",
+			Method:         "POST",
+			PathTemplate:   "/ng/api/role-assignments",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["role-assignments/delete"] = providers.OperationMapping{
+			OperationID:    "deleteRoleAssignment",
+			Method:         "DELETE",
+			PathTemplate:   "/ng/api/role-assignments/{identifier}",
+			RequiredParams: []string{"identifier"},
 			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
 		}
 	}
