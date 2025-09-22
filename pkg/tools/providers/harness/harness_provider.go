@@ -24,32 +24,39 @@ var harnessOpenAPISpecJSON []byte
 type HarnessModule string
 
 const (
-	ModulePipeline    HarnessModule = "pipeline"
-	ModuleProject     HarnessModule = "project"
-	ModuleConnector   HarnessModule = "connector"
-	ModuleCCM         HarnessModule = "ccm"
-	ModuleGitOps      HarnessModule = "gitops"
-	ModuleIaCM        HarnessModule = "iacm"
-	ModuleCV          HarnessModule = "cv"
-	ModuleSTO         HarnessModule = "sto"
-	ModuleFF          HarnessModule = "cf"
-	ModuleService     HarnessModule = "service"
-	ModuleEnvironment HarnessModule = "environment"
-	ModuleInfra       HarnessModule = "infrastructure"
-	ModulePullRequest HarnessModule = "pullrequest"
-	ModuleRepository  HarnessModule = "repository"
-	ModuleRegistry    HarnessModule = "registry"
-	ModuleDashboard   HarnessModule = "dashboard"
-	ModuleChaos       HarnessModule = "chaos"
-	ModuleSSCA        HarnessModule = "ssca"
-	ModuleLogs        HarnessModule = "logs"
-	ModuleTemplate    HarnessModule = "template"
-	ModuleIDP         HarnessModule = "idp"
-	ModuleAudit       HarnessModule = "audit"
-	ModuleDatabase    HarnessModule = "database"
-	ModuleExecution   HarnessModule = "execution"
-	ModuleSecret      HarnessModule = "secret"
-	ModuleUser        HarnessModule = "user"
+	ModulePipeline     HarnessModule = "pipeline"
+	ModuleProject      HarnessModule = "project"
+	ModuleConnector    HarnessModule = "connector"
+	ModuleCCM          HarnessModule = "ccm"
+	ModuleGitOps       HarnessModule = "gitops"
+	ModuleIaCM         HarnessModule = "iacm"
+	ModuleCV           HarnessModule = "cv"
+	ModuleSTO          HarnessModule = "sto"
+	ModuleFF           HarnessModule = "cf"
+	ModuleService      HarnessModule = "service"
+	ModuleEnvironment  HarnessModule = "environment"
+	ModuleInfra        HarnessModule = "infrastructure"
+	ModulePullRequest  HarnessModule = "pullrequest"
+	ModuleRepository   HarnessModule = "repository"
+	ModuleRegistry     HarnessModule = "registry"
+	ModuleDashboard    HarnessModule = "dashboard"
+	ModuleChaos        HarnessModule = "chaos"
+	ModuleSSCA         HarnessModule = "ssca"
+	ModuleLogs         HarnessModule = "logs"
+	ModuleTemplate     HarnessModule = "template"
+	ModuleIDP          HarnessModule = "idp"
+	ModuleAudit        HarnessModule = "audit"
+	ModuleDatabase     HarnessModule = "database"
+	ModuleExecution    HarnessModule = "execution"
+	ModuleSecret       HarnessModule = "secret"
+	ModuleUser         HarnessModule = "user"
+	ModuleDelegate     HarnessModule = "delegate"
+	ModuleApproval     HarnessModule = "approval"
+	ModuleNotification HarnessModule = "notification"
+	ModuleWebhook      HarnessModule = "webhook"
+	ModuleAPIKey       HarnessModule = "apikey"
+	ModuleAccount      HarnessModule = "account"
+	ModuleLicense      HarnessModule = "license"
 )
 
 // HarnessProvider implements the StandardToolProvider interface for Harness
@@ -85,32 +92,39 @@ func NewHarnessProvider(logger observability.Logger) *HarnessProvider {
 		},
 		baseURL: "https://app.harness.io",
 		enabledModules: map[HarnessModule]bool{
-			ModulePipeline:    true,
-			ModuleProject:     true,
-			ModuleConnector:   true,
-			ModuleCCM:         true,
-			ModuleGitOps:      true,
-			ModuleCV:          true,
-			ModuleSTO:         true,
-			ModuleFF:          true,
-			ModuleIaCM:        true,
-			ModuleService:     true,
-			ModuleEnvironment: true,
-			ModuleInfra:       true,
-			ModulePullRequest: true,
-			ModuleRepository:  true,
-			ModuleRegistry:    true,
-			ModuleDashboard:   true,
-			ModuleChaos:       true,
-			ModuleSSCA:        true,
-			ModuleLogs:        true,
-			ModuleTemplate:    true,
-			ModuleIDP:         true,
-			ModuleAudit:       true,
-			ModuleDatabase:    true,
-			ModuleExecution:   true,
-			ModuleSecret:      true,
-			ModuleUser:        true,
+			ModulePipeline:     true,
+			ModuleProject:      true,
+			ModuleConnector:    true,
+			ModuleCCM:          true,
+			ModuleGitOps:       true,
+			ModuleCV:           true,
+			ModuleSTO:          true,
+			ModuleFF:           true,
+			ModuleIaCM:         true,
+			ModuleService:      true,
+			ModuleEnvironment:  true,
+			ModuleInfra:        true,
+			ModulePullRequest:  true,
+			ModuleRepository:   true,
+			ModuleRegistry:     true,
+			ModuleDashboard:    true,
+			ModuleChaos:        true,
+			ModuleSSCA:         true,
+			ModuleLogs:         true,
+			ModuleTemplate:     true,
+			ModuleIDP:          true,
+			ModuleAudit:        true,
+			ModuleDatabase:     true,
+			ModuleExecution:    true,
+			ModuleSecret:       true,
+			ModuleUser:         true,
+			ModuleDelegate:     true,
+			ModuleApproval:     true,
+			ModuleNotification: true,
+			ModuleWebhook:      true,
+			ModuleAPIKey:       true,
+			ModuleAccount:      true,
+			ModuleLicense:      true,
 		},
 	}
 
@@ -631,6 +645,118 @@ func (p *HarnessProvider) GetOperationMappings() map[string]providers.OperationM
 			Method:         "POST",
 			PathTemplate:   "/ccm/api/anomaly",
 			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier"},
+		}
+		mappings["ccm/perspectives/list"] = providers.OperationMapping{
+			OperationID:    "listCostPerspectives",
+			Method:         "GET",
+			PathTemplate:   "/ccm/api/perspectives",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "page", "limit"},
+		}
+		mappings["ccm/perspectives/get"] = providers.OperationMapping{
+			OperationID:    "getCostPerspective",
+			Method:         "GET",
+			PathTemplate:   "/ccm/api/perspectives/{perspectiveId}",
+			RequiredParams: []string{"perspectiveId"},
+			OptionalParams: []string{"accountIdentifier"},
+		}
+		mappings["ccm/perspectives/create"] = providers.OperationMapping{
+			OperationID:    "createCostPerspective",
+			Method:         "POST",
+			PathTemplate:   "/ccm/api/perspectives",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier"},
+		}
+		mappings["ccm/perspectives/update"] = providers.OperationMapping{
+			OperationID:    "updateCostPerspective",
+			Method:         "PUT",
+			PathTemplate:   "/ccm/api/perspectives/{perspectiveId}",
+			RequiredParams: []string{"perspectiveId"},
+			OptionalParams: []string{"accountIdentifier"},
+		}
+		mappings["ccm/perspectives/delete"] = providers.OperationMapping{
+			OperationID:    "deleteCostPerspective",
+			Method:         "DELETE",
+			PathTemplate:   "/ccm/api/perspectives/{perspectiveId}",
+			RequiredParams: []string{"perspectiveId"},
+			OptionalParams: []string{"accountIdentifier"},
+		}
+		mappings["ccm/forecasts/get"] = providers.OperationMapping{
+			OperationID:    "getCostForecast",
+			Method:         "POST",
+			PathTemplate:   "/ccm/api/forecasts",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "perspectiveId", "period"},
+		}
+		mappings["ccm/categories/list"] = providers.OperationMapping{
+			OperationID:    "listCostCategories",
+			Method:         "GET",
+			PathTemplate:   "/ccm/api/cost-categories",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "page", "limit"},
+		}
+		mappings["ccm/categories/create"] = providers.OperationMapping{
+			OperationID:    "createCostCategory",
+			Method:         "POST",
+			PathTemplate:   "/ccm/api/cost-categories",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier"},
+		}
+		mappings["ccm/autostopping/list"] = providers.OperationMapping{
+			OperationID:    "listAutoStoppingRules",
+			Method:         "GET",
+			PathTemplate:   "/ccm/api/autostopping-rules",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "page", "limit"},
+		}
+		mappings["ccm/autostopping/get"] = providers.OperationMapping{
+			OperationID:    "getAutoStoppingRule",
+			Method:         "GET",
+			PathTemplate:   "/ccm/api/autostopping-rules/{ruleId}",
+			RequiredParams: []string{"ruleId"},
+			OptionalParams: []string{"accountIdentifier"},
+		}
+		mappings["ccm/autostopping/create"] = providers.OperationMapping{
+			OperationID:    "createAutoStoppingRule",
+			Method:         "POST",
+			PathTemplate:   "/ccm/api/autostopping-rules",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier"},
+		}
+		mappings["ccm/autostopping/update"] = providers.OperationMapping{
+			OperationID:    "updateAutoStoppingRule",
+			Method:         "PUT",
+			PathTemplate:   "/ccm/api/autostopping-rules/{ruleId}",
+			RequiredParams: []string{"ruleId"},
+			OptionalParams: []string{"accountIdentifier"},
+		}
+		mappings["ccm/autostopping/delete"] = providers.OperationMapping{
+			OperationID:    "deleteAutoStoppingRule",
+			Method:         "DELETE",
+			PathTemplate:   "/ccm/api/autostopping-rules/{ruleId}",
+			RequiredParams: []string{"ruleId"},
+			OptionalParams: []string{"accountIdentifier"},
+		}
+		mappings["ccm/budgets/create"] = providers.OperationMapping{
+			OperationID:    "createBudget",
+			Method:         "POST",
+			PathTemplate:   "/ccm/api/budgets",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier"},
+		}
+		mappings["ccm/budgets/update"] = providers.OperationMapping{
+			OperationID:    "updateBudget",
+			Method:         "PUT",
+			PathTemplate:   "/ccm/api/budgets/{budgetId}",
+			RequiredParams: []string{"budgetId"},
+			OptionalParams: []string{"accountIdentifier"},
+		}
+		mappings["ccm/budgets/delete"] = providers.OperationMapping{
+			OperationID:    "deleteBudget",
+			Method:         "DELETE",
+			PathTemplate:   "/ccm/api/budgets/{budgetId}",
+			RequiredParams: []string{"budgetId"},
 			OptionalParams: []string{"accountIdentifier"},
 		}
 	}
@@ -1622,6 +1748,300 @@ func (p *HarnessProvider) GetOperationMappings() map[string]providers.OperationM
 			PathTemplate:   "/ng/api/role-assignments/{identifier}",
 			RequiredParams: []string{"identifier"},
 			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+	}
+
+	// Delegate operations
+	if p.enabledModules[ModuleDelegate] {
+		mappings["delegates/list"] = providers.OperationMapping{
+			OperationID:    "listDelegates",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/delegates",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "page", "limit"},
+		}
+		mappings["delegates/get"] = providers.OperationMapping{
+			OperationID:    "getDelegate",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/delegates/{delegateIdentifier}",
+			RequiredParams: []string{"delegateIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["delegates/create"] = providers.OperationMapping{
+			OperationID:    "createDelegate",
+			Method:         "POST",
+			PathTemplate:   "/ng/api/delegates",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["delegates/delete"] = providers.OperationMapping{
+			OperationID:    "deleteDelegate",
+			Method:         "DELETE",
+			PathTemplate:   "/ng/api/delegates/{delegateIdentifier}",
+			RequiredParams: []string{"delegateIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["delegates/status"] = providers.OperationMapping{
+			OperationID:    "getDelegateStatus",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/delegates/{delegateIdentifier}/status",
+			RequiredParams: []string{"delegateIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["delegates/heartbeat"] = providers.OperationMapping{
+			OperationID:    "delegateHeartbeat",
+			Method:         "POST",
+			PathTemplate:   "/ng/api/delegates/{delegateIdentifier}/heartbeat",
+			RequiredParams: []string{"delegateIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+	}
+
+	// Approval operations
+	if p.enabledModules[ModuleApproval] {
+		mappings["approvals/list"] = providers.OperationMapping{
+			OperationID:    "listApprovals",
+			Method:         "GET",
+			PathTemplate:   "/pipeline/api/approvals",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "status", "page", "limit"},
+		}
+		mappings["approvals/get"] = providers.OperationMapping{
+			OperationID:    "getApproval",
+			Method:         "GET",
+			PathTemplate:   "/pipeline/api/approvals/{approvalId}",
+			RequiredParams: []string{"approvalId"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["approvals/approve"] = providers.OperationMapping{
+			OperationID:    "approveRequest",
+			Method:         "POST",
+			PathTemplate:   "/pipeline/api/approvals/{approvalId}/approve",
+			RequiredParams: []string{"approvalId"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "comments"},
+		}
+		mappings["approvals/reject"] = providers.OperationMapping{
+			OperationID:    "rejectRequest",
+			Method:         "POST",
+			PathTemplate:   "/pipeline/api/approvals/{approvalId}/reject",
+			RequiredParams: []string{"approvalId"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "comments"},
+		}
+		mappings["approvals/history"] = providers.OperationMapping{
+			OperationID:    "getApprovalHistory",
+			Method:         "GET",
+			PathTemplate:   "/pipeline/api/approvals/{approvalId}/history",
+			RequiredParams: []string{"approvalId"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+	}
+
+	// Notification operations
+	if p.enabledModules[ModuleNotification] {
+		mappings["notifications/list"] = providers.OperationMapping{
+			OperationID:    "listNotificationRules",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/notification-rules",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "page", "limit"},
+		}
+		mappings["notifications/get"] = providers.OperationMapping{
+			OperationID:    "getNotificationRule",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/notification-rules/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["notifications/create"] = providers.OperationMapping{
+			OperationID:    "createNotificationRule",
+			Method:         "POST",
+			PathTemplate:   "/ng/api/notification-rules",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["notifications/update"] = providers.OperationMapping{
+			OperationID:    "updateNotificationRule",
+			Method:         "PUT",
+			PathTemplate:   "/ng/api/notification-rules/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["notifications/delete"] = providers.OperationMapping{
+			OperationID:    "deleteNotificationRule",
+			Method:         "DELETE",
+			PathTemplate:   "/ng/api/notification-rules/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["notifications/test"] = providers.OperationMapping{
+			OperationID:    "testNotificationRule",
+			Method:         "POST",
+			PathTemplate:   "/ng/api/notification-rules/{identifier}/test",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+	}
+
+	// Webhook operations
+	if p.enabledModules[ModuleWebhook] {
+		mappings["webhooks/list"] = providers.OperationMapping{
+			OperationID:    "listWebhooks",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/webhooks",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "page", "limit"},
+		}
+		mappings["webhooks/get"] = providers.OperationMapping{
+			OperationID:    "getWebhook",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/webhooks/{webhookIdentifier}",
+			RequiredParams: []string{"webhookIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["webhooks/create"] = providers.OperationMapping{
+			OperationID:    "createWebhook",
+			Method:         "POST",
+			PathTemplate:   "/ng/api/webhooks",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["webhooks/update"] = providers.OperationMapping{
+			OperationID:    "updateWebhook",
+			Method:         "PUT",
+			PathTemplate:   "/ng/api/webhooks/{webhookIdentifier}",
+			RequiredParams: []string{"webhookIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["webhooks/delete"] = providers.OperationMapping{
+			OperationID:    "deleteWebhook",
+			Method:         "DELETE",
+			PathTemplate:   "/ng/api/webhooks/{webhookIdentifier}",
+			RequiredParams: []string{"webhookIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["webhooks/trigger"] = providers.OperationMapping{
+			OperationID:    "triggerWebhook",
+			Method:         "POST",
+			PathTemplate:   "/ng/api/webhooks/{webhookIdentifier}/trigger",
+			RequiredParams: []string{"webhookIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+	}
+
+	// API Key operations
+	if p.enabledModules[ModuleAPIKey] {
+		mappings["apikeys/list"] = providers.OperationMapping{
+			OperationID:    "listAPIKeys",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/apikeys",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "page", "limit"},
+		}
+		mappings["apikeys/get"] = providers.OperationMapping{
+			OperationID:    "getAPIKey",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/apikeys/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["apikeys/create"] = providers.OperationMapping{
+			OperationID:    "createAPIKey",
+			Method:         "POST",
+			PathTemplate:   "/ng/api/apikeys",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["apikeys/update"] = providers.OperationMapping{
+			OperationID:    "updateAPIKey",
+			Method:         "PUT",
+			PathTemplate:   "/ng/api/apikeys/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["apikeys/delete"] = providers.OperationMapping{
+			OperationID:    "deleteAPIKey",
+			Method:         "DELETE",
+			PathTemplate:   "/ng/api/apikeys/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["apikeys/rotate"] = providers.OperationMapping{
+			OperationID:    "rotateAPIKey",
+			Method:         "POST",
+			PathTemplate:   "/ng/api/apikeys/{identifier}/rotate",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+	}
+
+	// Account operations
+	if p.enabledModules[ModuleAccount] {
+		mappings["account/get"] = providers.OperationMapping{
+			OperationID:    "getAccount",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/accounts/{accountIdentifier}",
+			RequiredParams: []string{"accountIdentifier"},
+			OptionalParams: []string{},
+		}
+		mappings["account/update"] = providers.OperationMapping{
+			OperationID:    "updateAccount",
+			Method:         "PUT",
+			PathTemplate:   "/ng/api/accounts/{accountIdentifier}",
+			RequiredParams: []string{"accountIdentifier"},
+			OptionalParams: []string{},
+		}
+		mappings["account/preferences/get"] = providers.OperationMapping{
+			OperationID:    "getAccountPreferences",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/accounts/{accountIdentifier}/preferences",
+			RequiredParams: []string{"accountIdentifier"},
+			OptionalParams: []string{},
+		}
+		mappings["account/preferences/update"] = providers.OperationMapping{
+			OperationID:    "updateAccountPreferences",
+			Method:         "PUT",
+			PathTemplate:   "/ng/api/accounts/{accountIdentifier}/preferences",
+			RequiredParams: []string{"accountIdentifier"},
+			OptionalParams: []string{},
+		}
+		mappings["account/usage"] = providers.OperationMapping{
+			OperationID:    "getAccountUsage",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/accounts/{accountIdentifier}/usage",
+			RequiredParams: []string{"accountIdentifier"},
+			OptionalParams: []string{"startTime", "endTime"},
+		}
+	}
+
+	// License operations
+	if p.enabledModules[ModuleLicense] {
+		mappings["licenses/list"] = providers.OperationMapping{
+			OperationID:    "listLicenses",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/licenses",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier"},
+		}
+		mappings["licenses/get"] = providers.OperationMapping{
+			OperationID:    "getLicense",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/licenses/{licenseId}",
+			RequiredParams: []string{"licenseId"},
+			OptionalParams: []string{"accountIdentifier"},
+		}
+		mappings["licenses/usage"] = providers.OperationMapping{
+			OperationID:    "getLicenseUsage",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/licenses/{licenseId}/usage",
+			RequiredParams: []string{"licenseId"},
+			OptionalParams: []string{"accountIdentifier", "module"},
+		}
+		mappings["licenses/summary"] = providers.OperationMapping{
+			OperationID:    "getLicenseSummary",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/licenses/summary",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier"},
 		}
 	}
 
