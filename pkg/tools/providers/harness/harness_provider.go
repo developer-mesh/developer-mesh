@@ -24,39 +24,49 @@ var harnessOpenAPISpecJSON []byte
 type HarnessModule string
 
 const (
-	ModulePipeline     HarnessModule = "pipeline"
-	ModuleProject      HarnessModule = "project"
-	ModuleConnector    HarnessModule = "connector"
-	ModuleCCM          HarnessModule = "ccm"
-	ModuleGitOps       HarnessModule = "gitops"
-	ModuleIaCM         HarnessModule = "iacm"
-	ModuleCV           HarnessModule = "cv"
-	ModuleSTO          HarnessModule = "sto"
-	ModuleFF           HarnessModule = "cf"
-	ModuleService      HarnessModule = "service"
-	ModuleEnvironment  HarnessModule = "environment"
-	ModuleInfra        HarnessModule = "infrastructure"
-	ModulePullRequest  HarnessModule = "pullrequest"
-	ModuleRepository   HarnessModule = "repository"
-	ModuleRegistry     HarnessModule = "registry"
-	ModuleDashboard    HarnessModule = "dashboard"
-	ModuleChaos        HarnessModule = "chaos"
-	ModuleSSCA         HarnessModule = "ssca"
-	ModuleLogs         HarnessModule = "logs"
-	ModuleTemplate     HarnessModule = "template"
-	ModuleIDP          HarnessModule = "idp"
-	ModuleAudit        HarnessModule = "audit"
-	ModuleDatabase     HarnessModule = "database"
-	ModuleExecution    HarnessModule = "execution"
-	ModuleSecret       HarnessModule = "secret"
-	ModuleUser         HarnessModule = "user"
-	ModuleDelegate     HarnessModule = "delegate"
-	ModuleApproval     HarnessModule = "approval"
-	ModuleNotification HarnessModule = "notification"
-	ModuleWebhook      HarnessModule = "webhook"
-	ModuleAPIKey       HarnessModule = "apikey"
-	ModuleAccount      HarnessModule = "account"
-	ModuleLicense      HarnessModule = "license"
+	ModulePipeline        HarnessModule = "pipeline"
+	ModuleProject         HarnessModule = "project"
+	ModuleConnector       HarnessModule = "connector"
+	ModuleCCM             HarnessModule = "ccm"
+	ModuleGitOps          HarnessModule = "gitops"
+	ModuleIaCM            HarnessModule = "iacm"
+	ModuleCV              HarnessModule = "cv"
+	ModuleSTO             HarnessModule = "sto"
+	ModuleFF              HarnessModule = "cf"
+	ModuleService         HarnessModule = "service"
+	ModuleEnvironment     HarnessModule = "environment"
+	ModuleInfra           HarnessModule = "infrastructure"
+	ModulePullRequest     HarnessModule = "pullrequest"
+	ModuleRepository      HarnessModule = "repository"
+	ModuleRegistry        HarnessModule = "registry"
+	ModuleDashboard       HarnessModule = "dashboard"
+	ModuleChaos           HarnessModule = "chaos"
+	ModuleSSCA            HarnessModule = "ssca"
+	ModuleLogs            HarnessModule = "logs"
+	ModuleTemplate        HarnessModule = "template"
+	ModuleIDP             HarnessModule = "idp"
+	ModuleAudit           HarnessModule = "audit"
+	ModuleDatabase        HarnessModule = "database"
+	ModuleExecution       HarnessModule = "execution"
+	ModuleSecret          HarnessModule = "secret"
+	ModuleUser            HarnessModule = "user"
+	ModuleDelegate        HarnessModule = "delegate"
+	ModuleApproval        HarnessModule = "approval"
+	ModuleNotification    HarnessModule = "notification"
+	ModuleWebhook         HarnessModule = "webhook"
+	ModuleAPIKey          HarnessModule = "apikey"
+	ModuleAccount         HarnessModule = "account"
+	ModuleLicense         HarnessModule = "license"
+	ModuleVariable        HarnessModule = "variable"
+	ModuleFileStore       HarnessModule = "filestore"
+	ModuleResourceGroup   HarnessModule = "resourcegroup"
+	ModuleRBACPolicy      HarnessModule = "rbacpolicy"
+	ModuleDelegateProfile HarnessModule = "delegateprofile"
+	ModuleGovernance      HarnessModule = "governance"
+	ModuleManifest        HarnessModule = "manifest"
+	ModuleTrigger         HarnessModule = "trigger"
+	ModuleInputSet        HarnessModule = "inputset"
+	ModuleFreezeWindow    HarnessModule = "freezewindow"
 )
 
 // HarnessProvider implements the StandardToolProvider interface for Harness
@@ -92,39 +102,49 @@ func NewHarnessProvider(logger observability.Logger) *HarnessProvider {
 		},
 		baseURL: "https://app.harness.io",
 		enabledModules: map[HarnessModule]bool{
-			ModulePipeline:     true,
-			ModuleProject:      true,
-			ModuleConnector:    true,
-			ModuleCCM:          true,
-			ModuleGitOps:       true,
-			ModuleCV:           true,
-			ModuleSTO:          true,
-			ModuleFF:           true,
-			ModuleIaCM:         true,
-			ModuleService:      true,
-			ModuleEnvironment:  true,
-			ModuleInfra:        true,
-			ModulePullRequest:  true,
-			ModuleRepository:   true,
-			ModuleRegistry:     true,
-			ModuleDashboard:    true,
-			ModuleChaos:        true,
-			ModuleSSCA:         true,
-			ModuleLogs:         true,
-			ModuleTemplate:     true,
-			ModuleIDP:          true,
-			ModuleAudit:        true,
-			ModuleDatabase:     true,
-			ModuleExecution:    true,
-			ModuleSecret:       true,
-			ModuleUser:         true,
-			ModuleDelegate:     true,
-			ModuleApproval:     true,
-			ModuleNotification: true,
-			ModuleWebhook:      true,
-			ModuleAPIKey:       true,
-			ModuleAccount:      true,
-			ModuleLicense:      true,
+			ModulePipeline:        true,
+			ModuleProject:         true,
+			ModuleConnector:       true,
+			ModuleCCM:             true,
+			ModuleGitOps:          true,
+			ModuleCV:              true,
+			ModuleSTO:             true,
+			ModuleFF:              true,
+			ModuleIaCM:            true,
+			ModuleService:         true,
+			ModuleEnvironment:     true,
+			ModuleInfra:           true,
+			ModulePullRequest:     true,
+			ModuleRepository:      true,
+			ModuleRegistry:        true,
+			ModuleDashboard:       true,
+			ModuleChaos:           true,
+			ModuleSSCA:            true,
+			ModuleLogs:            true,
+			ModuleTemplate:        true,
+			ModuleIDP:             true,
+			ModuleAudit:           true,
+			ModuleDatabase:        true,
+			ModuleExecution:       true,
+			ModuleSecret:          true,
+			ModuleUser:            true,
+			ModuleDelegate:        true,
+			ModuleApproval:        true,
+			ModuleNotification:    true,
+			ModuleWebhook:         true,
+			ModuleAPIKey:          true,
+			ModuleAccount:         true,
+			ModuleLicense:         true,
+			ModuleVariable:        true,
+			ModuleFileStore:       true,
+			ModuleResourceGroup:   true,
+			ModuleRBACPolicy:      true,
+			ModuleDelegateProfile: true,
+			ModuleGovernance:      true,
+			ModuleManifest:        true,
+			ModuleTrigger:         true,
+			ModuleInputSet:        true,
+			ModuleFreezeWindow:    true,
 		},
 	}
 
@@ -2042,6 +2062,438 @@ func (p *HarnessProvider) GetOperationMappings() map[string]providers.OperationM
 			PathTemplate:   "/ng/api/licenses/summary",
 			RequiredParams: []string{},
 			OptionalParams: []string{"accountIdentifier"},
+		}
+	}
+
+	// Variable operations
+	if p.enabledModules[ModuleVariable] {
+		mappings["variables/list"] = providers.OperationMapping{
+			OperationID:    "listVariables",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/variables",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "page", "limit"},
+		}
+		mappings["variables/get"] = providers.OperationMapping{
+			OperationID:    "getVariable",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/variables/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["variables/create"] = providers.OperationMapping{
+			OperationID:    "createVariable",
+			Method:         "POST",
+			PathTemplate:   "/ng/api/variables",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["variables/update"] = providers.OperationMapping{
+			OperationID:    "updateVariable",
+			Method:         "PUT",
+			PathTemplate:   "/ng/api/variables/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["variables/delete"] = providers.OperationMapping{
+			OperationID:    "deleteVariable",
+			Method:         "DELETE",
+			PathTemplate:   "/ng/api/variables/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+	}
+
+	// File Store operations
+	if p.enabledModules[ModuleFileStore] {
+		mappings["filestore/list"] = providers.OperationMapping{
+			OperationID:    "listFiles",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/file-store",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "page", "limit"},
+		}
+		mappings["filestore/get"] = providers.OperationMapping{
+			OperationID:    "getFile",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/file-store/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["filestore/create"] = providers.OperationMapping{
+			OperationID:    "createFile",
+			Method:         "POST",
+			PathTemplate:   "/ng/api/file-store",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["filestore/update"] = providers.OperationMapping{
+			OperationID:    "updateFile",
+			Method:         "PUT",
+			PathTemplate:   "/ng/api/file-store/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["filestore/delete"] = providers.OperationMapping{
+			OperationID:    "deleteFile",
+			Method:         "DELETE",
+			PathTemplate:   "/ng/api/file-store/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["filestore/download"] = providers.OperationMapping{
+			OperationID:    "downloadFile",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/file-store/{identifier}/download",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+	}
+
+	// Resource Group operations
+	if p.enabledModules[ModuleResourceGroup] {
+		mappings["resourcegroups/list"] = providers.OperationMapping{
+			OperationID:    "listResourceGroups",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/resource-groups",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "page", "limit"},
+		}
+		mappings["resourcegroups/get"] = providers.OperationMapping{
+			OperationID:    "getResourceGroup",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/resource-groups/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["resourcegroups/create"] = providers.OperationMapping{
+			OperationID:    "createResourceGroup",
+			Method:         "POST",
+			PathTemplate:   "/ng/api/resource-groups",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["resourcegroups/update"] = providers.OperationMapping{
+			OperationID:    "updateResourceGroup",
+			Method:         "PUT",
+			PathTemplate:   "/ng/api/resource-groups/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["resourcegroups/delete"] = providers.OperationMapping{
+			OperationID:    "deleteResourceGroup",
+			Method:         "DELETE",
+			PathTemplate:   "/ng/api/resource-groups/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+	}
+
+	// RBAC Policy operations
+	if p.enabledModules[ModuleRBACPolicy] {
+		mappings["rbac/policies/list"] = providers.OperationMapping{
+			OperationID:    "listRBACPolicies",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/access-control/policies",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "page", "limit"},
+		}
+		mappings["rbac/policies/get"] = providers.OperationMapping{
+			OperationID:    "getRBACPolicy",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/access-control/policies/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["rbac/policies/create"] = providers.OperationMapping{
+			OperationID:    "createRBACPolicy",
+			Method:         "POST",
+			PathTemplate:   "/ng/api/access-control/policies",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["rbac/policies/update"] = providers.OperationMapping{
+			OperationID:    "updateRBACPolicy",
+			Method:         "PUT",
+			PathTemplate:   "/ng/api/access-control/policies/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["rbac/policies/delete"] = providers.OperationMapping{
+			OperationID:    "deleteRBACPolicy",
+			Method:         "DELETE",
+			PathTemplate:   "/ng/api/access-control/policies/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["rbac/policies/evaluate"] = providers.OperationMapping{
+			OperationID:    "evaluateRBACPolicy",
+			Method:         "POST",
+			PathTemplate:   "/ng/api/access-control/policies/{identifier}/evaluate",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+	}
+
+	// Delegate Profile operations
+	if p.enabledModules[ModuleDelegateProfile] {
+		mappings["delegate-profiles/list"] = providers.OperationMapping{
+			OperationID:    "listDelegateProfiles",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/delegate-profiles",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "page", "limit"},
+		}
+		mappings["delegate-profiles/get"] = providers.OperationMapping{
+			OperationID:    "getDelegateProfile",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/delegate-profiles/{profileId}",
+			RequiredParams: []string{"profileId"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["delegate-profiles/create"] = providers.OperationMapping{
+			OperationID:    "createDelegateProfile",
+			Method:         "POST",
+			PathTemplate:   "/ng/api/delegate-profiles",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["delegate-profiles/update"] = providers.OperationMapping{
+			OperationID:    "updateDelegateProfile",
+			Method:         "PUT",
+			PathTemplate:   "/ng/api/delegate-profiles/{profileId}",
+			RequiredParams: []string{"profileId"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["delegate-profiles/delete"] = providers.OperationMapping{
+			OperationID:    "deleteDelegateProfile",
+			Method:         "DELETE",
+			PathTemplate:   "/ng/api/delegate-profiles/{profileId}",
+			RequiredParams: []string{"profileId"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+	}
+
+	// Governance Policy operations
+	if p.enabledModules[ModuleGovernance] {
+		mappings["governance/policies/list"] = providers.OperationMapping{
+			OperationID:    "listGovernancePolicies",
+			Method:         "GET",
+			PathTemplate:   "/pm/api/policies",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "page", "limit"},
+		}
+		mappings["governance/policies/get"] = providers.OperationMapping{
+			OperationID:    "getGovernancePolicy",
+			Method:         "GET",
+			PathTemplate:   "/pm/api/policies/{policyIdentifier}",
+			RequiredParams: []string{"policyIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["governance/policies/create"] = providers.OperationMapping{
+			OperationID:    "createGovernancePolicy",
+			Method:         "POST",
+			PathTemplate:   "/pm/api/policies",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["governance/policies/update"] = providers.OperationMapping{
+			OperationID:    "updateGovernancePolicy",
+			Method:         "PUT",
+			PathTemplate:   "/pm/api/policies/{policyIdentifier}",
+			RequiredParams: []string{"policyIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["governance/policies/delete"] = providers.OperationMapping{
+			OperationID:    "deleteGovernancePolicy",
+			Method:         "DELETE",
+			PathTemplate:   "/pm/api/policies/{policyIdentifier}",
+			RequiredParams: []string{"policyIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["governance/policies/evaluate"] = providers.OperationMapping{
+			OperationID:    "evaluateGovernancePolicy",
+			Method:         "POST",
+			PathTemplate:   "/pm/api/policies/{policyIdentifier}/evaluate",
+			RequiredParams: []string{"policyIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+	}
+
+	// Manifest operations
+	if p.enabledModules[ModuleManifest] {
+		mappings["manifests/list"] = providers.OperationMapping{
+			OperationID:    "listManifests",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/manifests",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "serviceIdentifier", "page", "limit"},
+		}
+		mappings["manifests/get"] = providers.OperationMapping{
+			OperationID:    "getManifest",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/manifests/{manifestIdentifier}",
+			RequiredParams: []string{"manifestIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "serviceIdentifier"},
+		}
+		mappings["manifests/create"] = providers.OperationMapping{
+			OperationID:    "createManifest",
+			Method:         "POST",
+			PathTemplate:   "/ng/api/manifests",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "serviceIdentifier"},
+		}
+		mappings["manifests/update"] = providers.OperationMapping{
+			OperationID:    "updateManifest",
+			Method:         "PUT",
+			PathTemplate:   "/ng/api/manifests/{manifestIdentifier}",
+			RequiredParams: []string{"manifestIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "serviceIdentifier"},
+		}
+		mappings["manifests/delete"] = providers.OperationMapping{
+			OperationID:    "deleteManifest",
+			Method:         "DELETE",
+			PathTemplate:   "/ng/api/manifests/{manifestIdentifier}",
+			RequiredParams: []string{"manifestIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "serviceIdentifier"},
+		}
+	}
+
+	// Trigger operations
+	if p.enabledModules[ModuleTrigger] {
+		mappings["triggers/list"] = providers.OperationMapping{
+			OperationID:    "listTriggers",
+			Method:         "GET",
+			PathTemplate:   "/pipeline/api/pipelines/triggers",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "pipelineIdentifier", "page", "limit"},
+		}
+		mappings["triggers/get"] = providers.OperationMapping{
+			OperationID:    "getTrigger",
+			Method:         "GET",
+			PathTemplate:   "/pipeline/api/pipelines/triggers/{triggerIdentifier}",
+			RequiredParams: []string{"triggerIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "pipelineIdentifier"},
+		}
+		mappings["triggers/create"] = providers.OperationMapping{
+			OperationID:    "createTrigger",
+			Method:         "POST",
+			PathTemplate:   "/pipeline/api/pipelines/triggers",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "pipelineIdentifier"},
+		}
+		mappings["triggers/update"] = providers.OperationMapping{
+			OperationID:    "updateTrigger",
+			Method:         "PUT",
+			PathTemplate:   "/pipeline/api/pipelines/triggers/{triggerIdentifier}",
+			RequiredParams: []string{"triggerIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "pipelineIdentifier"},
+		}
+		mappings["triggers/delete"] = providers.OperationMapping{
+			OperationID:    "deleteTrigger",
+			Method:         "DELETE",
+			PathTemplate:   "/pipeline/api/pipelines/triggers/{triggerIdentifier}",
+			RequiredParams: []string{"triggerIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "pipelineIdentifier"},
+		}
+		mappings["triggers/execute"] = providers.OperationMapping{
+			OperationID:    "executeTrigger",
+			Method:         "POST",
+			PathTemplate:   "/pipeline/api/pipelines/triggers/{triggerIdentifier}/execute",
+			RequiredParams: []string{"triggerIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "pipelineIdentifier"},
+		}
+	}
+
+	// Input Set operations
+	if p.enabledModules[ModuleInputSet] {
+		mappings["inputsets/list"] = providers.OperationMapping{
+			OperationID:    "listInputSets",
+			Method:         "GET",
+			PathTemplate:   "/pipeline/api/pipelines/{pipelineIdentifier}/inputsets",
+			RequiredParams: []string{"pipelineIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "page", "limit"},
+		}
+		mappings["inputsets/get"] = providers.OperationMapping{
+			OperationID:    "getInputSet",
+			Method:         "GET",
+			PathTemplate:   "/pipeline/api/pipelines/{pipelineIdentifier}/inputsets/{inputSetIdentifier}",
+			RequiredParams: []string{"pipelineIdentifier", "inputSetIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["inputsets/create"] = providers.OperationMapping{
+			OperationID:    "createInputSet",
+			Method:         "POST",
+			PathTemplate:   "/pipeline/api/pipelines/{pipelineIdentifier}/inputsets",
+			RequiredParams: []string{"pipelineIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["inputsets/update"] = providers.OperationMapping{
+			OperationID:    "updateInputSet",
+			Method:         "PUT",
+			PathTemplate:   "/pipeline/api/pipelines/{pipelineIdentifier}/inputsets/{inputSetIdentifier}",
+			RequiredParams: []string{"pipelineIdentifier", "inputSetIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["inputsets/delete"] = providers.OperationMapping{
+			OperationID:    "deleteInputSet",
+			Method:         "DELETE",
+			PathTemplate:   "/pipeline/api/pipelines/{pipelineIdentifier}/inputsets/{inputSetIdentifier}",
+			RequiredParams: []string{"pipelineIdentifier", "inputSetIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["inputsets/merge"] = providers.OperationMapping{
+			OperationID:    "mergeInputSets",
+			Method:         "POST",
+			PathTemplate:   "/pipeline/api/pipelines/{pipelineIdentifier}/inputsets/merge",
+			RequiredParams: []string{"pipelineIdentifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "inputSetIdentifiers"},
+		}
+	}
+
+	// Freeze Window operations
+	if p.enabledModules[ModuleFreezeWindow] {
+		mappings["freezewindows/list"] = providers.OperationMapping{
+			OperationID:    "listFreezeWindows",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/freeze-windows",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "page", "limit", "status"},
+		}
+		mappings["freezewindows/get"] = providers.OperationMapping{
+			OperationID:    "getFreezeWindow",
+			Method:         "GET",
+			PathTemplate:   "/ng/api/freeze-windows/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["freezewindows/create"] = providers.OperationMapping{
+			OperationID:    "createFreezeWindow",
+			Method:         "POST",
+			PathTemplate:   "/ng/api/freeze-windows",
+			RequiredParams: []string{},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["freezewindows/update"] = providers.OperationMapping{
+			OperationID:    "updateFreezeWindow",
+			Method:         "PUT",
+			PathTemplate:   "/ng/api/freeze-windows/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["freezewindows/delete"] = providers.OperationMapping{
+			OperationID:    "deleteFreezeWindow",
+			Method:         "DELETE",
+			PathTemplate:   "/ng/api/freeze-windows/{identifier}",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier"},
+		}
+		mappings["freezewindows/toggle"] = providers.OperationMapping{
+			OperationID:    "toggleFreezeWindow",
+			Method:         "POST",
+			PathTemplate:   "/ng/api/freeze-windows/{identifier}/toggle",
+			RequiredParams: []string{"identifier"},
+			OptionalParams: []string{"accountIdentifier", "orgIdentifier", "projectIdentifier", "enable"},
 		}
 	}
 
