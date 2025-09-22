@@ -23,32 +23,87 @@ var harnessOpenAPISpecJSON []byte
 // HarnessModule represents different Harness platform modules
 type HarnessModule string
 
+// Harness API Namespace Documentation:
+// The Harness platform uses different API namespaces for different generations and modules:
+//
+// /ng/api/        - Next Generation APIs (most current platform features)
+// /pipeline/api/  - Pipeline-specific operations (executions, triggers, approvals)
+// /pm/api/        - Policy Management APIs (governance, OPA policies)
+// /ccm/api/       - Cloud Cost Management specific APIs
+// /cf/admin/      - Feature Flag administration APIs
+// /cv/api/        - Continuous Verification APIs
+// /chaos/api/     - Chaos Engineering APIs
+// /sto/api/       - Security Testing Orchestration APIs
+// /gitops/api/    - GitOps specific APIs
+// /idp/api/       - Internal Developer Portal APIs
+// /iacm/api/      - Infrastructure as Code Management APIs
+//
+// Each namespace represents a different microservice or module boundary within
+// the Harness platform architecture.
+
 const (
+	// Core Pipeline and Project Management
 	ModulePipeline        HarnessModule = "pipeline"
 	ModuleProject         HarnessModule = "project"
 	ModuleConnector       HarnessModule = "connector"
-	ModuleCCM             HarnessModule = "ccm"
+
+	// Cloud Cost Management (CCM) - FinOps and cost optimization
+	ModuleCCM             HarnessModule = "ccm" // Cloud Cost Management
+	ModuleCloudCost       HarnessModule = "ccm" // Alias for clarity
+
+	// Continuous Delivery and GitOps
 	ModuleGitOps          HarnessModule = "gitops"
-	ModuleIaCM            HarnessModule = "iacm"
-	ModuleCV              HarnessModule = "cv"
-	ModuleSTO             HarnessModule = "sto"
-	ModuleFF              HarnessModule = "cf"
+
+	// Infrastructure as Code Management (IaCM) - Terraform, CloudFormation, etc.
+	ModuleIaCM            HarnessModule = "iacm" // Infrastructure as Code Management
+	ModuleInfraAsCode     HarnessModule = "iacm" // Alias for clarity
+
+	// Continuous Verification (CV) - APM and monitoring integration
+	ModuleCV              HarnessModule = "cv" // Continuous Verification
+	ModuleContinuousVerification HarnessModule = "cv" // Alias for clarity
+
+	// Security Testing Orchestration (STO) - Security scanning and testing
+	ModuleSTO             HarnessModule = "sto" // Security Testing Orchestration
+	ModuleSecurityTesting HarnessModule = "sto" // Alias for clarity
+
+	// Feature Flags (FF) - Progressive delivery and feature management
+	ModuleFF              HarnessModule = "cf" // Note: uses 'cf' internally for Feature Flags
+	ModuleFeatureFlag     HarnessModule = "cf" // Alias for clarity
+	// Service Delivery Components
 	ModuleService         HarnessModule = "service"
 	ModuleEnvironment     HarnessModule = "environment"
 	ModuleInfra           HarnessModule = "infrastructure"
+	ModuleInfrastructure  HarnessModule = "infrastructure" // Alias for clarity
+
+	// Source Control and Artifact Management
 	ModulePullRequest     HarnessModule = "pullrequest"
 	ModuleRepository      HarnessModule = "repository"
 	ModuleRegistry        HarnessModule = "registry"
+
+	// Observability and Monitoring
 	ModuleDashboard       HarnessModule = "dashboard"
-	ModuleChaos           HarnessModule = "chaos"
-	ModuleSSCA            HarnessModule = "ssca"
 	ModuleLogs            HarnessModule = "logs"
-	ModuleTemplate        HarnessModule = "template"
-	ModuleIDP             HarnessModule = "idp"
 	ModuleAudit           HarnessModule = "audit"
+
+	// Chaos Engineering - Resilience testing
+	ModuleChaos           HarnessModule = "chaos"
+	ModuleChaosEngineering HarnessModule = "chaos" // Alias for clarity
+
+	// Supply Chain Security Assurance (SSCA) - SBOM and vulnerability management
+	ModuleSSCA            HarnessModule = "ssca" // Supply Chain Security Assurance
+	ModuleSupplyChainSecurity HarnessModule = "ssca" // Alias for clarity
+
+	// Internal Developer Portal (IDP) - Service catalog and scorecards
+	ModuleIDP             HarnessModule = "idp" // Internal Developer Portal
+	ModuleDeveloperPortal HarnessModule = "idp" // Alias for clarity
+
+	// Platform Core Components
+	ModuleTemplate        HarnessModule = "template"
 	ModuleDatabase        HarnessModule = "database"
 	ModuleExecution       HarnessModule = "execution"
 	ModuleSecret          HarnessModule = "secret"
+
+	// Identity and Access Management
 	ModuleUser            HarnessModule = "user"
 	ModuleDelegate        HarnessModule = "delegate"
 	ModuleApproval        HarnessModule = "approval"
@@ -57,17 +112,76 @@ const (
 	ModuleAPIKey          HarnessModule = "apikey"
 	ModuleAccount         HarnessModule = "account"
 	ModuleLicense         HarnessModule = "license"
+
+	// Configuration Management
 	ModuleVariable        HarnessModule = "variable"
 	ModuleFileStore       HarnessModule = "filestore"
+	ModuleManifest        HarnessModule = "manifest"
+
+	// Access Control and Governance
 	ModuleResourceGroup   HarnessModule = "resourcegroup"
 	ModuleRBACPolicy      HarnessModule = "rbacpolicy"
 	ModuleDelegateProfile HarnessModule = "delegateprofile"
 	ModuleGovernance      HarnessModule = "governance"
-	ModuleManifest        HarnessModule = "manifest"
+
+	// Pipeline Configuration
 	ModuleTrigger         HarnessModule = "trigger"
 	ModuleInputSet        HarnessModule = "inputset"
 	ModuleFreezeWindow    HarnessModule = "freezewindow"
 )
+
+// Parameter Type Documentation:
+// Common parameter types and their expected formats across Harness APIs:
+//
+// Identifiers (string):
+//   - accountIdentifier: Account ID (e.g., "kmpySmUISimoRrJL6NL73w")
+//   - orgIdentifier: Organization identifier (alphanumeric, hyphens, underscores)
+//   - projectIdentifier: Project identifier (alphanumeric, hyphens, underscores)
+//   - pipelineIdentifier: Pipeline identifier
+//   - serviceIdentifier: Service identifier
+//
+// Pagination (integer):
+//   - page: Page number (0-based), default: 0
+//   - limit: Items per page, default: 20, max: 100
+//   - pageSize: Alternative to 'limit' in some APIs
+//   - offset: Number of items to skip
+//
+// Time Parameters (ISO 8601 string or Unix timestamp):
+//   - startTime: Start time for date range queries (e.g., "2024-01-01T00:00:00Z" or 1704067200000)
+//   - endTime: End time for date range queries
+//   - period: Time period (e.g., "LAST_30_DAYS", "LAST_QUARTER")
+//
+// Boolean Parameters (string "true" or "false"):
+//   - enable: Enable/disable flag
+//   - merge: Whether to merge or replace
+//   - replace_all: Replace all occurrences
+//
+// Status/State Parameters (enum string):
+//   - status: Entity status (e.g., "ACTIVE", "INACTIVE", "PENDING")
+//   - severity: Issue severity (e.g., "HIGH", "MEDIUM", "LOW", "CRITICAL")
+//   - type: Entity type specific to each API
+//
+// Search and Filter (string):
+//   - searchTerm: Text search query
+//   - filter: Complex filter expression (API-specific format)
+//   - query: GraphQL query string (for GraphQL endpoints)
+//
+// Arrays (comma-separated string or JSON array):
+//   - inputSetIdentifiers: Comma-separated list of IDs
+//   - userJourneyIdentifiers: Array of journey IDs
+//
+// Error Response Patterns:
+//   - 200: Success
+//   - 201: Created
+//   - 204: No Content (successful delete)
+//   - 400: Bad Request (invalid parameters)
+//   - 401: Unauthorized (invalid API key)
+//   - 403: Forbidden (insufficient permissions)
+//   - 404: Not Found
+//   - 409: Conflict (resource already exists)
+//   - 429: Rate Limited
+//   - 500: Internal Server Error
+//   - 503: Service Unavailable
 
 // HarnessProvider implements the StandardToolProvider interface for Harness
 type HarnessProvider struct {
@@ -378,11 +492,18 @@ func (p *HarnessProvider) ValidateCredentials(ctx context.Context, creds map[str
 }
 
 // GetOperationMappings returns Harness-specific operation mappings
+// Each operation mapping defines how to interact with a specific Harness API endpoint.
+// Operations are organized by module and follow RESTful conventions.
 func (p *HarnessProvider) GetOperationMappings() map[string]providers.OperationMapping {
 	mappings := make(map[string]providers.OperationMapping)
 
-	// Pipeline operations
+	// Pipeline operations - Core CI/CD pipeline management
+	// API Namespace: /v1/ (legacy) and /pipeline/api/ (current)
 	if p.enabledModules[ModulePipeline] {
+		// List all pipelines in a project
+		// Returns: Array of pipeline summaries with basic metadata
+		// Pagination: Use page (0-based) and limit (max 100)
+		// Filtering: filter_identifier for saved filters, module for specific modules
 		mappings["pipelines/list"] = providers.OperationMapping{
 			OperationID:    "listPipelines",
 			Method:         "GET",
@@ -390,6 +511,10 @@ func (p *HarnessProvider) GetOperationMappings() map[string]providers.OperationM
 			RequiredParams: []string{"org", "project"},
 			OptionalParams: []string{"page", "limit", "sort", "order", "module", "filter_identifier"},
 		}
+
+		// Get detailed pipeline configuration
+		// Returns: Complete pipeline YAML and metadata
+		// Git-aware: Use branch and repo_identifier for remote pipelines
 		mappings["pipelines/get"] = providers.OperationMapping{
 			OperationID:    "getPipeline",
 			Method:         "GET",
@@ -397,6 +522,12 @@ func (p *HarnessProvider) GetOperationMappings() map[string]providers.OperationM
 			RequiredParams: []string{"org", "project", "pipeline"},
 			OptionalParams: []string{"branch", "repo_identifier", "get_default_from_other_repo"},
 		}
+
+		// Create a new pipeline
+		// Body: Pipeline YAML configuration required
+		// Git-aware: Specify branch, repo, and file path for remote storage
+		// Returns: 201 Created with pipeline details
+		// Errors: 409 if identifier exists, 400 for invalid YAML
 		mappings["pipelines/create"] = providers.OperationMapping{
 			OperationID:    "createPipeline",
 			Method:         "POST",
@@ -637,8 +768,15 @@ func (p *HarnessProvider) GetOperationMappings() map[string]providers.OperationM
 		}
 	}
 
-	// Cloud Cost Management operations
+	// Cloud Cost Management (CCM) operations - FinOps and cost optimization
+	// API Namespace: /ccm/api/ - Dedicated cost management service
+	// Note: Many CCM operations use GraphQL for complex queries
 	if p.enabledModules[ModuleCCM] {
+		// Get cost overview using GraphQL
+		// Body: GraphQL query for cost aggregation (e.g., by service, environment, cluster)
+		// Returns: Cost breakdown based on query parameters
+		// Common queries: Total spend, cost by service, cost trends
+		// Note: This is a GraphQL endpoint - query structure varies by use case
 		mappings["ccm/costs/overview"] = providers.OperationMapping{
 			OperationID:    "getCostOverview",
 			Method:         "POST",
@@ -646,6 +784,11 @@ func (p *HarnessProvider) GetOperationMappings() map[string]providers.OperationM
 			RequiredParams: []string{},
 			OptionalParams: []string{"accountIdentifier"},
 		}
+
+		// List all budget configurations
+		// Returns: Array of budget definitions with thresholds and alerts
+		// Pagination: Use page (0-based) and limit (max 100)
+		// Use case: Monitor spending against predefined budgets
 		mappings["ccm/budgets/list"] = providers.OperationMapping{
 			OperationID:    "listBudgets",
 			Method:         "GET",
@@ -653,6 +796,12 @@ func (p *HarnessProvider) GetOperationMappings() map[string]providers.OperationM
 			RequiredParams: []string{},
 			OptionalParams: []string{"accountIdentifier", "page", "limit"},
 		}
+
+		// Get AI-powered cost optimization recommendations
+		// Returns: Prioritized list of cost-saving opportunities
+		// Categories: Idle resources, rightsizing, reserved instances, spot usage
+		// Note: Requires accountIdentifier for multi-account setups
+		// Potential savings calculated based on historical usage patterns
 		mappings["ccm/recommendations/list"] = providers.OperationMapping{
 			OperationID:    "listCostRecommendations",
 			Method:         "POST",
