@@ -250,6 +250,7 @@ func (r *EnhancedToolRegistry) discoverHarnessPermissions(ctx context.Context, c
 	// Store scopes
 	permissionsMap["scopes"] = permissions.Scopes
 
+	// Log success without exposing sensitive data
 	r.logger.Info("Successfully discovered Harness permissions", map[string]interface{}{
 		"account_id":      permissions.AccountID,
 		"enabled_modules": len(permissions.EnabledModules),

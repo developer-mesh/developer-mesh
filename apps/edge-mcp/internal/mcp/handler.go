@@ -560,6 +560,7 @@ func (h *Handler) discoverHarnessPermissions(ctx context.Context, apiKey string)
 		return nil
 	}
 
+	// Log success without exposing sensitive data
 	h.logger.Info("Successfully discovered Harness permissions", map[string]interface{}{
 		"account_id":      permissions.AccountID,
 		"modules_count":   len(permissions.EnabledModules),

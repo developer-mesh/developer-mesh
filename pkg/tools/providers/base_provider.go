@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/utils"
 )
 
 // BaseProvider provides common functionality for all providers
@@ -166,10 +167,18 @@ func (p *BaseProvider) Execute(ctx context.Context, operation string, params map
 				if value, hasAlias := params[alias]; hasAlias {
 					params[canonical] = value
 					if p.logger != nil {
-						p.logger.Debug("Mapped parameter alias", map[string]interface{}{
+						// Create a map with the parameter for redaction
+						logData := map[string]interface{}{
 							"from":  alias,
 							"to":    canonical,
-							"value": value,
+							alias:   value, // Use the original alias name for redaction check
+						}
+						// Redact sensitive data before logging
+						safeLogData := utils.RedactSensitiveData(logData)
+						p.logger.Debug("Mapped parameter alias", map[string]interface{}{
+							"from":  safeLogData["from"],
+							"to":    safeLogData["to"],
+							"value": safeLogData[alias], // Get the redacted value
 						})
 					}
 					break
