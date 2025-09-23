@@ -30,7 +30,7 @@ type DynamicToolsAPI struct {
 	enhancedToolsAPI  *EnhancedToolsAPI                        // Optional enhanced tools integration
 	templateRepo      pkgrepository.ToolTemplateRepository     // For expanding organization tools
 	orgToolRepo       pkgrepository.OrganizationToolRepository // For updating org tools with permissions
-	encryptionService *security.EncryptionService             // For decrypting credentials
+	encryptionService *security.EncryptionService              // For decrypting credentials
 }
 
 // NewDynamicToolsAPI creates a new dynamic tools API handler
@@ -158,11 +158,11 @@ func (api *DynamicToolsAPI) ListTools(c *gin.Context) {
 				// Check if it's an OrganizationTool struct
 				if ot, ok := orgTool.(*models.OrganizationTool); ok {
 					api.logger.Debug("Processing organization tool", map[string]interface{}{
-						"tool_id":        ot.ID,
-						"instance_name":  ot.InstanceName,
-						"template_id":    ot.TemplateID,
-						"has_creds":      len(ot.CredentialsEncrypted) > 0,
-						"has_config":     ot.InstanceConfig != nil,
+						"tool_id":       ot.ID,
+						"instance_name": ot.InstanceName,
+						"template_id":   ot.TemplateID,
+						"has_creds":     len(ot.CredentialsEncrypted) > 0,
+						"has_config":    ot.InstanceConfig != nil,
 					})
 
 					// Discover permissions for Harness tools if not already done
@@ -1508,8 +1508,8 @@ func (api *DynamicToolsAPI) expandOrganizationTool(ctx context.Context, ot *mode
 	}
 
 	api.logger.Debug("Template fetched", map[string]interface{}{
-		"provider_name":      template.ProviderName,
-		"operation_count":    len(template.OperationMappings),
+		"provider_name":   template.ProviderName,
+		"operation_count": len(template.OperationMappings),
 	})
 
 	// Get the base URL - prefer instance config over template default
@@ -1567,14 +1567,14 @@ func (api *DynamicToolsAPI) expandOrganizationTool(ctx context.Context, ot *mode
 		if perms, ok := ot.InstanceConfig["permissions"].(map[string]interface{}); ok {
 			discoveredPermissions = perms
 			api.logger.Info("Found permissions for Harness tool", map[string]interface{}{
-				"tool_id":          ot.ID,
+				"tool_id":           ot.ID,
 				"permissions_count": len(perms),
-				"permissions":      perms,
+				"permissions":       perms,
 			})
 		} else {
 			api.logger.Warn("No permissions found for Harness tool", map[string]interface{}{
-				"tool_id":           ot.ID,
-				"instance_config":   ot.InstanceConfig,
+				"tool_id":         ot.ID,
+				"instance_config": ot.InstanceConfig,
 			})
 		}
 	}
@@ -1809,8 +1809,8 @@ func (api *DynamicToolsAPI) shouldDiscoverPermissions(ot *models.OrganizationToo
 // discoverAndStorePermissions discovers and stores permissions for an organization tool
 func (api *DynamicToolsAPI) discoverAndStorePermissions(ctx context.Context, ot *models.OrganizationTool) {
 	api.logger.Info("Starting permission discovery for Harness tool", map[string]interface{}{
-		"tool_id":     ot.ID,
-		"tool_name":   ot.InstanceName,
+		"tool_id":   ot.ID,
+		"tool_name": ot.InstanceName,
 	})
 
 	// Decrypt credentials
@@ -1862,10 +1862,10 @@ func (api *DynamicToolsAPI) discoverAndStorePermissions(ctx context.Context, ot 
 	}
 
 	api.logger.Info("Discovered Harness permissions", map[string]interface{}{
-		"tool_id":          ot.ID,
-		"enabled_modules":  permissions.EnabledModules,
-		"scope_count":      len(permissions.Scopes),
-		"resource_access":  len(permissions.ResourceAccess),
+		"tool_id":         ot.ID,
+		"enabled_modules": permissions.EnabledModules,
+		"scope_count":     len(permissions.Scopes),
+		"resource_access": len(permissions.ResourceAccess),
 	})
 
 	// Store permissions in InstanceConfig

@@ -148,15 +148,15 @@ func (p *BaseProvider) Execute(ctx context.Context, operation string, params map
 	// Normalize parameter names for common variations
 	// This handles cases where APIs expect different naming conventions
 	paramAliases := map[string][]string{
-		"org":                {"orgIdentifier", "organization", "org_identifier"},
-		"project":            {"projectIdentifier", "project_identifier"},
-		"service":            {"serviceIdentifier", "service_identifier"},
-		"environment":        {"environmentIdentifier", "environment_identifier", "env"},
-		"pipeline":           {"pipelineIdentifier", "pipeline_identifier"},
-		"trigger":            {"triggerIdentifier", "trigger_identifier"},
-		"infrastructure":     {"infrastructureIdentifier", "infrastructure_identifier", "infra"},
-		"template":           {"templateIdentifier", "template_identifier"},
-		"connector":          {"connectorIdentifier", "connector_identifier"},
+		"org":            {"orgIdentifier", "organization", "org_identifier"},
+		"project":        {"projectIdentifier", "project_identifier"},
+		"service":        {"serviceIdentifier", "service_identifier"},
+		"environment":    {"environmentIdentifier", "environment_identifier", "env"},
+		"pipeline":       {"pipelineIdentifier", "pipeline_identifier"},
+		"trigger":        {"triggerIdentifier", "trigger_identifier"},
+		"infrastructure": {"infrastructureIdentifier", "infrastructure_identifier", "infra"},
+		"template":       {"templateIdentifier", "template_identifier"},
+		"connector":      {"connectorIdentifier", "connector_identifier"},
 	}
 
 	// Apply parameter aliases
@@ -167,8 +167,8 @@ func (p *BaseProvider) Execute(ctx context.Context, operation string, params map
 					params[canonical] = value
 					if p.logger != nil {
 						p.logger.Debug("Mapped parameter alias", map[string]interface{}{
-							"from": alias,
-							"to":   canonical,
+							"from":  alias,
+							"to":    canonical,
 							"value": value,
 						})
 					}

@@ -623,8 +623,8 @@ func (h *Handler) filterToolsByPermissions(allTools []tools.ToolDefinition, sess
 	}
 
 	h.logger.Info("Filtered tools based on Harness permissions", map[string]interface{}{
-		"total_tools":    len(allTools),
-		"filtered_tools": len(filteredTools),
+		"total_tools":      len(allTools),
+		"filtered_tools":   len(filteredTools),
 		"harness_filtered": len(allTools) - len(filteredTools),
 	})
 
@@ -654,28 +654,28 @@ func (h *Handler) isHarnessOperationAllowed(operation string, permissions *harne
 		// Special cases: some operations use different module names
 		// Map operation prefixes to module names
 		moduleMap := map[string]string{
-			"pipelines":    "ci",
-			"executions":   "ci",
-			"projects":     "core",
-			"orgs":         "core",
-			"connectors":   "core",
-			"secrets":      "core",
-			"delegates":    "core",
-			"templates":    "ci",
-			"triggers":     "ci",
-			"services":     "cd",
-			"environments": "cd",
+			"pipelines":       "ci",
+			"executions":      "ci",
+			"projects":        "core",
+			"orgs":            "core",
+			"connectors":      "core",
+			"secrets":         "core",
+			"delegates":       "core",
+			"templates":       "ci",
+			"triggers":        "ci",
+			"services":        "cd",
+			"environments":    "cd",
 			"infrastructures": "cd",
-			"manifests":    "cd",
-			"gitops":       "gitops",
-			"featureflags": "cf",
-			"ccm":          "ccm",
-			"cv":           "cv",
-			"chaos":        "chaos",
-			"sto":          "sto",
-			"idp":          "idp",
-			"iacm":         "iacm",
-			"ssca":         "ssca",
+			"manifests":       "cd",
+			"gitops":          "gitops",
+			"featureflags":    "cf",
+			"ccm":             "ccm",
+			"cv":              "cv",
+			"chaos":           "chaos",
+			"sto":             "sto",
+			"idp":             "idp",
+			"iacm":            "iacm",
+			"ssca":            "ssca",
 		}
 
 		if mappedModule, ok := moduleMap[module]; ok {
@@ -732,8 +732,8 @@ func (h *Handler) handleToolsList(sessionID string, msg *MCPMessage) (*MCPMessag
 	}
 
 	h.logger.Info("Listed tools for session", map[string]interface{}{
-		"session_id":    sessionID,
-		"total_tools":   len(allTools),
+		"session_id":     sessionID,
+		"total_tools":    len(allTools),
 		"filtered_tools": len(filteredTools),
 	})
 
