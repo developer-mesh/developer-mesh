@@ -548,6 +548,9 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	// Create template repository for API access
 	templateRepo := pkgrepository.NewToolTemplateRepository(s.db)
 
+	// Create organization tool repository for permission updates
+	orgToolRepo := pkgrepository.NewOrganizationToolRepository(s.db)
+
 	// Create dynamic tools API with template repository
 	dynamicToolsAPI := NewDynamicToolsAPI(
 		dynamicToolsService,
@@ -555,6 +558,8 @@ func (s *Server) setupRoutes(ctx context.Context) {
 		s.metrics,
 		auth.NewAuditLogger(s.logger),
 		templateRepo,
+		orgToolRepo,
+		encryptionService,
 	)
 	dynamicToolsAPI.RegisterRoutes(v1)
 

@@ -14,6 +14,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/security"
 	"github.com/developer-mesh/developer-mesh/pkg/tools"
 	"github.com/developer-mesh/developer-mesh/pkg/tools/providers"
+	"github.com/developer-mesh/developer-mesh/pkg/tools/providers/harness"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
@@ -119,6 +120,22 @@ func (r *EnhancedToolRegistry) InstantiateToolForOrg(
 		}
 	}
 
+	// Discover permissions for Harness provider
+	if templateName == "harness" && provider != nil {
+		permissionsData := r.discoverHarnessPermissions(ctx, credentials)
+		if permissionsData != nil {
+			// Store discovered permissions in config for later filtering
+			if config == nil {
+				config = make(map[string]interface{})
+			}
+			config["discovered_permissions"] = permissionsData
+			r.logger.Info("Discovered Harness permissions", map[string]interface{}{
+				"tenant_id":       tenantID,
+				"enabled_modules": len(permissionsData),
+			})
+		}
+	}
+
 	// Encrypt credentials with the tenant ID
 	encryptedCreds, err := r.encryptCredentials(credentials, tenantID)
 	if err != nil {
@@ -132,7 +149,11 @@ func (r *EnhancedToolRegistry) InstantiateToolForOrg(
 	}
 	config["provider"] = templateName // Store the provider name for later expansion
 	if _, exists := config["base_url"]; !exists {
-		config["base_url"] = "https://api.github.com" // Default base URL
+		if templateName == "harness" {
+			config["base_url"] = "https://app.harness.io"
+		} else {
+			config["base_url"] = "https://api.github.com" // Default base URL
+		}
 	}
 
 	// Use display_name from config if provided, otherwise generate one
@@ -177,6 +198,66 @@ func (r *EnhancedToolRegistry) InstantiateToolForOrg(
 	r.clearTenantCache(tenantID)
 
 	return orgTool, nil
+}
+
+// discoverHarnessPermissions discovers permissions for Harness API credentials
+func (r *EnhancedToolRegistry) discoverHarnessPermissions(ctx context.Context, credentials map[string]string) map[string]interface{} {
+	// Extract the API key from credentials
+	apiKey := ""
+	if key, ok := credentials["api_key"]; ok {
+		apiKey = key
+	} else if key, ok := credentials["token"]; ok {
+		apiKey = key
+	} else if key, ok := credentials["personal_access_token"]; ok {
+		apiKey = key
+	}
+
+	if apiKey == "" {
+		r.logger.Warn("No API key found for Harness permission discovery", nil)
+		return nil
+	}
+
+	// Create a permission discoverer
+	discoverer := harness.NewHarnessPermissionDiscoverer(r.logger)
+
+	// Discover permissions
+	permissions, err := discoverer.DiscoverPermissions(ctx, apiKey)
+	if err != nil {
+		r.logger.Warn("Failed to discover Harness permissions", map[string]interface{}{
+			"error": err.Error(),
+		})
+		return nil
+	}
+
+	// Convert to map for storage in config
+	permissionsMap := make(map[string]interface{})
+
+	// Store enabled modules
+	permissionsMap["enabled_modules"] = permissions.EnabledModules
+
+	// Store resource access permissions
+	permissionsMap["resource_access"] = permissions.ResourceAccess
+
+	// Store project and org access
+	permissionsMap["project_access"] = permissions.ProjectAccess
+	permissionsMap["org_access"] = permissions.OrgAccess
+
+	// Store user info
+	permissionsMap["account_id"] = permissions.AccountID
+	permissionsMap["user_email"] = permissions.UserEmail
+	permissionsMap["user_name"] = permissions.UserName
+
+	// Store scopes
+	permissionsMap["scopes"] = permissions.Scopes
+
+	r.logger.Info("Successfully discovered Harness permissions", map[string]interface{}{
+		"account_id":      permissions.AccountID,
+		"enabled_modules": len(permissions.EnabledModules),
+		"projects":        len(permissions.ProjectAccess),
+		"orgs":            len(permissions.OrgAccess),
+	})
+
+	return permissionsMap
 }
 
 // GetToolsForTenant returns all tools available for a tenant (both dynamic and templated)
@@ -329,6 +410,26 @@ func (r *EnhancedToolRegistry) executeOrganizationTool(
 	provider, err := r.providerRegistry.GetProvider(template.ProviderName)
 	if err != nil {
 		return nil, fmt.Errorf("provider %s not found: %w", template.ProviderName, err)
+	}
+
+	// For Harness provider with passthrough auth, log available permissions
+	if template.ProviderName == "harness" && passthroughAuth != nil {
+		// Check if we have Harness permissions in passthrough auth
+		if harnessCred, hasHarness := passthroughAuth.Credentials["harness"]; hasHarness && harnessCred != nil {
+			// Check if permissions are stored in credential properties
+			// Note: We now build all operations regardless of enabled modules
+			// Permission filtering happens during tool expansion, not at provider level
+			if permsJSON, hasPerms := harnessCred.Properties["permissions"]; hasPerms {
+				// Parse the permissions for logging/debugging
+				var permissions harness.HarnessPermissions
+				if err := json.Unmarshal([]byte(permsJSON), &permissions); err == nil {
+					r.logger.Debug("Harness permissions available for filtering", map[string]interface{}{
+						"enabled_modules": permissions.EnabledModules,
+						"scopes":          len(permissions.Scopes),
+					})
+				}
+			}
+		}
 	}
 
 	// Determine credentials to use

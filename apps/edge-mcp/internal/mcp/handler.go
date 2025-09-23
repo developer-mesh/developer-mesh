@@ -20,6 +20,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tools"
 	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/tools/providers/harness"
 	"github.com/google/uuid"
 )
 
@@ -358,10 +359,26 @@ func (h *Handler) extractPassthroughAuthFromEnv() *models.PassthroughAuthBundle 
 		})
 	}
 	if harnessToken != "" {
-		bundle.Credentials["harness"] = &models.PassthroughCredential{
-			Type:  "api_key",
-			Token: harnessToken,
+		cred := &models.PassthroughCredential{
+			Type:       "api_key",
+			Token:      harnessToken,
+			Properties: make(map[string]string),
 		}
+
+		// Discover Harness permissions and store them in credential properties
+		if perms := h.discoverHarnessPermissions(context.Background(), harnessToken); perms != nil {
+			// Store permissions as JSON in properties
+			if permsJSON, err := json.Marshal(perms); err == nil {
+				cred.Properties["permissions"] = string(permsJSON)
+				fmt.Fprintf(os.Stderr, "[edge-mcp] Discovered Harness permissions: %d modules enabled\n", len(perms.EnabledModules))
+				h.logger.Info("Discovered Harness permissions for passthrough auth", map[string]interface{}{
+					"modules_count":   len(perms.EnabledModules),
+					"resources_count": len(perms.ResourceAccess),
+				})
+			}
+		}
+
+		bundle.Credentials["harness"] = cred
 		fmt.Fprintf(os.Stderr, "[edge-mcp] Added Harness token to passthrough bundle (len=%d)\n", len(harnessToken))
 		h.logger.Info("Found Harness passthrough token in environment", map[string]interface{}{
 			"token_len": len(harnessToken),
@@ -529,6 +546,149 @@ func (h *Handler) handlePing(msg *MCPMessage) (*MCPMessage, error) {
 	}, nil
 }
 
+// discoverHarnessPermissions discovers Harness permissions for a given API key
+func (h *Handler) discoverHarnessPermissions(ctx context.Context, apiKey string) *harness.HarnessPermissions {
+	// Create permission discoverer
+	discoverer := harness.NewHarnessPermissionDiscoverer(h.logger)
+
+	// Discover permissions
+	permissions, err := discoverer.DiscoverPermissions(ctx, apiKey)
+	if err != nil {
+		h.logger.Warn("Failed to discover Harness permissions", map[string]interface{}{
+			"error": err.Error(),
+		})
+		return nil
+	}
+
+	h.logger.Info("Successfully discovered Harness permissions", map[string]interface{}{
+		"account_id":      permissions.AccountID,
+		"modules_count":   len(permissions.EnabledModules),
+		"resources_count": len(permissions.ResourceAccess),
+	})
+
+	return permissions
+}
+
+// filterToolsByPermissions filters tools based on session permissions
+func (h *Handler) filterToolsByPermissions(allTools []tools.ToolDefinition, session *Session) []tools.ToolDefinition {
+	if session == nil || session.PassthroughAuth == nil {
+		// No filtering if no session or passthrough auth
+		return allTools
+	}
+
+	// Check for Harness permissions in the passthrough bundle
+	var harnessPermissions *harness.HarnessPermissions
+	if harnessCred, ok := session.PassthroughAuth.Credentials["harness"]; ok && harnessCred != nil {
+		if harnessCred.Properties != nil {
+			if permsJSON, ok := harnessCred.Properties["permissions"]; ok && permsJSON != "" {
+				// Decode the permissions from JSON
+				if err := json.Unmarshal([]byte(permsJSON), &harnessPermissions); err == nil {
+					h.logger.Debug("Found Harness permissions in session", map[string]interface{}{
+						"session_id":    session.ID,
+						"modules_count": len(harnessPermissions.EnabledModules),
+					})
+				}
+			}
+		}
+	}
+
+	// If no Harness permissions, return all tools
+	if harnessPermissions == nil {
+		return allTools
+	}
+
+	// Filter Harness tools based on permissions
+	filteredTools := make([]tools.ToolDefinition, 0, len(allTools))
+	for _, tool := range allTools {
+		// Check if it's a Harness tool
+		if strings.HasPrefix(tool.Name, "harness_") {
+			// Extract the operation name from the tool name
+			// e.g., "harness_pipelines_list" -> "pipelines/list"
+			operationName := strings.TrimPrefix(tool.Name, "harness_")
+			operationName = strings.ReplaceAll(operationName, "_", "/")
+
+			// Check if this operation is allowed based on permissions
+			if h.isHarnessOperationAllowed(operationName, harnessPermissions) {
+				filteredTools = append(filteredTools, tool)
+			} else {
+				h.logger.Debug("Filtering out Harness tool due to permissions", map[string]interface{}{
+					"tool_name": tool.Name,
+					"operation": operationName,
+				})
+			}
+		} else {
+			// Non-Harness tools pass through
+			filteredTools = append(filteredTools, tool)
+		}
+	}
+
+	h.logger.Info("Filtered tools based on Harness permissions", map[string]interface{}{
+		"total_tools":    len(allTools),
+		"filtered_tools": len(filteredTools),
+		"harness_filtered": len(allTools) - len(filteredTools),
+	})
+
+	return filteredTools
+}
+
+// isHarnessOperationAllowed checks if a Harness operation is allowed based on permissions
+func (h *Handler) isHarnessOperationAllowed(operation string, permissions *harness.HarnessPermissions) bool {
+	// Parse the operation to get module and action
+	parts := strings.Split(operation, "/")
+	if len(parts) < 2 {
+		return true // Allow operations without clear module/action structure
+	}
+
+	module := parts[0]
+
+	// Check if the module is enabled
+	moduleEnabled := false
+	for moduleKey, isEnabled := range permissions.EnabledModules {
+		if isEnabled && strings.EqualFold(module, moduleKey) {
+			moduleEnabled = true
+			break
+		}
+	}
+
+	if !moduleEnabled {
+		// Special cases: some operations use different module names
+		// Map operation prefixes to module names
+		moduleMap := map[string]string{
+			"pipelines":    "ci",
+			"executions":   "ci",
+			"projects":     "core",
+			"orgs":         "core",
+			"connectors":   "core",
+			"secrets":      "core",
+			"delegates":    "core",
+			"templates":    "ci",
+			"triggers":     "ci",
+			"services":     "cd",
+			"environments": "cd",
+			"infrastructures": "cd",
+			"manifests":    "cd",
+			"gitops":       "gitops",
+			"featureflags": "cf",
+			"ccm":          "ccm",
+			"cv":           "cv",
+			"chaos":        "chaos",
+			"sto":          "sto",
+			"idp":          "idp",
+			"iacm":         "iacm",
+			"ssca":         "ssca",
+		}
+
+		if mappedModule, ok := moduleMap[module]; ok {
+			// Check if this module is enabled in permissions
+			if isEnabled, hasModule := permissions.EnabledModules[mappedModule]; hasModule && isEnabled {
+				moduleEnabled = true
+			}
+		}
+	}
+
+	return moduleEnabled
+}
+
 // handleShutdown handles shutdown requests
 func (h *Handler) handleShutdown(sessionID string, msg *MCPMessage) (*MCPMessage, error) {
 	// Clean up session
@@ -551,16 +711,31 @@ func (h *Handler) handleShutdown(sessionID string, msg *MCPMessage) (*MCPMessage
 
 // handleToolsList handles tools/list requests
 func (h *Handler) handleToolsList(sessionID string, msg *MCPMessage) (*MCPMessage, error) {
-	tools := h.tools.ListAll()
+	// Get all tools from registry
+	allTools := h.tools.ListAll()
 
-	toolList := make([]map[string]interface{}, 0, len(tools))
-	for _, tool := range tools {
+	// Get session to check for Harness permissions
+	h.sessionsMu.RLock()
+	session := h.sessions[sessionID]
+	h.sessionsMu.RUnlock()
+
+	// Filter tools based on session permissions
+	filteredTools := h.filterToolsByPermissions(allTools, session)
+
+	toolList := make([]map[string]interface{}, 0, len(filteredTools))
+	for _, tool := range filteredTools {
 		toolList = append(toolList, map[string]interface{}{
 			"name":        tool.Name,
 			"description": tool.Description,
 			"inputSchema": tool.InputSchema,
 		})
 	}
+
+	h.logger.Info("Listed tools for session", map[string]interface{}{
+		"session_id":    sessionID,
+		"total_tools":   len(allTools),
+		"filtered_tools": len(filteredTools),
+	})
 
 	return &MCPMessage{
 		JSONRPC: "2.0",

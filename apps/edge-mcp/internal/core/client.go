@@ -334,10 +334,23 @@ func (c *Client) createProxyHandler(toolName string, toolID string) tools.ToolHa
 		var action string
 		var parameters map[string]interface{}
 
-		// First, try to extract operation from expanded tool name
-		if strings.Contains(toolName, "_") || strings.Contains(toolName, "-") {
+		// Handle Harness tools specially
+		if strings.HasPrefix(toolName, "harness_") {
+			// Extract the operation from Harness tool name
+			// e.g., "harness_pipelines_list" -> "pipelines/list"
+			operationName := strings.TrimPrefix(toolName, "harness_")
+
+			// The REST API will handle the conversion to OpenAPI operation IDs
+			// We send it in the format the REST API expects
+			action = operationName
+
+			c.logger.Debug("Extracted Harness operation", map[string]interface{}{
+				"tool_name": toolName,
+				"operation": action,
+			})
+		} else if strings.Contains(toolName, "_") || strings.Contains(toolName, "-") {
 			// Try to extract the operation part from the tool name
-			// Look for common operation prefixes
+			// Look for common operation prefixes (GitHub tools)
 			operationPrefixes := []string{"repos_", "issues_", "pulls_", "actions_", "releases_", "repos-", "issues-", "pulls-", "actions-", "releases-"}
 			for _, prefix := range operationPrefixes {
 				if idx := strings.LastIndex(toolName, prefix); idx != -1 {

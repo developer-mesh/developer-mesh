@@ -149,6 +149,8 @@ func (d *HarnessPermissionDiscoverer) probeModuleAccess(ctx context.Context, api
 		{"pipeline", "/pipeline/api/pipelines/list", "POST"},
 		{"project", "/v1/orgs", "GET"},
 		{"connector", "/ng/api/connectors/listV2", "POST"},
+		{"ci", "/ci/api/builds", "GET"},
+		{"cd", "/ng/api/services", "GET"},
 		{"ccm", "/ccm/api/graphql", "POST"},
 		{"gitops", "/gitops/api/v1/agents", "GET"},
 		{"cv", "/cv/api/monitored-service/list", "POST"},
