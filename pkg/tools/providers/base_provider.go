@@ -169,9 +169,9 @@ func (p *BaseProvider) Execute(ctx context.Context, operation string, params map
 					if p.logger != nil {
 						// Create a map with the parameter for redaction
 						logData := map[string]interface{}{
-							"from":  alias,
-							"to":    canonical,
-							alias:   value, // Use the original alias name for redaction check
+							"from": alias,
+							"to":   canonical,
+							alias:  value, // Use the original alias name for redaction check
 						}
 						// Redact sensitive data before logging
 						safeLogData := utils.RedactSensitiveData(logData)
