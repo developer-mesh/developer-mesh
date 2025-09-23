@@ -5,6 +5,20 @@ All notable changes to Developer Mesh will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.4] - 2025-09-23
+
+### Fixed
+
+- **Harness Provider Parameter Mapping and Error Messages** (2025-09-23): Comprehensive parameter handling improvements
+  - Implemented parameter aliasing system to handle naming variations between MCP and Harness API
+  - Maps common parameter variations: `orgIdentifier` → `org`, `projectIdentifier` → `project`, etc.
+  - Removed automatic "default" fallback for missing parameters that was causing incorrect API calls
+  - Enhanced error messages with context-aware hints for missing parameters
+  - Added module-specific error messages when Harness modules aren't enabled (GitOps, CCM, etc.)
+  - Improved error messages to include hints about acceptable parameter names
+  - Fixed 404 errors for pipelines and triggers operations due to parameter name mismatches
+  - Result: Harness tools now properly handle parameter variations and provide helpful error context
+
 ## [0.0.3] - 2025-09-20
 
 ### Security

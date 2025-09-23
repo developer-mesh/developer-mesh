@@ -145,6 +145,39 @@ func (p *BaseProvider) Execute(ctx context.Context, operation string, params map
 		}
 	}
 
+	// Normalize parameter names for common variations
+	// This handles cases where APIs expect different naming conventions
+	paramAliases := map[string][]string{
+		"org":                {"orgIdentifier", "organization", "org_identifier"},
+		"project":            {"projectIdentifier", "project_identifier"},
+		"service":            {"serviceIdentifier", "service_identifier"},
+		"environment":        {"environmentIdentifier", "environment_identifier", "env"},
+		"pipeline":           {"pipelineIdentifier", "pipeline_identifier"},
+		"trigger":            {"triggerIdentifier", "trigger_identifier"},
+		"infrastructure":     {"infrastructureIdentifier", "infrastructure_identifier", "infra"},
+		"template":           {"templateIdentifier", "template_identifier"},
+		"connector":          {"connectorIdentifier", "connector_identifier"},
+	}
+
+	// Apply parameter aliases
+	for canonical, aliases := range paramAliases {
+		if _, hasCanonical := params[canonical]; !hasCanonical {
+			for _, alias := range aliases {
+				if value, hasAlias := params[alias]; hasAlias {
+					params[canonical] = value
+					if p.logger != nil {
+						p.logger.Debug("Mapped parameter alias", map[string]interface{}{
+							"from": alias,
+							"to":   canonical,
+							"value": value,
+						})
+					}
+					break
+				}
+			}
+		}
+	}
+
 	// Replace path parameters
 	for _, param := range mapping.RequiredParams {
 		placeholder := "{" + param + "}"
@@ -153,20 +186,13 @@ func (p *BaseProvider) Execute(ctx context.Context, operation string, params map
 				path = strings.ReplaceAll(path, placeholder, fmt.Sprintf("%v", value))
 			}
 		} else if strings.Contains(path, placeholder) {
-			// For Harness, provide sensible defaults for common parameters
-			switch param {
-			case "org":
-				// Try "default" as a fallback for org
-				path = strings.ReplaceAll(path, placeholder, "default")
-				params[param] = "default" // Add to params for body if needed
-			case "project":
-				// Try "default" as a fallback for project
-				path = strings.ReplaceAll(path, placeholder, "default")
-				params[param] = "default" // Add to params for body if needed
-			default:
-				// Return error for other missing required params
-				return nil, fmt.Errorf("required parameter '%s' not provided for operation", param)
+			// Return a helpful error message for missing required parameters
+			// Include possible aliases to help users understand what parameter names they can use
+			var helpMsg string
+			if aliases, hasAliases := paramAliases[param]; hasAliases {
+				helpMsg = fmt.Sprintf(" (also accepts: %s)", strings.Join(aliases, ", "))
 			}
+			return nil, fmt.Errorf("required parameter '%s' not provided for operation %s%s", param, operation, helpMsg)
 		}
 	}
 

@@ -2815,8 +2815,58 @@ func (p *HarnessProvider) ExecuteOperation(ctx context.Context, operation string
 		}
 	}
 	// Use base provider's execution with Harness-specific handling
-	return p.Execute(ctx, operation, params)
+	result, err := p.Execute(ctx, operation, params)
+
+	// Enhance error messages for common issues
+	if err != nil {
+		return nil, p.enhanceErrorMessage(err, operation, params)
+	}
+
+	return result, nil
 }
+// enhanceErrorMessage provides more helpful error messages for common Harness API errors
+func (p *HarnessProvider) enhanceErrorMessage(err error, operation string, params map[string]interface{}) error {
+	errMsg := err.Error()
+
+	// Module not enabled errors
+	if strings.Contains(errMsg, "Not Implemented") || strings.Contains(errMsg, "status:500") {
+		moduleHints := map[string]string{
+			"gitops": "GitOps module may not be enabled in your Harness account",
+			"ccm":    "Cloud Cost Management (CCM) module may not be enabled in your Harness account",
+			"sto":    "Security Testing Orchestration (STO) module may not be enabled in your Harness account",
+			"chaos":  "Chaos Engineering module may not be enabled in your Harness account",
+			"iacm":   "Infrastructure as Code Management module may not be enabled in your Harness account",
+		}
+
+		for module, hint := range moduleHints {
+			if strings.Contains(operation, module) {
+				return fmt.Errorf("%s. %s", err.Error(), hint)
+			}
+		}
+	}
+
+	// Project/Org not found errors
+	if strings.Contains(errMsg, "not found") {
+		if org, hasOrg := params["orgIdentifier"]; hasOrg {
+			if project, hasProject := params["projectIdentifier"]; hasProject {
+				return fmt.Errorf("%s. Please verify that org '%s' and project '%s' exist in your Harness account", err.Error(), org, project)
+			}
+		}
+	}
+
+	// Permission errors
+	if strings.Contains(errMsg, "403") || strings.Contains(errMsg, "Forbidden") {
+		return fmt.Errorf("%s. Check that your API token has the necessary permissions for operation '%s'", err.Error(), operation)
+	}
+
+	// Token errors
+	if strings.Contains(errMsg, "Token is not valid") || strings.Contains(errMsg, "401") {
+		return fmt.Errorf("%s. Please verify your Harness API token is valid and not expired", err.Error())
+	}
+
+	return err
+}
+
 // normalizeOperationName normalizes operation names to handle different formats
 func (p *HarnessProvider) normalizeOperationName(operation string) string {
 	// Handle different separators
