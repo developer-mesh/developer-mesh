@@ -1144,6 +1144,27 @@ func (p *JiraProvider) registerHandlers() {
 	}
 	p.toolsetRegistry["comments"] = commentToolset
 
+	// Workflow handlers
+	workflowHandlers := []ToolHandler{
+		NewGetTransitionsHandler(p),
+		NewTransitionIssueHandler(p),
+		NewGetWorkflowsHandler(p),
+		NewAddWorkflowCommentHandler(p),
+	}
+	// Register workflow handlers
+	for _, handler := range workflowHandlers {
+		def := handler.GetDefinition()
+		p.toolRegistry[def.Name] = handler
+	}
+	// Create workflow toolset
+	workflowToolset := &Toolset{
+		Name:        "workflow",
+		Description: "Jira workflow and transition operations",
+		Tools:       workflowHandlers,
+		Enabled:     false,
+	}
+	p.toolsetRegistry["workflow"] = workflowToolset
+
 	// TODO: Add project handlers after creating handlers_projects.go
 }
 

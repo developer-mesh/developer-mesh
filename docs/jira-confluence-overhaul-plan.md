@@ -307,14 +307,29 @@ Based on our GitHub and Harness implementations:
   - Comprehensive test suite (1000+ lines) with all tests passing
   - Registered comment toolset in jira_provider.go
 
-#### Story 3.4: Implement Workflow Handlers
-- Create handler file for workflow operations
-- `GetTransitionsHandler` - Get available transitions (v3)
-- `TransitionIssueHandler` - Execute transitions (v3)
-- Create toolset to group workflow operations
+#### Story 3.4: Implement Workflow Handlers ✅ **COMPLETED**
+- Create handler file for workflow operations ✅
+- `GetTransitionsHandler` - Get available transitions (v3) ✅
+- `TransitionIssueHandler` - Execute transitions (v3) ✅
+- `GetWorkflowsHandler` - Get workflow schemes and workflows (v3) ✅
+- `AddWorkflowCommentHandler` - Execute transitions with comments (v3) ✅
+- Create toolset to group workflow operations ✅
 - **Acceptance Criteria**:
-  - Transitions properly validated
-  - Permission-aware operations
+  - Transitions properly validated ✅
+  - Permission-aware operations ✅
+- **Completion Date**: 2025-01-24
+- **Implementation Details**:
+  - Created handlers_workflow.go with 4 comprehensive workflow handlers
+  - Implemented GetTransitionsHandler for fetching available issue transitions
+  - Implemented TransitionIssueHandler for executing transitions with full validation
+  - Implemented GetWorkflowsHandler for querying workflow schemes and configurations
+  - Implemented AddWorkflowCommentHandler for transitions with ADF comment support
+  - Added transition ID validation to prevent injection attacks
+  - Integrated project filtering via JIRA_PROJECTS_FILTER for all operations
+  - Added read-only mode enforcement for write operations
+  - Support for ADF (Atlassian Document Format) comments during transitions
+  - Comprehensive test suite (800+ lines) with all tests passing
+  - Registered workflow toolset in jira_provider.go with proper handler grouping
 
 #### Story 3.5: Create Jira AI Definitions (`jira_ai_definitions.go`)
 - Implement `GetAIOptimizedDefinitions()` following Harness pattern
