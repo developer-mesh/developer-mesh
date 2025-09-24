@@ -120,7 +120,7 @@ func TestGetAIOptimizedDefinitions(t *testing.T) {
 	}
 
 	require.NotNil(t, contentDef)
-	assert.Equal(t, "Confluence Content Management", contentDef.DisplayName)
+	assert.Equal(t, "Confluence Content Operations", contentDef.DisplayName)
 	assert.NotEmpty(t, contentDef.UsageExamples)
 	assert.NotEmpty(t, contentDef.SemanticTags)
 	assert.NotEmpty(t, contentDef.CommonPhrases)

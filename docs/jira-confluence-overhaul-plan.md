@@ -212,15 +212,26 @@ Based on our GitHub and Harness implementations:
   - Created 1200+ line test suite with full coverage
   - Each response includes _metadata.api_version for transparency
 
-#### Story 2.5: Create Confluence AI Definitions (`confluence_ai_definitions.go`)
-- Implement `GetAIOptimizedDefinitions()` following Harness pattern
-- Group operations by category (Pages, Spaces, Search, Content)
-- Add detailed usage examples for each operation
-- Include common error scenarios and handling
+#### Story 2.5: Create Confluence AI Definitions (`confluence_ai_definitions.go`) ✅ **COMPLETED**
+- Implement `GetAIOptimizedDefinitions()` following Harness pattern ✅
+- Group operations by category (Pages, Spaces, Search, Content) ✅
+- Add detailed usage examples for each operation ✅
+- Include common error scenarios and handling ✅
 - **Acceptance Criteria**:
-  - AI definitions match GitHub/Harness quality
-  - Examples cover common use cases
-  - Categories align with toolsets
+  - AI definitions match GitHub/Harness quality ✅
+  - Examples cover common use cases ✅
+  - Categories align with toolsets ✅
+- **Completion Date**: 2025-01-24
+- **Implementation Details**:
+  - Created comprehensive `confluence_ai_definitions.go` with AI-optimized tool definitions
+  - Organized 7 operational definitions by categories: Documentation, Search, Organization, Content, Metadata, Help
+  - Added special help definitions for error handling and best practices
+  - Included detailed usage examples (3-4 per operation) with real-world scenarios
+  - Added semantic tags and common phrases for improved AI comprehension
+  - Implemented conditional inclusion based on enabled toolsets
+  - Created comprehensive test coverage in `confluence_ai_definitions_test.go` (350+ lines)
+  - All definitions include detailed help text, input schemas, capabilities, and complexity levels
+  - Follows exact pattern from Harness provider using `providers.AIOptimizedToolDefinition`
 
 ---
 
