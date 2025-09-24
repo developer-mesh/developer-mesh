@@ -1123,6 +1123,27 @@ func (p *JiraProvider) registerHandlers() {
 	}
 	p.toolsetRegistry["search"] = searchToolset
 
+	// Comment handlers
+	commentHandlers := []ToolHandler{
+		NewGetCommentsHandler(p),
+		NewAddCommentHandler(p),
+		NewUpdateCommentHandler(p),
+		NewDeleteCommentHandler(p),
+	}
+	// Register comment handlers
+	for _, handler := range commentHandlers {
+		def := handler.GetDefinition()
+		p.toolRegistry[def.Name] = handler
+	}
+	// Create comments toolset
+	commentToolset := &Toolset{
+		Name:        "comments",
+		Description: "Jira issue comment operations",
+		Tools:       commentHandlers,
+		Enabled:     false,
+	}
+	p.toolsetRegistry["comments"] = commentToolset
+
 	// TODO: Add project handlers after creating handlers_projects.go
 }
 

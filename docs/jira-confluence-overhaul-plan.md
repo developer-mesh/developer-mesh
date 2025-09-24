@@ -285,14 +285,27 @@ Based on our GitHub and Harness implementations:
   - Comprehensive test suite (600+ lines) covering all edge cases
   - All tests passing with full coverage of validation scenarios
 
-#### Story 3.3: Implement Comment Handlers
-- Create handler file for comment operations
-- `AddCommentHandler` - Add comments (v3)
-- `GetCommentsHandler` - Get comments (v3)
-- Create toolset to group comment operations
+#### Story 3.3: Implement Comment Handlers ✅ **COMPLETED**
+- Create handler file for comment operations ✅
+- `AddCommentHandler` - Add comments (v3) ✅
+- `GetCommentsHandler` - Get comments (v3) ✅
+- `UpdateCommentHandler` - Update comments (v3) ✅
+- `DeleteCommentHandler` - Delete comments (v3) ✅
+- Create toolset to group comment operations ✅
 - **Acceptance Criteria**:
-  - Comments use v3 API
-  - Rich text formatting supported
+  - Comments use v3 API ✅
+  - Rich text formatting supported ✅
+- **Completion Date**: 2025-01-24
+- **Implementation Details**:
+  - Created handlers_comments.go with all CRUD operations for comments
+  - Implemented ADF (Atlassian Document Format) support for rich text
+  - Added convertTextToADF method for plain text to ADF conversion
+  - Full project filtering via JIRA_PROJECTS_FILTER
+  - Read-only mode enforcement on write operations
+  - Support for comment visibility restrictions and properties
+  - Pagination support with hasMore and nextStartAt indicators
+  - Comprehensive test suite (1000+ lines) with all tests passing
+  - Registered comment toolset in jira_provider.go
 
 #### Story 3.4: Implement Workflow Handlers
 - Create handler file for workflow operations
