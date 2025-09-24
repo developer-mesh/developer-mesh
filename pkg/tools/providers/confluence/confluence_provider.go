@@ -1024,6 +1024,11 @@ func (p *ConfluenceProvider) extractTenantID(ctx context.Context, params map[str
 // buildURL builds a Confluence v2 API URL
 // Use this for modern operations that are available in v2 API
 func (p *ConfluenceProvider) buildURL(path string) string {
+	// Check if domain is a test URL (starts with http)
+	if strings.HasPrefix(p.domain, "http") {
+		// For testing, domain contains the full base URL
+		return p.domain + path
+	}
 	// Use v2 API endpoint (modern API with cursor-based pagination)
 	return fmt.Sprintf("https://%s.atlassian.net/wiki/api/v2%s", p.domain, path)
 }
