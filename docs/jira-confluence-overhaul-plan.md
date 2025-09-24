@@ -192,13 +192,25 @@ Based on our GitHub and Harness implementations:
   - All handlers check page access permissions before operations
   - URL encoding handled properly for special characters in labels
 
-#### Story 2.4: Implement Additional v1 Operations (if needed)
-- Identify operations not available in v2
-- Create handlers for critical v1-only operations
-- Document which operations require v1
+#### Story 2.4: Implement Additional v1 Operations ✅ **COMPLETED**
+- Identified critical v1-only operations ✅
+- Created handlers for v1-only operations: ✅
+  - CreatePageHandler (page creation with full storage format)
+  - UpdatePageHandler (page updates with version conflict detection)
+  - ListSpacesHandler (comprehensive space listing)
+  - GetAttachmentsHandler (attachment management)
+- Documented v1 vs v2 API usage strategy ✅
 - **Acceptance Criteria**:
-  - Clear documentation of v1 vs v2 usage
-  - Smooth fallback between API versions
+  - Clear documentation of v1 vs v2 usage ✅
+  - Smooth fallback between API versions ✅
+- **Completion Date**: 2025-01-24
+- **Implementation Details**:
+  - Created handlers_content.go with four critical v1 operations
+  - Added comprehensive documentation explaining when v1 is required
+  - Implemented IsSpaceAllowed helper for consistent space filtering
+  - All handlers include space filtering and read-only mode checks
+  - Created 1200+ line test suite with full coverage
+  - Each response includes _metadata.api_version for transparency
 
 #### Story 2.5: Create Confluence AI Definitions (`confluence_ai_definitions.go`)
 - Implement `GetAIOptimizedDefinitions()` following Harness pattern

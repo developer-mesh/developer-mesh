@@ -589,14 +589,52 @@ func (p *ConfluenceProvider) registerHandlers() {
 		p.toolRegistry[def.Name] = handler
 	}
 
-	// TODO: Register space handlers when implemented
-	// TODO: Register content handlers when implemented
+	// Content handlers (v1 API operations)
+	contentHandlers := []ToolHandler{
+		NewCreatePageHandler(p),
+		NewUpdatePageHandler(p),
+		NewGetAttachmentsHandler(p),
+	}
+
+	contentToolset := &Toolset{
+		Name:        "content",
+		Description: "Confluence content operations (v1 API)",
+		Tools:       contentHandlers,
+		Enabled:     false,
+	}
+	p.toolsetRegistry["content"] = contentToolset
+
+	// Register content handlers
+	for _, handler := range contentHandlers {
+		def := handler.GetDefinition()
+		p.toolRegistry[def.Name] = handler
+	}
+
+	// Space handlers (v1 API operations)
+	spaceHandlers := []ToolHandler{
+		NewListSpacesHandler(p),
+	}
+
+	spaceToolset := &Toolset{
+		Name:        "spaces",
+		Description: "Confluence space operations (v1 API)",
+		Tools:       spaceHandlers,
+		Enabled:     false,
+	}
+	p.toolsetRegistry["spaces"] = spaceToolset
+
+	// Register space handlers
+	for _, handler := range spaceHandlers {
+		def := handler.GetDefinition()
+		p.toolRegistry[def.Name] = handler
+	}
 }
 
 // enableDefaultToolsets enables the default toolsets for Confluence
 func (p *ConfluenceProvider) enableDefaultToolsets() {
 	// Enable common toolsets by default
-	defaultToolsets := []string{"pages", "search", "labels"}
+	// Note: content and spaces use v1 API for operations not available in v2
+	defaultToolsets := []string{"pages", "search", "labels", "content", "spaces"}
 	for _, name := range defaultToolsets {
 		if err := p.EnableToolset(name); err != nil {
 			// Log error but continue with other toolsets
