@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/developer-mesh/developer-mesh/pkg/tools/providers"
 )
@@ -69,24 +70,40 @@ func (h *SearchIssuesHandler) Execute(ctx context.Context, params map[string]int
 	// Build query parameters
 	queryParams := url.Values{}
 
-	// Add JQL query
-	if jql, ok := params["jql"].(string); ok && jql != "" {
-		queryParams.Set("jql", jql)
+	// Get JQL query
+	jql := ""
+	if jqlParam, ok := params["jql"].(string); ok && jqlParam != "" {
+		jql = jqlParam
 	} else {
-		// Default to all issues in the project if no JQL provided
-		queryParams.Set("jql", "ORDER BY created DESC")
+		// Default to all issues ordered by creation date
+		jql = "ORDER BY created DESC"
 	}
+
+	// Validate JQL for potential injection
+	if err := h.validateJQL(jql); err != nil {
+		return NewToolError(fmt.Sprintf("Invalid JQL query: %v", err)), nil
+	}
+
+	// Apply project filter to JQL if configured
+	jql = h.applyProjectFilterToJQL(ctx, jql)
+	queryParams.Set("jql", jql)
 
 	// Add pagination parameters
-	if startAt, ok := params["startAt"].(float64); ok {
-		queryParams.Set("startAt", fmt.Sprintf("%d", int(startAt)))
+	startAt := 0
+	if start, ok := params["startAt"].(float64); ok && start >= 0 {
+		startAt = int(start)
 	}
+	queryParams.Set("startAt", fmt.Sprintf("%d", startAt))
 
-	if maxResults, ok := params["maxResults"].(float64); ok {
-		queryParams.Set("maxResults", fmt.Sprintf("%d", int(maxResults)))
-	} else {
-		queryParams.Set("maxResults", "50")
+	maxResults := 50
+	if max, ok := params["maxResults"].(float64); ok && max > 0 {
+		if max > 100 {
+			maxResults = 100 // Enforce maximum
+		} else {
+			maxResults = int(max)
+		}
 	}
+	queryParams.Set("maxResults", fmt.Sprintf("%d", maxResults))
 
 	// Add fields parameter
 	if fields, ok := params["fields"].([]interface{}); ok && len(fields) > 0 {
@@ -141,48 +158,180 @@ func (h *SearchIssuesHandler) Execute(ctx context.Context, params map[string]int
 	}
 	defer resp.Body.Close()
 
-	// Check response status
-	if resp.StatusCode != http.StatusOK {
-		return NewToolError(fmt.Sprintf("Search failed with status %d", resp.StatusCode)), nil
-	}
-
 	// Parse response
 	var result map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return NewToolError(fmt.Sprintf("Failed to parse response: %v", err)), nil
 	}
 
-	// Apply project filter if configured
-	if pctx, ok := providers.FromContext(ctx); ok && pctx != nil && pctx.Metadata != nil {
-		if projectFilter, ok := pctx.Metadata["JIRA_PROJECTS_FILTER"].(string); ok && projectFilter != "" {
-			// Filter results to only include issues from allowed projects
-			if issues, ok := result["issues"].([]interface{}); ok {
-				filtered := []interface{}{}
-				for _, issue := range issues {
-					if issueMap, ok := issue.(map[string]interface{}); ok {
-						if fields, ok := issueMap["fields"].(map[string]interface{}); ok {
-							if project, ok := fields["project"].(map[string]interface{}); ok {
-								if key, ok := project["key"].(string); ok {
-									// Check if project is in filter
-									if contains(projectFilter, key) {
-										filtered = append(filtered, issue)
-									}
-								}
-							}
-						}
-					}
-				}
-				result["issues"] = filtered
-				result["total"] = len(filtered)
+	// Check response status
+	if resp.StatusCode != http.StatusOK {
+		errorMsg := fmt.Sprintf("Search failed with status %d", resp.StatusCode)
+		if errorMessages, ok := result["errorMessages"].([]interface{}); ok && len(errorMessages) > 0 {
+			errorMsg = fmt.Sprintf("%s: %v", errorMsg, errorMessages[0])
+		}
+		if errors, ok := result["errors"].(map[string]interface{}); ok && len(errors) > 0 {
+			errorDetails := []string{}
+			for field, msg := range errors {
+				errorDetails = append(errorDetails, fmt.Sprintf("%s: %v", field, msg))
 			}
+			errorMsg = fmt.Sprintf("%s - %s", errorMsg, strings.Join(errorDetails, ", "))
+		}
+		return NewToolError(errorMsg), nil
+	}
+
+	// Apply additional project filtering if configured (in case JQL filter wasn't applied)
+	h.filterSearchResults(ctx, &result)
+
+	// Add metadata
+	result["_metadata"] = map[string]interface{}{
+		"api_version": "v3",
+		"operation":   "search_issues",
+		"jql":         jql,
+		"startAt":     startAt,
+		"maxResults":  maxResults,
+	}
+
+	// Add pagination info
+	if total, ok := result["total"].(float64); ok {
+		nextStart := startAt + maxResults
+		if float64(nextStart) < total {
+			result["_metadata"].(map[string]interface{})["nextStartAt"] = nextStart
+			result["_metadata"].(map[string]interface{})["hasMore"] = true
+		} else {
+			result["_metadata"].(map[string]interface{})["hasMore"] = false
 		}
 	}
 
 	return NewToolResult(result), nil
 }
 
-// Helper function to check if project is in filter
-func contains(filter, project string) bool {
-	// Simple contains check - could be enhanced to support comma-separated lists
-	return filter == "" || filter == project || filter == "*"
+// validateJQL validates the JQL query for potential security issues
+func (h *SearchIssuesHandler) validateJQL(jql string) error {
+	if jql == "" {
+		return nil
+	}
+
+	// Check for potential SQL injection patterns
+	dangerousPatterns := []string{
+		"';", "'; ", "';--", "' OR ", "' AND ",
+		"/*", "*/", "xp_", "sp_", "exec ",
+		"<script", "</script>", "javascript:",
+		"DROP ", "DELETE ", "TRUNCATE ", "ALTER ", "CREATE ",
+	}
+
+	jqlUpper := strings.ToUpper(jql)
+	for _, pattern := range dangerousPatterns {
+		if strings.Contains(jqlUpper, strings.ToUpper(pattern)) {
+			return fmt.Errorf("potentially dangerous pattern detected: %s", pattern)
+		}
+	}
+
+	// Check for reasonable length
+	if len(jql) > 5000 {
+		return fmt.Errorf("JQL query too long (max 5000 characters)")
+	}
+
+	// Basic syntax validation - check for balanced parentheses
+	openCount := strings.Count(jql, "(")
+	closeCount := strings.Count(jql, ")")
+	if openCount != closeCount {
+		return fmt.Errorf("unbalanced parentheses in JQL query")
+	}
+
+	// Check for balanced quotes
+	singleQuotes := strings.Count(jql, "'")
+	if singleQuotes%2 != 0 {
+		return fmt.Errorf("unbalanced single quotes in JQL query")
+	}
+
+	doubleQuotes := strings.Count(jql, "\"")
+	if doubleQuotes%2 != 0 {
+		return fmt.Errorf("unbalanced double quotes in JQL query")
+	}
+
+	return nil
+}
+
+// applyProjectFilterToJQL adds project filter to JQL if configured
+func (h *SearchIssuesHandler) applyProjectFilterToJQL(ctx context.Context, jql string) string {
+	pctx, ok := providers.FromContext(ctx)
+	if !ok || pctx == nil || pctx.Metadata == nil {
+		return jql
+	}
+
+	projectFilter, ok := pctx.Metadata["JIRA_PROJECTS_FILTER"].(string)
+	if !ok || projectFilter == "" || projectFilter == "*" {
+		return jql
+	}
+
+	// Parse allowed projects
+	allowedProjects := strings.Split(projectFilter, ",")
+	for i := range allowedProjects {
+		allowedProjects[i] = strings.TrimSpace(allowedProjects[i])
+	}
+
+	// Build project filter clause
+	projectClause := ""
+	if len(allowedProjects) == 1 {
+		projectClause = fmt.Sprintf("project = \"%s\"", allowedProjects[0])
+	} else {
+		projectList := []string{}
+		for _, project := range allowedProjects {
+			projectList = append(projectList, fmt.Sprintf("\"%s\"", project))
+		}
+		projectClause = fmt.Sprintf("project in (%s)", strings.Join(projectList, ", "))
+	}
+
+	// Combine with existing JQL
+	if jql == "" || strings.HasPrefix(strings.TrimSpace(strings.ToUpper(jql)), "ORDER BY") {
+		// If no JQL or only ORDER BY, add project filter
+		return projectClause + " " + jql
+	} else {
+		// Otherwise, add project filter as AND condition
+		return fmt.Sprintf("(%s) AND (%s)", projectClause, jql)
+	}
+}
+
+// filterSearchResults applies additional filtering to search results
+func (h *SearchIssuesHandler) filterSearchResults(ctx context.Context, result *map[string]interface{}) {
+	pctx, ok := providers.FromContext(ctx)
+	if !ok || pctx == nil || pctx.Metadata == nil {
+		return
+	}
+
+	projectFilter, ok := pctx.Metadata["JIRA_PROJECTS_FILTER"].(string)
+	if !ok || projectFilter == "" || projectFilter == "*" {
+		return
+	}
+
+	// Parse allowed projects
+	allowedProjects := strings.Split(projectFilter, ",")
+	for i := range allowedProjects {
+		allowedProjects[i] = strings.TrimSpace(allowedProjects[i])
+	}
+
+	// Filter results to only include issues from allowed projects
+	if issues, ok := (*result)["issues"].([]interface{}); ok {
+		filtered := []interface{}{}
+		for _, issue := range issues {
+			if issueMap, ok := issue.(map[string]interface{}); ok {
+				if fields, ok := issueMap["fields"].(map[string]interface{}); ok {
+					if project, ok := fields["project"].(map[string]interface{}); ok {
+						if key, ok := project["key"].(string); ok {
+							if h.provider.isProjectAllowed(key, allowedProjects) {
+								filtered = append(filtered, issue)
+							}
+						}
+					}
+				}
+			}
+		}
+		(*result)["issues"] = filtered
+		// Update total to reflect filtered count
+		if _, hasTotal := (*result)["total"]; hasTotal {
+			(*result)["_metadata"].(map[string]interface{})["originalTotal"] = (*result)["total"]
+			(*result)["total"] = len(filtered)
+		}
+	}
 }
