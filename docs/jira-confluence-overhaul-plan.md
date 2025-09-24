@@ -59,22 +59,31 @@ Based on our GitHub and Harness implementations:
   - Added toolset registry with enable/disable capability
   - All existing tests pass without modification
 
-#### Story 1.2: Implement Passthrough Authentication (Following GitHub/Harness Pattern)
-- **Remove all hardcoded authentication** - no config-based tokens
-- Implement passthrough-only authentication like GitHub provider:
-  - Primary: Check ProviderContext for credentials (Token or Custom\["token"\])
-  - Secondary: Check `__passthrough_auth` parameter with encrypted_token
-  - Use EncryptionService.DecryptCredential for encrypted tokens
-  - Support plain token in `__passthrough_auth` for development
-  - Direct token parameter fallback for compatibility
-- Create `extractAuthToken()` method following GitHub's pattern
-- Support both API tokens and PATs through same passthrough mechanism
+#### Story 1.2: Implement Passthrough Authentication (Following GitHub/Harness Pattern) ✅ **COMPLETED**
+- **Remove all hardcoded authentication** - no config-based tokens ✅
+- Implement passthrough-only authentication like GitHub provider: ✅
+  - Primary: Check ProviderContext for credentials (Token or Custom\["token"\]) ✅
+  - Secondary: Check `__passthrough_auth` parameter with encrypted_token ✅
+  - Use EncryptionService.DecryptCredential for encrypted tokens ✅
+  - Support plain token in `__passthrough_auth` for development ✅
+  - Direct token parameter fallback for compatibility ✅
+- Create `extractAuthToken()` method following GitHub's pattern ✅
+- Support both API tokens and PATs through same passthrough mechanism ✅
 - **Acceptance Criteria**:
-  - NO hardcoded or config-based authentication
-  - All auth comes from request context/parameters
-  - Encrypted token decryption works correctly
-  - Authentication method matches GitHub/Harness providers exactly
-  - Each request can have different credentials
+  - NO hardcoded or config-based authentication ✅
+  - All auth comes from request context/parameters ✅
+  - Encrypted token decryption works correctly ✅
+  - Authentication method matches GitHub/Harness providers exactly ✅
+  - Each request can have different credentials ✅
+- **Completion Date**: 2025-01-24
+- **Implementation Details**:
+  - Created extractAuthToken() method with 5-priority authentication levels
+  - Supports ProviderContext, __passthrough_auth, and direct params
+  - Handles both email:api_token and username:password formats
+  - Checks Metadata in addition to Custom fields
+  - Returns specific error messages for validation issues
+  - Comprehensive test coverage for all authentication scenarios
+  - Updated extractTenantID to check passthrough auth
 
 #### Story 1.3: Upgrade to Modern API Clients
 - Migrate Confluence operations to v2 REST API where available

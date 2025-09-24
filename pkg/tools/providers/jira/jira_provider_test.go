@@ -125,7 +125,7 @@ func TestJiraProvider_ValidateCredentials(t *testing.T) {
 			name:        "missing credentials",
 			creds:       map[string]string{},
 			expectError: true,
-			errorMsg:    "missing required credentials",
+			errorMsg:    "no authentication credentials found",
 		},
 		{
 			name: "invalid credentials",

@@ -164,7 +164,7 @@ func TestValidateCredentials(t *testing.T) {
 			setupServer: func(server *httptest.Server) {
 			},
 			wantErr:     true,
-			errContains: "missing required credentials",
+			errContains: "no authentication credentials found",
 		},
 		{
 			name: "username and password (legacy)",

@@ -273,25 +273,58 @@ func (p *JiraProvider) GetToolDefinitions() []providers.ToolDefinition {
 	}
 }
 
-// ValidateCredentials validates Jira credentials
+// ValidateCredentials validates Jira credentials using passthrough authentication
+// IMPORTANT: Following passthrough auth pattern - credentials are NOT stored, only validated
 func (p *JiraProvider) ValidateCredentials(ctx context.Context, creds map[string]string) error {
-	// Jira Cloud supports multiple auth methods
-	email, hasEmail := creds["email"]
-	apiToken, hasAPIToken := creds["api_token"]
+	// Build params with credentials for passthrough auth validation
+	params := make(map[string]interface{})
 
-	// OAuth 2.0
-	accessToken, hasAccessToken := creds["access_token"]
+	// Convert creds map to format expected by extractAuthToken
+	// Support multiple formats for backward compatibility
+	if email, hasEmail := creds["email"]; hasEmail {
+		if apiToken, hasAPIToken := creds["api_token"]; hasAPIToken {
+			// Build combined token for passthrough
+			params["token"] = email + ":" + apiToken
+		}
+	} else if token, hasToken := creds["token"]; hasToken {
+		params["token"] = token
+	} else if accessToken, hasAccessToken := creds["access_token"]; hasAccessToken {
+		// OAuth token - pass directly
+		params["token"] = accessToken
+	}
 
-	// Validate based on available credentials
-	var authHeader string
-	if hasEmail && hasAPIToken {
-		// Basic auth with email and API token
-		authHeader = "Basic " + basicAuth(email, apiToken)
-	} else if hasAccessToken {
-		// OAuth 2.0
-		authHeader = "Bearer " + accessToken
-	} else {
-		return fmt.Errorf("missing required credentials: either (email + api_token) or access_token required")
+	// Extract authentication using passthrough pattern
+	email, apiToken, err := p.extractAuthToken(ctx, params)
+	if err != nil {
+		// Try OAuth if basic auth extraction failed
+		if token, ok := params["token"].(string); ok && !strings.Contains(token, ":") {
+			// Likely an OAuth token, test it directly
+			req, err := http.NewRequestWithContext(ctx, "GET", p.buildURL("/rest/api/3/myself"), nil)
+			if err != nil {
+				return err
+			}
+			req.Header.Set("Authorization", "Bearer "+token)
+			req.Header.Set("Accept", "application/json")
+
+			resp, err := p.httpClient.Do(req)
+			if err != nil {
+				return fmt.Errorf("failed to validate OAuth credentials: %w", err)
+			}
+			defer func() {
+				_ = resp.Body.Close()
+			}()
+
+			if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+				return fmt.Errorf("invalid Jira OAuth credentials")
+			}
+
+			if resp.StatusCode != http.StatusOK {
+				body, _ := io.ReadAll(resp.Body)
+				return fmt.Errorf("unexpected response from Jira API: %d - %s", resp.StatusCode, string(body))
+			}
+			return nil
+		}
+		return fmt.Errorf("failed to extract credentials for validation: %w", err)
 	}
 
 	// Test the credentials with the myself endpoint
@@ -299,8 +332,7 @@ func (p *JiraProvider) ValidateCredentials(ctx context.Context, creds map[string
 	if err != nil {
 		return err
 	}
-
-	req.Header.Set("Authorization", authHeader)
+	req.Header.Set("Authorization", "Basic "+basicAuth(email, apiToken))
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := p.httpClient.Do(req)
@@ -1124,52 +1156,158 @@ func (p *JiraProvider) DisableToolset(name string) error {
 }
 
 // extractAuthToken extracts authentication token from context or params (passthrough auth)
+// Following GitHub provider pattern exactly for passthrough authentication
 func (p *JiraProvider) extractAuthToken(ctx context.Context, params map[string]interface{}) (string, string, error) {
-	// Try from ProviderContext first (standard provider pattern)
-	if pctx, ok := providers.FromContext(ctx); ok && pctx != nil && pctx.Credentials != nil {
-		if pctx.Credentials.Token != "" {
-			// Assuming format is email:token for basic auth
+	// Priority 1: Try from ProviderContext first (standard provider pattern)
+	if pctx, ok := providers.FromContext(ctx); ok && pctx != nil {
+		// Check for token in main Credentials field
+		if pctx.Credentials != nil && pctx.Credentials.Token != "" {
+			// For Jira, token might be in email:api_token format
 			parts := strings.Split(pctx.Credentials.Token, ":")
 			if len(parts) == 2 {
 				return parts[0], parts[1], nil
 			}
+			// Return error if token format is invalid
+			if !strings.Contains(pctx.Credentials.Token, ":") {
+				return "", "", fmt.Errorf("invalid token format, expected email:api_token")
+			}
 		}
-		// Check for custom credentials
-		if email, ok := pctx.Credentials.Custom["email"]; ok {
-			if token, ok := pctx.Credentials.Custom["api_token"]; ok {
-				return email, token, nil
+
+		// Check Metadata (newer pattern)
+		if pctx.Metadata != nil {
+			// Check for token in metadata
+			if token, ok := pctx.Metadata["token"].(string); ok && token != "" {
+				parts := strings.Split(token, ":")
+				if len(parts) == 2 {
+					return parts[0], parts[1], nil
+				}
+			}
+			// Check for separate email and api_token in metadata
+			if email, ok := pctx.Metadata["email"].(string); ok && email != "" {
+				if apiToken, ok := pctx.Metadata["api_token"].(string); ok && apiToken != "" {
+					return email, apiToken, nil
+				}
+				// Check for OAuth access_token
+				if accessToken, ok := pctx.Metadata["access_token"].(string); ok && accessToken != "" {
+					return email, accessToken, nil
+				}
+			}
+		}
+
+		// Also check custom credentials map (legacy)
+		if pctx.Credentials != nil && pctx.Credentials.Custom != nil {
+			if token, ok := pctx.Credentials.Custom["token"]; ok && token != "" {
+				parts := strings.Split(token, ":")
+				if len(parts) == 2 {
+					return parts[0], parts[1], nil
+				}
+			}
+			// Check for Jira-specific keys
+			if token, ok := pctx.Credentials.Custom["jira_token"]; ok && token != "" {
+				parts := strings.Split(token, ":")
+				if len(parts) == 2 {
+					return parts[0], parts[1], nil
+				}
+			}
+			// Check for separate email and api_token in custom
+			if email, ok := pctx.Credentials.Custom["email"]; ok && email != "" {
+				if apiToken, ok := pctx.Credentials.Custom["api_token"]; ok && apiToken != "" {
+					return email, apiToken, nil
+				}
 			}
 		}
 	}
 
-	// Try passthrough auth from params
+	// Priority 2: Try passthrough auth from params
 	if auth, ok := params["__passthrough_auth"].(map[string]interface{}); ok {
-		if encryptedToken, ok := auth["encrypted_token"].(string); ok {
+		// Check for encrypted token
+		if encryptedToken, ok := auth["encrypted_token"].(string); ok && encryptedToken != "" {
 			// Extract tenant ID for decryption
-			tenantID := ""
-			if pctx, ok := providers.FromContext(ctx); ok && pctx != nil {
-				tenantID = pctx.TenantID
-			}
+			tenantID := p.extractTenantID(ctx, params)
 			decrypted, err := p.encryptionSvc.DecryptCredential([]byte(encryptedToken), tenantID)
 			if err != nil {
 				return "", "", fmt.Errorf("failed to decrypt token: %w", err)
 			}
-			// Assuming decrypted format is email:token
+			// Parse decrypted token (email:api_token format)
 			parts := strings.Split(decrypted, ":")
 			if len(parts) == 2 {
 				return parts[0], parts[1], nil
 			}
 		}
 
-		// Try plain email and token
-		email, _ := auth["email"].(string)
-		token, _ := auth["api_token"].(string)
-		if email != "" && token != "" {
-			return email, token, nil
+		// Check for plain token (development mode)
+		if token, ok := auth["token"].(string); ok && token != "" {
+			parts := strings.Split(token, ":")
+			if len(parts) == 2 {
+				return parts[0], parts[1], nil
+			}
+		}
+
+		// Try separate email and api_token in passthrough
+		if email, ok := auth["email"].(string); ok && email != "" {
+			if apiToken, ok := auth["api_token"].(string); ok && apiToken != "" {
+				return email, apiToken, nil
+			}
+		}
+	}
+
+	// Priority 3: Try direct token from params (backward compatibility)
+	if token, ok := params["token"].(string); ok && token != "" {
+		parts := strings.Split(token, ":")
+		if len(parts) == 2 {
+			return parts[0], parts[1], nil
+		}
+		// Return specific error for invalid format
+		if !strings.Contains(token, ":") {
+			return "", "", fmt.Errorf("invalid token format, expected email:api_token")
+		}
+	}
+
+	// Priority 4: Try direct email/api_token from params (backward compatibility)
+	if email, ok := params["email"].(string); ok && email != "" {
+		if apiToken, ok := params["api_token"].(string); ok && apiToken != "" {
+			return email, apiToken, nil
+		}
+		// Check for OAuth access_token
+		if accessToken, ok := params["access_token"].(string); ok && accessToken != "" {
+			return email, accessToken, nil
+		}
+		// Return specific error if email exists but token is missing
+		return "", "", fmt.Errorf("email provided but api_token missing")
+	}
+
+	// Priority 5: Try from context value
+	if token, ok := ctx.Value("jira_token").(string); ok {
+		parts := strings.Split(token, ":")
+		if len(parts) == 2 {
+			return parts[0], parts[1], nil
 		}
 	}
 
 	return "", "", fmt.Errorf("no authentication credentials found")
+}
+
+// extractTenantID extracts tenant ID from context or params
+func (p *JiraProvider) extractTenantID(ctx context.Context, params map[string]interface{}) string {
+	// Try from ProviderContext
+	if pctx, ok := providers.FromContext(ctx); ok && pctx != nil && pctx.TenantID != "" {
+		return pctx.TenantID
+	}
+	// Try from params
+	if tenantID, ok := params["tenant_id"].(string); ok && tenantID != "" {
+		return tenantID
+	}
+	// Try from passthrough auth
+	if auth, ok := params["__passthrough_auth"].(map[string]interface{}); ok {
+		if tenantID, ok := auth["tenant_id"].(string); ok && tenantID != "" {
+			return tenantID
+		}
+	}
+	// Try from context value
+	if tenantID, ok := ctx.Value("tenant_id").(string); ok && tenantID != "" {
+		return tenantID
+	}
+	return ""
 }
 
 func (p *JiraProvider) buildURL(path string) string {

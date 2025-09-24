@@ -300,69 +300,59 @@ func (p *ConfluenceProvider) GetToolDefinitions() []providers.ToolDefinition {
 	}
 }
 
-// ValidateCredentials validates Confluence credentials
+// ValidateCredentials validates Confluence credentials using passthrough authentication
+// IMPORTANT: Following passthrough auth pattern - credentials are NOT stored, only validated
 func (p *ConfluenceProvider) ValidateCredentials(ctx context.Context, creds map[string]string) error {
-	email, hasEmail := creds["email"]
-	apiToken, hasAPIToken := creds["api_token"]
-	username, hasUsername := creds["username"]
-	password, hasPassword := creds["password"]
+	// Build params with credentials for passthrough auth validation
+	params := make(map[string]interface{})
 
-	// Check for Confluence Cloud API token auth (preferred)
-	if hasEmail && hasAPIToken {
-		// Test with email and API token
-		req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("https://%s.atlassian.net/wiki/rest/api/space", p.domain), nil)
-		if err != nil {
-			return err
+	// Convert creds map to format expected by extractAuthToken
+	// Support multiple formats for backward compatibility
+	if email, hasEmail := creds["email"]; hasEmail {
+		if apiToken, hasAPIToken := creds["api_token"]; hasAPIToken {
+			// Build combined token for passthrough
+			params["token"] = email + ":" + apiToken
 		}
-		req.SetBasicAuth(email, apiToken)
-		req.Header.Set("Accept", "application/json")
-
-		resp, err := p.httpClient.Do(req)
-		if err != nil {
-			return fmt.Errorf("failed to validate credentials: %w", err)
+	} else if username, hasUsername := creds["username"]; hasUsername {
+		if password, hasPassword := creds["password"]; hasPassword {
+			// Legacy format - build combined token
+			params["token"] = username + ":" + password
 		}
-		defer func() {
-			_ = resp.Body.Close()
-		}()
-
-		if resp.StatusCode == http.StatusUnauthorized {
-			return fmt.Errorf("invalid Confluence credentials (email/api_token)")
-		}
-
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("unexpected response from Confluence API: %d", resp.StatusCode)
-		}
-		return nil
+	} else if token, hasToken := creds["token"]; hasToken {
+		params["token"] = token
 	}
 
-	// Check for basic auth (legacy, not recommended for Cloud)
-	if hasUsername && hasPassword {
-		req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("https://%s.atlassian.net/wiki/rest/api/space", p.domain), nil)
-		if err != nil {
-			return err
-		}
-		req.SetBasicAuth(username, password)
-		req.Header.Set("Accept", "application/json")
-
-		resp, err := p.httpClient.Do(req)
-		if err != nil {
-			return fmt.Errorf("failed to validate credentials: %w", err)
-		}
-		defer func() {
-			_ = resp.Body.Close()
-		}()
-
-		if resp.StatusCode == http.StatusUnauthorized {
-			return fmt.Errorf("invalid Confluence credentials (username/password)")
-		}
-
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("unexpected response from Confluence API: %d", resp.StatusCode)
-		}
-		return nil
+	// Extract authentication using passthrough pattern
+	email, apiToken, err := p.extractAuthToken(ctx, params)
+	if err != nil {
+		return fmt.Errorf("failed to extract credentials for validation: %w", err)
 	}
 
-	return fmt.Errorf("missing required credentials: email/api_token or username/password")
+	// Test the credentials with the space endpoint
+	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("https://%s.atlassian.net/wiki/rest/api/space", p.domain), nil)
+	if err != nil {
+		return err
+	}
+	req.SetBasicAuth(email, apiToken)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := p.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to validate credentials: %w", err)
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	if resp.StatusCode == http.StatusUnauthorized {
+		return fmt.Errorf("invalid Confluence credentials")
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected response from Confluence API: %d", resp.StatusCode)
+	}
+
+	return nil
 }
 
 // ExecuteOperation executes a Confluence operation
@@ -607,44 +597,85 @@ func (p *ConfluenceProvider) DisableToolset(name string) {
 }
 
 // extractAuthToken extracts authentication token from context or parameters
+// Following GitHub provider pattern exactly for passthrough authentication
 func (p *ConfluenceProvider) extractAuthToken(ctx context.Context, params map[string]interface{}) (string, string, error) {
-	// Priority 1: Check ProviderContext from context
+	// Priority 1: Try from ProviderContext first (standard provider pattern)
 	if pctx, ok := providers.FromContext(ctx); ok && pctx != nil {
-		// Check Metadata field for token
+		// Check for token in main Credentials field
+		if pctx.Credentials != nil && pctx.Credentials.Token != "" {
+			// For Confluence, token might be in email:api_token format
+			parts := strings.SplitN(pctx.Credentials.Token, ":", 2)
+			if len(parts) == 2 {
+				return parts[0], parts[1], nil
+			}
+			// Return error if token format is invalid
+			if !strings.Contains(pctx.Credentials.Token, ":") {
+				return "", "", fmt.Errorf("invalid token format, expected email:api_token or username:password")
+			}
+		}
+
+		// Check for username/password (legacy support)
+		if pctx.Credentials != nil && pctx.Credentials.Username != "" && pctx.Credentials.Password != "" {
+			return pctx.Credentials.Username, pctx.Credentials.Password, nil
+		}
+
+		// Check Metadata (newer pattern)
 		if pctx.Metadata != nil {
+			// Check for token in metadata
 			if token, ok := pctx.Metadata["token"].(string); ok && token != "" {
-				// For Confluence, we need to extract email and api_token from the token
-				// The token might be in the format "email:api_token"
 				parts := strings.SplitN(token, ":", 2)
 				if len(parts) == 2 {
 					return parts[0], parts[1], nil
 				}
 			}
-			// Also check for separate email and api_token in metadata
-			if email, ok := pctx.Metadata["email"].(string); ok {
-				if apiToken, ok := pctx.Metadata["api_token"].(string); ok {
+			// Check for separate email and api_token in metadata
+			if email, ok := pctx.Metadata["email"].(string); ok && email != "" {
+				if apiToken, ok := pctx.Metadata["api_token"].(string); ok && apiToken != "" {
+					return email, apiToken, nil
+				}
+			}
+			// Check for username/password in metadata
+			if username, ok := pctx.Metadata["username"].(string); ok && username != "" {
+				if password, ok := pctx.Metadata["password"].(string); ok && password != "" {
+					return username, password, nil
+				}
+			}
+		}
+
+		// Also check custom credentials map (legacy)
+		if pctx.Credentials != nil && pctx.Credentials.Custom != nil {
+			if token, ok := pctx.Credentials.Custom["token"]; ok && token != "" {
+				parts := strings.SplitN(token, ":", 2)
+				if len(parts) == 2 {
+					return parts[0], parts[1], nil
+				}
+			}
+			// Check for Confluence-specific keys
+			if token, ok := pctx.Credentials.Custom["confluence_token"]; ok && token != "" {
+				parts := strings.SplitN(token, ":", 2)
+				if len(parts) == 2 {
+					return parts[0], parts[1], nil
+				}
+			}
+			// Check for separate email and api_token in custom
+			if email, ok := pctx.Credentials.Custom["email"]; ok && email != "" {
+				if apiToken, ok := pctx.Credentials.Custom["api_token"]; ok && apiToken != "" {
 					return email, apiToken, nil
 				}
 			}
 		}
 	}
 
-	// Priority 2: Check passthrough auth parameter with encrypted token
-	if passthroughAuth, ok := params["__passthrough_auth"].(map[string]interface{}); ok {
+	// Priority 2: Try passthrough auth from params
+	if auth, ok := params["__passthrough_auth"].(map[string]interface{}); ok {
 		// Check for encrypted token
-		if encToken, ok := passthroughAuth["encrypted_token"].(string); ok && encToken != "" {
-			// Get tenant ID from context for decryption
-			tenantID := ""
-			if pctx, ok := providers.FromContext(ctx); ok && pctx != nil {
-				tenantID = pctx.TenantID
-			}
-
-			// Decrypt the token
-			decrypted, err := p.encryptionSvc.DecryptCredential([]byte(tenantID), encToken)
+		if encryptedToken, ok := auth["encrypted_token"].(string); ok && encryptedToken != "" {
+			// Extract tenant ID for decryption
+			tenantID := p.extractTenantID(ctx, params)
+			decrypted, err := p.encryptionSvc.DecryptCredential([]byte(encryptedToken), tenantID)
 			if err != nil {
 				return "", "", fmt.Errorf("failed to decrypt token: %w", err)
 			}
-
 			// Parse decrypted token (email:api_token format)
 			parts := strings.SplitN(decrypted, ":", 2)
 			if len(parts) == 2 {
@@ -652,21 +683,87 @@ func (p *ConfluenceProvider) extractAuthToken(ctx context.Context, params map[st
 			}
 		}
 
-		// Check for plain token (development)
-		if plainToken, ok := passthroughAuth["token"].(string); ok && plainToken != "" {
-			parts := strings.SplitN(plainToken, ":", 2)
+		// Check for plain token (development mode)
+		if token, ok := auth["token"].(string); ok && token != "" {
+			parts := strings.SplitN(token, ":", 2)
 			if len(parts) == 2 {
 				return parts[0], parts[1], nil
 			}
 		}
+
+		// Try separate email and api_token in passthrough
+		if email, ok := auth["email"].(string); ok && email != "" {
+			if apiToken, ok := auth["api_token"].(string); ok && apiToken != "" {
+				return email, apiToken, nil
+			}
+		}
+
+		// Try username/password in passthrough
+		if username, ok := auth["username"].(string); ok && username != "" {
+			if password, ok := auth["password"].(string); ok && password != "" {
+				return username, password, nil
+			}
+		}
 	}
 
-	// Priority 3: Direct parameter fallback
-	if email, ok := params["email"].(string); ok {
-		if apiToken, ok := params["api_token"].(string); ok {
+	// Priority 3: Try direct token from params (backward compatibility)
+	if token, ok := params["token"].(string); ok && token != "" {
+		parts := strings.SplitN(token, ":", 2)
+		if len(parts) == 2 {
+			return parts[0], parts[1], nil
+		}
+		// Return specific error for invalid format
+		if !strings.Contains(token, ":") {
+			return "", "", fmt.Errorf("invalid token format, expected email:api_token or username:password")
+		}
+	}
+
+	// Priority 4: Try direct email/api_token or username/password from params (backward compatibility)
+	if email, ok := params["email"].(string); ok && email != "" {
+		if apiToken, ok := params["api_token"].(string); ok && apiToken != "" {
 			return email, apiToken, nil
+		}
+		// Return specific error if email exists but token is missing
+		return "", "", fmt.Errorf("email provided but api_token missing")
+	}
+	if username, ok := params["username"].(string); ok && username != "" {
+		if password, ok := params["password"].(string); ok && password != "" {
+			return username, password, nil
+		}
+		// Return specific error if username exists but password is missing
+		return "", "", fmt.Errorf("username provided but password missing")
+	}
+
+	// Priority 5: Try from context value
+	if token, ok := ctx.Value("confluence_token").(string); ok {
+		parts := strings.SplitN(token, ":", 2)
+		if len(parts) == 2 {
+			return parts[0], parts[1], nil
 		}
 	}
 
 	return "", "", fmt.Errorf("no authentication credentials found")
+}
+
+// extractTenantID extracts tenant ID from context or params
+func (p *ConfluenceProvider) extractTenantID(ctx context.Context, params map[string]interface{}) string {
+	// Try from ProviderContext
+	if pctx, ok := providers.FromContext(ctx); ok && pctx != nil && pctx.TenantID != "" {
+		return pctx.TenantID
+	}
+	// Try from params
+	if tenantID, ok := params["tenant_id"].(string); ok && tenantID != "" {
+		return tenantID
+	}
+	// Try from passthrough auth
+	if auth, ok := params["__passthrough_auth"].(map[string]interface{}); ok {
+		if tenantID, ok := auth["tenant_id"].(string); ok && tenantID != "" {
+			return tenantID
+		}
+	}
+	// Try from context value
+	if tenantID, ok := ctx.Value("tenant_id").(string); ok && tenantID != "" {
+		return tenantID
+	}
+	return ""
 }
