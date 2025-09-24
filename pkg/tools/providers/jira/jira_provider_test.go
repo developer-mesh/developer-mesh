@@ -3,9 +3,11 @@ package jira
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/tools/providers"
@@ -537,5 +539,216 @@ func TestJiraProvider_BuildURL(t *testing.T) {
 			result := provider.buildURL(tt.path)
 			assert.Equal(t, tt.expected, result)
 		})
+	}
+}
+
+// Epic 4, Story 4.2 - Observability Features Tests
+
+func TestJiraProvider_ObservabilityIntegration(t *testing.T) {
+	logger := &observability.NoopLogger{}
+	provider := NewJiraProvider(logger, "test")
+
+	// Verify observability manager was initialized
+	assert.NotNil(t, provider.observabilityMgr)
+	assert.False(t, provider.IsDebugMode()) // Should be false by default
+}
+
+func TestJiraProvider_HealthCheckWithObservability(t *testing.T) {
+	// Create a test server that responds to serverInfo endpoint
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/serverInfo" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"version": "8.0.0", "versionNumbers": [8,0,0]}`))
+		} else {
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	logger := &observability.NoopLogger{}
+	provider := NewJiraProvider(logger, "test")
+
+	// Set the provider's baseURL to use the test server
+	provider.BaseProvider.SetConfiguration(providers.ProviderConfig{
+		BaseURL:  server.URL,
+		AuthType: "basic",
+	})
+
+	ctx := context.Background()
+
+	// Test successful health check
+	err := provider.HealthCheck(ctx)
+	assert.NoError(t, err)
+
+	// Verify health status is updated
+	status := provider.GetHealthStatus()
+	assert.True(t, status.Healthy)
+	assert.NotZero(t, status.LastChecked)
+	assert.Greater(t, status.ResponseTime, time.Duration(0))
+}
+
+func TestJiraProvider_HealthCheckFailure(t *testing.T) {
+	// Create a test server that returns an error
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"error": "Internal server error"}`))
+	}))
+	defer server.Close()
+
+	logger := &observability.NoopLogger{}
+	provider := NewJiraProvider(logger, "test")
+
+	// Set the provider's baseURL to use the test server
+	provider.BaseProvider.SetConfiguration(providers.ProviderConfig{
+		BaseURL:  server.URL,
+		AuthType: "basic",
+	})
+
+	ctx := context.Background()
+
+	// Test failed health check
+	err := provider.HealthCheck(ctx)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "health check returned status 500")
+
+	// Verify health status reflects failure
+	status := provider.GetHealthStatus()
+	assert.False(t, status.Healthy)
+	assert.NotEmpty(t, status.Errors)
+}
+
+func TestJiraProvider_SecureHTTPDoWithObservability(t *testing.T) {
+	// Create a test server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"message": "success", "data": "test"}`))
+	}))
+	defer server.Close()
+
+	logger := &observability.NoopLogger{}
+	provider := NewJiraProvider(logger, "test")
+
+	// Create a test request
+	req, err := http.NewRequest("GET", server.URL+"/test", nil)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	// Execute secure HTTP request
+	resp, err := provider.secureHTTPDo(ctx, req, "test_operation")
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// Clean up response
+	defer resp.Body.Close()
+}
+
+func TestJiraProvider_SecureHTTPDoErrorHandling(t *testing.T) {
+	// Create a test server that returns different error types
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/401":
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte(`{"error": "Unauthorized"}`))
+		case "/429":
+			w.WriteHeader(http.StatusTooManyRequests)
+			w.Write([]byte(`{"error": "Rate limit exceeded"}`))
+		case "/500":
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(`{"error": "Server error"}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	logger := &observability.NoopLogger{}
+	provider := NewJiraProvider(logger, "test")
+
+	tests := []struct {
+		name           string
+		path           string
+		expectedStatus int
+		expectedError  string
+	}{
+		{
+			name:           "unauthorized error",
+			path:           "/401",
+			expectedStatus: 401,
+			expectedError:  "HTTP 401",
+		},
+		{
+			name:           "rate limit error",
+			path:           "/429",
+			expectedStatus: 429,
+			expectedError:  "HTTP 429",
+		},
+		{
+			name:           "server error",
+			path:           "/500",
+			expectedStatus: 500,
+			expectedError:  "HTTP 500",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req, err := http.NewRequest("GET", server.URL+tt.path, nil)
+			require.NoError(t, err)
+
+			ctx := context.Background()
+			resp, err := provider.secureHTTPDo(ctx, req, "test_error_operation")
+
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), tt.expectedError)
+
+			// Verify that the error is properly categorized as a JiraError
+			var jiraErr *JiraError
+			if errors.As(err, &jiraErr) {
+				assert.NotEmpty(t, jiraErr.Type)
+				assert.Equal(t, "test_error_operation", jiraErr.Operation)
+			}
+
+			if resp != nil {
+				assert.Equal(t, tt.expectedStatus, resp.StatusCode)
+				defer resp.Body.Close()
+			}
+		})
+	}
+}
+
+func TestJiraProvider_DebugModeIntegration(t *testing.T) {
+	logger := &observability.NoopLogger{}
+	provider := NewJiraProvider(logger, "test")
+
+	// Initially debug mode should be disabled
+	assert.False(t, provider.IsDebugMode())
+
+	// Enable debug mode
+	if provider.observabilityMgr != nil {
+		provider.observabilityMgr.config.DebugMode = true
+		provider.observabilityMgr.debugLogger = logger.WithPrefix("[JIRA-DEBUG]")
+	}
+
+	assert.True(t, provider.IsDebugMode())
+}
+
+func TestJiraProvider_ObservabilityMetrics(t *testing.T) {
+	logger := &observability.NoopLogger{}
+	provider := NewJiraProvider(logger, "test")
+
+	// Verify observability manager provides metrics
+	if provider.observabilityMgr != nil {
+		metrics := provider.observabilityMgr.GetObservabilityMetrics()
+
+		assert.Contains(t, metrics, "debug_mode")
+		assert.Contains(t, metrics, "metrics_enabled")
+		assert.Contains(t, metrics, "error_tracking_enabled")
+		assert.Contains(t, metrics, "health_check_timeout")
+		assert.Contains(t, metrics, "current_health_status")
 	}
 }

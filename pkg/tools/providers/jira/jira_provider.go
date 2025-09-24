@@ -60,7 +60,8 @@ type JiraProvider struct {
 	specFallback   *openapi3.T
 	httpClient     *http.Client
 	encryptionSvc  *security.EncryptionService
-	securityMgr    *JiraSecurityManager // Epic 4, Story 4.1 - Security Features
+	securityMgr      *JiraSecurityManager      // Epic 4, Story 4.1 - Security Features
+	observabilityMgr *JiraObservabilityManager // Epic 4, Story 4.2 - Observability Features
 
 	// Handler registry
 	toolRegistry    map[string]ToolHandler
@@ -113,6 +114,10 @@ func NewJiraProvider(logger observability.Logger, domain string) *JiraProvider {
 		})
 	}
 
+	// Initialize observability manager with default configuration
+	observabilityConfig := GetDefaultJiraObservabilityConfig()
+	observabilityMgr := NewJiraObservabilityManager(observabilityConfig, logger)
+
 	// Use secure HTTP client from security manager, or fallback to default
 	var httpClient *http.Client
 	if securityMgr != nil {
@@ -124,15 +129,16 @@ func NewJiraProvider(logger observability.Logger, domain string) *JiraProvider {
 	}
 
 	provider := &JiraProvider{
-		BaseProvider: base,
-		domain:       domain,
-		specFallback: specFallback,
-		httpClient:     httpClient,
-		encryptionSvc:  security.NewEncryptionService(""),
-		securityMgr:    securityMgr,
-		toolRegistry:   make(map[string]ToolHandler),
-		toolsetRegistry: make(map[string]*Toolset),
-		enabledToolsets: make(map[string]bool),
+		BaseProvider:     base,
+		domain:           domain,
+		specFallback:     specFallback,
+		httpClient:       httpClient,
+		encryptionSvc:    security.NewEncryptionService(""),
+		securityMgr:      securityMgr,
+		observabilityMgr: observabilityMgr,
+		toolRegistry:     make(map[string]ToolHandler),
+		toolsetRegistry:  make(map[string]*Toolset),
+		enabledToolsets:  make(map[string]bool),
 	}
 
 	// Register handlers and toolsets
@@ -928,8 +934,26 @@ func (p *JiraProvider) GetEmbeddedSpecVersion() string {
 	return "cloud-2024"
 }
 
-// HealthCheck verifies the Jira API is accessible
+// HealthCheck verifies the Jira API is accessible with comprehensive observability
 func (p *JiraProvider) HealthCheck(ctx context.Context) error {
+	// Use the observability manager for comprehensive health checking if available
+	if p.observabilityMgr != nil {
+		status := p.observabilityMgr.PerformHealthCheck(ctx, p.basicHealthCheck)
+		if !status.Healthy {
+			if len(status.Errors) > 0 {
+				return fmt.Errorf("health check failed: %s", status.Errors[0])
+			}
+			return fmt.Errorf("health check failed")
+		}
+		return nil
+	}
+
+	// Fallback to basic health check if observability manager is not available
+	return p.basicHealthCheck(ctx)
+}
+
+// basicHealthCheck performs the core health check logic
+func (p *JiraProvider) basicHealthCheck(ctx context.Context) error {
 	req, err := http.NewRequestWithContext(ctx, "GET", p.buildURL("/rest/api/3/serverInfo"), nil)
 	if err != nil {
 		return fmt.Errorf("failed to create health check request: %w", err)
@@ -950,6 +974,31 @@ func (p *JiraProvider) HealthCheck(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// GetHealthStatus returns the current health status with detailed information
+func (p *JiraProvider) GetHealthStatus() HealthStatus {
+	if p.observabilityMgr != nil {
+		return p.observabilityMgr.GetHealthStatus()
+	}
+
+	// Fallback status if observability manager is not available
+	return HealthStatus{
+		Healthy:     true,
+		LastChecked: time.Now(),
+		Details: map[string]interface{}{
+			"observability_manager": "not_available",
+			"basic_mode":           true,
+		},
+	}
+}
+
+// IsDebugMode returns whether debug mode is enabled
+func (p *JiraProvider) IsDebugMode() bool {
+	if p.observabilityMgr != nil {
+		return p.observabilityMgr.IsDebugMode()
+	}
+	return false
 }
 
 // Close cleans up any resources
@@ -1474,8 +1523,18 @@ func (p *JiraProvider) buildURL(path string) string {
 	return fmt.Sprintf("%s/%s", baseURL, path)
 }
 
-// secureHTTPDo performs an HTTP request with security features (PII detection, sanitization, audit logging)
+// secureHTTPDo performs an HTTP request with security and observability features
+// Epic 4, Story 4.1 - Security (PII detection, sanitization, audit logging)
+// Epic 4, Story 4.2 - Observability (operation tracking, metrics, error handling)
 func (p *JiraProvider) secureHTTPDo(ctx context.Context, req *http.Request, operation string) (*http.Response, error) {
+	start := time.Now()
+
+	// Start operation tracking with observability manager
+	var operationFinish func(error)
+	if p.observabilityMgr != nil {
+		ctx, operationFinish = p.observabilityMgr.StartOperation(ctx, operation)
+	}
+
 	// Apply request sanitization if security manager is available
 	if p.securityMgr != nil {
 		// Sanitize the request
@@ -1498,7 +1557,22 @@ func (p *JiraProvider) secureHTTPDo(ctx context.Context, req *http.Request, oper
 
 	// Execute the HTTP request
 	resp, err := p.httpClient.Do(req)
+	duration := time.Since(start)
+
+	// Handle errors with comprehensive categorization
 	if err != nil {
+		// Categorize error with observability manager
+		var categorizedErr error = err
+		if p.observabilityMgr != nil {
+			categorizedErr = p.observabilityMgr.CategorizeError(err, operation, duration)
+		}
+
+		// Finish operation tracking
+		if operationFinish != nil {
+			operationFinish(categorizedErr)
+		}
+
+		// Security logging
 		if p.securityMgr != nil {
 			p.securityMgr.LogSecurityEvent("http_request_error", map[string]interface{}{
 				"operation": operation,
@@ -1506,7 +1580,17 @@ func (p *JiraProvider) secureHTTPDo(ctx context.Context, req *http.Request, oper
 				"error":     err.Error(),
 			})
 		}
-		return resp, err
+
+		return resp, categorizedErr
+	}
+
+	// Record HTTP metrics
+	if p.observabilityMgr != nil {
+		endpoint := req.URL.Path
+		if endpoint == "" {
+			endpoint = req.URL.String()
+		}
+		p.observabilityMgr.RecordHTTPMetrics(req.Method, endpoint, resp.StatusCode, duration)
 	}
 
 	// Apply response processing if security manager is available
@@ -1520,7 +1604,17 @@ func (p *JiraProvider) secureHTTPDo(ctx context.Context, req *http.Request, oper
 				logger.Warn("Failed to read response body for security processing", map[string]interface{}{
 					"error": err.Error(),
 				})
-				return resp, err
+
+				// Categorize and finish operation
+				var categorizedErr error = err
+				if p.observabilityMgr != nil {
+					categorizedErr = p.observabilityMgr.CategorizeError(err, operation, duration)
+				}
+				if operationFinish != nil {
+					operationFinish(categorizedErr)
+				}
+
+				return resp, categorizedErr
 			}
 
 			// Detect PII in response
@@ -1559,6 +1653,29 @@ func (p *JiraProvider) secureHTTPDo(ctx context.Context, req *http.Request, oper
 			"url":         req.URL.String(),
 			"status_code": resp.StatusCode,
 		})
+	}
+
+	// Handle HTTP errors (4xx, 5xx) with proper categorization
+	if resp.StatusCode >= 400 {
+		httpErr := fmt.Errorf("HTTP %d: %s", resp.StatusCode, resp.Status)
+
+		// Categorize HTTP error
+		var categorizedErr error = httpErr
+		if p.observabilityMgr != nil {
+			categorizedErr = p.observabilityMgr.CategorizeError(httpErr, operation, duration)
+		}
+
+		// Finish operation tracking with error
+		if operationFinish != nil {
+			operationFinish(categorizedErr)
+		}
+
+		return resp, categorizedErr
+	}
+
+	// Finish successful operation tracking
+	if operationFinish != nil {
+		operationFinish(nil)
 	}
 
 	return resp, nil
