@@ -831,6 +831,9 @@ func (p *JiraProvider) GetAIOptimizedDefinitions() []providers.AIOptimizedToolDe
 
 // ExecuteOperation executes a Jira operation
 func (p *JiraProvider) ExecuteOperation(ctx context.Context, operation string, params map[string]interface{}) (interface{}, error) {
+	// Apply configuration from context
+	p.ConfigureFromContext(ctx)
+
 	// Normalize operation name (handle different formats)
 	operation = p.normalizeOperationName(operation)
 
@@ -843,6 +846,11 @@ func (p *JiraProvider) ExecuteOperation(ctx context.Context, operation string, p
 		if !exists {
 			return nil, fmt.Errorf("unknown operation: %s", operation)
 		}
+	}
+
+	// Check for read-only mode
+	if p.IsReadOnlyMode(ctx) && p.IsWriteOperation(operation) {
+		return nil, fmt.Errorf("operation %s not allowed in read-only mode", operation)
 	}
 
 	// Special handling for JQL search - ensure proper parameter structure
@@ -1138,6 +1146,11 @@ func (p *JiraProvider) EnableToolset(name string) error {
 
 	toolset.Enabled = true
 	p.enabledToolsets[name] = true
+
+	p.BaseProvider.GetLogger().Info("Enabled toolset", map[string]interface{}{
+		"toolset": name,
+	})
+
 	return nil
 }
 
@@ -1153,7 +1166,214 @@ func (p *JiraProvider) DisableToolset(name string) error {
 
 	toolset.Enabled = false
 	delete(p.enabledToolsets, name)
+
+	p.BaseProvider.GetLogger().Info("Disabled toolset", map[string]interface{}{
+		"toolset": name,
+	})
+
 	return nil
+}
+
+// IsToolsetEnabled checks if a toolset is enabled
+func (p *JiraProvider) IsToolsetEnabled(name string) bool {
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+	return p.enabledToolsets[name]
+}
+
+// GetEnabledToolsets returns a list of enabled toolsets
+func (p *JiraProvider) GetEnabledToolsets() []string {
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+
+	toolsets := make([]string, 0, len(p.enabledToolsets))
+	for name, enabled := range p.enabledToolsets {
+		if enabled {
+			toolsets = append(toolsets, name)
+		}
+	}
+	return toolsets
+}
+
+// ConfigureFromContext applies configuration from provider context
+func (p *JiraProvider) ConfigureFromContext(ctx context.Context) {
+	pctx, ok := providers.FromContext(ctx)
+	if !ok || pctx == nil || pctx.Metadata == nil {
+		return
+	}
+
+	// Check for enabled tools configuration
+	if enabledTools, ok := pctx.Metadata["ENABLED_TOOLS"].(string); ok && enabledTools != "" {
+		// Disable all toolsets first
+		for name := range p.toolsetRegistry {
+			p.DisableToolset(name)
+		}
+
+		// Enable only specified toolsets
+		tools := strings.Split(enabledTools, ",")
+		for _, tool := range tools {
+			tool = strings.TrimSpace(tool)
+			if tool != "" {
+				if err := p.EnableToolset(tool); err != nil {
+					p.BaseProvider.GetLogger().Warn("Failed to enable toolset", map[string]interface{}{
+						"toolset": tool,
+						"error":   err.Error(),
+					})
+				}
+			}
+		}
+	}
+
+	// Log configuration applied
+	if projectFilter, ok := pctx.Metadata["JIRA_PROJECTS_FILTER"].(string); ok && projectFilter != "" {
+		p.BaseProvider.GetLogger().Info("Applied project filter", map[string]interface{}{
+			"filter": projectFilter,
+		})
+	}
+
+	if readOnly, ok := pctx.Metadata["READ_ONLY"].(bool); ok && readOnly {
+		p.BaseProvider.GetLogger().Info("Read-only mode enabled", nil)
+	}
+}
+
+// IsReadOnlyMode checks if the provider is in read-only mode
+func (p *JiraProvider) IsReadOnlyMode(ctx context.Context) bool {
+	pctx, ok := providers.FromContext(ctx)
+	if !ok || pctx == nil || pctx.Metadata == nil {
+		return false
+	}
+
+	readOnly, ok := pctx.Metadata["READ_ONLY"].(bool)
+	return ok && readOnly
+}
+
+// IsWriteOperation checks if an operation is a write operation
+func (p *JiraProvider) IsWriteOperation(operation string) bool {
+	writeOperations := []string{
+		"create", "update", "delete", "transition", "assign",
+		"add", "remove", "edit", "post", "submit", "move",
+	}
+
+	operation = strings.ToLower(operation)
+	for _, writeOp := range writeOperations {
+		if strings.Contains(operation, writeOp) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// FilterProjectResults filters results based on JIRA_PROJECTS_FILTER
+func (p *JiraProvider) FilterProjectResults(ctx context.Context, results interface{}) interface{} {
+	pctx, ok := providers.FromContext(ctx)
+	if !ok || pctx == nil || pctx.Metadata == nil {
+		return results
+	}
+
+	projectFilter, ok := pctx.Metadata["JIRA_PROJECTS_FILTER"].(string)
+	if !ok || projectFilter == "" || projectFilter == "*" {
+		return results
+	}
+
+	// Apply filtering logic based on result type
+	switch r := results.(type) {
+	case map[string]interface{}:
+		// Check if this is a list of issues
+		if issues, ok := r["issues"].([]interface{}); ok {
+			filtered := p.filterIssuesByProject(issues, projectFilter)
+			r["issues"] = filtered
+			r["total"] = len(filtered)
+		}
+		// Check if this is a list of projects
+		if projects, ok := r["values"].([]interface{}); ok {
+			filtered := p.filterProjects(projects, projectFilter)
+			r["values"] = filtered
+			r["total"] = len(filtered)
+		}
+	case []interface{}:
+		// Direct array of items
+		return p.filterItemsByProject(r, projectFilter)
+	}
+
+	return results
+}
+
+// Helper function to filter issues by project
+func (p *JiraProvider) filterIssuesByProject(issues []interface{}, filter string) []interface{} {
+	filtered := []interface{}{}
+	allowedProjects := strings.Split(filter, ",")
+
+	for _, issue := range issues {
+		if issueMap, ok := issue.(map[string]interface{}); ok {
+			if fields, ok := issueMap["fields"].(map[string]interface{}); ok {
+				if project, ok := fields["project"].(map[string]interface{}); ok {
+					if key, ok := project["key"].(string); ok {
+						if p.isProjectAllowed(key, allowedProjects) {
+							filtered = append(filtered, issue)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return filtered
+}
+
+// Helper function to filter projects
+func (p *JiraProvider) filterProjects(projects []interface{}, filter string) []interface{} {
+	filtered := []interface{}{}
+	allowedProjects := strings.Split(filter, ",")
+
+	for _, project := range projects {
+		if projectMap, ok := project.(map[string]interface{}); ok {
+			if key, ok := projectMap["key"].(string); ok {
+				if p.isProjectAllowed(key, allowedProjects) {
+					filtered = append(filtered, project)
+				}
+			}
+		}
+	}
+
+	return filtered
+}
+
+// Helper function to filter generic items by project
+func (p *JiraProvider) filterItemsByProject(items []interface{}, filter string) []interface{} {
+	filtered := []interface{}{}
+	allowedProjects := strings.Split(filter, ",")
+
+	for _, item := range items {
+		if itemMap, ok := item.(map[string]interface{}); ok {
+			// Try different project key locations
+			var projectKey string
+			if key, ok := itemMap["projectKey"].(string); ok {
+				projectKey = key
+			} else if project, ok := itemMap["project"].(map[string]interface{}); ok {
+				if key, ok := project["key"].(string); ok {
+					projectKey = key
+				}
+			}
+
+			if projectKey != "" && p.isProjectAllowed(projectKey, allowedProjects) {
+				filtered = append(filtered, item)
+			}
+		}
+	}
+
+	return filtered
+}
+
+// Helper function to check if a project is allowed
+func (p *JiraProvider) isProjectAllowed(projectKey string, allowedProjects []string) bool {
+	for _, allowed := range allowedProjects {
+		allowed = strings.TrimSpace(allowed)
+		if allowed == projectKey || allowed == "*" {
+			return true
+		}
+	}
+	return false
 }
 
 // extractAuthToken extracts authentication token from context or params (passthrough auth)

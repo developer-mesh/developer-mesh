@@ -361,6 +361,9 @@ func (p *ConfluenceProvider) ValidateCredentials(ctx context.Context, creds map[
 
 // ExecuteOperation executes a Confluence operation
 func (p *ConfluenceProvider) ExecuteOperation(ctx context.Context, operation string, params map[string]interface{}) (interface{}, error) {
+	// Apply configuration from context
+	p.ConfigureFromContext(ctx)
+
 	// Normalize operation name (handle different formats)
 	operation = p.normalizeOperationName(operation)
 
@@ -370,8 +373,21 @@ func (p *ConfluenceProvider) ExecuteOperation(ctx context.Context, operation str
 		return nil, fmt.Errorf("unknown operation: %s", operation)
 	}
 
+	// Check for read-only mode
+	if p.IsReadOnlyMode(ctx) && p.IsWriteOperation(operation) {
+		return nil, fmt.Errorf("operation %s not allowed in read-only mode", operation)
+	}
+
 	// Use base provider's execution with Confluence-specific handling
-	return p.Execute(ctx, operation, params)
+	result, err := p.Execute(ctx, operation, params)
+	if err != nil {
+		return nil, err
+	}
+
+	// Apply space filtering to results
+	result = p.FilterSpaceResults(ctx, result)
+
+	return result, nil
 }
 
 // normalizeOperationName normalizes operation names to handle different formats
@@ -580,24 +596,257 @@ func (p *ConfluenceProvider) registerHandlers() {
 // enableDefaultToolsets enables the default toolsets for Confluence
 func (p *ConfluenceProvider) enableDefaultToolsets() {
 	// Enable common toolsets by default
-	p.EnableToolset("pages")
-	p.EnableToolset("spaces")
-	p.EnableToolset("search")
-	p.EnableToolset("labels")
+	defaultToolsets := []string{"pages", "search", "labels"}
+	for _, name := range defaultToolsets {
+		if err := p.EnableToolset(name); err != nil {
+			// Log error but continue with other toolsets
+			p.BaseProvider.GetLogger().Warn("Failed to enable default toolset", map[string]interface{}{
+				"toolset": name,
+				"error":   err.Error(),
+			})
+		}
+	}
 }
 
 // EnableToolset enables a specific toolset
-func (p *ConfluenceProvider) EnableToolset(name string) {
+func (p *ConfluenceProvider) EnableToolset(name string) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
+
+	toolset, exists := p.toolsetRegistry[name]
+	if !exists {
+		return fmt.Errorf("toolset %s not found", name)
+	}
+
+	toolset.Enabled = true
 	p.enabledToolsets[name] = true
+
+	p.BaseProvider.GetLogger().Info("Enabled toolset", map[string]interface{}{
+		"toolset": name,
+	})
+
+	return nil
 }
 
 // DisableToolset disables a specific toolset
-func (p *ConfluenceProvider) DisableToolset(name string) {
+func (p *ConfluenceProvider) DisableToolset(name string) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
+
+	toolset, exists := p.toolsetRegistry[name]
+	if !exists {
+		return fmt.Errorf("toolset %s not found", name)
+	}
+
+	toolset.Enabled = false
 	delete(p.enabledToolsets, name)
+
+	p.BaseProvider.GetLogger().Info("Disabled toolset", map[string]interface{}{
+		"toolset": name,
+	})
+
+	return nil
+}
+
+// IsToolsetEnabled checks if a toolset is enabled
+func (p *ConfluenceProvider) IsToolsetEnabled(name string) bool {
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+	return p.enabledToolsets[name]
+}
+
+// GetEnabledToolsets returns a list of enabled toolsets
+func (p *ConfluenceProvider) GetEnabledToolsets() []string {
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+
+	toolsets := make([]string, 0, len(p.enabledToolsets))
+	for name, enabled := range p.enabledToolsets {
+		if enabled {
+			toolsets = append(toolsets, name)
+		}
+	}
+	return toolsets
+}
+
+// ConfigureFromContext applies configuration from provider context
+func (p *ConfluenceProvider) ConfigureFromContext(ctx context.Context) {
+	pctx, ok := providers.FromContext(ctx)
+	if !ok || pctx == nil || pctx.Metadata == nil {
+		return
+	}
+
+	// Check for enabled tools configuration
+	if enabledTools, ok := pctx.Metadata["ENABLED_TOOLS"].(string); ok && enabledTools != "" {
+		// Disable all toolsets first
+		for name := range p.toolsetRegistry {
+			p.DisableToolset(name)
+		}
+
+		// Enable only specified toolsets
+		tools := strings.Split(enabledTools, ",")
+		for _, tool := range tools {
+			tool = strings.TrimSpace(tool)
+			if tool != "" {
+				if err := p.EnableToolset(tool); err != nil {
+					p.BaseProvider.GetLogger().Warn("Failed to enable toolset", map[string]interface{}{
+						"toolset": tool,
+						"error":   err.Error(),
+					})
+				}
+			}
+		}
+	}
+
+	// Log configuration applied
+	if spaceFilter, ok := pctx.Metadata["CONFLUENCE_SPACES_FILTER"].(string); ok && spaceFilter != "" {
+		p.BaseProvider.GetLogger().Info("Applied space filter", map[string]interface{}{
+			"filter": spaceFilter,
+		})
+	}
+
+	if readOnly, ok := pctx.Metadata["READ_ONLY"].(bool); ok && readOnly {
+		p.BaseProvider.GetLogger().Info("Read-only mode enabled", nil)
+	}
+}
+
+// IsReadOnlyMode checks if the provider is in read-only mode
+func (p *ConfluenceProvider) IsReadOnlyMode(ctx context.Context) bool {
+	pctx, ok := providers.FromContext(ctx)
+	if !ok || pctx == nil || pctx.Metadata == nil {
+		return false
+	}
+
+	readOnly, ok := pctx.Metadata["READ_ONLY"].(bool)
+	return ok && readOnly
+}
+
+// IsWriteOperation checks if an operation is a write operation
+func (p *ConfluenceProvider) IsWriteOperation(operation string) bool {
+	writeOperations := []string{
+		"create", "update", "delete", "add", "remove",
+		"edit", "post", "submit", "move", "publish",
+		"upload", "attach", "restore", "archive",
+	}
+
+	operation = strings.ToLower(operation)
+	for _, writeOp := range writeOperations {
+		if strings.Contains(operation, writeOp) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// FilterSpaceResults filters results based on CONFLUENCE_SPACES_FILTER
+func (p *ConfluenceProvider) FilterSpaceResults(ctx context.Context, results interface{}) interface{} {
+	pctx, ok := providers.FromContext(ctx)
+	if !ok || pctx == nil || pctx.Metadata == nil {
+		return results
+	}
+
+	spaceFilter, ok := pctx.Metadata["CONFLUENCE_SPACES_FILTER"].(string)
+	if !ok || spaceFilter == "" || spaceFilter == "*" {
+		return results
+	}
+
+	// Apply filtering logic based on result type
+	switch r := results.(type) {
+	case map[string]interface{}:
+		// Check if this is a list of pages
+		if results, ok := r["results"].([]interface{}); ok {
+			filtered := p.filterPagesBySpace(results, spaceFilter)
+			r["results"] = filtered
+			r["size"] = len(filtered)
+		}
+		// Check if this is a list of spaces
+		if spaces, ok := r["spaces"].([]interface{}); ok {
+			filtered := p.filterSpaces(spaces, spaceFilter)
+			r["spaces"] = filtered
+			r["size"] = len(filtered)
+		}
+	case []interface{}:
+		// Direct array of items
+		return p.filterItemsBySpace(r, spaceFilter)
+	}
+
+	return results
+}
+
+// Helper function to filter pages by space
+func (p *ConfluenceProvider) filterPagesBySpace(pages []interface{}, filter string) []interface{} {
+	filtered := []interface{}{}
+	allowedSpaces := strings.Split(filter, ",")
+
+	for _, page := range pages {
+		if pageMap, ok := page.(map[string]interface{}); ok {
+			if space, ok := pageMap["space"].(map[string]interface{}); ok {
+				if key, ok := space["key"].(string); ok {
+					if p.isSpaceAllowed(key, allowedSpaces) {
+						filtered = append(filtered, page)
+					}
+				}
+			}
+		}
+	}
+
+	return filtered
+}
+
+// Helper function to filter spaces
+func (p *ConfluenceProvider) filterSpaces(spaces []interface{}, filter string) []interface{} {
+	filtered := []interface{}{}
+	allowedSpaces := strings.Split(filter, ",")
+
+	for _, space := range spaces {
+		if spaceMap, ok := space.(map[string]interface{}); ok {
+			if key, ok := spaceMap["key"].(string); ok {
+				if p.isSpaceAllowed(key, allowedSpaces) {
+					filtered = append(filtered, space)
+				}
+			}
+		}
+	}
+
+	return filtered
+}
+
+// Helper function to filter generic items by space
+func (p *ConfluenceProvider) filterItemsBySpace(items []interface{}, filter string) []interface{} {
+	filtered := []interface{}{}
+	allowedSpaces := strings.Split(filter, ",")
+
+	for _, item := range items {
+		if itemMap, ok := item.(map[string]interface{}); ok {
+			// Try different space key locations
+			var spaceKey string
+			if key, ok := itemMap["spaceKey"].(string); ok {
+				spaceKey = key
+			} else if space, ok := itemMap["space"].(map[string]interface{}); ok {
+				if key, ok := space["key"].(string); ok {
+					spaceKey = key
+				}
+			}
+
+			if spaceKey != "" && p.isSpaceAllowed(spaceKey, allowedSpaces) {
+				filtered = append(filtered, item)
+			}
+		}
+	}
+
+	return filtered
+}
+
+// Helper function to check if a space is allowed
+func (p *ConfluenceProvider) isSpaceAllowed(spaceKey string, allowedSpaces []string) bool {
+	for _, allowed := range allowedSpaces {
+		allowed = strings.TrimSpace(allowed)
+		if allowed == spaceKey || allowed == "*" {
+			return true
+		}
+	}
+	return false
 }
 
 // extractAuthToken extracts authentication token from context or parameters

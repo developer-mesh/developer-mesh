@@ -103,23 +103,32 @@ Based on our GitHub and Harness implementations:
   - Documented API version strategy in code comments
   - All existing tests updated and passing
 
-#### Story 1.4: Add Configuration Management with Permission Filtering
-- Implement toolset enable/disable pattern (following GitHub provider):
-  - `EnableToolset(name string)` / `DisableToolset(name string)` methods
-  - `enabledToolsets` map to track active toolsets
-  - Default toolsets enabled on initialization
-- Add tenant-specific tool filtering:
-  - Use ProviderContext.TenantID for per-tenant configurations
-  - Support ENABLED_TOOLS environment variable for selective enabling
-- Add resource filters:
-  - JIRA_PROJECTS_FILTER to limit accessible projects
-  - CONFLUENCE_SPACES_FILTER to limit accessible spaces
-- Implement READ_ONLY mode to prevent write operations
+#### Story 1.4: Add Configuration Management with Permission Filtering ✅ **COMPLETED**
+- Implement toolset enable/disable pattern (following GitHub provider): ✅
+  - `EnableToolset(name string)` / `DisableToolset(name string)` methods ✅
+  - `enabledToolsets` map to track active toolsets ✅
+  - Default toolsets enabled on initialization ✅
+- Add tenant-specific tool filtering: ✅
+  - Use ProviderContext.TenantID for per-tenant configurations ✅
+  - Support ENABLED_TOOLS environment variable for selective enabling ✅
+- Add resource filters: ✅
+  - JIRA_PROJECTS_FILTER to limit accessible projects ✅
+  - CONFLUENCE_SPACES_FILTER to limit accessible spaces ✅
+- Implement READ_ONLY mode to prevent write operations ✅
 - **Acceptance Criteria**:
-  - Only enabled toolsets are exposed to users
-  - Tenant-specific configurations respected
-  - Filters correctly limit data access
-  - Read-only mode prevents all write operations
+  - Only enabled toolsets are exposed to users ✅
+  - Tenant-specific configurations respected ✅
+  - Filters correctly limit data access ✅
+  - Read-only mode prevents all write operations ✅
+- **Completion Date**: 2025-01-24
+- **Implementation Details**:
+  - Added comprehensive configuration management to both Jira and Confluence providers
+  - Implemented toolset enable/disable with mutex-protected thread safety
+  - Added ConfigureFromContext() to apply settings from ProviderContext
+  - Implemented project/space filtering with support for wildcards
+  - Added read-only mode enforcement in ExecuteOperation()
+  - Created comprehensive test coverage for all configuration features
+  - All tests passing for both providers
 
 ---
 
