@@ -389,7 +389,7 @@ func TestJiraProvider_GetAIOptimizedDefinitions(t *testing.T) {
 	definitions := provider.GetAIOptimizedDefinitions()
 	assert.NotEmpty(t, definitions)
 
-	// Check for key AI definitions
+	// Should have help definition at minimum (since all toolsets are enabled by default)
 	defNames := make(map[string]bool)
 	for _, def := range definitions {
 		defNames[def.Name] = true
@@ -401,9 +401,14 @@ func TestJiraProvider_GetAIOptimizedDefinitions(t *testing.T) {
 		assert.NotEmpty(t, def.CommonPhrases)
 	}
 
+	// Should always have help definition
+	assert.True(t, defNames["jira_help"], "Should have AI definition for help")
+
+	// Should have toolset definitions if toolsets are enabled
 	assert.True(t, defNames["jira_issues"], "Should have AI definition for issues")
-	assert.True(t, defNames["jira_projects"], "Should have AI definition for projects")
-	assert.True(t, defNames["jira_boards"], "Should have AI definition for boards")
+	assert.True(t, defNames["jira_search"], "Should have AI definition for search")
+	assert.True(t, defNames["jira_comments"], "Should have AI definition for comments")
+	assert.True(t, defNames["jira_workflow"], "Should have AI definition for workflow")
 
 	// Check detailed fields for issues definition
 	for _, def := range definitions {
@@ -411,9 +416,7 @@ func TestJiraProvider_GetAIOptimizedDefinitions(t *testing.T) {
 			assert.NotNil(t, def.Capabilities)
 			assert.NotEmpty(t, def.Capabilities.Capabilities)
 			assert.NotNil(t, def.Capabilities.RateLimits)
-			assert.NotNil(t, def.Capabilities.DataAccess)
-			assert.True(t, def.Capabilities.DataAccess.Pagination)
-			assert.Contains(t, def.Capabilities.DataAccess.SupportedFilters, "JQL")
+			assert.Equal(t, 60, def.Capabilities.RateLimits.RequestsPerMinute)
 		}
 	}
 }

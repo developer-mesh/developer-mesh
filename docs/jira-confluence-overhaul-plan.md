@@ -331,16 +331,29 @@ Based on our GitHub and Harness implementations:
   - Comprehensive test suite (800+ lines) with all tests passing
   - Registered workflow toolset in jira_provider.go with proper handler grouping
 
-#### Story 3.5: Create Jira AI Definitions (`jira_ai_definitions.go`)
-- Implement `GetAIOptimizedDefinitions()` following Harness pattern
-- Group operations by category (Issues, Search, Workflow, Activity)
-- Add detailed usage examples for each operation
-- Include JQL query examples and templates
+#### Story 3.5: Create Jira AI Definitions (`jira_ai_definitions.go`) ✅ **COMPLETED**
+- Implement `GetAIOptimizedDefinitions()` following Harness pattern ✅
+- Group operations by category (Issues, Search, Workflow, Activity) ✅
+- Add detailed usage examples for each operation ✅
+- Include JQL query examples and templates ✅
 - **Acceptance Criteria**:
-  - AI definitions match GitHub/Harness quality
-  - Examples cover common use cases
-  - JQL examples provided
-  - Categories align with toolsets
+  - AI definitions match GitHub/Harness quality ✅
+  - Examples cover common use cases ✅
+  - JQL examples provided ✅
+  - Categories align with toolsets ✅
+- **Completion Date**: 2025-01-24
+- **Implementation Details**:
+  - Created comprehensive `jira_ai_definitions.go` with AI-optimized tool definitions for all 4 toolsets
+  - Organized 5 operational definitions by categories: Issue Tracking, Search, Collaboration, Workflow, Help
+  - Added 16+ detailed usage examples covering real-world Jira scenarios
+  - Included comprehensive JQL query examples and templates for advanced search functionality
+  - Added semantic tags and common phrases for improved AI comprehension
+  - Implemented conditional inclusion based on enabled toolsets (issues, search, comments, workflow)
+  - Created comprehensive test coverage in `jira_ai_definitions_test.go` (500+ lines)
+  - Updated existing provider test to match new AI definitions structure
+  - All definitions include detailed help text, capabilities, rate limits, and complexity levels
+  - Follows exact pattern from Confluence provider using `providers.AIOptimizedToolDefinition`
+  - Removed old basic AI definitions and replaced with comprehensive toolset-based definitions
 
 ---
 
