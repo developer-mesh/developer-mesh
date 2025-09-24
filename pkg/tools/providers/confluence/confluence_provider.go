@@ -7,10 +7,12 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/repository"
+	"github.com/developer-mesh/developer-mesh/pkg/security"
 	"github.com/developer-mesh/developer-mesh/pkg/tools/providers"
 	"github.com/getkin/kin-openapi/openapi3"
 )
@@ -21,13 +23,63 @@ import (
 //go:embed confluence-openapi.json
 var confluenceOpenAPISpecJSON []byte
 
+// ToolHandler interface for Confluence tool operations
+type ToolHandler interface {
+	Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error)
+	GetDefinition() ToolDefinition
+}
+
+// ToolDefinition describes a tool's schema
+type ToolDefinition struct {
+	Name        string                 `json:"name"`
+	Description string                 `json:"description"`
+	InputSchema map[string]interface{} `json:"inputSchema"`
+}
+
+// ToolResult represents the result of a tool execution
+type ToolResult struct {
+	Success bool        `json:"success"`
+	Data    interface{} `json:"data,omitempty"`
+	Error   string      `json:"error,omitempty"`
+}
+
+// Toolset represents a group of related tools
+type Toolset struct {
+	Name        string
+	Description string
+	Tools       []ToolHandler
+	Enabled     bool
+}
+
 // ConfluenceProvider implements the StandardToolProvider interface for Confluence Cloud
 type ConfluenceProvider struct {
 	*providers.BaseProvider
-	specCache    repository.OpenAPICacheRepository // For caching the OpenAPI spec
-	specFallback *openapi3.T                       // Embedded fallback spec
-	httpClient   *http.Client
-	domain       string // e.g., "your-domain" for https://your-domain.atlassian.net
+	specCache      repository.OpenAPICacheRepository // For caching the OpenAPI spec
+	specFallback   *openapi3.T                       // Embedded fallback spec
+	httpClient     *http.Client
+	domain         string // e.g., "your-domain" for https://your-domain.atlassian.net
+	encryptionSvc  *security.EncryptionService
+
+	// Handler registry
+	toolRegistry    map[string]ToolHandler
+	toolsetRegistry map[string]*Toolset
+	enabledToolsets map[string]bool
+	mutex           sync.RWMutex
+}
+
+// Helper functions for creating results
+func NewToolResult(data interface{}) *ToolResult {
+	return &ToolResult{
+		Success: true,
+		Data:    data,
+	}
+}
+
+func NewToolError(err string) *ToolResult {
+	return &ToolResult{
+		Success: false,
+		Error:   err,
+	}
 }
 
 // NewConfluenceProvider creates a new Confluence provider instance
@@ -51,8 +103,18 @@ func NewConfluenceProvider(logger observability.Logger, domain string) *Confluen
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		domain: domain,
+		domain:          domain,
+		encryptionSvc:   security.NewEncryptionService(""),
+		toolRegistry:    make(map[string]ToolHandler),
+		toolsetRegistry: make(map[string]*Toolset),
+		enabledToolsets: make(map[string]bool),
 	}
+
+	// Register handlers
+	provider.registerHandlers()
+	// Enable default toolsets
+	provider.enableDefaultToolsets()
+
 	// Set operation mappings in base provider
 	provider.SetOperationMappings(provider.GetOperationMappings())
 	// Set configuration to ensure auth type is configured
@@ -452,4 +514,159 @@ func (p *ConfluenceProvider) fetchAndCacheSpec(ctx context.Context) (*openapi3.T
 	}
 
 	return spec, nil
+}
+
+// registerHandlers registers all available handlers
+func (p *ConfluenceProvider) registerHandlers() {
+	// Page handlers
+	pageHandlers := []ToolHandler{
+		NewGetPageHandler(p),
+		NewListPagesHandler(p),
+		NewDeletePageHandler(p),
+	}
+
+	pageToolset := &Toolset{
+		Name:        "pages",
+		Description: "Confluence page operations",
+		Tools:       pageHandlers,
+		Enabled:     false,
+	}
+	p.toolsetRegistry["pages"] = pageToolset
+
+	// Register page handlers
+	for _, handler := range pageHandlers {
+		def := handler.GetDefinition()
+		p.toolRegistry[def.Name] = handler
+	}
+
+	// Search handlers
+	searchHandlers := []ToolHandler{
+		NewSearchContentHandler(p),
+	}
+
+	searchToolset := &Toolset{
+		Name:        "search",
+		Description: "Confluence search operations",
+		Tools:       searchHandlers,
+		Enabled:     false,
+	}
+	p.toolsetRegistry["search"] = searchToolset
+
+	// Register search handlers
+	for _, handler := range searchHandlers {
+		def := handler.GetDefinition()
+		p.toolRegistry[def.Name] = handler
+	}
+
+	// Label handlers
+	labelHandlers := []ToolHandler{
+		NewGetPageLabelsHandler(p),
+		NewAddLabelHandler(p),
+		NewRemoveLabelHandler(p),
+	}
+
+	labelToolset := &Toolset{
+		Name:        "labels",
+		Description: "Confluence label operations",
+		Tools:       labelHandlers,
+		Enabled:     false,
+	}
+	p.toolsetRegistry["labels"] = labelToolset
+
+	// Register label handlers
+	for _, handler := range labelHandlers {
+		def := handler.GetDefinition()
+		p.toolRegistry[def.Name] = handler
+	}
+
+	// TODO: Register space handlers when implemented
+	// TODO: Register content handlers when implemented
+}
+
+// enableDefaultToolsets enables the default toolsets for Confluence
+func (p *ConfluenceProvider) enableDefaultToolsets() {
+	// Enable common toolsets by default
+	p.EnableToolset("pages")
+	p.EnableToolset("spaces")
+	p.EnableToolset("search")
+	p.EnableToolset("labels")
+}
+
+// EnableToolset enables a specific toolset
+func (p *ConfluenceProvider) EnableToolset(name string) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	p.enabledToolsets[name] = true
+}
+
+// DisableToolset disables a specific toolset
+func (p *ConfluenceProvider) DisableToolset(name string) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	delete(p.enabledToolsets, name)
+}
+
+// extractAuthToken extracts authentication token from context or parameters
+func (p *ConfluenceProvider) extractAuthToken(ctx context.Context, params map[string]interface{}) (string, string, error) {
+	// Priority 1: Check ProviderContext from context
+	if pctx, ok := providers.FromContext(ctx); ok && pctx != nil {
+		// Check Metadata field for token
+		if pctx.Metadata != nil {
+			if token, ok := pctx.Metadata["token"].(string); ok && token != "" {
+				// For Confluence, we need to extract email and api_token from the token
+				// The token might be in the format "email:api_token"
+				parts := strings.SplitN(token, ":", 2)
+				if len(parts) == 2 {
+					return parts[0], parts[1], nil
+				}
+			}
+			// Also check for separate email and api_token in metadata
+			if email, ok := pctx.Metadata["email"].(string); ok {
+				if apiToken, ok := pctx.Metadata["api_token"].(string); ok {
+					return email, apiToken, nil
+				}
+			}
+		}
+	}
+
+	// Priority 2: Check passthrough auth parameter with encrypted token
+	if passthroughAuth, ok := params["__passthrough_auth"].(map[string]interface{}); ok {
+		// Check for encrypted token
+		if encToken, ok := passthroughAuth["encrypted_token"].(string); ok && encToken != "" {
+			// Get tenant ID from context for decryption
+			tenantID := ""
+			if pctx, ok := providers.FromContext(ctx); ok && pctx != nil {
+				tenantID = pctx.TenantID
+			}
+
+			// Decrypt the token
+			decrypted, err := p.encryptionSvc.DecryptCredential([]byte(tenantID), encToken)
+			if err != nil {
+				return "", "", fmt.Errorf("failed to decrypt token: %w", err)
+			}
+
+			// Parse decrypted token (email:api_token format)
+			parts := strings.SplitN(decrypted, ":", 2)
+			if len(parts) == 2 {
+				return parts[0], parts[1], nil
+			}
+		}
+
+		// Check for plain token (development)
+		if plainToken, ok := passthroughAuth["token"].(string); ok && plainToken != "" {
+			parts := strings.SplitN(plainToken, ":", 2)
+			if len(parts) == 2 {
+				return parts[0], parts[1], nil
+			}
+		}
+	}
+
+	// Priority 3: Direct parameter fallback
+	if email, ok := params["email"].(string); ok {
+		if apiToken, ok := params["api_token"].(string); ok {
+			return email, apiToken, nil
+		}
+	}
+
+	return "", "", fmt.Errorf("no authentication credentials found")
 }

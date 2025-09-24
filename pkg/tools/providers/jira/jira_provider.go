@@ -8,10 +8,12 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/repository"
+	"github.com/developer-mesh/developer-mesh/pkg/security"
 	"github.com/developer-mesh/developer-mesh/pkg/tools/providers"
 	"github.com/getkin/kin-openapi/openapi3"
 )
@@ -21,13 +23,63 @@ import (
 //go:embed jira-cloud-openapi.json
 var jiraOpenAPISpecJSON []byte
 
+// ToolHandler interface for Jira tool operations
+type ToolHandler interface {
+	Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error)
+	GetDefinition() ToolDefinition
+}
+
+// ToolDefinition describes a tool's schema
+type ToolDefinition struct {
+	Name        string                 `json:"name"`
+	Description string                 `json:"description"`
+	InputSchema map[string]interface{} `json:"inputSchema"`
+}
+
+// ToolResult represents the result of a tool execution
+type ToolResult struct {
+	Success bool        `json:"success"`
+	Data    interface{} `json:"data,omitempty"`
+	Error   string      `json:"error,omitempty"`
+}
+
+// Toolset represents a group of related tools
+type Toolset struct {
+	Name        string
+	Description string
+	Tools       []ToolHandler
+	Enabled     bool
+}
+
 // JiraProvider implements the StandardToolProvider interface for Atlassian Jira Cloud
 type JiraProvider struct {
 	*providers.BaseProvider
-	domain       string // The Atlassian domain (e.g., yourcompany.atlassian.net)
-	specCache    repository.OpenAPICacheRepository
-	specFallback *openapi3.T
-	httpClient   *http.Client
+	domain         string // The Atlassian domain (e.g., yourcompany.atlassian.net)
+	specCache      repository.OpenAPICacheRepository
+	specFallback   *openapi3.T
+	httpClient     *http.Client
+	encryptionSvc  *security.EncryptionService
+
+	// Handler registry
+	toolRegistry    map[string]ToolHandler
+	toolsetRegistry map[string]*Toolset
+	enabledToolsets map[string]bool
+	mutex           sync.RWMutex
+}
+
+// Helper functions for creating results
+func NewToolResult(data interface{}) *ToolResult {
+	return &ToolResult{
+		Success: true,
+		Data:    data,
+	}
+}
+
+func NewToolError(err string) *ToolResult {
+	return &ToolResult{
+		Success: false,
+		Error:   err,
+	}
 }
 
 // NewJiraProvider creates a new Jira Cloud provider instance
@@ -57,7 +109,15 @@ func NewJiraProvider(logger observability.Logger, domain string) *JiraProvider {
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
+		encryptionSvc:   security.NewEncryptionService(""),
+		toolRegistry:    make(map[string]ToolHandler),
+		toolsetRegistry: make(map[string]*Toolset),
+		enabledToolsets: make(map[string]bool),
 	}
+
+	// Register handlers and toolsets
+	provider.registerHandlers()
+	provider.enableDefaultToolsets()
 
 	// Set operation mappings
 	provider.SetOperationMappings(provider.GetOperationMappings())
@@ -977,6 +1037,141 @@ func (p *JiraProvider) Close() error {
 }
 
 // buildURL constructs the full URL for an API endpoint
+// registerHandlers registers all tool handlers
+func (p *JiraProvider) registerHandlers() {
+	// Issue handlers
+	issueHandlers := []ToolHandler{
+		NewGetIssueHandler(p),
+		NewCreateIssueHandler(p),
+		NewUpdateIssueHandler(p),
+		NewDeleteIssueHandler(p),
+	}
+
+	// Register issue handlers
+	for _, handler := range issueHandlers {
+		def := handler.GetDefinition()
+		p.toolRegistry[def.Name] = handler
+	}
+
+	// Create issues toolset
+	issueToolset := &Toolset{
+		Name:        "issues",
+		Description: "Jira issue management operations",
+		Tools:       issueHandlers,
+		Enabled:     false,
+	}
+	p.toolsetRegistry["issues"] = issueToolset
+
+	// Search handlers
+	searchHandlers := []ToolHandler{
+		NewSearchIssuesHandler(p),
+	}
+
+	// Register search handlers
+	for _, handler := range searchHandlers {
+		def := handler.GetDefinition()
+		p.toolRegistry[def.Name] = handler
+	}
+
+	// Create search toolset
+	searchToolset := &Toolset{
+		Name:        "search",
+		Description: "Jira search and query operations",
+		Tools:       searchHandlers,
+		Enabled:     false,
+	}
+	p.toolsetRegistry["search"] = searchToolset
+
+	// TODO: Add project handlers after creating handlers_projects.go
+}
+
+// enableDefaultToolsets enables the default set of toolsets
+func (p *JiraProvider) enableDefaultToolsets() {
+	// Enable all toolsets by default
+	for name := range p.toolsetRegistry {
+		p.EnableToolset(name)
+	}
+}
+
+// EnableToolset enables a specific toolset
+func (p *JiraProvider) EnableToolset(name string) error {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	toolset, exists := p.toolsetRegistry[name]
+	if !exists {
+		return fmt.Errorf("toolset %s not found", name)
+	}
+
+	toolset.Enabled = true
+	p.enabledToolsets[name] = true
+	return nil
+}
+
+// DisableToolset disables a specific toolset
+func (p *JiraProvider) DisableToolset(name string) error {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	toolset, exists := p.toolsetRegistry[name]
+	if !exists {
+		return fmt.Errorf("toolset %s not found", name)
+	}
+
+	toolset.Enabled = false
+	delete(p.enabledToolsets, name)
+	return nil
+}
+
+// extractAuthToken extracts authentication token from context or params (passthrough auth)
+func (p *JiraProvider) extractAuthToken(ctx context.Context, params map[string]interface{}) (string, string, error) {
+	// Try from ProviderContext first (standard provider pattern)
+	if pctx, ok := providers.FromContext(ctx); ok && pctx != nil && pctx.Credentials != nil {
+		if pctx.Credentials.Token != "" {
+			// Assuming format is email:token for basic auth
+			parts := strings.Split(pctx.Credentials.Token, ":")
+			if len(parts) == 2 {
+				return parts[0], parts[1], nil
+			}
+		}
+		// Check for custom credentials
+		if email, ok := pctx.Credentials.Custom["email"]; ok {
+			if token, ok := pctx.Credentials.Custom["api_token"]; ok {
+				return email, token, nil
+			}
+		}
+	}
+
+	// Try passthrough auth from params
+	if auth, ok := params["__passthrough_auth"].(map[string]interface{}); ok {
+		if encryptedToken, ok := auth["encrypted_token"].(string); ok {
+			// Extract tenant ID for decryption
+			tenantID := ""
+			if pctx, ok := providers.FromContext(ctx); ok && pctx != nil {
+				tenantID = pctx.TenantID
+			}
+			decrypted, err := p.encryptionSvc.DecryptCredential([]byte(encryptedToken), tenantID)
+			if err != nil {
+				return "", "", fmt.Errorf("failed to decrypt token: %w", err)
+			}
+			// Assuming decrypted format is email:token
+			parts := strings.Split(decrypted, ":")
+			if len(parts) == 2 {
+				return parts[0], parts[1], nil
+			}
+		}
+
+		// Try plain email and token
+		email, _ := auth["email"].(string)
+		token, _ := auth["api_token"].(string)
+		if email != "" && token != "" {
+			return email, token, nil
+		}
+	}
+
+	return "", "", fmt.Errorf("no authentication credentials found")
+}
+
 func (p *JiraProvider) buildURL(path string) string {
 	config := p.BaseProvider.GetDefaultConfiguration()
 	baseURL := config.BaseURL
