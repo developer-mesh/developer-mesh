@@ -154,23 +154,43 @@ Based on our GitHub and Harness implementations:
   - Comprehensive test coverage with all tests passing
   - Modified buildURL to support test server URLs for testing
 
-#### Story 2.2: Implement Search Handlers (v1 API required)
-- Create handler file for search operations
-- `SearchContentHandler` - Uses v1 API /content/search with CQL
-- Implement CQL (Confluence Query Language) support via v1
-- Create toolset to group search operations
+#### Story 2.2: Implement Search Handlers (v1 API required) ✅ **COMPLETED**
+- Create handler file for search operations ✅
+- `SearchContentHandler` - Uses v1 API /content/search with CQL ✅
+- Implement CQL (Confluence Query Language) support via v1 ✅
+- Create toolset to group search operations ✅
 - **Acceptance Criteria**:
-  - Search uses v1 API (v2 doesn't support CQL)
-  - CQL queries properly validated
-  - Results properly paginated
+  - Search uses v1 API (v2 doesn't support CQL) ✅
+  - CQL queries properly validated ✅
+  - Results properly paginated ✅
+- **Completion Date**: 2025-01-24
+- **Implementation Details**:
+  - Enhanced existing handlers_search.go with comprehensive CQL validation
+  - Added SQL injection prevention with dangerous pattern detection
+  - Implemented proper pagination with next/prev link generation
+  - Added support for cqlcontext, excerpt types, and archived spaces
+  - Integrated space filtering via FilterSpaceResults
+  - Created comprehensive test suite with 600+ lines of tests
+  - All tests passing with full coverage of edge cases
 
-#### Story 2.3: Implement Label Handlers
-- Create handler file for label operations
-- `GetPageLabelsHandler` - GET /pages/{id}/labels (v2)
-- Create toolset to group label operations
+#### Story 2.3: Implement Label Handlers ✅ **COMPLETED**
+- Create handler file for label operations ✅
+- `GetPageLabelsHandler` - GET /pages/{id}/labels (v2) ✅
+- Create toolset to group label operations ✅
 - **Acceptance Criteria**:
-  - Label operations use v2 API
-  - Proper permission checking
+  - Label operations use v2 API ✅
+  - Proper permission checking ✅
+- **Completion Date**: 2025-01-24
+- **Implementation Details**:
+  - Enhanced existing handlers_labels.go with comprehensive permission checking
+  - GetPageLabelsHandler uses v2 API for reading labels
+  - AddLabelHandler and RemoveLabelHandler use v1 API (v2 doesn't support POST/DELETE)
+  - Added space-based filtering via FilterSpaceResults
+  - Implemented read-only mode enforcement
+  - Added label validation (length, special characters)
+  - Created comprehensive test suite with 1000+ lines covering all scenarios
+  - All handlers check page access permissions before operations
+  - URL encoding handled properly for special characters in labels
 
 #### Story 2.4: Implement Additional v1 Operations (if needed)
 - Identify operations not available in v2

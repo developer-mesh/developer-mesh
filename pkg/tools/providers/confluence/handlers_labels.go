@@ -63,7 +63,56 @@ func (h *GetPageLabelsHandler) Execute(ctx context.Context, params map[string]in
 		return NewToolError("pageId is required"), nil
 	}
 
-	// Build query parameters
+	// First, check if the page is accessible (permission check)
+	// We need to get the page details to check its space for filtering
+	pageURL := h.provider.buildURL(fmt.Sprintf("/pages/%s", pageId))
+	pageReq, err := http.NewRequestWithContext(ctx, "GET", pageURL, nil)
+	if err != nil {
+		return NewToolError(fmt.Sprintf("Failed to create page request: %v", err)), nil
+	}
+
+	// Add authentication for page check
+	email, token, err := h.provider.extractAuthToken(ctx, params)
+	if err != nil {
+		return NewToolError(fmt.Sprintf("Authentication failed: %v", err)), nil
+	}
+	pageReq.Header.Set("Authorization", "Basic "+basicAuth(email, token))
+	pageReq.Header.Set("Accept", "application/json")
+
+	// Check page access
+	pageResp, err := h.provider.httpClient.Do(pageReq)
+	if err != nil {
+		return NewToolError(fmt.Sprintf("Failed to check page access: %v", err)), nil
+	}
+	defer pageResp.Body.Close()
+
+	// Check permissions
+	if pageResp.StatusCode == http.StatusNotFound {
+		return NewToolError(fmt.Sprintf("Page %s not found", pageId)), nil
+	} else if pageResp.StatusCode == http.StatusForbidden {
+		return NewToolError(fmt.Sprintf("No permission to access page %s", pageId)), nil
+	} else if pageResp.StatusCode != http.StatusOK {
+		return NewToolError(fmt.Sprintf("Failed to access page %s: status %d", pageId, pageResp.StatusCode)), nil
+	}
+
+	// Parse page response to check space filtering
+	var pageData map[string]interface{}
+	if err := json.NewDecoder(pageResp.Body).Decode(&pageData); err != nil {
+		return NewToolError(fmt.Sprintf("Failed to parse page response: %v", err)), nil
+	}
+
+	// Check space filter
+	if filtered := h.provider.FilterSpaceResults(ctx, map[string]interface{}{
+		"results": []interface{}{pageData},
+	}); filtered != nil {
+		if filteredMap, ok := filtered.(map[string]interface{}); ok {
+			if results, ok := filteredMap["results"].([]interface{}); ok && len(results) == 0 {
+				return NewToolError(fmt.Sprintf("Page %s is not in an allowed space", pageId)), nil
+			}
+		}
+	}
+
+	// Build query parameters for labels
 	queryParams := url.Values{}
 
 	// Add prefix filter
@@ -76,15 +125,20 @@ func (h *GetPageLabelsHandler) Execute(ctx context.Context, params map[string]in
 		queryParams.Set("sort", sort)
 	}
 
-	// Add limit
-	if limit, ok := params["limit"].(float64); ok {
-		queryParams.Set("limit", fmt.Sprintf("%d", int(limit)))
-	} else {
-		queryParams.Set("limit", "50")
+	// Add limit with validation
+	limit := 50
+	if l, ok := params["limit"].(float64); ok {
+		limit = int(l)
+		if limit < 1 {
+			limit = 1
+		} else if limit > 200 {
+			limit = 200
+		}
 	}
+	queryParams.Set("limit", fmt.Sprintf("%d", limit))
 
 	// Add cursor for pagination
-	if cursor, ok := params["cursor"].(string); ok {
+	if cursor, ok := params["cursor"].(string); ok && cursor != "" {
 		queryParams.Set("cursor", cursor)
 	}
 
@@ -94,17 +148,13 @@ func (h *GetPageLabelsHandler) Execute(ctx context.Context, params map[string]in
 		labelsURL += "?" + queryParams.Encode()
 	}
 
-	// Create request
+	// Create request for labels
 	req, err := http.NewRequestWithContext(ctx, "GET", labelsURL, nil)
 	if err != nil {
 		return NewToolError(fmt.Sprintf("Failed to create request: %v", err)), nil
 	}
 
 	// Add authentication
-	email, token, err := h.provider.extractAuthToken(ctx, params)
-	if err != nil {
-		return NewToolError(fmt.Sprintf("Authentication failed: %v", err)), nil
-	}
 	req.Header.Set("Authorization", "Basic "+basicAuth(email, token))
 	req.Header.Set("Accept", "application/json")
 
@@ -115,14 +165,28 @@ func (h *GetPageLabelsHandler) Execute(ctx context.Context, params map[string]in
 	}
 	defer resp.Body.Close()
 
-	// Check response
-	if resp.StatusCode != http.StatusOK {
-		return NewToolError(fmt.Sprintf("Failed to get labels: status %d", resp.StatusCode)), nil
-	}
-
+	// Parse response
 	var result map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return NewToolError(fmt.Sprintf("Failed to parse response: %v", err)), nil
+	}
+
+	// Check response status after parsing (to get error message if available)
+	if resp.StatusCode != http.StatusOK {
+		errorMsg := fmt.Sprintf("Failed to get labels: status %d", resp.StatusCode)
+		if message, ok := result["message"].(string); ok {
+			errorMsg = fmt.Sprintf("%s - %s", errorMsg, message)
+		}
+		return NewToolError(errorMsg), nil
+	}
+
+	// Add metadata about the request
+	result["_metadata"] = map[string]interface{}{
+		"pageId": pageId,
+		"limit":  limit,
+	}
+	if prefix, ok := params["prefix"].(string); ok {
+		result["_metadata"].(map[string]interface{})["prefix"] = prefix
 	}
 
 	return NewToolResult(result), nil
@@ -175,6 +239,68 @@ func (h *AddLabelHandler) Execute(ctx context.Context, params map[string]interfa
 		return NewToolError("label is required"), nil
 	}
 
+	// Validate label (basic validation)
+	label = strings.TrimSpace(label)
+	if label == "" {
+		return NewToolError("label cannot be empty or whitespace"), nil
+	}
+	if len(label) > 255 {
+		return NewToolError("label cannot exceed 255 characters"), nil
+	}
+
+	// Check if read-only mode is enabled
+	if h.provider.IsReadOnlyMode(ctx) {
+		return NewToolError("Cannot add labels in read-only mode"), nil
+	}
+
+	// First, check if the page is accessible (permission check)
+	pageURL := h.provider.buildV1URL(fmt.Sprintf("/content/%s", pageId))
+	pageReq, err := http.NewRequestWithContext(ctx, "GET", pageURL, nil)
+	if err != nil {
+		return NewToolError(fmt.Sprintf("Failed to create page request: %v", err)), nil
+	}
+
+	// Add authentication for page check
+	email, token, err := h.provider.extractAuthToken(ctx, params)
+	if err != nil {
+		return NewToolError(fmt.Sprintf("Authentication failed: %v", err)), nil
+	}
+	pageReq.Header.Set("Authorization", "Basic "+basicAuth(email, token))
+	pageReq.Header.Set("Accept", "application/json")
+
+	// Check page access
+	pageResp, err := h.provider.httpClient.Do(pageReq)
+	if err != nil {
+		return NewToolError(fmt.Sprintf("Failed to check page access: %v", err)), nil
+	}
+	defer pageResp.Body.Close()
+
+	// Check permissions
+	if pageResp.StatusCode == http.StatusNotFound {
+		return NewToolError(fmt.Sprintf("Page %s not found", pageId)), nil
+	} else if pageResp.StatusCode == http.StatusForbidden {
+		return NewToolError(fmt.Sprintf("No permission to modify page %s", pageId)), nil
+	} else if pageResp.StatusCode != http.StatusOK {
+		return NewToolError(fmt.Sprintf("Failed to access page %s: status %d", pageId, pageResp.StatusCode)), nil
+	}
+
+	// Parse page response to check space filtering
+	var pageData map[string]interface{}
+	if err := json.NewDecoder(pageResp.Body).Decode(&pageData); err != nil {
+		return NewToolError(fmt.Sprintf("Failed to parse page response: %v", err)), nil
+	}
+
+	// Check space filter
+	if filtered := h.provider.FilterSpaceResults(ctx, map[string]interface{}{
+		"results": []interface{}{pageData},
+	}); filtered != nil {
+		if filteredMap, ok := filtered.(map[string]interface{}); ok {
+			if results, ok := filteredMap["results"].([]interface{}); ok && len(results) == 0 {
+				return NewToolError(fmt.Sprintf("Page %s is not in an allowed space", pageId)), nil
+			}
+		}
+	}
+
 	prefix := "global"
 	if p, ok := params["prefix"].(string); ok {
 		prefix = p
@@ -201,10 +327,6 @@ func (h *AddLabelHandler) Execute(ctx context.Context, params map[string]interfa
 	}
 
 	// Add authentication
-	email, token, err := h.provider.extractAuthToken(ctx, params)
-	if err != nil {
-		return NewToolError(fmt.Sprintf("Authentication failed: %v", err)), nil
-	}
 	req.Header.Set("Authorization", "Basic "+basicAuth(email, token))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
@@ -216,14 +338,27 @@ func (h *AddLabelHandler) Execute(ctx context.Context, params map[string]interfa
 	}
 	defer resp.Body.Close()
 
-	// Check response
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return NewToolError(fmt.Sprintf("Failed to add label: status %d", resp.StatusCode)), nil
-	}
-
+	// Parse response
 	var result map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return NewToolError(fmt.Sprintf("Failed to parse response: %v", err)), nil
+	}
+
+	// Check response status after parsing (to get error message if available)
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		errorMsg := fmt.Sprintf("Failed to add label: status %d", resp.StatusCode)
+		if message, ok := result["message"].(string); ok {
+			errorMsg = fmt.Sprintf("%s - %s", errorMsg, message)
+		}
+		return NewToolError(errorMsg), nil
+	}
+
+	// Add operation metadata
+	result["_operation"] = map[string]interface{}{
+		"action": "add_label",
+		"pageId": pageId,
+		"label":  label,
+		"prefix": prefix,
 	}
 
 	return NewToolResult(result), nil
@@ -270,8 +405,68 @@ func (h *RemoveLabelHandler) Execute(ctx context.Context, params map[string]inte
 		return NewToolError("label is required"), nil
 	}
 
+	// Validate label
+	label = strings.TrimSpace(label)
+	if label == "" {
+		return NewToolError("label cannot be empty or whitespace"), nil
+	}
+
+	// Check if read-only mode is enabled
+	if h.provider.IsReadOnlyMode(ctx) {
+		return NewToolError("Cannot remove labels in read-only mode"), nil
+	}
+
+	// First, check if the page is accessible (permission check)
+	pageURL := h.provider.buildV1URL(fmt.Sprintf("/content/%s", pageId))
+	pageReq, err := http.NewRequestWithContext(ctx, "GET", pageURL, nil)
+	if err != nil {
+		return NewToolError(fmt.Sprintf("Failed to create page request: %v", err)), nil
+	}
+
+	// Add authentication for page check
+	email, token, err := h.provider.extractAuthToken(ctx, params)
+	if err != nil {
+		return NewToolError(fmt.Sprintf("Authentication failed: %v", err)), nil
+	}
+	pageReq.Header.Set("Authorization", "Basic "+basicAuth(email, token))
+	pageReq.Header.Set("Accept", "application/json")
+
+	// Check page access
+	pageResp, err := h.provider.httpClient.Do(pageReq)
+	if err != nil {
+		return NewToolError(fmt.Sprintf("Failed to check page access: %v", err)), nil
+	}
+	defer pageResp.Body.Close()
+
+	// Check permissions
+	if pageResp.StatusCode == http.StatusNotFound {
+		return NewToolError(fmt.Sprintf("Page %s not found", pageId)), nil
+	} else if pageResp.StatusCode == http.StatusForbidden {
+		return NewToolError(fmt.Sprintf("No permission to modify page %s", pageId)), nil
+	} else if pageResp.StatusCode != http.StatusOK {
+		return NewToolError(fmt.Sprintf("Failed to access page %s: status %d", pageId, pageResp.StatusCode)), nil
+	}
+
+	// Parse page response to check space filtering
+	var pageData map[string]interface{}
+	if err := json.NewDecoder(pageResp.Body).Decode(&pageData); err != nil {
+		return NewToolError(fmt.Sprintf("Failed to parse page response: %v", err)), nil
+	}
+
+	// Check space filter
+	if filtered := h.provider.FilterSpaceResults(ctx, map[string]interface{}{
+		"results": []interface{}{pageData},
+	}); filtered != nil {
+		if filteredMap, ok := filtered.(map[string]interface{}); ok {
+			if results, ok := filteredMap["results"].([]interface{}); ok && len(results) == 0 {
+				return NewToolError(fmt.Sprintf("Page %s is not in an allowed space", pageId)), nil
+			}
+		}
+	}
+
 	// Build request URL - using v1 API for label deletion (v2 may not support DELETE)
-	url := h.provider.buildV1URL(fmt.Sprintf("/content/%s/label/%s", pageId, label))
+	// URL encode the label to handle special characters
+	url := h.provider.buildV1URL(fmt.Sprintf("/content/%s/label/%s", pageId, url.QueryEscape(label)))
 
 	// Create request
 	req, err := http.NewRequestWithContext(ctx, "DELETE", url, nil)
@@ -280,11 +475,8 @@ func (h *RemoveLabelHandler) Execute(ctx context.Context, params map[string]inte
 	}
 
 	// Add authentication
-	email, token, err := h.provider.extractAuthToken(ctx, params)
-	if err != nil {
-		return NewToolError(fmt.Sprintf("Authentication failed: %v", err)), nil
-	}
 	req.Header.Set("Authorization", "Basic "+basicAuth(email, token))
+	req.Header.Set("Accept", "application/json")
 
 	// Execute request
 	resp, err := h.provider.httpClient.Do(req)
@@ -294,12 +486,28 @@ func (h *RemoveLabelHandler) Execute(ctx context.Context, params map[string]inte
 	defer resp.Body.Close()
 
 	// Check response
-	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
+	if resp.StatusCode == http.StatusNotFound {
+		return NewToolError(fmt.Sprintf("Label '%s' not found on page %s", label, pageId)), nil
+	} else if resp.StatusCode == http.StatusForbidden {
+		return NewToolError(fmt.Sprintf("No permission to remove label from page %s", pageId)), nil
+	} else if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
+		// Try to parse error message
+		var errorData map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&errorData); err == nil {
+			if message, ok := errorData["message"].(string); ok {
+				return NewToolError(fmt.Sprintf("Failed to remove label: %s", message)), nil
+			}
+		}
 		return NewToolError(fmt.Sprintf("Failed to remove label: status %d", resp.StatusCode)), nil
 	}
 
 	return NewToolResult(map[string]interface{}{
 		"success": true,
 		"message": fmt.Sprintf("Label '%s' removed from page %s", label, pageId),
+		"_operation": map[string]interface{}{
+			"action": "remove_label",
+			"pageId": pageId,
+			"label":  label,
+		},
 	}), nil
 }
