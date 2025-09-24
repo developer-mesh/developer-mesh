@@ -1532,6 +1532,14 @@ func (p *JiraProvider) extractTenantID(ctx context.Context, params map[string]in
 }
 
 func (p *JiraProvider) buildURL(path string) string {
+	// Check if domain looks like a full URL (for testing)
+	if strings.HasPrefix(p.domain, "http://") || strings.HasPrefix(p.domain, "https://") {
+		baseURL := strings.TrimRight(p.domain, "/")
+		path = strings.TrimLeft(path, "/")
+		return fmt.Sprintf("%s/%s", baseURL, path)
+	}
+
+	// Normal flow for production
 	config := p.BaseProvider.GetDefaultConfiguration()
 	baseURL := config.BaseURL
 	if baseURL == "" {
