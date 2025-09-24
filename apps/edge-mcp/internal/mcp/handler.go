@@ -21,6 +21,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/tools/providers/harness"
+	"github.com/developer-mesh/developer-mesh/pkg/utils"
 	"github.com/google/uuid"
 )
 
@@ -551,11 +552,18 @@ func (h *Handler) discoverHarnessPermissions(ctx context.Context, apiKey string)
 	// Create permission discoverer
 	discoverer := harness.NewHarnessPermissionDiscoverer(h.logger)
 
-	// Discover permissions
+	// Log discovery attempt with redacted key
+	h.logger.Debug("Attempting Harness permission discovery", map[string]interface{}{
+		"key_hint": utils.RedactString(apiKey),
+	})
+
+	// Discover permissions - pass the actual key to the discoverer
 	permissions, err := discoverer.DiscoverPermissions(ctx, apiKey)
 	if err != nil {
+		// Sanitize error message to ensure it doesn't contain the API key
+		sanitizedError := strings.ReplaceAll(err.Error(), apiKey, utils.RedactString(apiKey))
 		h.logger.Warn("Failed to discover Harness permissions", map[string]interface{}{
-			"error": err.Error(),
+			"error": sanitizedError,
 		})
 		return nil
 	}

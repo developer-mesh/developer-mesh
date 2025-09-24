@@ -15,6 +15,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/tools"
 	"github.com/developer-mesh/developer-mesh/pkg/tools/providers"
 	"github.com/developer-mesh/developer-mesh/pkg/tools/providers/harness"
+	"github.com/developer-mesh/developer-mesh/pkg/utils"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
@@ -217,14 +218,21 @@ func (r *EnhancedToolRegistry) discoverHarnessPermissions(ctx context.Context, c
 		return nil
 	}
 
+	// Log with redacted key
+	r.logger.Debug("Starting Harness permission discovery", map[string]interface{}{
+		"key_hint": utils.RedactString(apiKey),
+	})
+
 	// Create a permission discoverer
 	discoverer := harness.NewHarnessPermissionDiscoverer(r.logger)
 
-	// Discover permissions
+	// Discover permissions - pass the actual key to the discoverer
 	permissions, err := discoverer.DiscoverPermissions(ctx, apiKey)
 	if err != nil {
+		// Sanitize error message to ensure it doesn't contain the API key
+		sanitizedError := strings.ReplaceAll(err.Error(), apiKey, utils.RedactString(apiKey))
 		r.logger.Warn("Failed to discover Harness permissions", map[string]interface{}{
-			"error": err.Error(),
+			"error": sanitizedError,
 		})
 		return nil
 	}
