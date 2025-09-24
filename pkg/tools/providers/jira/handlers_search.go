@@ -183,14 +183,21 @@ func (h *SearchIssuesHandler) Execute(ctx context.Context, params map[string]int
 	// Apply additional project filtering if configured (in case JQL filter wasn't applied)
 	h.filterSearchResults(ctx, &result)
 
-	// Add metadata
-	result["_metadata"] = map[string]interface{}{
-		"api_version": "v3",
-		"operation":   "search_issues",
-		"jql":         jql,
-		"startAt":     startAt,
-		"maxResults":  maxResults,
+	// Add metadata (preserve any existing metadata from filtering)
+	var metadata map[string]interface{}
+	if existingMetadata, exists := result["_metadata"].(map[string]interface{}); exists {
+		metadata = existingMetadata
+	} else {
+		metadata = make(map[string]interface{})
 	}
+
+	metadata["api_version"] = "v3"
+	metadata["operation"] = "search_issues"
+	metadata["jql"] = jql
+	metadata["startAt"] = startAt
+	metadata["maxResults"] = maxResults
+
+	result["_metadata"] = metadata
 
 	// Add pagination info
 	if total, ok := result["total"].(float64); ok {
@@ -330,7 +337,13 @@ func (h *SearchIssuesHandler) filterSearchResults(ctx context.Context, result *m
 		(*result)["issues"] = filtered
 		// Update total to reflect filtered count
 		if _, hasTotal := (*result)["total"]; hasTotal {
-			(*result)["_metadata"].(map[string]interface{})["originalTotal"] = (*result)["total"]
+			// Ensure _metadata exists and is the correct type
+			if (*result)["_metadata"] == nil {
+				(*result)["_metadata"] = make(map[string]interface{})
+			}
+			if metadata, ok := (*result)["_metadata"].(map[string]interface{}); ok {
+				metadata["originalTotal"] = (*result)["total"]
+			}
 			(*result)["total"] = len(filtered)
 		}
 	}

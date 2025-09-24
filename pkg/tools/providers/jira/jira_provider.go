@@ -60,6 +60,7 @@ type JiraProvider struct {
 	specFallback   *openapi3.T
 	httpClient     *http.Client
 	encryptionSvc  *security.EncryptionService
+	securityMgr    *JiraSecurityManager // Epic 4, Story 4.1 - Security Features
 
 	// Handler registry
 	toolRegistry    map[string]ToolHandler
@@ -103,15 +104,33 @@ func NewJiraProvider(logger observability.Logger, domain string) *JiraProvider {
 		}
 	}
 
+	// Initialize security manager with default configuration
+	securityConfig := GetDefaultJiraSecurityConfig()
+	securityMgr, err := NewJiraSecurityManager(logger, securityConfig)
+	if err != nil {
+		logger.Warn("Failed to initialize Jira security manager", map[string]interface{}{
+			"error": err.Error(),
+		})
+	}
+
+	// Use secure HTTP client from security manager, or fallback to default
+	var httpClient *http.Client
+	if securityMgr != nil {
+		httpClient = securityMgr.SecureHTTPClient()
+	} else {
+		httpClient = &http.Client{
+			Timeout: 30 * time.Second,
+		}
+	}
+
 	provider := &JiraProvider{
 		BaseProvider: base,
 		domain:       domain,
 		specFallback: specFallback,
-		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
-		encryptionSvc:   security.NewEncryptionService(""),
-		toolRegistry:    make(map[string]ToolHandler),
+		httpClient:     httpClient,
+		encryptionSvc:  security.NewEncryptionService(""),
+		securityMgr:    securityMgr,
+		toolRegistry:   make(map[string]ToolHandler),
 		toolsetRegistry: make(map[string]*Toolset),
 		enabledToolsets: make(map[string]bool),
 	}
@@ -1453,6 +1472,96 @@ func (p *JiraProvider) buildURL(path string) string {
 	baseURL = strings.TrimRight(baseURL, "/")
 	path = strings.TrimLeft(path, "/")
 	return fmt.Sprintf("%s/%s", baseURL, path)
+}
+
+// secureHTTPDo performs an HTTP request with security features (PII detection, sanitization, audit logging)
+func (p *JiraProvider) secureHTTPDo(ctx context.Context, req *http.Request, operation string) (*http.Response, error) {
+	// Apply request sanitization if security manager is available
+	if p.securityMgr != nil {
+		// Sanitize the request
+		if err := p.securityMgr.SanitizeRequest(req); err != nil {
+			// Log through embedded BaseProvider
+			logger := p.BaseProvider.GetLogger()
+			logger.Warn("Request sanitization failed", map[string]interface{}{
+				"error": err.Error(),
+				"url":   req.URL.String(),
+			})
+		}
+
+		// Log security event for the request
+		p.securityMgr.LogSecurityEvent("http_request", map[string]interface{}{
+			"operation": operation,
+			"url":       req.URL.String(),
+			"method":    req.Method,
+		})
+	}
+
+	// Execute the HTTP request
+	resp, err := p.httpClient.Do(req)
+	if err != nil {
+		if p.securityMgr != nil {
+			p.securityMgr.LogSecurityEvent("http_request_error", map[string]interface{}{
+				"operation": operation,
+				"url":       req.URL.String(),
+				"error":     err.Error(),
+			})
+		}
+		return resp, err
+	}
+
+	// Apply response processing if security manager is available
+	if p.securityMgr != nil {
+		// Read response body for PII detection and sanitization
+		if resp.Body != nil {
+			bodyBytes, err := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if err != nil {
+				logger := p.BaseProvider.GetLogger()
+				logger.Warn("Failed to read response body for security processing", map[string]interface{}{
+					"error": err.Error(),
+				})
+				return resp, err
+			}
+
+			// Detect PII in response
+			piiTypes, err := p.securityMgr.DetectPII(bodyBytes)
+			if err != nil {
+				logger := p.BaseProvider.GetLogger()
+				logger.Warn("PII detection failed", map[string]interface{}{
+					"error": err.Error(),
+				})
+			} else if len(piiTypes) > 0 {
+				p.securityMgr.LogSecurityEvent("response_pii_detected", map[string]interface{}{
+					"operation": operation,
+					"url":       req.URL.String(),
+					"pii_types": piiTypes,
+				})
+			}
+
+			// Sanitize response if needed
+			sanitizedBody, err := p.securityMgr.SanitizeResponse(bodyBytes)
+			if err != nil {
+				logger := p.BaseProvider.GetLogger()
+				logger.Warn("Response sanitization failed", map[string]interface{}{
+					"error": err.Error(),
+				})
+				sanitizedBody = bodyBytes // Use original if sanitization fails
+			}
+
+			// Replace response body with sanitized version
+			resp.Body = io.NopCloser(strings.NewReader(string(sanitizedBody)))
+			resp.ContentLength = int64(len(sanitizedBody))
+		}
+
+		// Log successful response
+		p.securityMgr.LogSecurityEvent("http_response", map[string]interface{}{
+			"operation":   operation,
+			"url":         req.URL.String(),
+			"status_code": resp.StatusCode,
+		})
+	}
+
+	return resp, nil
 }
 
 // basicAuth creates a basic auth string
