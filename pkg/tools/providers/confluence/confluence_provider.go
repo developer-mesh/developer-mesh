@@ -1036,6 +1036,14 @@ func (p *ConfluenceProvider) buildURL(path string) string {
 // buildV1URL builds a Confluence v1 API URL
 // Use this for operations that are not yet available in v2 (e.g., CQL search)
 func (p *ConfluenceProvider) buildV1URL(path string) string {
+	// Check if domain is a test URL (starts with http)
+	if strings.HasPrefix(p.domain, "http") {
+		// For testing, domain contains the full base URL
+		// Remove /wiki/api/v2 if present and add /wiki/rest/api
+		baseURL := strings.TrimSuffix(p.domain, "/wiki/api/v2")
+		baseURL = strings.TrimSuffix(baseURL, "/")
+		return baseURL + "/wiki/rest/api" + path
+	}
 	// Use v1 API endpoint (required for CQL support and some legacy operations)
 	return fmt.Sprintf("https://%s.atlassian.net/wiki/rest/api%s", p.domain, path)
 }
