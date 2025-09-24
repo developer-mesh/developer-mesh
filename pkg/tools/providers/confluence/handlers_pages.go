@@ -288,9 +288,3 @@ func (h *DeletePageHandler) Execute(ctx context.Context, params map[string]inter
 		"message": fmt.Sprintf("Page %s deleted successfully", pageId),
 	}), nil
 }
-
-// buildURL helper method for ConfluenceProvider
-func (p *ConfluenceProvider) buildURL(path string) string {
-	// Use v2 API endpoint
-	return fmt.Sprintf("https://%s.atlassian.net/wiki/api/v2%s", p.domain, path)
-}

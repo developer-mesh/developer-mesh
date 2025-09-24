@@ -52,6 +52,7 @@ type Toolset struct {
 }
 
 // JiraProvider implements the StandardToolProvider interface for Atlassian Jira Cloud
+// Uses Jira REST API v3 (latest version) with offset/limit pagination
 type JiraProvider struct {
 	*providers.BaseProvider
 	domain         string // The Atlassian domain (e.g., yourcompany.atlassian.net)

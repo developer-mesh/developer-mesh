@@ -52,6 +52,10 @@ type Toolset struct {
 }
 
 // ConfluenceProvider implements the StandardToolProvider interface for Confluence Cloud
+// API Version Strategy:
+//   - v2 API: Used for pages, labels, and modern operations (cursor-based pagination)
+//   - v1 API: Used for CQL search and legacy operations (offset/limit pagination)
+// The provider automatically selects the appropriate API version for each operation
 type ConfluenceProvider struct {
 	*providers.BaseProvider
 	specCache      repository.OpenAPICacheRepository // For caching the OpenAPI spec
@@ -147,7 +151,7 @@ func (p *ConfluenceProvider) GetEmbeddedSpecVersion() string {
 // GetDefaultConfiguration returns the default configuration for Confluence
 func (p *ConfluenceProvider) GetDefaultConfiguration() providers.ProviderConfig {
 	return providers.ProviderConfig{
-		BaseURL:        fmt.Sprintf("https://%s.atlassian.net/wiki/rest/api", p.domain),
+		BaseURL:        fmt.Sprintf("https://%s.atlassian.net/wiki/api/v2", p.domain), // Using v2 API as default
 		AuthType:       "basic", // Confluence uses basic auth with API tokens
 		RequiredScopes: []string{"read:confluence-content.all", "write:confluence-content.all"},
 		RateLimits: providers.RateLimitConfig{
@@ -766,4 +770,18 @@ func (p *ConfluenceProvider) extractTenantID(ctx context.Context, params map[str
 		return tenantID
 	}
 	return ""
+}
+
+// buildURL builds a Confluence v2 API URL
+// Use this for modern operations that are available in v2 API
+func (p *ConfluenceProvider) buildURL(path string) string {
+	// Use v2 API endpoint (modern API with cursor-based pagination)
+	return fmt.Sprintf("https://%s.atlassian.net/wiki/api/v2%s", p.domain, path)
+}
+
+// buildV1URL builds a Confluence v1 API URL
+// Use this for operations that are not yet available in v2 (e.g., CQL search)
+func (p *ConfluenceProvider) buildV1URL(path string) string {
+	// Use v1 API endpoint (required for CQL support and some legacy operations)
+	return fmt.Sprintf("https://%s.atlassian.net/wiki/rest/api%s", p.domain, path)
 }

@@ -150,9 +150,3 @@ func containsSpace(filter, space string) bool {
 	// Simple contains check - could be enhanced to support comma-separated lists
 	return filter == "" || filter == space || filter == "*"
 }
-
-// buildV1URL helper method for ConfluenceProvider (v1 API for CQL)
-func (p *ConfluenceProvider) buildV1URL(path string) string {
-	// Use v1 API endpoint (required for CQL support)
-	return fmt.Sprintf("https://%s.atlassian.net/wiki/rest/api%s", p.domain, path)
-}

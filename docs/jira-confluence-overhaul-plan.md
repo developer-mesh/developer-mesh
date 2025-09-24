@@ -85,16 +85,23 @@ Based on our GitHub and Harness implementations:
   - Comprehensive test coverage for all authentication scenarios
   - Updated extractTenantID to check passthrough auth
 
-#### Story 1.3: Upgrade to Modern API Clients
-- Migrate Confluence operations to v2 REST API where available
-- Implement v1 fallback for operations not yet in v2 (including search)
-- **Update Jira client to use v3 REST API** (current version, not v2)
-- Implement cursor-based pagination for Confluence v2 APIs
-- Maintain offset/limit pagination for v1 APIs and Jira v3
+#### Story 1.3: Upgrade to Modern API Clients ✅ **COMPLETED**
+- Migrate Confluence operations to v2 REST API where available ✅
+- Implement v1 fallback for operations not yet in v2 (including search) ✅
+- **Update Jira client to use v3 REST API** (current version, not v2) ✅
+- Implement cursor-based pagination for Confluence v2 APIs ✅
+- Maintain offset/limit pagination for v1 APIs and Jira v3 ✅
 - **Acceptance Criteria**:
-  - Confluence uses v2 where available, v1 fallback for missing operations
-  - Jira uses v3 REST API (latest version)
-  - Pagination works for large result sets in both APIs
+  - Confluence uses v2 where available, v1 fallback for missing operations ✅
+  - Jira uses v3 REST API (latest version) ✅
+  - Pagination works for large result sets in both APIs ✅
+- **Completion Date**: 2025-01-24
+- **Implementation Details**:
+  - Centralized URL building methods in Confluence provider (buildURL for v2, buildV1URL for v1)
+  - Verified Jira already uses v3 REST API throughout
+  - Updated default Confluence BaseURL from v1 to v2 format
+  - Documented API version strategy in code comments
+  - All existing tests updated and passing
 
 #### Story 1.4: Add Configuration Management with Permission Filtering
 - Implement toolset enable/disable pattern (following GitHub provider):
