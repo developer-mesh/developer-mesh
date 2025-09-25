@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/tools/providers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -151,12 +152,13 @@ func TestJiraProviderIntegration(t *testing.T) {
 		assert.Contains(t, mappings, "issues/create")
 		assert.Contains(t, mappings, "issues/get")
 
-		ctx := context.Background()
-
-		// Inject credentials into context (simulate authentication)
-		ctx = context.WithValue(ctx, "auth_type", "basic")
-		ctx = context.WithValue(ctx, "email", "test@example.com")
-		ctx = context.WithValue(ctx, "api_token", "test-token")
+		// Create context with proper provider credentials
+		ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
+			Credentials: &providers.ProviderCredentials{
+				Username: "test@example.com",
+				Password: "test-token",
+			},
+		})
 
 		// Test create issue
 		t.Run("CreateIssue", func(t *testing.T) {
@@ -248,7 +250,7 @@ func TestJiraProviderIntegration(t *testing.T) {
 				"body":         "Test comment",
 			}
 
-			result, err := provider.ExecuteOperation(ctx, "issues/comment/add", params)
+			result, err := provider.ExecuteOperation(ctx, "issues/comments/add", params)
 			require.NoError(t, err)
 			require.NotNil(t, result)
 
@@ -263,7 +265,7 @@ func TestJiraProviderIntegration(t *testing.T) {
 				"issueIdOrKey": "TEST-123",
 			}
 
-			result, err := provider.ExecuteOperation(ctx, "issues/comment/get", params)
+			result, err := provider.ExecuteOperation(ctx, "issues/comments/list", params)
 			require.NoError(t, err)
 			require.NotNil(t, result)
 
@@ -278,7 +280,7 @@ func TestJiraProviderIntegration(t *testing.T) {
 				"issueIdOrKey": "TEST-123",
 			}
 
-			result, err := provider.ExecuteOperation(ctx, "issues/transitions/get", params)
+			result, err := provider.ExecuteOperation(ctx, "issues/transitions", params)
 			require.NoError(t, err)
 			require.NotNil(t, result)
 
@@ -370,10 +372,13 @@ func TestJiraProviderCaching(t *testing.T) {
 
 	// Enable cache manager if it's initialized
 	if provider.cacheManager != nil {
-		ctx := context.Background()
-		ctx = context.WithValue(ctx, "auth_type", "basic")
-		ctx = context.WithValue(ctx, "email", "test@example.com")
-		ctx = context.WithValue(ctx, "api_token", "test-token")
+		// Create context with proper provider credentials
+		ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
+			Credentials: &providers.ProviderCredentials{
+				Username: "test@example.com",
+				Password: "test-token",
+			},
+		})
 
 		params := map[string]interface{}{
 			"issueIdOrKey": "TEST-123",
