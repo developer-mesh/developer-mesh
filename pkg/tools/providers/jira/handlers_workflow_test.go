@@ -359,8 +359,8 @@ func TestTransitionIssueHandler(t *testing.T) {
 				"issueIdOrKey": "PROJ-100",
 				"transitionId": "31",
 				"historyMetadata": map[string]interface{}{
-					"type":        "myplugin:type",
-					"description": "text description",
+					"type":           "myplugin:type",
+					"description":    "text description",
 					"descriptionKey": "plugin.changereason.i18.key",
 				},
 			},
@@ -657,14 +657,14 @@ func TestGetWorkflowsHandler(t *testing.T) {
 
 func TestAddWorkflowCommentHandler(t *testing.T) {
 	tests := []struct {
-		name           string
-		params         map[string]interface{}
-		statusCode     int
-		readOnly       bool
-		projectFilter  string
-		expectError    bool
-		errorContains  string
-		validateBody   func(t *testing.T, body map[string]interface{})
+		name          string
+		params        map[string]interface{}
+		statusCode    int
+		readOnly      bool
+		projectFilter string
+		expectError   bool
+		errorContains string
+		validateBody  func(t *testing.T, body map[string]interface{})
 	}{
 		{
 			name: "Transition with plain text comment",
@@ -857,9 +857,9 @@ func TestTransitionValidation(t *testing.T) {
 	handler := &TransitionIssueHandler{}
 
 	tests := []struct {
-		name        string
-		transitionId string
-		expectError bool
+		name          string
+		transitionId  string
+		expectError   bool
 		errorContains string
 	}{
 		{

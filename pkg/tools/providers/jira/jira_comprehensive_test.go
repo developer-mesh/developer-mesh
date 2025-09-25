@@ -115,8 +115,8 @@ func (m *MockAtlassianAPIServer) handleIssueSearch(w http.ResponseWriter, r *htt
 						"name": "Open",
 					},
 					"assignee": map[string]interface{}{
-						"accountId":   "test-user-123",
-						"displayName": "Test User",
+						"accountId":    "test-user-123",
+						"displayName":  "Test User",
 						"emailAddress": "test@example.com",
 					},
 					"created": time.Now().Add(-24 * time.Hour).Format(time.RFC3339),
@@ -203,9 +203,9 @@ func (m *MockAtlassianAPIServer) handleAgileBoards(w http.ResponseWriter, r *htt
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"values": []map[string]interface{}{
 				{
-					"id":       1,
-					"name":     "Test Board",
-					"type":     "scrum",
+					"id":   1,
+					"name": "Test Board",
+					"type": "scrum",
 					"location": map[string]interface{}{
 						"projectId":  10000,
 						"projectKey": "TEST",

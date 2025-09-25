@@ -733,7 +733,7 @@ func TestListSpacesHandler_Execute(t *testing.T) {
 			},
 		},
 		{
-			name: "space filtering applied",
+			name:   "space filtering applied",
 			params: map[string]interface{}{},
 			serverResponse: map[string]interface{}{
 				"results": []interface{}{

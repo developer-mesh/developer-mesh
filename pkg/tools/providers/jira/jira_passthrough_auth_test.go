@@ -14,13 +14,13 @@ func TestJiraProvider_ExtractAuthToken(t *testing.T) {
 	logger := &observability.NoopLogger{}
 
 	tests := []struct {
-		name           string
-		ctx            context.Context
-		params         map[string]interface{}
-		expectedEmail  string
-		expectedToken  string
-		expectedError  bool
-		errorContains  string
+		name          string
+		ctx           context.Context
+		params        map[string]interface{}
+		expectedEmail string
+		expectedToken string
+		expectedError bool
+		errorContains string
 	}{
 		// Priority 1: ProviderContext with Token
 		{
@@ -142,8 +142,8 @@ func TestJiraProvider_ExtractAuthToken(t *testing.T) {
 
 		// Priority 5: Context value (legacy)
 		{
-			name: "context value with token",
-			ctx:  context.WithValue(context.Background(), "jira_token", "user@example.com:api-token-ctx"),
+			name:          "context value with token",
+			ctx:           context.WithValue(context.Background(), "jira_token", "user@example.com:api-token-ctx"),
 			params:        map[string]interface{}{},
 			expectedEmail: "user@example.com",
 			expectedToken: "api-token-ctx",

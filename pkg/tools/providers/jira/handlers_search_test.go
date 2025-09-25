@@ -53,7 +53,7 @@ func TestSearchIssuesHandler(t *testing.T) {
 					}
 				]
 			}`,
-			statusCode: http.StatusOK,
+			statusCode:  http.StatusOK,
 			expectError: false,
 			validateURL: func(t *testing.T, u *url.URL) {
 				assert.Contains(t, u.Query().Get("jql"), "project = PROJ")
@@ -78,7 +78,7 @@ func TestSearchIssuesHandler(t *testing.T) {
 				"total": 50,
 				"issues": []
 			}`,
-			statusCode: http.StatusOK,
+			statusCode:  http.StatusOK,
 			expectError: false,
 			validateURL: func(t *testing.T, u *url.URL) {
 				assert.Equal(t, "20", u.Query().Get("startAt"))
@@ -115,7 +115,7 @@ func TestSearchIssuesHandler(t *testing.T) {
 					}
 				]
 			}`,
-			statusCode: http.StatusOK,
+			statusCode:  http.StatusOK,
 			expectError: false,
 			validateURL: func(t *testing.T, u *url.URL) {
 				assert.Equal(t, "summary,status,assignee", u.Query().Get("fields"))
@@ -141,7 +141,7 @@ func TestSearchIssuesHandler(t *testing.T) {
 					}
 				]
 			}`,
-			statusCode: http.StatusOK,
+			statusCode:  http.StatusOK,
 			expectError: false,
 			validateURL: func(t *testing.T, u *url.URL) {
 				assert.Equal(t, "changelog,transitions", u.Query().Get("expand"))
@@ -156,7 +156,7 @@ func TestSearchIssuesHandler(t *testing.T) {
 				"total": 10,
 				"issues": []
 			}`,
-			statusCode: http.StatusOK,
+			statusCode:  http.StatusOK,
 			expectError: false,
 			validateURL: func(t *testing.T, u *url.URL) {
 				assert.Equal(t, "ORDER BY created DESC", u.Query().Get("jql"))
@@ -205,7 +205,7 @@ func TestSearchIssuesHandler(t *testing.T) {
 				"total": 150,
 				"issues": []
 			}`,
-			statusCode: http.StatusOK,
+			statusCode:  http.StatusOK,
 			expectError: false,
 			validateURL: func(t *testing.T, u *url.URL) {
 				assert.Equal(t, "100", u.Query().Get("maxResults"))
@@ -223,7 +223,7 @@ func TestSearchIssuesHandler(t *testing.T) {
 				"total": 2,
 				"issues": []
 			}`,
-			statusCode: http.StatusOK,
+			statusCode:  http.StatusOK,
 			expectError: false,
 			validateURL: func(t *testing.T, u *url.URL) {
 				jql := u.Query().Get("jql")
@@ -245,7 +245,7 @@ func TestSearchIssuesHandler(t *testing.T) {
 				"total": 5,
 				"issues": []
 			}`,
-			statusCode: http.StatusOK,
+			statusCode:  http.StatusOK,
 			expectError: false,
 			validateURL: func(t *testing.T, u *url.URL) {
 				assert.Equal(t, "project = \"PROJ\" ORDER BY created DESC", u.Query().Get("jql"))
@@ -279,7 +279,7 @@ func TestSearchIssuesHandler(t *testing.T) {
 					}
 				]
 			}`,
-			statusCode: http.StatusOK,
+			statusCode:  http.StatusOK,
 			expectError: false,
 			validateResult: func(t *testing.T, result *ToolResult) {
 				data := result.Data.(map[string]interface{})
@@ -326,7 +326,7 @@ func TestSearchIssuesHandler(t *testing.T) {
 				"total": 0,
 				"issues": []
 			}`,
-			statusCode: http.StatusOK,
+			statusCode:  http.StatusOK,
 			expectError: false,
 			validateURL: func(t *testing.T, u *url.URL) {
 				assert.Equal(t, "false", u.Query().Get("validateQuery"))
@@ -345,7 +345,7 @@ func TestSearchIssuesHandler(t *testing.T) {
 				"total": 45,
 				"issues": [1, 2, 3, 4, 5]
 			}`,
-			statusCode: http.StatusOK,
+			statusCode:  http.StatusOK,
 			expectError: false,
 			validateResult: func(t *testing.T, result *ToolResult) {
 				data := result.Data.(map[string]interface{})
@@ -481,10 +481,10 @@ func TestSearchIssuesHandler_ProjectFilterApplication(t *testing.T) {
 	handler := NewSearchIssuesHandler(provider)
 
 	tests := []struct {
-		name           string
-		originalJQL    string
-		projectFilter  string
-		expectedJQL    string
+		name          string
+		originalJQL   string
+		projectFilter string
+		expectedJQL   string
 	}{
 		{
 			name:          "No filter",

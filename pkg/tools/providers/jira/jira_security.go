@@ -157,10 +157,10 @@ func (jsm *JiraSecurityManager) DetectPII(data []byte) ([]string, error) {
 
 	if len(allMatches) > 0 {
 		jsm.LogSecurityEvent("pii_detected", map[string]interface{}{
-			"total_matches":     len(allMatches),
-			"base_matches":      len(baseMatches),
-			"jira_matches":      len(jiraMatches),
-			"data_length":       len(data),
+			"total_matches": len(allMatches),
+			"base_matches":  len(baseMatches),
+			"jira_matches":  len(jiraMatches),
+			"data_length":   len(data),
 		})
 	}
 
@@ -255,21 +255,21 @@ func (jsm *JiraSecurityManager) GetSecurityMetrics() map[string]interface{} {
 func GetDefaultJiraSecurityConfig() JiraSecurityConfig {
 	return JiraSecurityConfig{
 		SecurityConfig: clients.SecurityConfig{
-			TokenRotationInterval: 24 * time.Hour,
-			TokenTTL:              7 * 24 * time.Hour,
-			MaxTokensPerUser:      10,
-			EncryptionEnabled:     true,
-			EncryptionAlgorithm:   "AES-256-GCM",
-			KeyRotationInterval:   7 * 24 * time.Hour,
-			RateLimitEnabled:      true,
-			RequestsPerMinute:     60,
-			BurstSize:             10,
-			EnableSecurityHeaders: true,
-			CSPPolicy:             "default-src 'self'",
-			AuditEnabled:          true,
-			AuditRetention:        30 * 24 * time.Hour,
+			TokenRotationInterval:  24 * time.Hour,
+			TokenTTL:               7 * 24 * time.Hour,
+			MaxTokensPerUser:       10,
+			EncryptionEnabled:      true,
+			EncryptionAlgorithm:    "AES-256-GCM",
+			KeyRotationInterval:    7 * 24 * time.Hour,
+			RateLimitEnabled:       true,
+			RequestsPerMinute:      60,
+			BurstSize:              10,
+			EnableSecurityHeaders:  true,
+			CSPPolicy:              "default-src 'self'",
+			AuditEnabled:           true,
+			AuditRetention:         30 * 24 * time.Hour,
 			ThreatDetectionEnabled: true,
-			AnomalyThreshold:      0.8,
+			AnomalyThreshold:       0.8,
 		},
 		JiraCustomPIIPatterns: []string{
 			// Add any additional Jira-specific patterns here

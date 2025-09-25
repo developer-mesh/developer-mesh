@@ -24,25 +24,25 @@ import (
 // JiraIntegrationTestSuite defines the integration test suite for Jira
 type JiraIntegrationTestSuite struct {
 	suite.Suite
-	provider     *jira.JiraProvider
-	mockServer   *JiraMockServer
-	sandboxMode  bool
+	provider       *jira.JiraProvider
+	mockServer     *JiraMockServer
+	sandboxMode    bool
 	deploymentType string // "cloud", "server", or "datacenter"
-	logger       observability.Logger
+	logger         observability.Logger
 }
 
 // JiraMockServer simulates different Jira deployment types
 type JiraMockServer struct {
-	server      *httptest.Server
+	server         *httptest.Server
 	deploymentType string
-	issues      map[string]interface{}
-	projects    map[string]interface{}
-	users       map[string]interface{}
-	boards      map[string]interface{}
-	sprints     map[string]interface{}
-	mutex       sync.RWMutex
-	requestLog  []RequestEntry
-	responseDelay time.Duration
+	issues         map[string]interface{}
+	projects       map[string]interface{}
+	users          map[string]interface{}
+	boards         map[string]interface{}
+	sprints        map[string]interface{}
+	mutex          sync.RWMutex
+	requestLog     []RequestEntry
+	responseDelay  time.Duration
 }
 
 // RequestEntry logs API requests for verification
@@ -59,12 +59,12 @@ type RequestEntry struct {
 func NewJiraMockServer(deploymentType string) *JiraMockServer {
 	mock := &JiraMockServer{
 		deploymentType: deploymentType,
-		issues:        make(map[string]interface{}),
-		projects:      make(map[string]interface{}),
-		users:         make(map[string]interface{}),
-		boards:        make(map[string]interface{}),
-		sprints:       make(map[string]interface{}),
-		requestLog:    make([]RequestEntry, 0),
+		issues:         make(map[string]interface{}),
+		projects:       make(map[string]interface{}),
+		users:          make(map[string]interface{}),
+		boards:         make(map[string]interface{}),
+		sprints:        make(map[string]interface{}),
+		requestLog:     make([]RequestEntry, 0),
 	}
 
 	// Initialize with test data
@@ -126,9 +126,9 @@ func (m *JiraMockServer) initializeTestData() {
 
 	// Add test board
 	m.boards["1"] = map[string]interface{}{
-		"id":       1,
-		"name":     "Test Board",
-		"type":     "scrum",
+		"id":   1,
+		"name": "Test Board",
+		"type": "scrum",
 		"location": map[string]interface{}{
 			"projectId":  10000,
 			"projectKey": "TEST",

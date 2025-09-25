@@ -16,16 +16,16 @@ type JiraObservabilityConfig struct {
 	DebugMode bool `yaml:"debug_mode" json:"debug_mode"`
 
 	// Health check configuration
-	HealthCheckTimeout   time.Duration `yaml:"health_check_timeout" json:"health_check_timeout"`
-	HealthCheckInterval  time.Duration `yaml:"health_check_interval" json:"health_check_interval"`
+	HealthCheckTimeout  time.Duration `yaml:"health_check_timeout" json:"health_check_timeout"`
+	HealthCheckInterval time.Duration `yaml:"health_check_interval" json:"health_check_interval"`
 
 	// Metrics configuration
-	EnableMetrics        bool `yaml:"enable_metrics" json:"enable_metrics"`
-	MetricsNamespace     string `yaml:"metrics_namespace" json:"metrics_namespace"`
+	EnableMetrics    bool   `yaml:"enable_metrics" json:"enable_metrics"`
+	MetricsNamespace string `yaml:"metrics_namespace" json:"metrics_namespace"`
 
 	// Error handling configuration
-	EnableErrorTracking  bool `yaml:"enable_error_tracking" json:"enable_error_tracking"`
-	MaxErrorStackDepth   int  `yaml:"max_error_stack_depth" json:"max_error_stack_depth"`
+	EnableErrorTracking bool `yaml:"enable_error_tracking" json:"enable_error_tracking"`
+	MaxErrorStackDepth  int  `yaml:"max_error_stack_depth" json:"max_error_stack_depth"`
 }
 
 // JiraErrorType represents different categories of Jira errors
@@ -47,16 +47,16 @@ const (
 
 // JiraError represents a categorized error with additional context
 type JiraError struct {
-	Type         JiraErrorType          `json:"type"`
-	Code         string                 `json:"code,omitempty"`
-	Message      string                 `json:"message"`
-	Details      map[string]interface{} `json:"details,omitempty"`
-	HTTPStatus   int                    `json:"http_status,omitempty"`
-	Recoverable  bool                   `json:"recoverable"`
-	OriginalErr  error                  `json:"-"`
-	Timestamp    time.Time              `json:"timestamp"`
-	Operation    string                 `json:"operation,omitempty"`
-	Duration     time.Duration          `json:"duration,omitempty"`
+	Type        JiraErrorType          `json:"type"`
+	Code        string                 `json:"code,omitempty"`
+	Message     string                 `json:"message"`
+	Details     map[string]interface{} `json:"details,omitempty"`
+	HTTPStatus  int                    `json:"http_status,omitempty"`
+	Recoverable bool                   `json:"recoverable"`
+	OriginalErr error                  `json:"-"`
+	Timestamp   time.Time              `json:"timestamp"`
+	Operation   string                 `json:"operation,omitempty"`
+	Duration    time.Duration          `json:"duration,omitempty"`
 }
 
 func (e *JiraError) Error() string {
@@ -72,11 +72,11 @@ func (e *JiraError) Unwrap() error {
 
 // JiraObservabilityManager provides comprehensive observability for Jira operations
 type JiraObservabilityManager struct {
-	config       JiraObservabilityConfig
-	logger       observability.Logger
-	metrics      observability.MetricsClient
-	startSpan    observability.StartSpanFunc
-	debugLogger  observability.Logger
+	config      JiraObservabilityConfig
+	logger      observability.Logger
+	metrics     observability.MetricsClient
+	startSpan   observability.StartSpanFunc
+	debugLogger observability.Logger
 
 	// Health check state
 	lastHealthCheck time.Time
@@ -85,12 +85,12 @@ type JiraObservabilityManager struct {
 
 // HealthStatus represents the health status of the Jira provider
 type HealthStatus struct {
-	Healthy       bool                   `json:"healthy"`
-	LastChecked   time.Time             `json:"last_checked"`
-	ResponseTime  time.Duration         `json:"response_time"`
-	Version       string                `json:"version,omitempty"`
-	Details       map[string]interface{} `json:"details,omitempty"`
-	Errors        []string              `json:"errors,omitempty"`
+	Healthy      bool                   `json:"healthy"`
+	LastChecked  time.Time              `json:"last_checked"`
+	ResponseTime time.Duration          `json:"response_time"`
+	Version      string                 `json:"version,omitempty"`
+	Details      map[string]interface{} `json:"details,omitempty"`
+	Errors       []string               `json:"errors,omitempty"`
 }
 
 // NewJiraObservabilityManager creates a new Jira observability manager
@@ -242,7 +242,7 @@ func (jom *JiraObservabilityManager) CategorizeError(err error, operation string
 
 	switch {
 	case errors.Is(err, context.DeadlineExceeded) ||
-		 errors.Is(err, context.Canceled):
+		errors.Is(err, context.Canceled):
 		jiraErr.Type = ErrorTypeTimeout
 		jiraErr.Recoverable = true
 
@@ -363,10 +363,10 @@ func (jom *JiraObservabilityManager) PerformHealthCheck(ctx context.Context, hea
 
 		if jom.debugLogger != nil {
 			jom.debugLogger.Error("Health check failed", map[string]interface{}{
-				"error":        err.Error(),
-				"error_type":   string(jiraErr.Type),
+				"error":         err.Error(),
+				"error_type":    string(jiraErr.Type),
 				"response_time": status.ResponseTime,
-				"recoverable":  jiraErr.Recoverable,
+				"recoverable":   jiraErr.Recoverable,
 			})
 		}
 	} else {
@@ -415,13 +415,13 @@ func (jom *JiraObservabilityManager) IsDebugMode() bool {
 // GetObservabilityMetrics returns observability-specific metrics
 func (jom *JiraObservabilityManager) GetObservabilityMetrics() map[string]interface{} {
 	metrics := map[string]interface{}{
-		"debug_mode":                jom.config.DebugMode,
-		"metrics_enabled":           jom.config.EnableMetrics,
-		"error_tracking_enabled":    jom.config.EnableErrorTracking,
-		"health_check_timeout":      jom.config.HealthCheckTimeout,
-		"health_check_interval":     jom.config.HealthCheckInterval,
-		"last_health_check":         jom.lastHealthCheck,
-		"current_health_status":     jom.healthStatus.Healthy,
+		"debug_mode":             jom.config.DebugMode,
+		"metrics_enabled":        jom.config.EnableMetrics,
+		"error_tracking_enabled": jom.config.EnableErrorTracking,
+		"health_check_timeout":   jom.config.HealthCheckTimeout,
+		"health_check_interval":  jom.config.HealthCheckInterval,
+		"last_health_check":      jom.lastHealthCheck,
+		"current_health_status":  jom.healthStatus.Healthy,
 	}
 
 	if !jom.lastHealthCheck.IsZero() {
@@ -434,13 +434,13 @@ func (jom *JiraObservabilityManager) GetObservabilityMetrics() map[string]interf
 // GetDefaultJiraObservabilityConfig returns default observability configuration
 func GetDefaultJiraObservabilityConfig() JiraObservabilityConfig {
 	return JiraObservabilityConfig{
-		DebugMode:              false,
-		HealthCheckTimeout:     30 * time.Second,
-		HealthCheckInterval:    5 * time.Minute,
-		EnableMetrics:          true,
-		MetricsNamespace:       "jira",
-		EnableErrorTracking:    true,
-		MaxErrorStackDepth:     10,
+		DebugMode:           false,
+		HealthCheckTimeout:  30 * time.Second,
+		HealthCheckInterval: 5 * time.Minute,
+		EnableMetrics:       true,
+		MetricsNamespace:    "jira",
+		EnableErrorTracking: true,
+		MaxErrorStackDepth:  10,
 	}
 }
 

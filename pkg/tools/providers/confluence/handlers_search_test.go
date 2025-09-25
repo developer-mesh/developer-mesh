@@ -278,8 +278,8 @@ func TestSearchContentHandler(t *testing.T) {
 						"id":    "1",
 						"title": "Page in Archived Space",
 						"space": map[string]interface{}{
-							"key":      "ARCHIVED",
-							"status":   "archived",
+							"key":    "ARCHIVED",
+							"status": "archived",
 						},
 					},
 				},

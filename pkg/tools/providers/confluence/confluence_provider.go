@@ -55,14 +55,15 @@ type Toolset struct {
 // API Version Strategy:
 //   - v2 API: Used for pages, labels, and modern operations (cursor-based pagination)
 //   - v1 API: Used for CQL search and legacy operations (offset/limit pagination)
+//
 // The provider automatically selects the appropriate API version for each operation
 type ConfluenceProvider struct {
 	*providers.BaseProvider
-	specCache      repository.OpenAPICacheRepository // For caching the OpenAPI spec
-	specFallback   *openapi3.T                       // Embedded fallback spec
-	httpClient     *http.Client
-	domain         string // e.g., "your-domain" for https://your-domain.atlassian.net
-	encryptionSvc  *security.EncryptionService
+	specCache     repository.OpenAPICacheRepository // For caching the OpenAPI spec
+	specFallback  *openapi3.T                       // Embedded fallback spec
+	httpClient    *http.Client
+	domain        string // e.g., "your-domain" for https://your-domain.atlassian.net
+	encryptionSvc *security.EncryptionService
 
 	// Handler registry
 	toolRegistry    map[string]ToolHandler
@@ -152,7 +153,7 @@ func (p *ConfluenceProvider) GetEmbeddedSpecVersion() string {
 func (p *ConfluenceProvider) GetDefaultConfiguration() providers.ProviderConfig {
 	return providers.ProviderConfig{
 		BaseURL:        fmt.Sprintf("https://%s.atlassian.net/wiki/api/v2", p.domain), // Using v2 API as default
-		AuthType:       "basic", // Confluence uses basic auth with API tokens
+		AuthType:       "basic",                                                       // Confluence uses basic auth with API tokens
 		RequiredScopes: []string{"read:confluence-content.all", "write:confluence-content.all"},
 		RateLimits: providers.RateLimitConfig{
 			RequestsPerHour:    5000,

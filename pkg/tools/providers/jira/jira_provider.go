@@ -55,11 +55,11 @@ type Toolset struct {
 // Uses Jira REST API v3 (latest version) with offset/limit pagination
 type JiraProvider struct {
 	*providers.BaseProvider
-	domain         string // The Atlassian domain (e.g., yourcompany.atlassian.net)
-	specCache      repository.OpenAPICacheRepository
-	specFallback   *openapi3.T
-	httpClient     *http.Client
-	encryptionSvc  *security.EncryptionService
+	domain           string // The Atlassian domain (e.g., yourcompany.atlassian.net)
+	specCache        repository.OpenAPICacheRepository
+	specFallback     *openapi3.T
+	httpClient       *http.Client
+	encryptionSvc    *security.EncryptionService
 	securityMgr      *JiraSecurityManager      // Epic 4, Story 4.1 - Security Features
 	observabilityMgr *JiraObservabilityManager // Epic 4, Story 4.2 - Observability Features
 	cacheManager     *JiraCacheManager         // Epic 4, Story 4.3 - Caching Layer
@@ -722,7 +722,6 @@ func (p *JiraProvider) GetDefaultConfiguration() providers.ProviderConfig {
 	}
 }
 
-
 // ExecuteOperation executes a Jira operation
 func (p *JiraProvider) ExecuteOperation(ctx context.Context, operation string, params map[string]interface{}) (interface{}, error) {
 	// Apply configuration from context
@@ -995,7 +994,7 @@ func (p *JiraProvider) GetHealthStatus() HealthStatus {
 		LastChecked: time.Now(),
 		Details: map[string]interface{}{
 			"observability_manager": "not_available",
-			"basic_mode":           true,
+			"basic_mode":            true,
 		},
 	}
 }
@@ -1699,7 +1698,7 @@ func (p *JiraProvider) secureHTTPDo(ctx context.Context, req *http.Request, oper
 
 	// Epic 4, Story 4.3 - Cache successful responses for GET requests
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 && p.cacheManager != nil &&
-	   p.cacheManager.IsCacheable(req.Method, operation) {
+		p.cacheManager.IsCacheable(req.Method, operation) {
 
 		// Read response body for caching (need to preserve it for caller)
 		if resp.Body != nil {

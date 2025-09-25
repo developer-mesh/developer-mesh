@@ -213,9 +213,9 @@ func TestCreateIssueHandler(t *testing.T) {
 			name: "Create issue successfully",
 			params: map[string]interface{}{
 				"fields": map[string]interface{}{
-					"project":    map[string]interface{}{"key": "PROJ"},
-					"issuetype":  map[string]interface{}{"name": "Bug"},
-					"summary":    "Test Bug",
+					"project":     map[string]interface{}{"key": "PROJ"},
+					"issuetype":   map[string]interface{}{"name": "Bug"},
+					"summary":     "Test Bug",
 					"description": "Test Description",
 				},
 			},
@@ -306,9 +306,9 @@ func TestCreateIssueHandler(t *testing.T) {
 			name: "Custom fields support",
 			params: map[string]interface{}{
 				"fields": map[string]interface{}{
-					"project":       map[string]interface{}{"key": "PROJ"},
-					"issuetype":     map[string]interface{}{"name": "Story"},
-					"summary":       "User Story",
+					"project":           map[string]interface{}{"key": "PROJ"},
+					"issuetype":         map[string]interface{}{"name": "Story"},
+					"summary":           "User Story",
 					"customfield_10001": "Custom Value",
 					"customfield_10002": map[string]interface{}{
 						"value": "Option A",
@@ -423,7 +423,7 @@ func TestUpdateIssueHandler(t *testing.T) {
 					"description": "Updated Description",
 				},
 			},
-			getResponse: `{"fields": {"project": {"key": "PROJ"}}}`,
+			getResponse:   `{"fields": {"project": {"key": "PROJ"}}}`,
 			getStatusCode: http.StatusOK,
 			statusCode:    http.StatusNoContent,
 			expectError:   false,
@@ -480,8 +480,8 @@ func TestUpdateIssueHandler(t *testing.T) {
 					"fixVersion": map[string]interface{}{"name": "Invalid"},
 				},
 			},
-			getResponse:    `{"fields": {"project": {"key": "PROJ"}}}`,
-			getStatusCode:  http.StatusOK,
+			getResponse:   `{"fields": {"project": {"key": "PROJ"}}}`,
+			getStatusCode: http.StatusOK,
 			updateResponse: `{
 				"errors": {
 					"fixVersion": "Version 'Invalid' does not exist"
@@ -610,15 +610,15 @@ func TestUpdateIssueHandler(t *testing.T) {
 
 func TestDeleteIssueHandler(t *testing.T) {
 	tests := []struct {
-		name           string
-		params         map[string]interface{}
-		getResponse    string
-		getStatusCode  int
-		deleteStatus   int
-		projectFilter  string
-		readOnly       bool
-		expectError    bool
-		errorContains  string
+		name          string
+		params        map[string]interface{}
+		getResponse   string
+		getStatusCode int
+		deleteStatus  int
+		projectFilter string
+		readOnly      bool
+		expectError   bool
+		errorContains string
 	}{
 		{
 			name: "Delete issue successfully",
@@ -633,7 +633,7 @@ func TestDeleteIssueHandler(t *testing.T) {
 		{
 			name: "Delete with subtasks",
 			params: map[string]interface{}{
-				"issueIdOrKey":    "PROJ-123",
+				"issueIdOrKey":   "PROJ-123",
 				"deleteSubtasks": true,
 			},
 			getResponse:   `{"fields": {"project": {"key": "PROJ"}}}`,

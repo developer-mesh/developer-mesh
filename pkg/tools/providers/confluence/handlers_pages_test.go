@@ -74,8 +74,8 @@ func TestGetPageHandler(t *testing.T) {
 
 		// Test basic get
 		params := map[string]interface{}{
-			"pageId": "123",
-			"email":  "email@test.com",
+			"pageId":    "123",
+			"email":     "email@test.com",
 			"api_token": "token",
 		}
 
@@ -125,9 +125,9 @@ func TestGetPageHandler(t *testing.T) {
 		handler := NewGetPageHandler(provider)
 
 		params := map[string]interface{}{
-			"pageId": "123",
-			"expand": []interface{}{"body", "version"},
-			"email":  "email@test.com",
+			"pageId":    "123",
+			"expand":    []interface{}{"body", "version"},
+			"email":     "email@test.com",
 			"api_token": "token",
 		}
 
@@ -168,8 +168,8 @@ func TestGetPageHandler(t *testing.T) {
 		})
 
 		params := map[string]interface{}{
-			"pageId": "123",
-			"email":  "email@test.com",
+			"pageId":    "123",
+			"email":     "email@test.com",
 			"api_token": "token",
 		}
 
@@ -190,7 +190,7 @@ func TestGetPageHandler(t *testing.T) {
 		handler := NewGetPageHandler(provider)
 
 		params := map[string]interface{}{
-			"email":    "email@test.com",
+			"email":     "email@test.com",
 			"api_token": "token",
 		}
 
@@ -232,8 +232,8 @@ func TestGetPageHandler(t *testing.T) {
 		handler := NewGetPageHandler(provider)
 
 		params := map[string]interface{}{
-			"pageId":   "nonexistent",
-			"email":    "email@test.com",
+			"pageId":    "nonexistent",
+			"email":     "email@test.com",
 			"api_token": "token",
 		}
 
@@ -309,7 +309,7 @@ func TestListPagesHandler(t *testing.T) {
 		handler := NewListPagesHandler(provider)
 
 		params := map[string]interface{}{
-			"email":    "email@test.com",
+			"email":     "email@test.com",
 			"api_token": "token",
 		}
 
@@ -355,13 +355,13 @@ func TestListPagesHandler(t *testing.T) {
 		handler := NewListPagesHandler(provider)
 
 		params := map[string]interface{}{
-			"spaceId":  "SPACE1",
-			"status":   "current",
-			"title":    "Test",
-			"sort":     "-modified-date",
-			"limit":    float64(50),
-			"cursor":   "next123",
-			"email":    "email@test.com",
+			"spaceId":   "SPACE1",
+			"status":    "current",
+			"title":     "Test",
+			"sort":      "-modified-date",
+			"limit":     float64(50),
+			"cursor":    "next123",
+			"email":     "email@test.com",
 			"api_token": "token",
 		}
 
@@ -408,7 +408,7 @@ func TestListPagesHandler(t *testing.T) {
 		})
 
 		params := map[string]interface{}{
-			"email":    "email@test.com",
+			"email":     "email@test.com",
 			"api_token": "token",
 		}
 
@@ -444,8 +444,8 @@ func TestListPagesHandler(t *testing.T) {
 		handler := NewListPagesHandler(provider)
 
 		params := map[string]interface{}{
-			"limit":    float64(500), // Exceeds max
-			"email":    "email@test.com",
+			"limit":     float64(500), // Exceeds max
+			"email":     "email@test.com",
 			"api_token": "token",
 		}
 
@@ -504,8 +504,8 @@ func TestDeletePageHandler(t *testing.T) {
 		handler := NewDeletePageHandler(provider)
 
 		params := map[string]interface{}{
-			"pageId":   "123",
-			"email":    "email@test.com",
+			"pageId":    "123",
+			"email":     "email@test.com",
 			"api_token": "token",
 		}
 
@@ -545,9 +545,9 @@ func TestDeletePageHandler(t *testing.T) {
 		handler := NewDeletePageHandler(provider)
 
 		params := map[string]interface{}{
-			"pageId":   "123",
-			"purge":    true,
-			"email":    "email@test.com",
+			"pageId":    "123",
+			"purge":     true,
+			"email":     "email@test.com",
 			"api_token": "token",
 		}
 
@@ -574,8 +574,8 @@ func TestDeletePageHandler(t *testing.T) {
 		handler := NewDeletePageHandler(provider)
 
 		params := map[string]interface{}{
-			"pageId":   "nonexistent",
-			"email":    "email@test.com",
+			"pageId":    "nonexistent",
+			"email":     "email@test.com",
 			"api_token": "token",
 		}
 
@@ -614,8 +614,8 @@ func TestDeletePageHandler(t *testing.T) {
 		})
 
 		params := map[string]interface{}{
-			"pageId":   "123",
-			"email":    "email@test.com",
+			"pageId":    "123",
+			"email":     "email@test.com",
 			"api_token": "token",
 		}
 
@@ -630,7 +630,7 @@ func TestDeletePageHandler(t *testing.T) {
 		handler := NewDeletePageHandler(provider)
 
 		params := map[string]interface{}{
-			"email":    "email@test.com",
+			"email":     "email@test.com",
 			"api_token": "token",
 		}
 

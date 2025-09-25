@@ -74,75 +74,75 @@ func TestJiraObservabilityManager_CategorizeError(t *testing.T) {
 	observabilityMgr := NewJiraObservabilityManager(config, logger)
 
 	tests := []struct {
-		name            string
-		err             error
-		expectedType    JiraErrorType
+		name                string
+		err                 error
+		expectedType        JiraErrorType
 		expectedRecoverable bool
 	}{
 		{
-			name:            "timeout error",
-			err:             context.DeadlineExceeded,
-			expectedType:    ErrorTypeTimeout,
+			name:                "timeout error",
+			err:                 context.DeadlineExceeded,
+			expectedType:        ErrorTypeTimeout,
 			expectedRecoverable: true,
 		},
 		{
-			name:            "authentication error",
-			err:             errors.New("401 unauthorized"),
-			expectedType:    ErrorTypeAuthentication,
+			name:                "authentication error",
+			err:                 errors.New("401 unauthorized"),
+			expectedType:        ErrorTypeAuthentication,
 			expectedRecoverable: false,
 		},
 		{
-			name:            "authorization error",
-			err:             errors.New("403 forbidden"),
-			expectedType:    ErrorTypeAuthorization,
+			name:                "authorization error",
+			err:                 errors.New("403 forbidden"),
+			expectedType:        ErrorTypeAuthorization,
 			expectedRecoverable: false,
 		},
 		{
-			name:            "not found error",
-			err:             errors.New("404 not found"),
-			expectedType:    ErrorTypeNotFound,
+			name:                "not found error",
+			err:                 errors.New("404 not found"),
+			expectedType:        ErrorTypeNotFound,
 			expectedRecoverable: false,
 		},
 		{
-			name:            "rate limit error",
-			err:             errors.New("429 too many requests"),
-			expectedType:    ErrorTypeRateLimit,
+			name:                "rate limit error",
+			err:                 errors.New("429 too many requests"),
+			expectedType:        ErrorTypeRateLimit,
 			expectedRecoverable: true,
 		},
 		{
-			name:            "validation error",
-			err:             errors.New("400 bad request validation failed"),
-			expectedType:    ErrorTypeValidation,
+			name:                "validation error",
+			err:                 errors.New("400 bad request validation failed"),
+			expectedType:        ErrorTypeValidation,
 			expectedRecoverable: false,
 		},
 		{
-			name:            "server error",
-			err:             errors.New("500 internal server error"),
-			expectedType:    ErrorTypeServerError,
+			name:                "server error",
+			err:                 errors.New("500 internal server error"),
+			expectedType:        ErrorTypeServerError,
 			expectedRecoverable: true,
 		},
 		{
-			name:            "network error",
-			err:             errors.New("network connection timeout"),
-			expectedType:    ErrorTypeNetwork,
+			name:                "network error",
+			err:                 errors.New("network connection timeout"),
+			expectedType:        ErrorTypeNetwork,
 			expectedRecoverable: true,
 		},
 		{
-			name:            "quota exceeded error",
-			err:             errors.New("quota exceeded limit reached"),
-			expectedType:    ErrorTypeQuotaExceeded,
+			name:                "quota exceeded error",
+			err:                 errors.New("quota exceeded limit reached"),
+			expectedType:        ErrorTypeQuotaExceeded,
 			expectedRecoverable: true,
 		},
 		{
-			name:            "configuration error",
-			err:             errors.New("configuration file missing"),
-			expectedType:    ErrorTypeConfiguration,
+			name:                "configuration error",
+			err:                 errors.New("configuration file missing"),
+			expectedType:        ErrorTypeConfiguration,
 			expectedRecoverable: false,
 		},
 		{
-			name:            "unknown error",
-			err:             errors.New("some random error"),
-			expectedType:    ErrorTypeUnknown,
+			name:                "unknown error",
+			err:                 errors.New("some random error"),
+			expectedType:        ErrorTypeUnknown,
 			expectedRecoverable: false,
 		},
 		{
@@ -193,7 +193,7 @@ func TestJiraObservabilityManager_CategorizeExistingJiraError(t *testing.T) {
 
 	assert.Equal(t, existingErr, result)
 	assert.Equal(t, "new_operation", result.Operation) // Should update operation
-	assert.Equal(t, 2*time.Second, result.Duration)   // Should update duration
+	assert.Equal(t, 2*time.Second, result.Duration)    // Should update duration
 }
 
 func TestJiraObservabilityManager_RecordHTTPMetrics(t *testing.T) {
@@ -364,10 +364,10 @@ func TestJiraError_Unwrap(t *testing.T) {
 
 func TestContainsAny(t *testing.T) {
 	tests := []struct {
-		name        string
-		s           string
-		substrings  []string
-		expected    bool
+		name       string
+		s          string
+		substrings []string
+		expected   bool
 	}{
 		{
 			name:       "matches first substring",

@@ -43,30 +43,30 @@ type JiraCacheConfig struct {
 
 // CacheEntry represents a cached response
 type CacheEntry struct {
-	Key         string                 `json:"key"`
-	URL         string                 `json:"url"`
-	Method      string                 `json:"method"`
-	Operation   string                 `json:"operation"`
-	StatusCode  int                    `json:"status_code"`
-	Headers     map[string]string      `json:"headers"`
-	Body        []byte                 `json:"body"`
-	ETag        string                 `json:"etag,omitempty"`
-	LastModified string                `json:"last_modified,omitempty"`
-	CachedAt    time.Time             `json:"cached_at"`
-	ExpiresAt   time.Time             `json:"expires_at"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	Key          string                 `json:"key"`
+	URL          string                 `json:"url"`
+	Method       string                 `json:"method"`
+	Operation    string                 `json:"operation"`
+	StatusCode   int                    `json:"status_code"`
+	Headers      map[string]string      `json:"headers"`
+	Body         []byte                 `json:"body"`
+	ETag         string                 `json:"etag,omitempty"`
+	LastModified string                 `json:"last_modified,omitempty"`
+	CachedAt     time.Time              `json:"cached_at"`
+	ExpiresAt    time.Time              `json:"expires_at"`
+	Metadata     map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // CacheKeyBuilder generates cache keys for requests
 type CacheKeyBuilder struct {
-	includeParams bool
+	includeParams  bool
 	includeHeaders []string
 }
 
 // NewCacheKeyBuilder creates a new cache key builder
 func NewCacheKeyBuilder() *CacheKeyBuilder {
 	return &CacheKeyBuilder{
-		includeParams: true,
+		includeParams:  true,
 		includeHeaders: []string{"Authorization", "Accept"}, // Include auth and accept headers in key
 	}
 }
@@ -119,14 +119,14 @@ type JiraCacheRepository interface {
 
 // CacheStats represents cache statistics
 type CacheStats struct {
-	TotalEntries    int64     `json:"total_entries"`
-	TotalSizeBytes  int64     `json:"total_size_bytes"`
-	HitCount        int64     `json:"hit_count"`
-	MissCount       int64     `json:"miss_count"`
-	HitRatio        float64   `json:"hit_ratio"`
-	OldestEntry     time.Time `json:"oldest_entry"`
-	NewestEntry     time.Time `json:"newest_entry"`
-	ExpiredEntries  int64     `json:"expired_entries"`
+	TotalEntries   int64     `json:"total_entries"`
+	TotalSizeBytes int64     `json:"total_size_bytes"`
+	HitCount       int64     `json:"hit_count"`
+	MissCount      int64     `json:"miss_count"`
+	HitRatio       float64   `json:"hit_ratio"`
+	OldestEntry    time.Time `json:"oldest_entry"`
+	NewestEntry    time.Time `json:"newest_entry"`
+	ExpiredEntries int64     `json:"expired_entries"`
 }
 
 // InMemoryJiraCacheRepository is an in-memory implementation for development/testing
@@ -250,11 +250,11 @@ func (r *InMemoryJiraCacheRepository) updateHitRatio() {
 
 // JiraCacheManager provides comprehensive caching for Jira operations
 type JiraCacheManager struct {
-	config           JiraCacheConfig
-	repository       JiraCacheRepository
-	keyBuilder       *CacheKeyBuilder
-	logger           observability.Logger
-	metrics          observability.MetricsClient
+	config     JiraCacheConfig
+	repository JiraCacheRepository
+	keyBuilder *CacheKeyBuilder
+	logger     observability.Logger
+	metrics    observability.MetricsClient
 
 	// Operation-specific invalidation rules
 	invalidationRules map[string][]string
@@ -491,9 +491,9 @@ func (jcm *JiraCacheManager) InvalidateByOperation(ctx context.Context, operatio
 	}
 
 	jcm.logger.Debug("Cache invalidated by operation", map[string]interface{}{
-		"trigger_operation":   operation,
+		"trigger_operation":      operation,
 		"invalidated_operations": operationsToInvalidate,
-		"invalidated_count":   invalidatedCount,
+		"invalidated_count":      invalidatedCount,
 	})
 
 	return nil
@@ -570,7 +570,7 @@ func (jcm *JiraCacheManager) GetCacheStats(ctx context.Context) (CacheStats, err
 func GetDefaultJiraCacheConfig() JiraCacheConfig {
 	return JiraCacheConfig{
 		EnableResponseCaching: true,
-		DefaultTTL:           5 * time.Minute,
+		DefaultTTL:            5 * time.Minute,
 		OperationTTLs: map[string]time.Duration{
 			// Issue operations
 			"get_issue":             10 * time.Minute,
@@ -578,22 +578,22 @@ func GetDefaultJiraCacheConfig() JiraCacheConfig {
 			"get_issue_transitions": 30 * time.Minute,
 
 			// Project operations
-			"get_project":           30 * time.Minute,
-			"get_projects":          15 * time.Minute,
+			"get_project":  30 * time.Minute,
+			"get_projects": 15 * time.Minute,
 
 			// Workflow operations (more stable)
-			"get_workflows":         1 * time.Hour,
-			"get_workflow":          1 * time.Hour,
+			"get_workflows": 1 * time.Hour,
+			"get_workflow":  1 * time.Hour,
 
 			// Comments (frequently updated)
-			"get_comments":          1 * time.Minute,
+			"get_comments": 1 * time.Minute,
 
 			// User/meta operations (fairly stable)
-			"get_current_user":      10 * time.Minute,
-			"get_server_info":       1 * time.Hour,
+			"get_current_user": 10 * time.Minute,
+			"get_server_info":  1 * time.Hour,
 		},
-		EnableETags:      true,
-		MaxCacheSizeMB:   100, // 100MB default
+		EnableETags:    true,
+		MaxCacheSizeMB: 100, // 100MB default
 		InvalidationPatterns: []string{
 			"*issue*", // Invalidate anything with "issue" in operation name
 		},

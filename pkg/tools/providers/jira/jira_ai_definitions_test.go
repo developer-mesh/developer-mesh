@@ -10,8 +10,8 @@ import (
 
 func TestJiraAIDefinitions(t *testing.T) {
 	provider := &JiraProvider{
-		enabledToolsets:   make(map[string]bool),
-		toolsetRegistry:   make(map[string]*Toolset),
+		enabledToolsets: make(map[string]bool),
+		toolsetRegistry: make(map[string]*Toolset),
 	}
 
 	// Set up test toolsets
@@ -44,8 +44,8 @@ func TestJiraAIDefinitions(t *testing.T) {
 
 func TestJiraIssuesAIDefinition(t *testing.T) {
 	provider := &JiraProvider{
-		enabledToolsets:   make(map[string]bool),
-		toolsetRegistry:   make(map[string]*Toolset),
+		enabledToolsets: make(map[string]bool),
+		toolsetRegistry: make(map[string]*Toolset),
 	}
 
 	// Enable only issues toolset
@@ -143,8 +143,8 @@ func TestJiraIssuesAIDefinition(t *testing.T) {
 
 func TestJiraSearchAIDefinition(t *testing.T) {
 	provider := &JiraProvider{
-		enabledToolsets:   make(map[string]bool),
-		toolsetRegistry:   make(map[string]*Toolset),
+		enabledToolsets: make(map[string]bool),
+		toolsetRegistry: make(map[string]*Toolset),
 	}
 
 	// Enable only search toolset
@@ -217,8 +217,8 @@ func TestJiraSearchAIDefinition(t *testing.T) {
 
 func TestJiraCommentsAIDefinition(t *testing.T) {
 	provider := &JiraProvider{
-		enabledToolsets:   make(map[string]bool),
-		toolsetRegistry:   make(map[string]*Toolset),
+		enabledToolsets: make(map[string]bool),
+		toolsetRegistry: make(map[string]*Toolset),
 	}
 
 	// Enable only comments toolset
@@ -290,8 +290,8 @@ func TestJiraCommentsAIDefinition(t *testing.T) {
 
 func TestJiraWorkflowAIDefinition(t *testing.T) {
 	provider := &JiraProvider{
-		enabledToolsets:   make(map[string]bool),
-		toolsetRegistry:   make(map[string]*Toolset),
+		enabledToolsets: make(map[string]bool),
+		toolsetRegistry: make(map[string]*Toolset),
 	}
 
 	// Enable only workflow toolset
@@ -372,8 +372,8 @@ func TestJiraWorkflowAIDefinition(t *testing.T) {
 
 func TestJiraHelpAIDefinition(t *testing.T) {
 	provider := &JiraProvider{
-		enabledToolsets:   make(map[string]bool),
-		toolsetRegistry:   make(map[string]*Toolset),
+		enabledToolsets: make(map[string]bool),
+		toolsetRegistry: make(map[string]*Toolset),
 	}
 
 	// Help is always included regardless of toolsets
@@ -418,8 +418,8 @@ func TestJiraHelpAIDefinition(t *testing.T) {
 
 func TestDisabledToolsetsExcluded(t *testing.T) {
 	provider := &JiraProvider{
-		enabledToolsets:   make(map[string]bool),
-		toolsetRegistry:   make(map[string]*Toolset),
+		enabledToolsets: make(map[string]bool),
+		toolsetRegistry: make(map[string]*Toolset),
 	}
 
 	// Set up some toolsets but only enable issues
@@ -450,8 +450,8 @@ func TestDisabledToolsetsExcluded(t *testing.T) {
 
 func TestAllToolsetsEnabled(t *testing.T) {
 	provider := &JiraProvider{
-		enabledToolsets:   make(map[string]bool),
-		toolsetRegistry:   make(map[string]*Toolset),
+		enabledToolsets: make(map[string]bool),
+		toolsetRegistry: make(map[string]*Toolset),
 	}
 
 	// Enable all toolsets
@@ -476,8 +476,8 @@ func TestAllToolsetsEnabled(t *testing.T) {
 
 func TestUsageExampleStructure(t *testing.T) {
 	provider := &JiraProvider{
-		enabledToolsets:   make(map[string]bool),
-		toolsetRegistry:   make(map[string]*Toolset),
+		enabledToolsets: make(map[string]bool),
+		toolsetRegistry: make(map[string]*Toolset),
 	}
 
 	setupTestToolsets(provider)

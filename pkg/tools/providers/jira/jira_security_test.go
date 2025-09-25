@@ -33,46 +33,46 @@ func TestJiraSecurityManager_DetectPII(t *testing.T) {
 	require.NoError(t, err)
 
 	tests := []struct {
-		name           string
-		data           string
-		expectedTypes  []string
-		expectPII      bool
+		name          string
+		data          string
+		expectedTypes []string
+		expectPII     bool
 	}{
 		{
-			name: "detect email",
-			data: `{"email": "user@example.com"}`,
+			name:          "detect email",
+			data:          `{"email": "user@example.com"}`,
 			expectedTypes: []string{"email"},
-			expectPII: true,
+			expectPII:     true,
 		},
 		{
-			name: "detect Jira API token",
-			data: `{"token": "ATATT3xFfGF0T4JzLgOyUBMNAT-EXAMPLE"}`,
+			name:          "detect Jira API token",
+			data:          `{"token": "ATATT3xFfGF0T4JzLgOyUBMNAT-EXAMPLE"}`,
 			expectedTypes: []string{"jira_api_token"},
-			expectPII: true,
+			expectPII:     true,
 		},
 		{
-			name: "detect Atlassian account ID",
-			data: `{"accountId": "557058:f1d6d2e8-4f2d-4f1e-8a1e-1234567890ab"}`,
+			name:          "detect Atlassian account ID",
+			data:          `{"accountId": "557058:f1d6d2e8-4f2d-4f1e-8a1e-1234567890ab"}`,
 			expectedTypes: []string{"atlassian_account_id"},
-			expectPII: true,
+			expectPII:     true,
 		},
 		{
-			name: "detect session ID",
-			data: `JSESSIONID=ABC123456789`,
+			name:          "detect session ID",
+			data:          `JSESSIONID=ABC123456789`,
 			expectedTypes: []string{"jira_session_id"},
-			expectPII: true,
+			expectPII:     true,
 		},
 		{
-			name: "no PII detected",
-			data: `{"project": "TEST", "summary": "A test issue"}`,
+			name:          "no PII detected",
+			data:          `{"project": "TEST", "summary": "A test issue"}`,
 			expectedTypes: []string{},
-			expectPII: false,
+			expectPII:     false,
 		},
 		{
-			name: "multiple PII types",
-			data: `{"email": "user@test.com", "accountId": "557058:f1d6d2e8-4f2d-4f1e-8a1e-1234567890ab"}`,
+			name:          "multiple PII types",
+			data:          `{"email": "user@test.com", "accountId": "557058:f1d6d2e8-4f2d-4f1e-8a1e-1234567890ab"}`,
 			expectedTypes: []string{"email", "atlassian_account_id"},
-			expectPII: true,
+			expectPII:     true,
 		},
 	}
 
@@ -345,8 +345,8 @@ func TestJiraSecurityManager_CalculateJiraConfidence(t *testing.T) {
 	require.NoError(t, err)
 
 	tests := []struct {
-		piiType          string
-		expectedRange    []float64 // [min, max]
+		piiType       string
+		expectedRange []float64 // [min, max]
 	}{
 		{"jira_api_token", []float64{0.9, 1.0}},
 		{"atlassian_account_id", []float64{0.85, 0.95}},
