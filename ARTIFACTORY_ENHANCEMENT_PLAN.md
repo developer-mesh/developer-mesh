@@ -55,32 +55,59 @@ Following the GitHub provider pattern with operation mappings and passthrough au
 ## Epic 1: Enhance Core Artifactory Operations
 
 ### Story 1.0: Add Permission-Based Operation Filtering
-**Points:** 5
+**Points:** 8 (increased due to discovery component)
 **Dependencies:** Research Task 1
 **Critical:** Must be implemented for security compliance
 **Acceptance Criteria:**
-- Implement `FilterOperationsByPermissions` method
-- Filter operations based on user's actual JFrog permissions
-- Support read-only fallback for limited permissions
+- Create `ArtifactoryPermissionDiscoverer` following Harness pattern
+- Implement permission discovery by probing JFrog API endpoints
+- Filter operations based on discovered permissions
+- Support graceful degradation for limited permissions
 - Cache permission discovery results
 
 **Technical Tasks:**
-- Research JFrog permission API endpoints (whoami, permissions list)
-- Implement permission discovery similar to GitLab/Nexus pattern:
+- Create permission discoverer following Harness pattern:
   ```go
-  func (p *ArtifactoryProvider) FilterOperationsByPermissions(
-      operations []string,
-      permissions map[string]interface{},
-  ) []string {
-      // Filter based on user role/permissions
+  // pkg/tools/providers/artifactory/permission_discoverer.go
+  type ArtifactoryPermissionDiscoverer struct {
+      logger     observability.Logger
+      httpClient *http.Client
+  }
+
+  type ArtifactoryPermissions struct {
+      UserInfo       map[string]interface{}
+      Repositories   map[string][]string  // repo -> permissions (read/write/admin)
+      EnabledFeatures map[string]bool     // feature -> enabled
+      IsAdmin        bool
+  }
+
+  func (d *ArtifactoryPermissionDiscoverer) DiscoverPermissions(
+      ctx context.Context,
+      apiKey string,
+  ) (*ArtifactoryPermissions, error) {
+      // 1. Get user identity
+      // 2. Probe repository access
+      // 3. Check admin capabilities
+      // 4. Test feature availability
+  }
+
+  func (d *ArtifactoryPermissionDiscoverer) FilterOperationsByPermissions(
+      operationMappings map[string]interface{},
+      permissions *ArtifactoryPermissions,
+  ) map[string]bool {
+      // Filter based on discovered permissions
   }
   ```
-- Add permission caching to reduce API calls
-- Map JFrog roles to allowed operations:
-  - Admin: All operations
-  - Developer: Read + write artifacts, no admin operations
-  - Reader: Read-only operations
-- Add tests for different permission levels
+- Probe endpoints to discover actual permissions:
+  - User identity: `/api/security/users/current` or `/api/system/security/permissions/user`
+  - Repository access: Try listing repos with different filters
+  - Admin check: Probe admin-only endpoints
+  - Feature detection: Check if Xray, Pipeline, etc. are available
+- Map discovered permissions to operations:
+  - Admin operations require `IsAdmin: true`
+  - Write operations require write permission on repositories
+  - Security operations require admin or security manager role
+- Add comprehensive tests with mocked responses
 
 ## Epic 1: Enhance Core Artifactory Operations (continued)
 
