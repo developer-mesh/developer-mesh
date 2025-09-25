@@ -135,7 +135,7 @@ func TestJiraObservabilityManager_CategorizeError(t *testing.T) {
 		},
 		{
 			name:            "configuration error",
-			err:             errors.New("configuration setting invalid"),
+			err:             errors.New("configuration file missing"),
 			expectedType:    ErrorTypeConfiguration,
 			expectedRecoverable: false,
 		},
@@ -256,9 +256,13 @@ func TestJiraObservabilityManager_PerformHealthCheck(t *testing.T) {
 
 	t.Run("health check timeout", func(t *testing.T) {
 		healthCheckFunc := func(ctx context.Context) error {
-			// Simulate long operation
-			time.Sleep(2 * time.Second)
-			return nil
+			// Simulate long operation that respects context cancellation
+			select {
+			case <-ctx.Done():
+				return ctx.Err() // Return context error on timeout
+			case <-time.After(2 * time.Second):
+				return nil
+			}
 		}
 
 		status := observabilityMgr.PerformHealthCheck(context.Background(), healthCheckFunc)

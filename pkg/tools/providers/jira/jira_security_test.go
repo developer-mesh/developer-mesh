@@ -269,8 +269,8 @@ func TestGetDefaultJiraSecurityConfig(t *testing.T) {
 	config := GetDefaultJiraSecurityConfig()
 
 	// Verify base security configuration
-	assert.Greater(t, config.TokenRotationInterval, 0)
-	assert.Greater(t, config.TokenTTL, 0)
+	assert.Greater(t, config.TokenRotationInterval, time.Duration(0))
+	assert.Greater(t, config.TokenTTL, time.Duration(0))
 	assert.Greater(t, config.MaxTokensPerUser, 0)
 	assert.True(t, config.EncryptionEnabled)
 	assert.Equal(t, "AES-256-GCM", config.EncryptionAlgorithm)
