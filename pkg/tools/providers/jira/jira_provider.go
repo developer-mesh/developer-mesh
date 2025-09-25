@@ -62,6 +62,7 @@ type JiraProvider struct {
 	encryptionSvc  *security.EncryptionService
 	securityMgr      *JiraSecurityManager      // Epic 4, Story 4.1 - Security Features
 	observabilityMgr *JiraObservabilityManager // Epic 4, Story 4.2 - Observability Features
+	cacheManager     *JiraCacheManager         // Epic 4, Story 4.3 - Caching Layer
 
 	// Handler registry
 	toolRegistry    map[string]ToolHandler
@@ -118,6 +119,11 @@ func NewJiraProvider(logger observability.Logger, domain string) *JiraProvider {
 	observabilityConfig := GetDefaultJiraObservabilityConfig()
 	observabilityMgr := NewJiraObservabilityManager(observabilityConfig, logger)
 
+	// Initialize cache manager with default configuration
+	cacheConfig := GetDefaultJiraCacheConfig()
+	cacheRepository := NewInMemoryJiraCacheRepository() // Use in-memory cache for now
+	cacheManager := NewJiraCacheManager(cacheConfig, cacheRepository, logger)
+
 	// Use secure HTTP client from security manager, or fallback to default
 	var httpClient *http.Client
 	if securityMgr != nil {
@@ -136,6 +142,7 @@ func NewJiraProvider(logger observability.Logger, domain string) *JiraProvider {
 		encryptionSvc:    security.NewEncryptionService(""),
 		securityMgr:      securityMgr,
 		observabilityMgr: observabilityMgr,
+		cacheManager:     cacheManager,
 		toolRegistry:     make(map[string]ToolHandler),
 		toolsetRegistry:  make(map[string]*Toolset),
 		enabledToolsets:  make(map[string]bool),
@@ -1526,6 +1533,7 @@ func (p *JiraProvider) buildURL(path string) string {
 // secureHTTPDo performs an HTTP request with security and observability features
 // Epic 4, Story 4.1 - Security (PII detection, sanitization, audit logging)
 // Epic 4, Story 4.2 - Observability (operation tracking, metrics, error handling)
+// Epic 4, Story 4.3 - Caching Layer (response caching, ETags support, cache invalidation)
 func (p *JiraProvider) secureHTTPDo(ctx context.Context, req *http.Request, operation string) (*http.Response, error) {
 	start := time.Now()
 
@@ -1533,6 +1541,26 @@ func (p *JiraProvider) secureHTTPDo(ctx context.Context, req *http.Request, oper
 	var operationFinish func(error)
 	if p.observabilityMgr != nil {
 		ctx, operationFinish = p.observabilityMgr.StartOperation(ctx, operation)
+	}
+
+	// Epic 4, Story 4.3 - Check cache for GET requests before making HTTP call
+	var cacheEntry *CacheEntry
+	if p.cacheManager != nil && p.cacheManager.IsCacheable(req.Method, operation) {
+		// Convert headers to map[string]string for cache manager
+		headerMap := make(map[string]string)
+		for key, values := range req.Header {
+			if len(values) > 0 {
+				headerMap[key] = values[0] // Use first value
+			}
+		}
+
+		// Check cache first
+		var err error
+		cacheEntry, err = p.cacheManager.Get(ctx, req.Method, req.URL.String(), operation, headerMap)
+		if err == nil && cacheEntry != nil {
+			// Cache hit - add conditional headers using cache manager
+			p.cacheManager.AddConditionalHeaders(req, cacheEntry)
+		}
 	}
 
 	// Apply request sanitization if security manager is available
@@ -1582,6 +1610,20 @@ func (p *JiraProvider) secureHTTPDo(ctx context.Context, req *http.Request, oper
 		}
 
 		return resp, categorizedErr
+	}
+
+	// Epic 4, Story 4.3 - Handle 304 Not Modified responses (cache still valid)
+	if resp.StatusCode == http.StatusNotModified && cacheEntry != nil && p.cacheManager != nil {
+		// Use cache manager to handle conditional response
+		cachedResp, _, isValid := p.cacheManager.HandleConditionalResponse(resp, cacheEntry)
+		if isValid && cachedResp != nil {
+			// Finish successful operation tracking
+			if operationFinish != nil {
+				operationFinish(nil)
+			}
+
+			return cachedResp, nil
+		}
 	}
 
 	// Record HTTP metrics
@@ -1655,6 +1697,40 @@ func (p *JiraProvider) secureHTTPDo(ctx context.Context, req *http.Request, oper
 		})
 	}
 
+	// Epic 4, Story 4.3 - Cache successful responses for GET requests
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 && p.cacheManager != nil &&
+	   p.cacheManager.IsCacheable(req.Method, operation) {
+
+		// Read response body for caching (need to preserve it for caller)
+		if resp.Body != nil {
+			bodyBytes, err := io.ReadAll(resp.Body)
+			if err == nil {
+				// Convert headers to map[string]string
+				headerMap := make(map[string]string)
+				for key, values := range req.Header {
+					if len(values) > 0 {
+						headerMap[key] = values[0]
+					}
+				}
+
+				// Cache the successful response
+				if err := p.cacheManager.Set(ctx, req.Method, req.URL.String(), operation, headerMap, resp, bodyBytes); err != nil {
+					// Log caching failure but don't fail the request
+					logger := p.BaseProvider.GetLogger()
+					logger.Warn("Failed to cache response", map[string]interface{}{
+						"error":     err.Error(),
+						"operation": operation,
+						"url":       req.URL.String(),
+					})
+				}
+
+				// Replace the response body so caller can still read it
+				resp.Body = io.NopCloser(strings.NewReader(string(bodyBytes)))
+				resp.ContentLength = int64(len(bodyBytes))
+			}
+		}
+	}
+
 	// Handle HTTP errors (4xx, 5xx) with proper categorization
 	if resp.StatusCode >= 400 {
 		httpErr := fmt.Errorf("HTTP %d: %s", resp.StatusCode, resp.Status)
@@ -1671,6 +1747,23 @@ func (p *JiraProvider) secureHTTPDo(ctx context.Context, req *http.Request, oper
 		}
 
 		return resp, categorizedErr
+	}
+
+	// Epic 4, Story 4.3 - Cache invalidation for write operations
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 && p.cacheManager != nil {
+		// Invalidate cache for write operations (POST, PUT, DELETE, PATCH)
+		if req.Method != "GET" && req.Method != "HEAD" && req.Method != "OPTIONS" {
+			if err := p.cacheManager.InvalidateByOperation(ctx, operation); err != nil {
+				// Log invalidation failure but don't fail the request
+				logger := p.BaseProvider.GetLogger()
+				logger.Warn("Failed to invalidate cache", map[string]interface{}{
+					"error":     err.Error(),
+					"operation": operation,
+					"method":    req.Method,
+					"url":       req.URL.String(),
+				})
+			}
+		}
 	}
 
 	// Finish successful operation tracking
