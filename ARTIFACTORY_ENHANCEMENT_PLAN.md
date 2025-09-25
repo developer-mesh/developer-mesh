@@ -71,16 +71,18 @@ Following the GitHub provider pattern with operation mappings and passthrough au
 
 ### Story 1.3: Add Project-Based Operations
 **Points:** 5
+**Dependencies:** Research Task 1
 **Acceptance Criteria:**
-- Add project management operations (list, get, create, update, delete)
-- Support project-scoped repository access
-- Handle project membership and permissions
+- Add project management operations if supported by JFrog API
+- Support project-scoped repository access if available
+- Handle project membership and permissions based on API capabilities
 
 **Technical Tasks:**
-- Add project operations: `projects/list`, `projects/get`, `projects/create`, `projects/update`, `projects/delete`
-- Implement project context in operation parameters
-- Add project filtering to existing repository operations
-- Update permission operations to support project scope
+- Research if JFrog Projects API exists and its endpoints
+- Determine project operation names and parameters from API docs
+- Implement project context only if supported by API
+- Add project filtering only if API supports this feature
+- Update permission operations based on actual API capabilities
 
 ## Epic 2: Add Xray Security Scanning Support
 
@@ -123,36 +125,34 @@ Following the GitHub provider pattern with operation mappings and passthrough au
 
 ### Story 2.3: Implement Xray Component Intelligence
 **Points:** 8
+**Dependencies:** Research Task 1
 **Acceptance Criteria:**
-- Add component vulnerability lookup
-- Support CVE and security advisory queries
-- Include license compliance checking
-- Handle component graph analysis
+- Add component vulnerability lookup based on actual Xray API
+- Support CVE queries if available in API
+- Include license compliance if supported by API
+- Handle component graph analysis if API provides this
 
 **Technical Tasks:**
-- Add operations:
-  - `components/vulnerabilities` - Get vulnerabilities for component
-  - `components/licenses` - Check license compliance
-  - `components/graph` - Get dependency graph
-  - `components/impact` - Analyze impact analysis
-- Implement component version handling
-- Add support for multiple package types (Maven, npm, Docker, etc.)
+- Research actual Xray Component API endpoints
+- Determine available component intelligence features in API
+- Add operations based on actual API capabilities (not assumed names)
+- Implement component version handling as per API specification
+- Add support for package types actually supported by API
 
 ### Story 2.4: Implement Xray Reports and Metrics
 **Points:** 5
+**Dependencies:** Research Task 1
 **Acceptance Criteria:**
-- Add report generation operations
-- Support vulnerability reports, license reports, operational risk
-- Include metrics and dashboard data
+- Add report generation operations if supported by Xray API
+- Support report types available in actual API
+- Include metrics based on API capabilities
 
 **Technical Tasks:**
-- Add report operations:
-  - `reports/vulnerabilities` - Generate vulnerability report
-  - `reports/licenses` - Generate license report
-  - `reports/operational-risk` - Generate operational risk report
-  - `metrics/summary` - Get security metrics
-- Implement report format options (JSON, PDF, CSV)
-- Add date range and filtering parameters
+- Research actual Xray Reports API endpoints
+- Determine available report types and formats from API
+- Add operations based on actual API (not assumed operation names)
+- Implement only supported report formats (verify JSON, PDF, CSV availability)
+- Add filtering parameters as actually supported by API
 
 ## Epic 3: Add Runtime Management Features
 
@@ -190,29 +190,31 @@ Following the GitHub provider pattern with operation mappings and passthrough au
 
 ### Story 4.1: Add Passthrough Authentication for Xray
 **Points:** 3
+**Dependencies:** Research Task 3
 **Acceptance Criteria:**
-- Xray provider supports same auth as Artifactory
-- Handle unified platform tokens
-- Support instance-specific endpoints
+- Xray provider supports same auth as Artifactory (if confirmed by research)
+- Handle unified platform tokens (if they exist)
+- Support instance-specific endpoints based on actual URL patterns
 
 **Technical Tasks:**
-- Implement auth header forwarding in Xray provider
-- Add platform token validation
-- Support both cloud and self-hosted URLs
-- Test with various auth methods (token, API key)
+- Implement auth based on Research Task 3 findings
+- Add only validated authentication methods
+- Support URL patterns as documented by JFrog
+- Test only with confirmed auth methods
 
 ### Story 4.2: Create Integration Tests
 **Points:** 8
+**Dependencies:** All implementation stories
 **Acceptance Criteria:**
-- Mock server responses for new operations
-- End-to-end testing for critical paths
-- Performance benchmarks for AQL queries
+- Mock server responses based on actual API responses
+- End-to-end testing for implemented operations
+- Performance testing based on actual API behavior
 
 **Technical Tasks:**
-- Extend mockserver to handle Xray endpoints
-- Create test fixtures for vulnerability data
-- Add integration tests for cross-service operations
-- Implement rate limiting tests
+- Extend mockserver based on actual API response formats
+- Create test fixtures using documented response structures
+- Add integration tests for actually implemented operations
+- Test rate limiting based on documented limits (if any)
 
 ### Story 4.3: Update Documentation and Examples
 **Points:** 3
@@ -229,18 +231,21 @@ Following the GitHub provider pattern with operation mappings and passthrough au
 
 ## Epic 5: Enhanced Search and Discovery
 
-### Story 5.1: Implement Advanced Search Operations
+### Story 5.1: Enhance Existing Search Operations
 **Points:** 5
+**Dependencies:** Research Task 1
+**Note:** We already have search operations - this enhances them
 **Acceptance Criteria:**
-- Support property-based search with complex queries
-- Add checksum search across repositories
-- Include pattern-based file discovery
+- Enhance existing search operations based on API documentation
+- Add additional search parameters if supported by API
+- Support batch operations if API allows
 
 **Technical Tasks:**
-- Enhance existing search operations with more parameters
-- Add batch search capabilities
-- Implement search result aggregation
-- Add search history/saved searches support
+- Review existing search operations against latest API docs
+- Add any missing parameters to existing operations
+- Implement batch search only if API supports it
+- Add result aggregation only if natively supported
+- No saved searches unless API provides this feature
 
 ### Story 5.2: Add Package Discovery Features
 **Points:** 5
@@ -288,7 +293,8 @@ Following the GitHub provider pattern with operation mappings and passthrough au
 **Phase 5 (Sprint 9):**
 - Story 5.2: Package Discovery
 - Story 4.3: Documentation
-- Performance optimization and bug fixes
+- Performance optimization based on actual API behavior
+- Bug fixes as discovered during testing
 
 ## Technical Considerations
 
@@ -352,9 +358,9 @@ Operations from JFrog MCP that need equivalents in our implementation:
 22. `jfrog_get_artifacts_summary` - **NEW: Story 2.2**
 
 ## Success Metrics
-- All 22 operations from JFrog MCP have equivalent or better coverage
+- Operations inspired by JFrog MCP are implemented where API support exists
 - Provider(s) pass all StandardToolProvider interface tests
 - No breaking changes to existing Artifactory operations
-- Maintains reasonable response times for standard operations
-- 80%+ test coverage on new code
-- Clear documentation of actual vs inspired implementations
+- Response times align with actual API performance characteristics
+- Test coverage target of 80%+ (may adjust based on complexity)
+- Clear documentation of what was implemented vs what was not possible
