@@ -10,12 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// contextKey is a type for context keys to avoid collisions
-type contextKey string
-
-const (
-	confluenceTokenKey contextKey = "confluence_token"
-)
+// Note: Using string key for legacy context value test
+// In production, use a proper type for context keys
 
 func TestConfluenceProvider_ExtractAuthToken(t *testing.T) {
 	logger := &observability.NoopLogger{}
@@ -162,7 +158,7 @@ func TestConfluenceProvider_ExtractAuthToken(t *testing.T) {
 		// Priority 5: Context value (legacy)
 		{
 			name:          "context value with token",
-			ctx:           context.WithValue(context.Background(), confluenceTokenKey, "user@example.com:api-token-ctx"),
+			ctx:           context.WithValue(context.Background(), "confluence_token", "user@example.com:api-token-ctx"),
 			params:        map[string]interface{}{},
 			expectedEmail: "user@example.com",
 			expectedToken: "api-token-ctx",
