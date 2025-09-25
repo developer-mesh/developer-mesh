@@ -381,8 +381,8 @@ func (h *UpdateIssueHandler) Execute(ctx context.Context, params map[string]inte
 
 				if getResp, err := h.provider.httpClient.Do(getReq); err == nil {
 					defer func() {
-			_ = getResp.Body.Close()
-		}()
+						_ = getResp.Body.Close()
+					}()
 					if getResp.StatusCode == http.StatusOK {
 						var issueData map[string]interface{}
 						if json.NewDecoder(getResp.Body).Decode(&issueData) == nil {
@@ -534,8 +534,8 @@ func (h *DeleteIssueHandler) Execute(ctx context.Context, params map[string]inte
 
 				if getResp, err := h.provider.httpClient.Do(getReq); err == nil {
 					defer func() {
-			_ = getResp.Body.Close()
-		}()
+						_ = getResp.Body.Close()
+					}()
 					if getResp.StatusCode == http.StatusOK {
 						var issueData map[string]interface{}
 						if json.NewDecoder(getResp.Body).Decode(&issueData) == nil {
