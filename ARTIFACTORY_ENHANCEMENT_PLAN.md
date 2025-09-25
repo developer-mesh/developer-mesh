@@ -30,6 +30,10 @@ Following the GitHub provider pattern with operation mappings and passthrough au
 - Map JFrog MCP tool names to actual API calls
 - Identify authentication requirements for each service
 - Document response formats and error codes
+- **Research permission/role APIs for filtering:**
+  - User identity endpoint (whoami equivalent)
+  - Permission listing endpoints
+  - Role/group membership APIs
 
 ### Research Task 2: Architecture Decision - Provider Structure
 **Points:** 2
@@ -49,6 +53,36 @@ Following the GitHub provider pattern with operation mappings and passthrough au
 - Document header requirements (Authorization, X-JFrog-Art-Api, etc.)
 
 ## Epic 1: Enhance Core Artifactory Operations
+
+### Story 1.0: Add Permission-Based Operation Filtering
+**Points:** 5
+**Dependencies:** Research Task 1
+**Critical:** Must be implemented for security compliance
+**Acceptance Criteria:**
+- Implement `FilterOperationsByPermissions` method
+- Filter operations based on user's actual JFrog permissions
+- Support read-only fallback for limited permissions
+- Cache permission discovery results
+
+**Technical Tasks:**
+- Research JFrog permission API endpoints (whoami, permissions list)
+- Implement permission discovery similar to GitLab/Nexus pattern:
+  ```go
+  func (p *ArtifactoryProvider) FilterOperationsByPermissions(
+      operations []string,
+      permissions map[string]interface{},
+  ) []string {
+      // Filter based on user role/permissions
+  }
+  ```
+- Add permission caching to reduce API calls
+- Map JFrog roles to allowed operations:
+  - Admin: All operations
+  - Developer: Read + write artifacts, no admin operations
+  - Reader: Read-only operations
+- Add tests for different permission levels
+
+## Epic 1: Enhance Core Artifactory Operations (continued)
 
 ### Story 1.1: Add AQL (Artifactory Query Language) Support
 **Points:** 5
@@ -104,6 +138,7 @@ Following the GitHub provider pattern with operation mappings and passthrough au
 **Acceptance Criteria:**
 - Implementation based on architecture decision (separate provider or extend Artifactory)
 - Implements StandardToolProvider interface if separate provider
+- Includes permission-based filtering from the start
 - Follows same pattern as existing providers
 - Supports passthrough authentication
 
@@ -122,6 +157,7 @@ Following the GitHub provider pattern with operation mappings and passthrough au
     }
     ```
   - Implement all StandardToolProvider interface methods
+  - **Implement FilterOperationsByPermissions for Xray operations**
   - Add GetAIOptimizedDefinitions() for AI-friendly definitions
 - Add comprehensive tests in same package (xray_provider_test.go)
 
@@ -294,6 +330,7 @@ Following the GitHub provider pattern with operation mappings and passthrough au
 - Research Task 3: Validate Passthrough Authentication
 
 **Phase 1 (Sprint 1-2):**
+- Story 1.0: Add Permission-Based Operation Filtering (CRITICAL)
 - Story 2.1: Implement Provider Structure for Xray
 - Story 1.1: Add AQL Support
 - Story 4.1: Passthrough Authentication for Xray
