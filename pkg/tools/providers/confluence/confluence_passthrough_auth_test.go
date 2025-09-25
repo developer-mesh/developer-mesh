@@ -10,8 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Note: Using string key for legacy context value test
-// In production, use a proper type for context keys
+// Context key confluenceTokenKey is now defined in confluence_provider.go
 
 func TestConfluenceProvider_ExtractAuthToken(t *testing.T) {
 	logger := &observability.NoopLogger{}
@@ -158,7 +157,7 @@ func TestConfluenceProvider_ExtractAuthToken(t *testing.T) {
 		// Priority 5: Context value (legacy)
 		{
 			name:          "context value with token",
-			ctx:           context.WithValue(context.Background(), "confluence_token", "user@example.com:api-token-ctx"),
+			ctx:           context.WithValue(context.Background(), confluenceTokenKey, "user@example.com:api-token-ctx"),
 			params:        map[string]interface{}{},
 			expectedEmail: "user@example.com",
 			expectedToken: "api-token-ctx",

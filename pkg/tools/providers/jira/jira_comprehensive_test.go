@@ -41,10 +41,13 @@ func NewMockAtlassianAPIServer() *MockAtlassianAPIServer {
 			w.Header().Set("X-RateLimit-Remaining", "0")
 			w.Header().Set("X-RateLimit-Reset", fmt.Sprintf("%d", time.Now().Add(time.Hour).Unix()))
 			w.WriteHeader(http.StatusTooManyRequests)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			if err := json.NewEncoder(w).Encode(map[string]interface{}{
 				"errorMessages": []string{"Rate limit exceeded"},
 				"errors":        map[string]string{},
-			})
+			}); err != nil {
+				// Ignore encoding errors in test mock
+				_ = err
+			}
 			return
 		}
 
@@ -52,10 +55,13 @@ func NewMockAtlassianAPIServer() *MockAtlassianAPIServer {
 		if mock.failNextCalls > 0 {
 			mock.failNextCalls--
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			if err := json.NewEncoder(w).Encode(map[string]interface{}{
 				"errorMessages": []string{"Internal server error"},
 				"errors":        map[string]string{},
-			})
+			}); err != nil {
+				// Ignore encoding errors in test mock
+				_ = err
+			}
 			return
 		}
 
@@ -73,10 +79,13 @@ func NewMockAtlassianAPIServer() *MockAtlassianAPIServer {
 			mock.handleUsers(w, r)
 		default:
 			w.WriteHeader(http.StatusNotFound)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			if err := json.NewEncoder(w).Encode(map[string]interface{}{
 				"errorMessages": []string{"Endpoint not found"},
 				"errors":        map[string]string{},
-			})
+			}); err != nil {
+				// Ignore encoding errors in test mock
+				_ = err
+			}
 		}
 	}))
 
@@ -132,7 +141,10 @@ func (m *MockAtlassianAPIServer) handleIssueSearch(w http.ResponseWriter, r *htt
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		// Ignore encoding errors in test mock
+		_ = err
+	}
 }
 
 // handleIssueCRUD handles issue CRUD operations
@@ -144,7 +156,7 @@ func (m *MockAtlassianAPIServer) handleIssueCRUD(w http.ResponseWriter, r *http.
 		w.Header().Set("ETag", `"issue-etag-123"`)
 		w.Header().Set("Last-Modified", time.Now().Add(-time.Hour).Format(http.TimeFormat))
 
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"id":   "10001",
 			"key":  "TEST-1",
 			"self": fmt.Sprintf("%s/rest/api/3/issue/10001", m.server.URL),
@@ -155,17 +167,23 @@ func (m *MockAtlassianAPIServer) handleIssueCRUD(w http.ResponseWriter, r *http.
 					"name": "In Progress",
 				},
 			},
-		})
+		}); err != nil {
+			// Ignore encoding errors in test mock
+			_ = err
+		}
 
 	case "POST":
 		// Create issue
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"id":   "10002",
 			"key":  "TEST-2",
 			"self": fmt.Sprintf("%s/rest/api/3/issue/10002", m.server.URL),
-		})
+		}); err != nil {
+			// Ignore encoding errors in test mock
+			_ = err
+		}
 
 	case "PUT":
 		// Update issue
@@ -182,7 +200,7 @@ func (m *MockAtlassianAPIServer) handleAgileBoards(w http.ResponseWriter, r *htt
 	if strings.Contains(r.URL.Path, "/sprint") {
 		// Return sprint information
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"values": []map[string]interface{}{
 				{
 					"id":        1,
@@ -196,11 +214,14 @@ func (m *MockAtlassianAPIServer) handleAgileBoards(w http.ResponseWriter, r *htt
 			"maxResults": 50,
 			"startAt":    0,
 			"isLast":     true,
-		})
+		}); err != nil {
+			// Ignore encoding errors in test mock
+			_ = err
+		}
 	} else {
 		// Return board information
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"values": []map[string]interface{}{
 				{
 					"id":   1,
@@ -215,7 +236,10 @@ func (m *MockAtlassianAPIServer) handleAgileBoards(w http.ResponseWriter, r *htt
 			"maxResults": 50,
 			"startAt":    0,
 			"isLast":     true,
-		})
+		}); err != nil {
+			// Ignore encoding errors in test mock
+			_ = err
+		}
 	}
 }
 
@@ -226,7 +250,7 @@ func (m *MockAtlassianAPIServer) handleProjects(w http.ResponseWriter, r *http.R
 	// Check for pagination parameters
 	if r.URL.Query().Get("expand") == "description,lead,url,projectKeys" {
 		// Return expanded project information
-		json.NewEncoder(w).Encode([]map[string]interface{}{
+		if err := json.NewEncoder(w).Encode([]map[string]interface{}{
 			{
 				"id":          "10000",
 				"key":         "TEST",
@@ -240,16 +264,22 @@ func (m *MockAtlassianAPIServer) handleProjects(w http.ResponseWriter, r *http.R
 				"simplified":     false,
 				"style":          "classic",
 			},
-		})
+		}); err != nil {
+			// Ignore encoding errors in test mock
+			_ = err
+		}
 	} else {
 		// Return simple project list
-		json.NewEncoder(w).Encode([]map[string]interface{}{
+		if err := json.NewEncoder(w).Encode([]map[string]interface{}{
 			{
 				"id":   "10000",
 				"key":  "TEST",
 				"name": "Test Project",
 			},
-		})
+		}); err != nil {
+			// Ignore encoding errors in test mock
+			_ = err
+		}
 	}
 }
 
@@ -257,7 +287,7 @@ func (m *MockAtlassianAPIServer) handleProjects(w http.ResponseWriter, r *http.R
 func (m *MockAtlassianAPIServer) handleUsers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"accountId":    "test-user-123",
 		"accountType":  "atlassian",
 		"emailAddress": "test@example.com",
@@ -265,7 +295,10 @@ func (m *MockAtlassianAPIServer) handleUsers(w http.ResponseWriter, r *http.Requ
 		"active":       true,
 		"timeZone":     "UTC",
 		"locale":       "en_US",
-	})
+	}); err != nil {
+		// Ignore encoding errors in test mock
+		_ = err
+	}
 }
 
 // Close shuts down the mock server
@@ -294,7 +327,9 @@ func TestJiraProvider_ErrorScenarios(t *testing.T) {
 		require.Error(t, err)
 		if resp != nil {
 			assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
-			resp.Body.Close()
+			if err := resp.Body.Close(); err != nil {
+				t.Logf("Failed to close response body: %v", err)
+			}
 		}
 
 		// Second call should also fail
@@ -330,7 +365,9 @@ func TestJiraProvider_ErrorScenarios(t *testing.T) {
 		if resp != nil {
 			assert.Equal(t, http.StatusTooManyRequests, resp.StatusCode)
 			assert.NotEmpty(t, resp.Header.Get("X-RateLimit-Reset"))
-			resp.Body.Close()
+			if err := resp.Body.Close(); err != nil {
+				t.Logf("Failed to close response body: %v", err)
+			}
 		}
 
 		// Disable rate limiting
@@ -352,7 +389,9 @@ func TestJiraProvider_ErrorScenarios(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "context deadline exceeded")
 		if resp != nil {
-			resp.Body.Close()
+			if err := resp.Body.Close(); err != nil {
+				t.Logf("Failed to close response body: %v", err)
+			}
 		}
 
 		// Reset delay
@@ -367,7 +406,9 @@ func TestJiraProvider_ErrorScenarios(t *testing.T) {
 		require.Error(t, err)
 		if resp != nil {
 			assert.Equal(t, http.StatusNotFound, resp.StatusCode)
-			resp.Body.Close()
+			if err := resp.Body.Close(); err != nil {
+				t.Logf("Failed to close response body: %v", err)
+			}
 		}
 	})
 }
@@ -391,8 +432,12 @@ func TestJiraProvider_PaginationEdgeCases(t *testing.T) {
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 		var result map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&result)
-		resp.Body.Close()
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			t.Logf("Failed to decode response: %v", err)
+		}
+		if err := resp.Body.Close(); err != nil {
+			t.Logf("Failed to close response body: %v", err)
+		}
 
 		assert.Equal(t, "0", result["startAt"])
 		assert.Equal(t, "50", result["maxResults"])
@@ -409,8 +454,12 @@ func TestJiraProvider_PaginationEdgeCases(t *testing.T) {
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 		var result map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&result)
-		resp.Body.Close()
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			t.Logf("Failed to decode response: %v", err)
+		}
+		if err := resp.Body.Close(); err != nil {
+			t.Logf("Failed to close response body: %v", err)
+		}
 
 		assert.Equal(t, "50", result["startAt"])
 	})
@@ -425,8 +474,12 @@ func TestJiraProvider_PaginationEdgeCases(t *testing.T) {
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 		var result map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&result)
-		resp.Body.Close()
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			t.Logf("Failed to decode response: %v", err)
+		}
+		if err := resp.Body.Close(); err != nil {
+			t.Logf("Failed to close response body: %v", err)
+		}
 
 		assert.Equal(t, "100", result["startAt"])
 		// Last page would have fewer results in reality
@@ -442,8 +495,12 @@ func TestJiraProvider_PaginationEdgeCases(t *testing.T) {
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 		var result map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&result)
-		resp.Body.Close()
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			t.Logf("Failed to decode response: %v", err)
+		}
+		if err := resp.Body.Close(); err != nil {
+			t.Logf("Failed to close response body: %v", err)
+		}
 
 		assert.Equal(t, "200", result["startAt"])
 		// Should return empty issues array in reality
@@ -461,8 +518,12 @@ func TestJiraProvider_PaginationEdgeCases(t *testing.T) {
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 		var result map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&result)
-		resp.Body.Close()
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			t.Logf("Failed to decode response: %v", err)
+		}
+		if err := resp.Body.Close(); err != nil {
+			t.Logf("Failed to close response body: %v", err)
+		}
 
 		// Check for performance warning
 		if warnings, ok := result["warningMessages"].([]interface{}); ok {
@@ -497,7 +558,9 @@ func TestJiraProvider_ConcurrentRequests(t *testing.T) {
 
 				resp, err := provider.secureHTTPDo(ctx, req, "issues/get")
 				if resp != nil {
-					resp.Body.Close()
+					if err := resp.Body.Close(); err != nil {
+						t.Logf("Failed to close response body: %v", err)
+					}
 				}
 				results <- err
 			}(i)
@@ -547,7 +610,9 @@ func TestJiraProvider_ConcurrentRequests(t *testing.T) {
 
 				resp, err := provider.secureHTTPDo(ctx, req, "issues/update")
 				if resp != nil {
-					resp.Body.Close()
+					if err := resp.Body.Close(); err != nil {
+						t.Logf("Failed to close response body: %v", err)
+					}
 				}
 				results <- err
 			}(i)
@@ -585,7 +650,9 @@ func TestJiraProvider_AuthenticationScenarios(t *testing.T) {
 		resp, err := provider.secureHTTPDo(ctx, req, "issues/get")
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
-		resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Logf("Failed to close response body: %v", err)
+		}
 	})
 
 	t.Run("Bearer Token Authentication", func(t *testing.T) {
@@ -602,7 +669,9 @@ func TestJiraProvider_AuthenticationScenarios(t *testing.T) {
 		resp, err := provider.secureHTTPDo(ctx, req, "issues/get")
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
-		resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Logf("Failed to close response body: %v", err)
+		}
 	})
 
 	t.Run("Missing Authentication", func(t *testing.T) {
@@ -617,7 +686,9 @@ func TestJiraProvider_AuthenticationScenarios(t *testing.T) {
 		resp, err := provider.secureHTTPDo(ctx, req, "issues/get")
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
-		resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Logf("Failed to close response body: %v", err)
+		}
 	})
 }
 
@@ -640,7 +711,9 @@ func TestJiraProvider_DataIntegrity(t *testing.T) {
 
 		var issue map[string]interface{}
 		err = json.NewDecoder(resp.Body).Decode(&issue)
-		resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Logf("Failed to close response body: %v", err)
+		}
 		require.NoError(t, err)
 
 		// Validate required fields
@@ -672,6 +745,8 @@ func TestJiraProvider_DataIntegrity(t *testing.T) {
 		resp, err := provider.secureHTTPDo(ctx, req, "issues/create")
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusCreated, resp.StatusCode)
-		resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Logf("Failed to close response body: %v", err)
+		}
 	})
 }

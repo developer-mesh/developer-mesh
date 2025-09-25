@@ -310,7 +310,9 @@ func TestJiraProvider_SecureHTTPDo(t *testing.T) {
 		// Echo back request info with test PII
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"email": "user@example.com", "message": "success"}`))
+		if _, err := w.Write([]byte(`{"email": "user@example.com", "message": "success"}`)); err != nil {
+			t.Logf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -330,7 +332,11 @@ func TestJiraProvider_SecureHTTPDo(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 	// Response should be processed (PII detection and sanitization applied)
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Logf("Failed to close response body: %v", err)
+		}
+	}()
 	// The body should be readable (security processing doesn't break the response)
 	body, err := http.Get(server.URL + "/test")
 	assert.NoError(t, err)

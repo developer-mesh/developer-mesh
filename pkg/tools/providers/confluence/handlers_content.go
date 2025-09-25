@@ -164,7 +164,13 @@ func (h *CreatePageHandler) Execute(ctx context.Context, params map[string]inter
 	if err != nil {
 		return NewToolError(fmt.Sprintf("Failed to create page: %v", err)), nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			h.provider.GetLogger().Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	// Parse response
 	var result map[string]interface{}
@@ -353,7 +359,13 @@ func (h *UpdatePageHandler) Execute(ctx context.Context, params map[string]inter
 	if err != nil {
 		return NewToolError(fmt.Sprintf("Failed to update page: %v", err)), nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			h.provider.GetLogger().Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	// Parse response
 	var result map[string]interface{}
@@ -489,7 +501,13 @@ func (h *ListSpacesHandler) Execute(ctx context.Context, params map[string]inter
 	if err != nil {
 		return NewToolError(fmt.Sprintf("Failed to list spaces: %v", err)), nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			h.provider.GetLogger().Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	// Parse response
 	var result map[string]interface{}
@@ -682,7 +700,13 @@ func (h *GetAttachmentsHandler) Execute(ctx context.Context, params map[string]i
 	if err != nil {
 		return NewToolError(fmt.Sprintf("Failed to get attachments: %v", err)), nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			h.provider.GetLogger().Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	// Parse response
 	var result map[string]interface{}

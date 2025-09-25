@@ -63,7 +63,9 @@ func TestGetPageHandler(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				t.Logf("Failed to encode response: %v", err)
+			}
 		}))
 		defer server.Close()
 
@@ -116,7 +118,9 @@ func TestGetPageHandler(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				t.Logf("Failed to encode response: %v", err)
+			}
 		}))
 		defer server.Close()
 
@@ -151,7 +155,9 @@ func TestGetPageHandler(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				t.Logf("Failed to encode response: %v", err)
+			}
 		}))
 		defer server.Close()
 
@@ -223,7 +229,9 @@ func TestGetPageHandler(t *testing.T) {
 			response := map[string]interface{}{
 				"message": "Page not found",
 			}
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				t.Logf("Failed to encode response: %v", err)
+			}
 		}))
 		defer server.Close()
 
@@ -300,7 +308,9 @@ func TestListPagesHandler(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				t.Logf("Failed to encode response: %v", err)
+			}
 		}))
 		defer server.Close()
 
@@ -346,7 +356,9 @@ func TestListPagesHandler(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				t.Logf("Failed to encode response: %v", err)
+			}
 		}))
 		defer server.Close()
 
@@ -392,7 +404,9 @@ func TestListPagesHandler(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				t.Logf("Failed to encode response: %v", err)
+			}
 		}))
 		defer server.Close()
 
@@ -435,7 +449,9 @@ func TestListPagesHandler(t *testing.T) {
 				"results": []interface{}{},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				t.Logf("Failed to encode response: %v", err)
+			}
 		}))
 		defer server.Close()
 
@@ -479,7 +495,8 @@ func TestDeletePageHandler(t *testing.T) {
 	t.Run("Execute Trash Success", func(t *testing.T) {
 		getCallCount := 0
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == "GET" {
+			switch r.Method {
+			case "GET":
 				// First call to check page existence
 				getCallCount++
 				response := map[string]interface{}{
@@ -490,8 +507,10 @@ func TestDeletePageHandler(t *testing.T) {
 					},
 				}
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(response)
-			} else if r.Method == "DELETE" {
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Logf("Failed to encode response: %v", err)
+				}
+			case "DELETE":
 				assert.Contains(t, r.URL.Path, "/pages/123")
 				assert.NotContains(t, r.URL.RawQuery, "purge=true")
 				w.WriteHeader(http.StatusNoContent)
@@ -523,7 +542,8 @@ func TestDeletePageHandler(t *testing.T) {
 
 	t.Run("Execute Purge Success", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == "GET" {
+			switch r.Method {
+			case "GET":
 				response := map[string]interface{}{
 					"id":    "123",
 					"title": "Test Page",
@@ -532,8 +552,10 @@ func TestDeletePageHandler(t *testing.T) {
 					},
 				}
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(response)
-			} else if r.Method == "DELETE" {
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Logf("Failed to encode response: %v", err)
+				}
+			case "DELETE":
 				assert.Contains(t, r.URL.RawQuery, "purge=true")
 				w.WriteHeader(http.StatusNoContent)
 			}
@@ -563,7 +585,8 @@ func TestDeletePageHandler(t *testing.T) {
 
 	t.Run("Execute Page Not Found", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == "GET" {
+			switch r.Method {
+			case "GET":
 				w.WriteHeader(http.StatusNotFound)
 			}
 		}))
@@ -588,7 +611,8 @@ func TestDeletePageHandler(t *testing.T) {
 
 	t.Run("Execute Forbidden Space", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == "GET" {
+			switch r.Method {
+			case "GET":
 				response := map[string]interface{}{
 					"id":    "123",
 					"title": "Test Page",
@@ -597,7 +621,9 @@ func TestDeletePageHandler(t *testing.T) {
 					},
 				}
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(response)
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Logf("Failed to encode response: %v", err)
+				}
 			}
 		}))
 		defer server.Close()

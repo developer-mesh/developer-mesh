@@ -555,7 +555,14 @@ func (jcm *JiraCacheManager) HandleConditionalResponse(resp *http.Response, entr
 
 	// Close the original 304 response body
 	if resp.Body != nil {
-		resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			// Log error but don't fail - this is cleanup
+			if jcm.logger != nil {
+				jcm.logger.Warn("Failed to close response body", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+		}
 	}
 
 	return cachedResp, entry.Body, true

@@ -146,7 +146,13 @@ func (h *GetTransitionsHandler) Execute(ctx context.Context, params map[string]i
 	if err != nil {
 		return NewToolError(fmt.Sprintf("Failed to get transitions: %v", err)), nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			h.provider.GetLogger().Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	// Parse response
 	var result map[string]interface{}
@@ -374,7 +380,13 @@ func (h *TransitionIssueHandler) Execute(ctx context.Context, params map[string]
 	if err != nil {
 		return NewToolError(fmt.Sprintf("Failed to transition issue: %v", err)), nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			h.provider.GetLogger().Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	// Check response status (transitions typically return 204 No Content)
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
@@ -525,7 +537,13 @@ func (h *GetWorkflowsHandler) Execute(ctx context.Context, params map[string]int
 	if err != nil {
 		return NewToolError(fmt.Sprintf("Failed to get workflows: %v", err)), nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			h.provider.GetLogger().Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	// Parse response
 	var result map[string]interface{}
@@ -735,7 +753,13 @@ func (h *AddWorkflowCommentHandler) Execute(ctx context.Context, params map[stri
 	if err != nil {
 		return NewToolError(fmt.Sprintf("Failed to transition issue: %v", err)), nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			h.provider.GetLogger().Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
 		var errorResult map[string]interface{}

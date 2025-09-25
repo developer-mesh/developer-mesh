@@ -82,7 +82,9 @@ func TestSearchContentHandler(t *testing.T) {
 				"size":  2,
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				t.Logf("Failed to encode response: %v", err)
+			}
 		}))
 		defer server.Close()
 
@@ -134,7 +136,9 @@ func TestSearchContentHandler(t *testing.T) {
 				"size":  50, // Indicates there might be more
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				t.Logf("Failed to encode response: %v", err)
+			}
 		}))
 		defer server.Close()
 
@@ -188,7 +192,9 @@ func TestSearchContentHandler(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				t.Logf("Failed to encode response: %v", err)
+			}
 		}))
 		defer server.Close()
 
@@ -235,7 +241,9 @@ func TestSearchContentHandler(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				t.Logf("Failed to encode response: %v", err)
+			}
 		}))
 		defer server.Close()
 
@@ -285,7 +293,9 @@ func TestSearchContentHandler(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				t.Logf("Failed to encode response: %v", err)
+			}
 		}))
 		defer server.Close()
 
@@ -421,7 +431,9 @@ func TestSearchContentHandler(t *testing.T) {
 			response := map[string]interface{}{
 				"message": "Invalid CQL syntax: unexpected token at position 10",
 			}
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				t.Logf("Failed to encode response: %v", err)
+			}
 		}))
 		defer server.Close()
 
@@ -451,7 +463,9 @@ func TestSearchContentHandler(t *testing.T) {
 				"results": []interface{}{},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				t.Logf("Failed to encode response: %v", err)
+			}
 		}))
 		defer server.Close()
 
@@ -492,7 +506,9 @@ func TestSearchContentHandler(t *testing.T) {
 						"results": []interface{}{},
 					}
 					w.Header().Set("Content-Type", "application/json")
-					json.NewEncoder(w).Encode(response)
+					if err := json.NewEncoder(w).Encode(response); err != nil {
+						t.Logf("Failed to encode response: %v", err)
+					}
 				}))
 				defer server.Close()
 
@@ -530,7 +546,9 @@ func TestSearchContentHandler(t *testing.T) {
 				"results": []interface{}{},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				t.Logf("Failed to encode response: %v", err)
+			}
 		}))
 		defer server.Close()
 

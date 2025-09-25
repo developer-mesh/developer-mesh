@@ -17,6 +17,14 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
+// contextKey is a type for context keys to avoid string literals
+type contextKey string
+
+const (
+	// confluenceTokenKey is the context key for Confluence authentication token
+	confluenceTokenKey contextKey = "confluence_token"
+)
+
 // Embed Confluence OpenAPI spec as fallback
 // This will be populated from Atlassian's official spec
 //
@@ -1027,7 +1035,7 @@ func (p *ConfluenceProvider) extractAuthToken(ctx context.Context, params map[st
 	}
 
 	// Priority 5: Try from context value
-	if token, ok := ctx.Value("confluence_token").(string); ok {
+	if token, ok := ctx.Value(confluenceTokenKey).(string); ok {
 		parts := strings.SplitN(token, ":", 2)
 		if len(parts) == 2 {
 			return parts[0], parts[1], nil

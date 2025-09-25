@@ -107,7 +107,13 @@ func (h *GetPageHandler) Execute(ctx context.Context, params map[string]interfac
 	if err != nil {
 		return NewToolError(fmt.Sprintf("Failed to get page: %v", err)), nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			h.provider.GetLogger().Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	// Parse response body
 	var result map[string]interface{}
@@ -270,7 +276,13 @@ func (h *ListPagesHandler) Execute(ctx context.Context, params map[string]interf
 	if err != nil {
 		return NewToolError(fmt.Sprintf("Failed to list pages: %v", err)), nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			h.provider.GetLogger().Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	// Parse response body
 	var result map[string]interface{}
@@ -365,13 +377,20 @@ func (h *DeletePageHandler) Execute(ctx context.Context, params map[string]inter
 			getReq.Header.Set("Accept", "application/json")
 
 			if resp, err := h.provider.httpClient.Do(getReq); err == nil {
-				defer resp.Body.Close()
+				defer func() {
+					if err := resp.Body.Close(); err != nil {
+						h.provider.GetLogger().Warn("Failed to close response body", map[string]interface{}{
+							"error": err.Error(),
+						})
+					}
+				}()
 
-				if resp.StatusCode == http.StatusNotFound {
+				switch resp.StatusCode {
+				case http.StatusNotFound:
 					return NewToolError(fmt.Sprintf("Page %s not found", pageId)), nil
-				} else if resp.StatusCode == http.StatusForbidden {
+				case http.StatusForbidden:
 					return NewToolError(fmt.Sprintf("No permission to access page %s", pageId)), nil
-				} else if resp.StatusCode == http.StatusOK {
+				case http.StatusOK:
 					// Parse the page to get its space for filtering check
 					var pageData map[string]interface{}
 					if err := json.NewDecoder(resp.Body).Decode(&pageData); err == nil {
@@ -413,7 +432,13 @@ func (h *DeletePageHandler) Execute(ctx context.Context, params map[string]inter
 	if err != nil {
 		return NewToolError(fmt.Sprintf("Failed to delete page: %v", err)), nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			h.provider.GetLogger().Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	// Check response - v2 API returns 204 No Content on success
 	if resp.StatusCode == http.StatusNoContent {

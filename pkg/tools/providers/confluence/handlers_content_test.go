@@ -1062,7 +1062,9 @@ func TestGetAttachmentsHandler_Execute(t *testing.T) {
 
 					w.WriteHeader(tt.pageStatus)
 					if tt.pageResponse != nil {
-						json.NewEncoder(w).Encode(tt.pageResponse)
+						if err := json.NewEncoder(w).Encode(tt.pageResponse); err != nil {
+							t.Logf("Failed to encode page response: %v", err)
+						}
 					}
 				} else {
 					// Second call is GET for attachments
@@ -1076,7 +1078,9 @@ func TestGetAttachmentsHandler_Execute(t *testing.T) {
 
 					w.WriteHeader(tt.attachStatus)
 					if tt.attachResponse != nil {
-						json.NewEncoder(w).Encode(tt.attachResponse)
+						if err := json.NewEncoder(w).Encode(tt.attachResponse); err != nil {
+							t.Logf("Failed to encode attach response: %v", err)
+						}
 					}
 				}
 			}))

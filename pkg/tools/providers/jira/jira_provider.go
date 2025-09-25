@@ -18,6 +18,14 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
+// contextKey is a type for context keys to avoid string literals
+type contextKey string
+
+const (
+	// jiraTokenKey is the context key for Jira authentication token
+	jiraTokenKey contextKey = "jira_token"
+)
+
 // Embed Jira Cloud OpenAPI spec as fallback
 //
 //go:embed jira-cloud-openapi.json
@@ -1476,7 +1484,7 @@ func (p *JiraProvider) extractAuthToken(ctx context.Context, params map[string]i
 	}
 
 	// Priority 5: Try from context value
-	if token, ok := ctx.Value("jira_token").(string); ok {
+	if token, ok := ctx.Value(jiraTokenKey).(string); ok {
 		parts := strings.Split(token, ":")
 		if len(parts) == 2 {
 			return parts[0], parts[1], nil
@@ -1567,7 +1575,7 @@ func (p *JiraProvider) secureHTTPDo(ctx context.Context, req *http.Request, oper
 		// Sanitize the request
 		if err := p.securityMgr.SanitizeRequest(req); err != nil {
 			// Log through embedded BaseProvider
-			logger := p.BaseProvider.GetLogger()
+			logger := p.GetLogger()
 			logger.Warn("Request sanitization failed", map[string]interface{}{
 				"error": err.Error(),
 				"url":   req.URL.String(),
@@ -1639,9 +1647,14 @@ func (p *JiraProvider) secureHTTPDo(ctx context.Context, req *http.Request, oper
 		// Read response body for PII detection and sanitization
 		if resp.Body != nil {
 			bodyBytes, err := io.ReadAll(resp.Body)
-			resp.Body.Close()
+			if err := resp.Body.Close(); err != nil {
+				logger := p.GetLogger()
+				logger.Warn("Failed to close response body", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
 			if err != nil {
-				logger := p.BaseProvider.GetLogger()
+				logger := p.GetLogger()
 				logger.Warn("Failed to read response body for security processing", map[string]interface{}{
 					"error": err.Error(),
 				})
@@ -1661,7 +1674,7 @@ func (p *JiraProvider) secureHTTPDo(ctx context.Context, req *http.Request, oper
 			// Detect PII in response
 			piiTypes, err := p.securityMgr.DetectPII(bodyBytes)
 			if err != nil {
-				logger := p.BaseProvider.GetLogger()
+				logger := p.GetLogger()
 				logger.Warn("PII detection failed", map[string]interface{}{
 					"error": err.Error(),
 				})
@@ -1676,7 +1689,7 @@ func (p *JiraProvider) secureHTTPDo(ctx context.Context, req *http.Request, oper
 			// Sanitize response if needed
 			sanitizedBody, err := p.securityMgr.SanitizeResponse(bodyBytes)
 			if err != nil {
-				logger := p.BaseProvider.GetLogger()
+				logger := p.GetLogger()
 				logger.Warn("Response sanitization failed", map[string]interface{}{
 					"error": err.Error(),
 				})
@@ -1715,7 +1728,7 @@ func (p *JiraProvider) secureHTTPDo(ctx context.Context, req *http.Request, oper
 				// Cache the successful response
 				if err := p.cacheManager.Set(ctx, req.Method, req.URL.String(), operation, headerMap, resp, bodyBytes); err != nil {
 					// Log caching failure but don't fail the request
-					logger := p.BaseProvider.GetLogger()
+					logger := p.GetLogger()
 					logger.Warn("Failed to cache response", map[string]interface{}{
 						"error":     err.Error(),
 						"operation": operation,
@@ -1735,7 +1748,7 @@ func (p *JiraProvider) secureHTTPDo(ctx context.Context, req *http.Request, oper
 		httpErr := fmt.Errorf("HTTP %d: %s", resp.StatusCode, resp.Status)
 
 		// Categorize HTTP error
-		var categorizedErr error = httpErr
+		var categorizedErr = httpErr
 		if p.observabilityMgr != nil {
 			categorizedErr = p.observabilityMgr.CategorizeError(httpErr, operation, duration)
 		}
@@ -1754,7 +1767,7 @@ func (p *JiraProvider) secureHTTPDo(ctx context.Context, req *http.Request, oper
 		if req.Method != "GET" && req.Method != "HEAD" && req.Method != "OPTIONS" {
 			if err := p.cacheManager.InvalidateByOperation(ctx, operation); err != nil {
 				// Log invalidation failure but don't fail the request
-				logger := p.BaseProvider.GetLogger()
+				logger := p.GetLogger()
 				logger.Warn("Failed to invalidate cache", map[string]interface{}{
 					"error":     err.Error(),
 					"operation": operation,

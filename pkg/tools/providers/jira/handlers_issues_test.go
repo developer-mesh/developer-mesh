@@ -145,7 +145,9 @@ func TestGetIssueHandler(t *testing.T) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(tt.statusCode)
 				if tt.serverResponse != "" {
-					w.Write([]byte(tt.serverResponse))
+					if _, err := w.Write([]byte(tt.serverResponse)); err != nil {
+						t.Logf("Failed to write response: %v", err)
+					}
 				}
 			}))
 			defer server.Close()
@@ -337,7 +339,9 @@ func TestCreateIssueHandler(t *testing.T) {
 
 				// Parse request body
 				var body map[string]interface{}
-				json.NewDecoder(r.Body).Decode(&body)
+				if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+					t.Logf("Failed to decode request body: %v", err)
+				}
 
 				// Verify fields were sent
 				if fields, ok := body["fields"].(map[string]interface{}); ok {
@@ -350,7 +354,9 @@ func TestCreateIssueHandler(t *testing.T) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(tt.statusCode)
 				if tt.serverResponse != "" {
-					w.Write([]byte(tt.serverResponse))
+					if _, err := w.Write([]byte(tt.serverResponse)); err != nil {
+						t.Logf("Failed to write response: %v", err)
+					}
 				}
 			}))
 			defer server.Close()
@@ -519,15 +525,18 @@ func TestUpdateIssueHandler(t *testing.T) {
 			getRequestCount := 0
 			// Create test server
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.Method == "GET" {
+				switch r.Method {
+				case "GET":
 					// This is the permission check request
 					getRequestCount++
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(tt.getStatusCode)
 					if tt.getResponse != "" {
-						w.Write([]byte(tt.getResponse))
+						if _, err := w.Write([]byte(tt.getResponse)); err != nil {
+							t.Logf("Failed to write response: %v", err)
+						}
 					}
-				} else if r.Method == "PUT" {
+				case "PUT":
 					// This is the update request
 					assert.Contains(t, r.URL.Path, "/rest/api/3/issue/")
 
@@ -538,7 +547,9 @@ func TestUpdateIssueHandler(t *testing.T) {
 
 					// Parse and verify body
 					var body map[string]interface{}
-					json.NewDecoder(r.Body).Decode(&body)
+					if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+						t.Logf("Failed to decode request body: %v", err)
+					}
 					if tt.params["update"] != nil {
 						assert.Contains(t, body, "update")
 					}
@@ -547,7 +558,9 @@ func TestUpdateIssueHandler(t *testing.T) {
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(tt.statusCode)
 					if tt.updateResponse != "" {
-						w.Write([]byte(tt.updateResponse))
+						if _, err := w.Write([]byte(tt.updateResponse)); err != nil {
+							t.Logf("Failed to write response: %v", err)
+						}
 					}
 				}
 			}))
@@ -685,15 +698,18 @@ func TestDeleteIssueHandler(t *testing.T) {
 			getRequestCount := 0
 			// Create test server
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.Method == "GET" {
+				switch r.Method {
+				case "GET":
 					// This is the permission check request
 					getRequestCount++
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(tt.getStatusCode)
 					if tt.getResponse != "" {
-						w.Write([]byte(tt.getResponse))
+						if _, err := w.Write([]byte(tt.getResponse)); err != nil {
+							t.Logf("Failed to write response: %v", err)
+						}
 					}
-				} else if r.Method == "DELETE" {
+				case "DELETE":
 					// This is the delete request
 					assert.Contains(t, r.URL.Path, "/rest/api/3/issue/")
 
@@ -706,7 +722,9 @@ func TestDeleteIssueHandler(t *testing.T) {
 					w.WriteHeader(tt.deleteStatus)
 					if tt.deleteStatus != http.StatusNoContent {
 						w.Header().Set("Content-Type", "application/json")
-						w.Write([]byte(`{"errorMessages": ["Issue does not exist"]}`))
+						if _, err := w.Write([]byte(`{"errorMessages": ["Issue does not exist"]}`)); err != nil {
+							t.Logf("Failed to write error response: %v", err)
+						}
 					}
 				}
 			}))

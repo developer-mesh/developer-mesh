@@ -40,7 +40,9 @@ func TestJiraProvider_CachingIntegration(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			t.Logf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -90,7 +92,9 @@ func TestJiraProvider_CachingIntegration(t *testing.T) {
 		require.NoError(t, err)
 		// May be 200 (first time) or come from cache
 		assert.True(t, resp.StatusCode == http.StatusOK)
-		resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Logf("Failed to close response body: %v", err)
+		}
 
 		// PUT request should invalidate cache
 		putReq, err := http.NewRequestWithContext(ctx, "PUT", server.URL+"/rest/api/3/issue/TEST-123", strings.NewReader("{}"))
@@ -119,7 +123,9 @@ func TestJiraProvider_CachingIntegration(t *testing.T) {
 		resp, err := provider.secureHTTPDo(ctx, postReq, "issues/create")
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
-		resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Logf("Failed to close response body: %v", err)
+		}
 
 		// Verify POST operations are not cached
 		assert.False(t, provider.cacheManager.IsCacheable("POST", "issues/create"))
@@ -178,9 +184,11 @@ func TestJiraProvider_ConditionalRequests(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"key": "TEST-456",
-		})
+		}); err != nil {
+			t.Logf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -194,7 +202,9 @@ func TestJiraProvider_ConditionalRequests(t *testing.T) {
 		resp, err := provider.secureHTTPDo(ctx, req, "issues/get")
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
-		resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Logf("Failed to close response body: %v", err)
+		}
 
 		// First request should not have conditional headers
 		assert.Empty(t, lastIfNoneMatch)
@@ -208,7 +218,9 @@ func TestJiraProvider_ConditionalRequests(t *testing.T) {
 		resp, err := provider.secureHTTPDo(ctx, req, "issues/get")
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, resp.StatusCode) // Should be 200 from cached response
-		resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Logf("Failed to close response body: %v", err)
+		}
 
 		// Second request should have conditional headers from cache
 		assert.NotEmpty(t, lastIfNoneMatch)
@@ -219,9 +231,11 @@ func TestJiraProvider_CacheStats(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"key": "TEST-789",
-		})
+		}); err != nil {
+			t.Logf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -235,7 +249,9 @@ func TestJiraProvider_CacheStats(t *testing.T) {
 
 		resp, err := provider.secureHTTPDo(ctx, req, "issues/get")
 		require.NoError(t, err)
-		resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Logf("Failed to close response body: %v", err)
+		}
 	}
 
 	// Check cache stats
@@ -253,7 +269,9 @@ func TestJiraProvider_ErrorHandlingWithCache(t *testing.T) {
 	// Server that returns errors
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("Internal Server Error"))
+		if _, err := w.Write([]byte("Internal Server Error")); err != nil {
+			t.Logf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -267,7 +285,9 @@ func TestJiraProvider_ErrorHandlingWithCache(t *testing.T) {
 		resp, err := provider.secureHTTPDo(ctx, req, "issues/get")
 		require.Error(t, err) // Should get categorized error
 		assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
-		resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			t.Logf("Failed to close response body: %v", err)
+		}
 
 		// Error responses should not be cached
 		// Subsequent request should still hit the server

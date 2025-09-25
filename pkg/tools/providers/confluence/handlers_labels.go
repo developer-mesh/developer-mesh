@@ -165,7 +165,13 @@ func (h *GetPageLabelsHandler) Execute(ctx context.Context, params map[string]in
 	if err != nil {
 		return NewToolError(fmt.Sprintf("Failed to get labels: %v", err)), nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			h.provider.GetLogger().Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	// Parse response
 	var result map[string]interface{}
@@ -340,7 +346,13 @@ func (h *AddLabelHandler) Execute(ctx context.Context, params map[string]interfa
 	if err != nil {
 		return NewToolError(fmt.Sprintf("Failed to add label: %v", err)), nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			h.provider.GetLogger().Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	// Parse response
 	var result map[string]interface{}
@@ -489,7 +501,13 @@ func (h *RemoveLabelHandler) Execute(ctx context.Context, params map[string]inte
 	if err != nil {
 		return NewToolError(fmt.Sprintf("Failed to remove label: %v", err)), nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			h.provider.GetLogger().Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	// Check response
 	if resp.StatusCode == http.StatusNotFound {

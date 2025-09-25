@@ -41,7 +41,8 @@ func TestGetPageLabelsHandler(t *testing.T) {
 		hitCount := 0
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			hitCount++
-			if hitCount == 1 {
+			switch hitCount {
+			case 1:
 				// First request: page permission check
 				assert.Equal(t, "/pages/12345", r.URL.Path)
 				assert.Equal(t, "GET", r.Method)
@@ -54,8 +55,10 @@ func TestGetPageLabelsHandler(t *testing.T) {
 					},
 				}
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(response)
-			} else if hitCount == 2 {
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Logf("Failed to encode response: %v", err)
+				}
+			case 2:
 				// Second request: get labels
 				assert.Equal(t, "/pages/12345/labels", r.URL.Path)
 				assert.Equal(t, "GET", r.Method)
@@ -76,7 +79,9 @@ func TestGetPageLabelsHandler(t *testing.T) {
 					"size": 2,
 				}
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(response)
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Logf("Failed to encode response: %v", err)
+				}
 			}
 		}))
 		defer server.Close()
@@ -110,7 +115,8 @@ func TestGetPageLabelsHandler(t *testing.T) {
 		hitCount := 0
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			hitCount++
-			if hitCount == 1 {
+			switch hitCount {
+			case 1:
 				// First request: page permission check
 				response := map[string]interface{}{
 					"id":    "12345",
@@ -120,8 +126,10 @@ func TestGetPageLabelsHandler(t *testing.T) {
 					},
 				}
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(response)
-			} else if hitCount == 2 {
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Logf("Failed to encode response: %v", err)
+				}
+			case 2:
 				// Second request: get labels with filters
 				query := r.URL.Query()
 				assert.Equal(t, "my", query.Get("prefix"))
@@ -143,7 +151,9 @@ func TestGetPageLabelsHandler(t *testing.T) {
 					},
 				}
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(response)
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Logf("Failed to encode response: %v", err)
+				}
 			}
 		}))
 		defer server.Close()
@@ -182,7 +192,9 @@ func TestGetPageLabelsHandler(t *testing.T) {
 			response := map[string]interface{}{
 				"message": "Page not found",
 			}
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				t.Logf("Failed to encode response: %v", err)
+			}
 		}))
 		defer server.Close()
 
@@ -208,7 +220,9 @@ func TestGetPageLabelsHandler(t *testing.T) {
 			response := map[string]interface{}{
 				"message": "Forbidden",
 			}
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				t.Logf("Failed to encode response: %v", err)
+			}
 		}))
 		defer server.Close()
 
@@ -242,7 +256,9 @@ func TestGetPageLabelsHandler(t *testing.T) {
 					},
 				}
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(response)
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Logf("Failed to encode response: %v", err)
+				}
 			}
 		}))
 		defer server.Close()
@@ -306,22 +322,27 @@ func TestGetPageLabelsHandler(t *testing.T) {
 		hitCount := 0
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			hitCount++
-			if hitCount == 1 {
+			switch hitCount {
+			case 1:
 				// Page check
 				response := map[string]interface{}{
 					"id":    "12345",
 					"title": "Test Page",
 					"space": map[string]interface{}{"key": "TEST"},
 				}
-				json.NewEncoder(w).Encode(response)
-			} else if hitCount == 2 {
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Logf("Failed to encode response: %v", err)
+				}
+			case 2:
 				// Labels request
 				query := r.URL.Query()
 				// Should be capped at 200
 				assert.Equal(t, "200", query.Get("limit"))
 
 				response := map[string]interface{}{"results": []interface{}{}}
-				json.NewEncoder(w).Encode(response)
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Logf("Failed to encode response: %v", err)
+				}
 			}
 		}))
 		defer server.Close()
@@ -374,7 +395,8 @@ func TestAddLabelHandler(t *testing.T) {
 		hitCount := 0
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			hitCount++
-			if hitCount == 1 {
+			switch hitCount {
+			case 1:
 				// First request: page permission check
 				assert.Equal(t, "/wiki/rest/api/content/12345", r.URL.Path)
 				assert.Equal(t, "GET", r.Method)
@@ -387,8 +409,10 @@ func TestAddLabelHandler(t *testing.T) {
 					},
 				}
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(response)
-			} else if hitCount == 2 {
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Logf("Failed to encode response: %v", err)
+				}
+			case 2:
 				// Second request: add label
 				assert.Equal(t, "/wiki/rest/api/content/12345/label", r.URL.Path)
 				assert.Equal(t, "POST", r.Method)
@@ -405,7 +429,9 @@ func TestAddLabelHandler(t *testing.T) {
 				}
 				w.WriteHeader(http.StatusCreated)
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(response)
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Logf("Failed to encode response: %v", err)
+				}
 			}
 		}))
 		defer server.Close()
@@ -439,7 +465,8 @@ func TestAddLabelHandler(t *testing.T) {
 		hitCount := 0
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			hitCount++
-			if hitCount == 1 {
+			switch hitCount {
+			case 1:
 				// Page check - v1 API
 				assert.Equal(t, "/wiki/rest/api/content/12345", r.URL.Path)
 				response := map[string]interface{}{
@@ -447,8 +474,10 @@ func TestAddLabelHandler(t *testing.T) {
 					"title": "Test Page",
 					"space": map[string]interface{}{"key": "TEST"},
 				}
-				json.NewEncoder(w).Encode(response)
-			} else if hitCount == 2 {
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Logf("Failed to encode response: %v", err)
+				}
+			case 2:
 				// Add label - v1 API
 				assert.Equal(t, "/wiki/rest/api/content/12345/label", r.URL.Path)
 				var body map[string]interface{}
@@ -462,7 +491,9 @@ func TestAddLabelHandler(t *testing.T) {
 					"id":     "label456",
 				}
 				w.WriteHeader(http.StatusCreated)
-				json.NewEncoder(w).Encode(response)
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Logf("Failed to encode response: %v", err)
+				}
 			}
 		}))
 		defer server.Close()
@@ -619,7 +650,8 @@ func TestRemoveLabelHandler(t *testing.T) {
 		hitCount := 0
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			hitCount++
-			if hitCount == 1 {
+			switch hitCount {
+			case 1:
 				// First request: page permission check
 				assert.Equal(t, "/wiki/rest/api/content/12345", r.URL.Path)
 				assert.Equal(t, "GET", r.Method)
@@ -632,8 +664,10 @@ func TestRemoveLabelHandler(t *testing.T) {
 					},
 				}
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(response)
-			} else if hitCount == 2 {
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Logf("Failed to encode response: %v", err)
+				}
+			case 2:
 				// Second request: remove label
 				assert.Equal(t, "/wiki/rest/api/content/12345/label/outdated", r.URL.Path)
 				assert.Equal(t, "DELETE", r.Method)
@@ -672,7 +706,8 @@ func TestRemoveLabelHandler(t *testing.T) {
 		hitCount := 0
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			hitCount++
-			if hitCount == 1 {
+			switch hitCount {
+			case 1:
 				// Page check
 				assert.Equal(t, "/wiki/rest/api/content/12345", r.URL.Path)
 				response := map[string]interface{}{
@@ -680,8 +715,10 @@ func TestRemoveLabelHandler(t *testing.T) {
 					"title": "Test Page",
 					"space": map[string]interface{}{"key": "TEST"},
 				}
-				json.NewEncoder(w).Encode(response)
-			} else if hitCount == 2 {
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Logf("Failed to encode response: %v", err)
+				}
+			case 2:
 				// Remove label - URL encoding handled by server
 				// The server decodes %26 to & in the path
 				assert.Equal(t, "/wiki/rest/api/content/12345/label/test+&+label", r.URL.Path)
@@ -710,7 +747,8 @@ func TestRemoveLabelHandler(t *testing.T) {
 		hitCount := 0
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			hitCount++
-			if hitCount == 1 {
+			switch hitCount {
+			case 1:
 				// Page check
 				assert.Equal(t, "/wiki/rest/api/content/12345", r.URL.Path)
 				response := map[string]interface{}{
@@ -718,15 +756,19 @@ func TestRemoveLabelHandler(t *testing.T) {
 					"title": "Test Page",
 					"space": map[string]interface{}{"key": "TEST"},
 				}
-				json.NewEncoder(w).Encode(response)
-			} else if hitCount == 2 {
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Logf("Failed to encode response: %v", err)
+				}
+			case 2:
 				// Label not found
 				assert.Equal(t, "/wiki/rest/api/content/12345/label/nonexistent", r.URL.Path)
 				w.WriteHeader(http.StatusNotFound)
 				response := map[string]interface{}{
 					"message": "Label not found",
 				}
-				json.NewEncoder(w).Encode(response)
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Logf("Failed to encode response: %v", err)
+				}
 			}
 		}))
 		defer server.Close()
@@ -778,7 +820,8 @@ func TestRemoveLabelHandler(t *testing.T) {
 		hitCount := 0
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			hitCount++
-			if hitCount == 1 {
+			switch hitCount {
+			case 1:
 				// Page check
 				assert.Equal(t, "/wiki/rest/api/content/12345", r.URL.Path)
 				response := map[string]interface{}{
@@ -786,15 +829,19 @@ func TestRemoveLabelHandler(t *testing.T) {
 					"title": "Test Page",
 					"space": map[string]interface{}{"key": "TEST"},
 				}
-				json.NewEncoder(w).Encode(response)
-			} else if hitCount == 2 {
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Logf("Failed to encode response: %v", err)
+				}
+			case 2:
 				// No permission to remove
 				assert.Equal(t, "/wiki/rest/api/content/12345/label/protected", r.URL.Path)
 				w.WriteHeader(http.StatusForbidden)
 				response := map[string]interface{}{
 					"message": "No permission",
 				}
-				json.NewEncoder(w).Encode(response)
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Logf("Failed to encode response: %v", err)
+				}
 			}
 		}))
 		defer server.Close()
@@ -826,7 +873,9 @@ func TestRemoveLabelHandler(t *testing.T) {
 					"key": "BLOCKED",
 				},
 			}
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				t.Logf("Failed to encode response: %v", err)
+			}
 		}))
 		defer server.Close()
 
@@ -873,7 +922,9 @@ func TestLabelHandlersIntegration(t *testing.T) {
 					"title": "Test Page",
 					"space": map[string]interface{}{"key": "TEST"},
 				}
-				json.NewEncoder(w).Encode(response)
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Logf("Failed to encode response: %v", err)
+				}
 
 			case r.URL.Path == "/wiki/rest/api/content/12345":
 				// Page permission check for Add/RemoveLabelHandler
@@ -882,7 +933,9 @@ func TestLabelHandlersIntegration(t *testing.T) {
 					"title": "Test Page",
 					"space": map[string]interface{}{"key": "TEST"},
 				}
-				json.NewEncoder(w).Encode(response)
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Logf("Failed to encode response: %v", err)
+				}
 
 			case r.URL.Path == "/pages/12345/labels" && r.Method == "GET":
 				// Get labels
@@ -898,7 +951,9 @@ func TestLabelHandlersIntegration(t *testing.T) {
 					"results": labels,
 					"size":    len(labels),
 				}
-				json.NewEncoder(w).Encode(response)
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Logf("Failed to encode response: %v", err)
+				}
 
 			case r.URL.Path == "/wiki/rest/api/content/12345/label" && r.Method == "POST":
 				// Add label
@@ -911,7 +966,9 @@ func TestLabelHandlersIntegration(t *testing.T) {
 					"id":     "label123",
 				}
 				w.WriteHeader(http.StatusCreated)
-				json.NewEncoder(w).Encode(response)
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Logf("Failed to encode response: %v", err)
+				}
 
 			case r.URL.Path == "/wiki/rest/api/content/12345/label/test-label" && r.Method == "DELETE":
 				// Remove label

@@ -559,7 +559,9 @@ func TestJiraProvider_HealthCheckWithObservability(t *testing.T) {
 		if r.URL.Path == "/rest/api/3/serverInfo" {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"version": "8.0.0", "versionNumbers": [8,0,0]}`))
+			if _, err := w.Write([]byte(`{"version": "8.0.0", "versionNumbers": [8,0,0]}`)); err != nil {
+				t.Logf("Failed to write response: %v", err)
+			}
 		} else {
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -570,7 +572,7 @@ func TestJiraProvider_HealthCheckWithObservability(t *testing.T) {
 	provider := NewJiraProvider(logger, "test")
 
 	// Set the provider's baseURL to use the test server
-	provider.BaseProvider.SetConfiguration(providers.ProviderConfig{
+	provider.SetConfiguration(providers.ProviderConfig{
 		BaseURL:  server.URL,
 		AuthType: "basic",
 	})
@@ -592,7 +594,9 @@ func TestJiraProvider_HealthCheckFailure(t *testing.T) {
 	// Create a test server that returns an error
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"error": "Internal server error"}`))
+		if _, err := w.Write([]byte(`{"error": "Internal server error"}`)); err != nil {
+			t.Logf("Failed to write error response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -600,7 +604,7 @@ func TestJiraProvider_HealthCheckFailure(t *testing.T) {
 	provider := NewJiraProvider(logger, "test")
 
 	// Set the provider's baseURL to use the test server
-	provider.BaseProvider.SetConfiguration(providers.ProviderConfig{
+	provider.SetConfiguration(providers.ProviderConfig{
 		BaseURL:  server.URL,
 		AuthType: "basic",
 	})
@@ -623,7 +627,9 @@ func TestJiraProvider_SecureHTTPDoWithObservability(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"message": "success", "data": "test"}`))
+		if _, err := w.Write([]byte(`{"message": "success", "data": "test"}`)); err != nil {
+			t.Logf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -644,7 +650,11 @@ func TestJiraProvider_SecureHTTPDoWithObservability(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 	// Clean up response
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Logf("Failed to close response body: %v", err)
+		}
+	}()
 }
 
 func TestJiraProvider_SecureHTTPDoErrorHandling(t *testing.T) {
@@ -653,13 +663,19 @@ func TestJiraProvider_SecureHTTPDoErrorHandling(t *testing.T) {
 		switch r.URL.Path {
 		case "/401":
 			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte(`{"error": "Unauthorized"}`))
+			if _, err := w.Write([]byte(`{"error": "Unauthorized"}`)); err != nil {
+				t.Logf("Failed to write error response: %v", err)
+			}
 		case "/429":
 			w.WriteHeader(http.StatusTooManyRequests)
-			w.Write([]byte(`{"error": "Rate limit exceeded"}`))
+			if _, err := w.Write([]byte(`{"error": "Rate limit exceeded"}`)); err != nil {
+				t.Logf("Failed to write error response: %v", err)
+			}
 		case "/500":
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(`{"error": "Server error"}`))
+			if _, err := w.Write([]byte(`{"error": "Server error"}`)); err != nil {
+				t.Logf("Failed to write error response: %v", err)
+			}
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -715,7 +731,11 @@ func TestJiraProvider_SecureHTTPDoErrorHandling(t *testing.T) {
 
 			if resp != nil {
 				assert.Equal(t, tt.expectedStatus, resp.StatusCode)
-				defer resp.Body.Close()
+				defer func() {
+					if err := resp.Body.Close(); err != nil {
+						t.Logf("Failed to close response body: %v", err)
+					}
+				}()
 			}
 		})
 	}

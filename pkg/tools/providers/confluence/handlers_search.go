@@ -165,7 +165,13 @@ func (h *SearchContentHandler) Execute(ctx context.Context, params map[string]in
 	if err != nil {
 		return NewToolError(fmt.Sprintf("Failed to search content: %v", err)), nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			h.provider.GetLogger().Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	// Parse response
 	var result map[string]interface{}

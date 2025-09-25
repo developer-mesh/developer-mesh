@@ -10,8 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Note: Using string key for legacy context value test
-// In production, use a proper type for context keys
+// Context key jiraTokenKey is now defined in jira_provider.go
 
 func TestJiraProvider_ExtractAuthToken(t *testing.T) {
 	logger := &observability.NoopLogger{}
@@ -146,7 +145,7 @@ func TestJiraProvider_ExtractAuthToken(t *testing.T) {
 		// Priority 5: Context value (legacy)
 		{
 			name:          "context value with token",
-			ctx:           context.WithValue(context.Background(), "jira_token", "user@example.com:api-token-ctx"),
+			ctx:           context.WithValue(context.Background(), jiraTokenKey, "user@example.com:api-token-ctx"),
 			params:        map[string]interface{}{},
 			expectedEmail: "user@example.com",
 			expectedToken: "api-token-ctx",

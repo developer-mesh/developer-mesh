@@ -44,8 +44,8 @@ func TestJiraProvider_ConfigurationManagement(t *testing.T) {
 
 	t.Run("GetEnabledToolsets", func(t *testing.T) {
 		// Enable multiple toolsets
-		provider.EnableToolset("issues")
-		provider.EnableToolset("search")
+		_ = provider.EnableToolset("issues")
+		_ = provider.EnableToolset("search")
 
 		enabled := provider.GetEnabledToolsets()
 		assert.Contains(t, enabled, "issues")
@@ -60,8 +60,8 @@ func TestJiraProvider_ConfigurationManagement(t *testing.T) {
 
 	t.Run("ConfigureFromContext with ENABLED_TOOLS", func(t *testing.T) {
 		// Enable all toolsets first
-		provider.EnableToolset("issues")
-		provider.EnableToolset("search")
+		_ = provider.EnableToolset("issues")
+		_ = provider.EnableToolset("search")
 
 		// Create context with ENABLED_TOOLS metadata
 		ctx := context.Background()
