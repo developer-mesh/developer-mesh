@@ -105,6 +105,9 @@ func setupTestTenantCache(t *testing.T) (*cache.TenantAwareCache, *mockTenantCon
 }
 
 func TestTenantIsolation(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
 	tenantCache, mockRepo, redisClient := setupTestTenantCache(t)
 	defer func() { _ = redisClient.Close() }()
 
@@ -175,6 +178,9 @@ func TestTenantIsolation(t *testing.T) {
 }
 
 func TestTenantFeatureDisabled(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
 	tenantCache, mockRepo, redisClient := setupTestTenantCache(t)
 	defer func() { _ = redisClient.Close() }()
 
@@ -205,6 +211,9 @@ func TestTenantFeatureDisabled(t *testing.T) {
 }
 
 func TestNoTenantID(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
 	tenantCache, _, redisClient := setupTestTenantCache(t)
 	defer func() { _ = redisClient.Close() }()
 
@@ -223,6 +232,9 @@ func TestNoTenantID(t *testing.T) {
 }
 
 func TestEncryption(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
 	tenantCache, mockRepo, redisClient := setupTestTenantCache(t)
 	defer func() { _ = redisClient.Close() }()
 
@@ -266,6 +278,9 @@ func TestEncryption(t *testing.T) {
 }
 
 func TestRateLimiting(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
 	tenantCache, mockRepo, redisClient := setupTestTenantCache(t)
 	defer func() { _ = redisClient.Close() }()
 
@@ -296,6 +311,9 @@ func TestRateLimiting(t *testing.T) {
 }
 
 func TestConcurrentTenantAccess(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
 	tenantCache, mockRepo, redisClient := setupTestTenantCache(t)
 	defer func() { _ = redisClient.Close() }()
 
@@ -368,6 +386,9 @@ func TestConcurrentTenantAccess(t *testing.T) {
 }
 
 func TestTenantConfigCaching(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
 	tenantCache, mockRepo, redisClient := setupTestTenantCache(t)
 	defer func() { _ = redisClient.Close() }()
 
