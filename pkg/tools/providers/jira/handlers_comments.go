@@ -147,7 +147,9 @@ func (h *GetCommentsHandler) Execute(ctx context.Context, params map[string]inte
 	if err != nil {
 		return NewToolError(fmt.Sprintf("Failed to get comments: %v", err)), nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	// Parse response
 	var result map[string]interface{}
@@ -366,7 +368,9 @@ func (h *AddCommentHandler) Execute(ctx context.Context, params map[string]inter
 	if err != nil {
 		return NewToolError(fmt.Sprintf("Failed to add comment: %v", err)), nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	// Parse response
 	var result map[string]interface{}
@@ -576,7 +580,9 @@ func (h *UpdateCommentHandler) Execute(ctx context.Context, params map[string]in
 	if err != nil {
 		return NewToolError(fmt.Sprintf("Failed to update comment: %v", err)), nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	// Parse response
 	var result map[string]interface{}
@@ -732,12 +738,14 @@ func (h *DeleteCommentHandler) Execute(ctx context.Context, params map[string]in
 	if err != nil {
 		return NewToolError(fmt.Sprintf("Failed to delete comment: %v", err)), nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	// Check response status
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
 		var result map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&result)
+		_ = json.NewDecoder(resp.Body).Decode(&result)
 
 		errorMsg := fmt.Sprintf("Failed to delete comment with status %d", resp.StatusCode)
 		if errorMessages, ok := result["errorMessages"].([]interface{}); ok && len(errorMessages) > 0 {

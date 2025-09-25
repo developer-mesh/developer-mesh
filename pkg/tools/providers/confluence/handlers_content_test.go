@@ -193,7 +193,7 @@ func TestCreatePageHandler_Execute(t *testing.T) {
 
 				// Parse request body
 				var body map[string]interface{}
-				json.NewDecoder(r.Body).Decode(&body)
+				_ = json.NewDecoder(r.Body).Decode(&body)
 
 				// Run custom validation if provided
 				if tt.validateReq != nil {
@@ -207,7 +207,7 @@ func TestCreatePageHandler_Execute(t *testing.T) {
 					w.WriteHeader(http.StatusOK)
 				}
 				if tt.serverResponse != nil {
-					json.NewEncoder(w).Encode(tt.serverResponse)
+					_ = json.NewEncoder(w).Encode(tt.serverResponse)
 				}
 			}))
 			defer server.Close()
@@ -513,7 +513,7 @@ func TestUpdatePageHandler_Execute(t *testing.T) {
 
 					w.WriteHeader(tt.getStatus)
 					if tt.getResponse != nil {
-						json.NewEncoder(w).Encode(tt.getResponse)
+						_ = json.NewEncoder(w).Encode(tt.getResponse)
 					}
 				} else {
 					// Second call is PUT to update
@@ -521,7 +521,7 @@ func TestUpdatePageHandler_Execute(t *testing.T) {
 
 					// Parse request body
 					var body map[string]interface{}
-					json.NewDecoder(r.Body).Decode(&body)
+					_ = json.NewDecoder(r.Body).Decode(&body)
 
 					// Run custom validation
 					if tt.validateReq != nil {
@@ -530,7 +530,7 @@ func TestUpdatePageHandler_Execute(t *testing.T) {
 
 					w.WriteHeader(tt.updateStatus)
 					if tt.updateResponse != nil {
-						json.NewEncoder(w).Encode(tt.updateResponse)
+						_ = json.NewEncoder(w).Encode(tt.updateResponse)
 					}
 				}
 			}))
@@ -787,7 +787,7 @@ func TestListSpacesHandler_Execute(t *testing.T) {
 					w.WriteHeader(http.StatusOK)
 				}
 				if tt.serverResponse != nil {
-					json.NewEncoder(w).Encode(tt.serverResponse)
+					_ = json.NewEncoder(w).Encode(tt.serverResponse)
 				}
 			}))
 			defer server.Close()

@@ -522,7 +522,7 @@ func TestSearchContentHandler(t *testing.T) {
 			limit := query.Get("limit")
 			// Limit should be capped at 100
 			limitInt := 0
-			fmt.Sscanf(limit, "%d", &limitInt)
+			_, _ = fmt.Sscanf(limit, "%d", &limitInt)
 			assert.LessOrEqual(t, limitInt, 100)
 			assert.GreaterOrEqual(t, limitInt, 1)
 

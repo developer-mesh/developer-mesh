@@ -101,12 +101,14 @@ func (h *GetIssueHandler) Execute(ctx context.Context, params map[string]interfa
 	if err != nil {
 		return NewToolError(fmt.Sprintf("Failed to get issue: %v", err)), nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	// Parse response
 	if resp.StatusCode != http.StatusOK {
 		var errorBody map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&errorBody)
+		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
 		errorMsg := fmt.Sprintf("Failed to get issue: status %d", resp.StatusCode)
 		if msg, ok := errorBody["errorMessages"].([]interface{}); ok && len(msg) > 0 {
 			errorMsg = fmt.Sprintf("%s - %v", errorMsg, msg[0])
@@ -285,7 +287,9 @@ func (h *CreateIssueHandler) Execute(ctx context.Context, params map[string]inte
 	if err != nil {
 		return NewToolError(fmt.Sprintf("Failed to create issue: %v", err)), nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	// Parse response
 	var result map[string]interface{}
@@ -376,7 +380,9 @@ func (h *UpdateIssueHandler) Execute(ctx context.Context, params map[string]inte
 				getReq.Header.Set("Accept", "application/json")
 
 				if getResp, err := h.provider.httpClient.Do(getReq); err == nil {
-					defer getResp.Body.Close()
+					defer func() {
+			_ = getResp.Body.Close()
+		}()
 					if getResp.StatusCode == http.StatusOK {
 						var issueData map[string]interface{}
 						if json.NewDecoder(getResp.Body).Decode(&issueData) == nil {
@@ -442,12 +448,14 @@ func (h *UpdateIssueHandler) Execute(ctx context.Context, params map[string]inte
 	if err != nil {
 		return NewToolError(fmt.Sprintf("Failed to update issue: %v", err)), nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	// Check response
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
 		var errorBody map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&errorBody)
+		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
 		errorMsg := fmt.Sprintf("Failed to update issue: status %d", resp.StatusCode)
 		if errors, ok := errorBody["errors"].(map[string]interface{}); ok && len(errors) > 0 {
 			errorDetails := []string{}
@@ -525,7 +533,9 @@ func (h *DeleteIssueHandler) Execute(ctx context.Context, params map[string]inte
 				getReq.Header.Set("Accept", "application/json")
 
 				if getResp, err := h.provider.httpClient.Do(getReq); err == nil {
-					defer getResp.Body.Close()
+					defer func() {
+			_ = getResp.Body.Close()
+		}()
 					if getResp.StatusCode == http.StatusOK {
 						var issueData map[string]interface{}
 						if json.NewDecoder(getResp.Body).Decode(&issueData) == nil {
@@ -570,12 +580,14 @@ func (h *DeleteIssueHandler) Execute(ctx context.Context, params map[string]inte
 	if err != nil {
 		return NewToolError(fmt.Sprintf("Failed to delete issue: %v", err)), nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	// Check response
 	if resp.StatusCode != http.StatusNoContent {
 		var errorBody map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&errorBody)
+		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
 		errorMsg := fmt.Sprintf("Failed to delete issue: status %d", resp.StatusCode)
 		if msgs, ok := errorBody["errorMessages"].([]interface{}); ok && len(msgs) > 0 {
 			errorMsg = fmt.Sprintf("%s - %v", errorMsg, msgs[0])

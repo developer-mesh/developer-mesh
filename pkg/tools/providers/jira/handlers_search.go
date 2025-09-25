@@ -156,7 +156,9 @@ func (h *SearchIssuesHandler) Execute(ctx context.Context, params map[string]int
 	if err != nil {
 		return NewToolError(fmt.Sprintf("Failed to search issues: %v", err)), nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	// Parse response
 	var result map[string]interface{}

@@ -246,7 +246,7 @@ func TestGetCommentsHandler(t *testing.T) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(tt.statusCode)
 				if tt.serverResponse != "" {
-					w.Write([]byte(tt.serverResponse))
+					_, _ = w.Write([]byte(tt.serverResponse))
 				}
 			}))
 			defer server.Close()
@@ -491,7 +491,7 @@ func TestAddCommentHandler(t *testing.T) {
 
 				// Capture body
 				decoder := json.NewDecoder(r.Body)
-				decoder.Decode(&receivedBody)
+				_ = decoder.Decode(&receivedBody)
 
 				// Custom body validation
 				if tt.validateBody != nil {
@@ -502,7 +502,7 @@ func TestAddCommentHandler(t *testing.T) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(tt.statusCode)
 				if tt.serverResponse != "" {
-					w.Write([]byte(tt.serverResponse))
+					_, _ = w.Write([]byte(tt.serverResponse))
 				}
 			}))
 			defer server.Close()
@@ -671,7 +671,7 @@ func TestUpdateCommentHandler(t *testing.T) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(tt.statusCode)
 				if tt.serverResponse != "" {
-					w.Write([]byte(tt.serverResponse))
+					_, _ = w.Write([]byte(tt.serverResponse))
 				}
 			}))
 			defer server.Close()
@@ -790,7 +790,7 @@ func TestDeleteCommentHandler(t *testing.T) {
 				// Return response
 				w.WriteHeader(tt.statusCode)
 				if tt.statusCode >= 400 {
-					w.Write([]byte(`{"errorMessages": ["Comment not found"]}`))
+					_, _ = w.Write([]byte(`{"errorMessages": ["Comment not found"]}`))
 				}
 			}))
 			defer server.Close()

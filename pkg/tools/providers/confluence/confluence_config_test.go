@@ -44,9 +44,9 @@ func TestConfluenceProvider_ConfigurationManagement(t *testing.T) {
 
 	t.Run("GetEnabledToolsets", func(t *testing.T) {
 		// Enable multiple toolsets
-		provider.EnableToolset("pages")
-		provider.EnableToolset("search")
-		provider.EnableToolset("labels")
+		_ = provider.EnableToolset("pages")
+		_ = provider.EnableToolset("search")
+		_ = provider.EnableToolset("labels")
 
 		enabled := provider.GetEnabledToolsets()
 		assert.Contains(t, enabled, "pages")
@@ -54,7 +54,7 @@ func TestConfluenceProvider_ConfigurationManagement(t *testing.T) {
 		assert.Contains(t, enabled, "labels")
 
 		// Disable one
-		provider.DisableToolset("search")
+		_ = provider.DisableToolset("search")
 		enabled = provider.GetEnabledToolsets()
 		assert.Contains(t, enabled, "pages")
 		assert.NotContains(t, enabled, "search")
@@ -63,9 +63,9 @@ func TestConfluenceProvider_ConfigurationManagement(t *testing.T) {
 
 	t.Run("ConfigureFromContext with ENABLED_TOOLS", func(t *testing.T) {
 		// Enable all toolsets first
-		provider.EnableToolset("pages")
-		provider.EnableToolset("search")
-		provider.EnableToolset("labels")
+		_ = provider.EnableToolset("pages")
+		_ = provider.EnableToolset("search")
+		_ = provider.EnableToolset("labels")
 
 		// Create context with ENABLED_TOOLS metadata
 		ctx := context.Background()

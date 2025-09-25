@@ -1108,7 +1108,7 @@ func (p *JiraProvider) registerHandlers() {
 func (p *JiraProvider) enableDefaultToolsets() {
 	// Enable all toolsets by default
 	for name := range p.toolsetRegistry {
-		p.EnableToolset(name)
+		_ = p.EnableToolset(name)
 	}
 }
 
@@ -1184,7 +1184,7 @@ func (p *JiraProvider) ConfigureFromContext(ctx context.Context) {
 	if enabledTools, ok := pctx.Metadata["ENABLED_TOOLS"].(string); ok && enabledTools != "" {
 		// Disable all toolsets first
 		for name := range p.toolsetRegistry {
-			p.DisableToolset(name)
+			_ = p.DisableToolset(name) // Ignore errors when disabling during initialization
 		}
 
 		// Enable only specified toolsets
@@ -1589,7 +1589,7 @@ func (p *JiraProvider) secureHTTPDo(ctx context.Context, req *http.Request, oper
 	// Handle errors with comprehensive categorization
 	if err != nil {
 		// Categorize error with observability manager
-		var categorizedErr error = err
+		categorizedErr := err
 		if p.observabilityMgr != nil {
 			categorizedErr = p.observabilityMgr.CategorizeError(err, operation, duration)
 		}
@@ -1647,7 +1647,7 @@ func (p *JiraProvider) secureHTTPDo(ctx context.Context, req *http.Request, oper
 				})
 
 				// Categorize and finish operation
-				var categorizedErr error = err
+				categorizedErr := err
 				if p.observabilityMgr != nil {
 					categorizedErr = p.observabilityMgr.CategorizeError(err, operation, duration)
 				}

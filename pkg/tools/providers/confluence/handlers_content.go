@@ -275,7 +275,9 @@ func (h *UpdatePageHandler) Execute(ctx context.Context, params map[string]inter
 	if err != nil {
 		return NewToolError(fmt.Sprintf("Failed to get page: %v", err)), nil
 	}
-	defer getResp.Body.Close()
+	defer func() {
+		_ = getResp.Body.Close()
+	}()
 
 	if getResp.StatusCode == http.StatusNotFound {
 		return NewToolError(fmt.Sprintf("Page %s not found", pageId)), nil
@@ -596,7 +598,9 @@ func (h *GetAttachmentsHandler) Execute(ctx context.Context, params map[string]i
 	if err != nil {
 		return NewToolError(fmt.Sprintf("Failed to check page: %v", err)), nil
 	}
-	defer pageResp.Body.Close()
+	defer func() {
+		_ = pageResp.Body.Close()
+	}()
 
 	if pageResp.StatusCode == http.StatusNotFound {
 		return NewToolError(fmt.Sprintf("Page %s not found", pageId)), nil

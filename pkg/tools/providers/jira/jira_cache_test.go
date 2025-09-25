@@ -61,7 +61,7 @@ func TestJiraProvider_CachingIntegration(t *testing.T) {
 		// Read response body
 		body1, err := io.ReadAll(resp1.Body)
 		require.NoError(t, err)
-		resp1.Body.Close()
+		_ = resp1.Body.Close()
 
 		// Second request - should use conditional headers and get cached response
 		req2, err := http.NewRequestWithContext(ctx, "GET", server.URL+"/rest/api/3/issue/TEST-123", nil)
@@ -75,7 +75,7 @@ func TestJiraProvider_CachingIntegration(t *testing.T) {
 		// Read response body
 		body2, err := io.ReadAll(resp2.Body)
 		require.NoError(t, err)
-		resp2.Body.Close()
+		_ = resp2.Body.Close()
 
 		// Responses should be identical (cached response should be returned)
 		assert.Equal(t, body1, body2)
@@ -100,7 +100,7 @@ func TestJiraProvider_CachingIntegration(t *testing.T) {
 		putResp, err := provider.secureHTTPDo(ctx, putReq, "issues/update")
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, putResp.StatusCode)
-		putResp.Body.Close()
+		_ = putResp.Body.Close()
 
 		// Verify cache was invalidated by checking cache stats
 		if provider.cacheManager != nil {
@@ -277,7 +277,7 @@ func TestJiraProvider_ErrorHandlingWithCache(t *testing.T) {
 		resp2, err := provider.secureHTTPDo(ctx, req2, "issues/get")
 		require.Error(t, err)
 		assert.Equal(t, http.StatusInternalServerError, resp2.StatusCode)
-		resp2.Body.Close()
+		_ = resp2.Body.Close()
 	})
 }
 

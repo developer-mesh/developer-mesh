@@ -442,7 +442,7 @@ func TestTransitionIssueHandler(t *testing.T) {
 				// Capture body
 				if r.Body != nil {
 					decoder := json.NewDecoder(r.Body)
-					decoder.Decode(&receivedBody)
+					_ = decoder.Decode(&receivedBody)
 
 					// Custom body validation
 					if tt.validateBody != nil {
@@ -797,7 +797,7 @@ func TestAddWorkflowCommentHandler(t *testing.T) {
 				// Capture body
 				if r.Body != nil {
 					decoder := json.NewDecoder(r.Body)
-					decoder.Decode(&receivedBody)
+					_ = decoder.Decode(&receivedBody)
 
 					// Custom body validation
 					if tt.validateBody != nil {

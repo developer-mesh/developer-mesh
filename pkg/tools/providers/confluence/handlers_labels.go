@@ -84,7 +84,9 @@ func (h *GetPageLabelsHandler) Execute(ctx context.Context, params map[string]in
 	if err != nil {
 		return NewToolError(fmt.Sprintf("Failed to check page access: %v", err)), nil
 	}
-	defer pageResp.Body.Close()
+	defer func() {
+		_ = pageResp.Body.Close()
+	}()
 
 	// Check permissions
 	if pageResp.StatusCode == http.StatusNotFound {
@@ -273,7 +275,9 @@ func (h *AddLabelHandler) Execute(ctx context.Context, params map[string]interfa
 	if err != nil {
 		return NewToolError(fmt.Sprintf("Failed to check page access: %v", err)), nil
 	}
-	defer pageResp.Body.Close()
+	defer func() {
+		_ = pageResp.Body.Close()
+	}()
 
 	// Check permissions
 	if pageResp.StatusCode == http.StatusNotFound {
@@ -436,7 +440,9 @@ func (h *RemoveLabelHandler) Execute(ctx context.Context, params map[string]inte
 	if err != nil {
 		return NewToolError(fmt.Sprintf("Failed to check page access: %v", err)), nil
 	}
-	defer pageResp.Body.Close()
+	defer func() {
+		_ = pageResp.Body.Close()
+	}()
 
 	// Check permissions
 	if pageResp.StatusCode == http.StatusNotFound {

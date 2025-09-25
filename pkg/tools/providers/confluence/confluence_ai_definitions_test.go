@@ -218,8 +218,8 @@ func TestConfluenceProvider_GetAIOptimizedDefinitions_WithDisabledToolsets(t *te
 	provider := NewConfluenceProvider(logger, "test-domain")
 
 	// Disable some toolsets
-	provider.DisableToolset("pages")
-	provider.DisableToolset("search")
+	_ = provider.DisableToolset("pages")
+	_ = provider.DisableToolset("search")
 
 	definitions := provider.GetAIOptimizedDefinitions()
 

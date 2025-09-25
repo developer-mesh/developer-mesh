@@ -52,7 +52,7 @@ func TestJiraProvider_ConfigurationManagement(t *testing.T) {
 		assert.Contains(t, enabled, "search")
 
 		// Disable one
-		provider.DisableToolset("search")
+		_ = provider.DisableToolset("search")
 		enabled = provider.GetEnabledToolsets()
 		assert.Contains(t, enabled, "issues")
 		assert.NotContains(t, enabled, "search")

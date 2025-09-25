@@ -305,7 +305,7 @@ func TestJiraProvider_ErrorScenarios(t *testing.T) {
 		require.Error(t, err)
 		if resp2 != nil {
 			assert.Equal(t, http.StatusInternalServerError, resp2.StatusCode)
-			resp2.Body.Close()
+			_ = resp2.Body.Close()
 		}
 
 		// Third call should succeed
@@ -315,7 +315,7 @@ func TestJiraProvider_ErrorScenarios(t *testing.T) {
 		resp3, err := provider.secureHTTPDo(ctx, req3, "issues/get")
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, resp3.StatusCode)
-		resp3.Body.Close()
+		_ = resp3.Body.Close()
 	})
 
 	t.Run("Rate Limiting", func(t *testing.T) {

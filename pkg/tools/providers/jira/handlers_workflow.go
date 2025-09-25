@@ -379,7 +379,7 @@ func (h *TransitionIssueHandler) Execute(ctx context.Context, params map[string]
 	// Check response status (transitions typically return 204 No Content)
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
 		var errorResult map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&errorResult)
+		_ = json.NewDecoder(resp.Body).Decode(&errorResult)
 
 		errorMsg := fmt.Sprintf("Failed to transition issue with status %d", resp.StatusCode)
 		if errorMessages, ok := errorResult["errorMessages"].([]interface{}); ok && len(errorMessages) > 0 {
@@ -739,7 +739,7 @@ func (h *AddWorkflowCommentHandler) Execute(ctx context.Context, params map[stri
 
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
 		var errorResult map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&errorResult)
+		_ = json.NewDecoder(resp.Body).Decode(&errorResult)
 
 		errorMsg := fmt.Sprintf("Failed to transition issue with status %d", resp.StatusCode)
 		if errorMessages, ok := errorResult["errorMessages"].([]interface{}); ok && len(errorMessages) > 0 {

@@ -719,7 +719,7 @@ func (p *ConfluenceProvider) ConfigureFromContext(ctx context.Context) {
 	if enabledTools, ok := pctx.Metadata["ENABLED_TOOLS"].(string); ok && enabledTools != "" {
 		// Disable all toolsets first
 		for name := range p.toolsetRegistry {
-			p.DisableToolset(name)
+			_ = p.DisableToolset(name) // Ignore errors when disabling during initialization
 		}
 
 		// Enable only specified toolsets

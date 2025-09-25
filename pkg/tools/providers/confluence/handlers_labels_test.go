@@ -394,7 +394,7 @@ func TestAddLabelHandler(t *testing.T) {
 				assert.Equal(t, "POST", r.Method)
 
 				var body map[string]interface{}
-				json.NewDecoder(r.Body).Decode(&body)
+				_ = json.NewDecoder(r.Body).Decode(&body)
 				assert.Equal(t, "global", body["prefix"])
 				assert.Equal(t, "important", body["name"])
 
@@ -452,7 +452,7 @@ func TestAddLabelHandler(t *testing.T) {
 				// Add label - v1 API
 				assert.Equal(t, "/wiki/rest/api/content/12345/label", r.URL.Path)
 				var body map[string]interface{}
-				json.NewDecoder(r.Body).Decode(&body)
+				_ = json.NewDecoder(r.Body).Decode(&body)
 				assert.Equal(t, "team", body["prefix"])
 				assert.Equal(t, "project-x", body["name"])
 
@@ -904,7 +904,7 @@ func TestLabelHandlersIntegration(t *testing.T) {
 				// Add label
 				labelAdded = true
 				var body map[string]interface{}
-				json.NewDecoder(r.Body).Decode(&body)
+				_ = json.NewDecoder(r.Body).Decode(&body)
 				response := map[string]interface{}{
 					"prefix": body["prefix"],
 					"name":   body["name"],
