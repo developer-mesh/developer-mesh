@@ -4,6 +4,18 @@
 
 This plan identifies features inspired by the JFrog MCP but **requires research** to determine actual JFrog API endpoints and implementation details. No assumptions have been made about API paths, request formats, or service boundaries. All technical implementation details marked "TBD from research" must be determined before implementation begins.
 
+## DevMesh Pattern Compliance
+
+This plan follows established DevMesh patterns:
+- **Provider Pattern:** Extends BaseProvider with StandardToolProvider interface
+- **Operation Mappings:** Uses existing OperationMapping structure
+- **Authentication:** Leverages BaseProvider's passthrough auth via context
+- **Testing:** Follows testify/assert with httptest patterns
+- **Error Handling:** Uses wrapped errors with context (`fmt.Errorf`)
+- **Logging:** Uses structured logging via observability.Logger
+- **No Magic Numbers:** Will use named constants
+- **No Debug Statements:** Production-ready code only
+
 ## Implementation Approach
 
 Following the GitHub provider pattern with operation mappings and passthrough authentication. All features inspired by JFrog MCP but implemented independently in Go.
@@ -99,8 +111,19 @@ Following the GitHub provider pattern with operation mappings and passthrough au
 - Implement based on architecture decision:
   - Option A: Create new `pkg/tools/providers/xray/xray_provider.go`
   - Option B: Extend existing artifactory_provider.go with Xray operations
-- If Option A: Register in `apps/rest-api/internal/api/providers_init.go`
-- Add comprehensive tests following existing patterns
+- If Option A:
+  - Register in `apps/rest-api/internal/api/providers_init.go` following pattern:
+    ```go
+    xrayProvider := xray.NewXrayProvider(logger)
+    if err := registry.RegisterProvider(xrayProvider); err != nil {
+        logger.Error("Failed to register Xray provider", map[string]interface{}{
+            "error": err.Error(),
+        })
+    }
+    ```
+  - Implement all StandardToolProvider interface methods
+  - Add GetAIOptimizedDefinitions() for AI-friendly definitions
+- Add comprehensive tests in same package (xray_provider_test.go)
 
 ### Story 2.2: Implement Xray Scan Operations
 **Points:** 13
@@ -304,9 +327,18 @@ Following the GitHub provider pattern with operation mappings and passthrough au
   ```go
   type XrayProvider struct {
       *providers.BaseProvider
+      specCache  repository.OpenAPICacheRepository // Optional spec caching
       httpClient *http.Client
   }
   ```
+- Must implement StandardToolProvider interface methods:
+  - `GetProviderName() string`
+  - `GetSupportedVersions() []string`
+  - `GetToolDefinitions() []providers.ToolDefinition`
+  - `GetOperationMappings() map[string]providers.OperationMapping`
+  - `GetDefaultConfiguration() providers.ProviderConfig`
+  - `HealthCheck(ctx context.Context) error`
+  - `ExecuteOperation(ctx context.Context, operation string, params map[string]interface{}) (interface{}, error)`
 - Operation mappings will use actual JFrog API endpoints (TBD from research)
 
 ### Authentication Requirements
@@ -325,11 +357,27 @@ Following the GitHub provider pattern with operation mappings and passthrough au
 - **Error codes** - Document JFrog-specific error responses
 
 ### Testing Approach
-- Unit tests with mocked responses based on actual API
-- Integration tests require either:
-  - Access to JFrog test instance
-  - Comprehensive mock server updates
-- Contract validation against official API documentation
+
+Following DevMesh testing patterns:
+- **Unit Tests:** In same package as code (not `_test` package)
+- **Test Framework:** Always use testify/assert and testify/mock
+- **Table Tests:** Preferred for multiple scenarios
+- **Coverage:** Minimum 80% for new code
+- **Mock Pattern:**
+  ```go
+  func TestOperationName(t *testing.T) {
+      logger := &observability.NoopLogger{}
+      provider := NewXrayProvider(logger)
+
+      // Test with httptest server
+      server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+          // Mock response
+      }))
+      defer server.Close()
+  }
+  ```
+- **Integration Tests:** Use existing mockserver in `apps/mockserver`
+- **No external dependencies:** All tests must work without JFrog instance
 
 ## JFrog MCP Operations Mapping
 
