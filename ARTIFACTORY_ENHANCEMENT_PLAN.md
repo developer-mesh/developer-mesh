@@ -557,23 +557,43 @@ This epic makes the difference between 30% and 90%+ success rate.
 - ✅ All tests passing (16 test functions with subtests)
 - ✅ Linting issues resolved
 
-### Story 2.2: Implement Xray Scan Operations
+### Story 2.2: Implement Xray Scan Operations ✅ COMPLETE
 **Points:** 8 (reduced - endpoints documented)
+**Status:** COMPLETE - Implemented and tested
 **Acceptance Criteria:**
-- Add vulnerability scanning operations using Xray API
-- Support artifact summary endpoint (`/xray/api/v1/summary/artifact`)
-- Handle scan results with severity grouping (Critical, High, Medium, Low)
-- Parse Xray-specific response formats
+- ✅ Add vulnerability scanning operations using Xray API
+- ✅ Support artifact summary endpoint (`/xray/api/v1/summary/artifact`)
+- ✅ Handle scan results with severity grouping (Critical, High, Medium, Low)
+- ✅ Parse Xray-specific response formats
 
-**Technical Tasks:**
-- Implement operation mappings for:
-  - `xray/summary/artifact`: POST `/xray/api/v1/summary/artifact`
-  - `xray/scan/artifact`: POST `/xray/api/v1/scan/artifact`
-  - `xray/scan/status`: GET `/xray/api/v1/scan/status/{scan_id}`
-  - `xray/scan/build`: POST `/xray/api/v1/scan/build`
-- Implement severity categorization from response
-- Create response parsing for Xray format (different from Artifactory)
-- Add unit tests with mocked Xray responses
+**Implementation Complete:**
+- ✅ Created `xray_scan_operations.go` with comprehensive scan support
+- ✅ Implemented all scan operation mappings:
+  - `xray/summary/artifact`: POST `/xray/api/v1/summary/artifact` (already in provider)
+  - `xray/scan/artifact`: POST `/xray/api/v1/scan/artifact` (already in provider)
+  - `xray/scan/status`: GET `/xray/api/v1/scan/status/{scan_id}` (already in provider)
+  - `xray/scan/build`: POST `/xray/api/v1/scan/build` (already in provider)
+- ✅ Implemented severity categorization with helper functions:
+  - `CategorizeBySeverity()` - Groups issues by severity level
+  - `GetSeveritySummary()` - Creates summary with counts by severity
+  - `NormalizeSeverity()` - Normalizes various severity formats
+  - `FilterIssuesBySeverity()` - Filters by minimum severity
+  - `GetMostSevereIssue()` - Returns the most critical issue
+  - `HasCriticalVulnerabilities()` - Quick check for critical issues
+- ✅ Created response parsing for Xray-specific formats:
+  - `ParseArtifactSummaryResponse()` for artifact scans
+  - `ParseBuildSummaryResponse()` for build scans
+  - `ParseScanResponse()` for scan initiation
+  - `ParseScanStatusResponse()` for scan status checks
+- ✅ Added request formatters:
+  - `FormatScanRequest()` for artifact scans
+  - `FormatBuildScanRequest()` for build scans
+  - `FormatArtifactSummaryRequest()` for summary requests
+- ✅ Comprehensive test suite in `xray_scan_operations_test.go`
+  - 25+ test functions covering all functionality
+  - Edge cases and error conditions tested
+  - Integration test simulating complete scan workflow
+  - All tests passing (100% success rate)
 
 ### Story 2.3: Implement Xray Component Intelligence
 **Points:** 8
