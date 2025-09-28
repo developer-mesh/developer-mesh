@@ -14,6 +14,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/tools/providers/harness"
 	"github.com/developer-mesh/developer-mesh/pkg/tools/providers/jira"
 	"github.com/developer-mesh/developer-mesh/pkg/tools/providers/nexus"
+	"github.com/developer-mesh/developer-mesh/pkg/tools/providers/xray"
 )
 
 // InitializeStandardProviders registers all standard tool providers with the enhanced registry
@@ -98,6 +99,23 @@ func InitializeStandardProviders(registry *pkgservices.EnhancedToolRegistry, log
 			"provider":   "artifactory",
 			"tools":      len(artifactoryProvider.GetToolDefinitions()),
 			"operations": len(artifactoryProvider.GetOperationMappings()),
+		})
+		providersCount++
+	}
+
+	// Register Xray provider (JFrog Xray security scanning)
+	xrayProvider := xray.NewXrayProvider(logger)
+	if err := registry.RegisterProvider(xrayProvider); err != nil {
+		logger.Error("Failed to register Xray provider", map[string]interface{}{
+			"error": err.Error(),
+		})
+		// Don't fail initialization if one provider fails
+		// return err
+	} else {
+		logger.Info("Registered Xray provider", map[string]interface{}{
+			"provider":   "xray",
+			"tools":      len(xrayProvider.GetToolDefinitions()),
+			"operations": len(xrayProvider.GetOperationMappings()),
 		})
 		providersCount++
 	}

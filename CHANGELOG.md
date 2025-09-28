@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **JFrog Xray Security Provider** (2025-09-28): New provider for JFrog Xray vulnerability scanning
+  - Created separate `XrayProvider` implementing StandardToolProvider interface (Story 2.1)
+  - Added 40+ operation mappings covering all major Xray API endpoints:
+    - Security scanning: artifact/build scanning, status tracking, summaries
+    - Vulnerability management: violations listing, component intelligence
+    - Policy management: create/update/delete security and license policies
+    - Watch management: continuous monitoring configuration
+    - Reporting: vulnerability and license compliance reports
+    - System operations: health checks and version information
+  - Implemented `XrayPermissionDiscoverer` for automatic permission detection
+  - Permission-based operation filtering - operations are hidden if user lacks access
+  - AI-optimized definitions with semantic tags and detailed examples
+  - Support for both JFrog API keys (X-JFrog-Art-Api) and access tokens (Bearer)
+  - Comprehensive test suite with 16 test functions and full mock server coverage
+  - Registered in provider initialization alongside Artifactory provider
+  - Result: Complete Xray integration for DevMesh with security scanning capabilities
+
 - **JFrog Projects API Support** (2025-09-28): Complete implementation of project-based operations
   - Added 22 new operations for JFrog Projects management (Enterprise/Pro feature)
   - Core project operations: `list`, `get`, `create`, `update`, `delete` via `/access/api/v1/projects`
