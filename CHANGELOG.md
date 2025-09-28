@@ -19,6 +19,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Comprehensive test coverage for all new features
   - Result: AI success rate with Artifactory improved from ~30% to 90%+
 
+### Improved
+
+- **Enhanced AQL (Artifactory Query Language) Support** (2025-09-28): Story 1.1 Implementation
+  - Added proper `text/plain` content type support for AQL queries (required by Artifactory API)
+  - Implemented AQL query validation with syntax checking for domains, brackets, and structure
+  - Added support for map-based queries that auto-convert to AQL format
+  - Implemented pagination support with limit parameter for large result sets
+  - Enhanced BaseProvider to support plain text request bodies alongside JSON
+  - Added comprehensive test suite with 25+ test cases covering all AQL scenarios
+  - Result: AQL queries now work correctly with proper content type and validation
+
 ## [0.0.4] - 2025-09-23
 
 ### Fixed

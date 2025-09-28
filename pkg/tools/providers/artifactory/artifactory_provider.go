@@ -2,7 +2,9 @@ package artifactory
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -945,6 +947,150 @@ func (p *ArtifactoryProvider) summarizeOperationCapabilities(operations map[stri
 	}
 }
 
+// executeAQLQuery handles AQL query execution with text/plain content type
+func (p *ArtifactoryProvider) executeAQLQuery(ctx context.Context, mapping providers.OperationMapping, params map[string]interface{}) (interface{}, error) {
+	// Extract the query parameter - it should be a plain text AQL query
+	var queryText string
+
+	// Handle different ways the query might be provided
+	if query, ok := params["query"]; ok {
+		switch v := query.(type) {
+		case string:
+			queryText = v
+		case map[string]interface{}:
+			// If a map is provided, try to convert it to AQL format
+			queryText = p.formatAQLFromMap(v)
+		default:
+			return nil, fmt.Errorf("invalid query format: expected string or map, got %T", v)
+		}
+	} else {
+		return nil, fmt.Errorf("missing required parameter 'query' for AQL operation")
+	}
+
+	// Validate the query
+	if err := p.validateAQLQuery(queryText); err != nil {
+		return nil, fmt.Errorf("invalid AQL query: %w", err)
+	}
+
+	// Execute the AQL query with text/plain content type
+	headers := map[string]string{
+		"Content-Type": "text/plain",
+		"Accept":       "application/json",
+	}
+
+	// Use ExecuteHTTPRequest directly with plain text body
+	resp, err := p.ExecuteHTTPRequest(ctx, mapping.Method, mapping.PathTemplate, queryText, headers)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute AQL query: %w", err)
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	// Read and parse response
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read AQL response: %w", err)
+	}
+
+	// Check for errors
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("AQL query failed with status %d: %s", resp.StatusCode, string(responseBody))
+	}
+
+	// Parse AQL response - it returns results in a specific format
+	var result map[string]interface{}
+	if err := json.Unmarshal(responseBody, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse AQL response: %w", err)
+	}
+
+	// Handle pagination if results are paginated
+	if results, ok := result["results"].([]interface{}); ok {
+		// Check if there's a limit in the query for pagination support
+		if limit, hasLimit := params["limit"]; hasLimit {
+			if limitInt, ok := limit.(int); ok && limitInt < len(results) {
+				result["results"] = results[:limitInt]
+				result["has_more"] = true
+			}
+		}
+
+		// Set total_count to the actual number of results being returned
+		if finalResults, ok := result["results"].([]interface{}); ok {
+			result["total_count"] = len(finalResults)
+		} else {
+			result["total_count"] = len(results)
+		}
+	}
+
+	return result, nil
+}
+
+// formatAQLFromMap converts a map-based query structure to AQL text format
+func (p *ArtifactoryProvider) formatAQLFromMap(queryMap map[string]interface{}) string {
+	// Basic AQL query builder from map structure
+	// Example: {"type": "file", "repo": "my-repo"} -> items.find({"type": "file", "repo": "my-repo"})
+
+	jsonBytes, err := json.Marshal(queryMap)
+	if err != nil {
+		// Fallback to basic query
+		return `items.find({})`
+	}
+
+	return fmt.Sprintf("items.find(%s)", string(jsonBytes))
+}
+
+// validateAQLQuery performs basic validation on an AQL query string
+func (p *ArtifactoryProvider) validateAQLQuery(query string) error {
+	// Basic validation - ensure it's not empty and has basic AQL structure
+	query = strings.TrimSpace(query)
+
+	if query == "" {
+		return fmt.Errorf("query cannot be empty")
+	}
+
+	// Check for basic AQL keywords
+	lowerQuery := strings.ToLower(query)
+	hasValidPrefix := strings.Contains(lowerQuery, "items.find") ||
+		strings.Contains(lowerQuery, "builds.find") ||
+		strings.Contains(lowerQuery, "entries.find") ||
+		strings.Contains(lowerQuery, "artifacts.find")
+
+	if !hasValidPrefix {
+		return fmt.Errorf("query must contain a valid AQL domain (items, builds, entries, or artifacts) with .find()")
+	}
+
+	// Check for balanced parentheses and braces
+	if !p.hasBalancedBrackets(query) {
+		return fmt.Errorf("query has unbalanced parentheses or braces")
+	}
+
+	return nil
+}
+
+// hasBalancedBrackets checks if a string has balanced brackets
+func (p *ArtifactoryProvider) hasBalancedBrackets(s string) bool {
+	stack := []rune{}
+	pairs := map[rune]rune{
+		')': '(',
+		'}': '{',
+		']': '[',
+	}
+
+	for _, ch := range s {
+		switch ch {
+		case '(', '{', '[':
+			stack = append(stack, ch)
+		case ')', '}', ']':
+			if len(stack) == 0 || stack[len(stack)-1] != pairs[ch] {
+				return false
+			}
+			stack = stack[:len(stack)-1]
+		}
+	}
+
+	return len(stack) == 0
+}
+
 // ExecuteOperation executes an Artifactory operation
 func (p *ArtifactoryProvider) ExecuteOperation(ctx context.Context, operation string, params map[string]interface{}) (interface{}, error) {
 	// Defensive nil checks
@@ -963,7 +1109,7 @@ func (p *ArtifactoryProvider) ExecuteOperation(ctx context.Context, operation st
 
 	// Get operation mapping
 	mappings := p.GetOperationMappings()
-	_, exists := mappings[operation]
+	mapping, exists := mappings[operation]
 	if !exists {
 		// Build list of available operations for better error message
 		availableOps := make([]string, 0, len(mappings))
@@ -1006,7 +1152,12 @@ func (p *ArtifactoryProvider) ExecuteOperation(ctx context.Context, operation st
 		}
 	}
 
-	// Use base provider's execution with Artifactory-specific handling
+	// Special handling for AQL operations - requires text/plain content type
+	if operation == "search/aql" {
+		return p.executeAQLQuery(ctx, mapping, params)
+	}
+
+	// Use base provider's execution for other operations
 	return p.Execute(ctx, operation, params)
 }
 

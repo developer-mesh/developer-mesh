@@ -475,21 +475,30 @@ This epic makes the difference between 30% and 90%+ success rate.
 
 ## Epic 1: Enhance Core Artifactory Operations (continued)
 
-### Story 1.1: Enhance AQL (Artifactory Query Language) Support
+### Story 1.1: Enhance AQL (Artifactory Query Language) Support ✅ COMPLETE
 **Points:** 2 (reduced - endpoint exists)
+**Status:** COMPLETE - Implemented and tested
 **Note:** Endpoint `/api/search/aql` already exists in our implementation
 **Acceptance Criteria:**
-- Enhance existing AQL operation mapping for better parameter handling
-- Support complex AQL query strings (text/plain content type)
-- Handle paginated results if supported
-- Add query validation
+- ✅ Enhanced existing AQL operation mapping for better parameter handling
+- ✅ Support complex AQL query strings (text/plain content type)
+- ✅ Handle paginated results if supported
+- ✅ Add query validation
 
-**Technical Tasks:**
-- Update existing `search/aql` operation in `GetOperationMappings()`
-- Change content type to `text/plain` for AQL queries
-- Implement proper AQL query string formatting
-- Add response parsing for AQL-specific format
-- Create unit tests for complex AQL queries
+**Technical Tasks (Completed):**
+- ✅ Updated existing `search/aql` operation in `GetOperationMappings()`
+- ✅ Changed content type to `text/plain` for AQL queries
+- ✅ Implemented proper AQL query string formatting
+- ✅ Added response parsing for AQL-specific format
+- ✅ Created comprehensive unit tests for complex AQL queries
+
+**Implementation Details:**
+- Added `executeAQLQuery` method that handles AQL queries with text/plain content type
+- Modified BaseProvider's ExecuteHTTPRequest to support string bodies for plain text
+- Added query validation with `validateAQLQuery` method
+- Support for converting map-based queries to AQL format with `formatAQLFromMap`
+- Added pagination support with limit parameter
+- Created extensive test suite with 4 test functions covering all scenarios
 
 ### Story 1.2: Add Project-Based Operations
 **Points:** 3 (reduced - may use existing repo APIs)

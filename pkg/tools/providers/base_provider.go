@@ -332,11 +332,17 @@ func (p *BaseProvider) ExecuteHTTPRequest(ctx context.Context, method, path stri
 
 	var bodyReader io.Reader
 	if body != nil {
-		jsonBody, err := json.Marshal(body)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal request body: %w", err)
+		// Check if body is already a string (for plain text requests like AQL)
+		if strBody, ok := body.(string); ok {
+			bodyReader = strings.NewReader(strBody)
+		} else {
+			// Default: marshal as JSON
+			jsonBody, err := json.Marshal(body)
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal request body: %w", err)
+			}
+			bodyReader = bytes.NewReader(jsonBody)
 		}
-		bodyReader = bytes.NewReader(jsonBody)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, method, url, bodyReader)
@@ -344,7 +350,7 @@ func (p *BaseProvider) ExecuteHTTPRequest(ctx context.Context, method, path stri
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// Set default headers
+	// Set default headers (can be overridden by headers parameter)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
