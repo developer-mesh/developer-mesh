@@ -1,0 +1,441 @@
+package artifactory
+
+import (
+	"testing"
+
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/tools/providers"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestGetEnhancedAIOptimizedDefinitions(t *testing.T) {
+	logger := &observability.NoopLogger{}
+	provider := NewArtifactoryProvider(logger)
+
+	t.Run("Returns comprehensive AI definitions", func(t *testing.T) {
+		definitions := provider.GetEnhancedAIOptimizedDefinitions()
+
+		// Should have definitions for all major categories
+		assert.GreaterOrEqual(t, len(definitions), 7, "Should have at least 7 category definitions")
+
+		// Check that all definitions have required fields
+		for _, def := range definitions {
+			assert.NotEmpty(t, def.Name, "Definition should have a name")
+			assert.NotEmpty(t, def.DisplayName, "Definition should have a display name")
+			assert.NotEmpty(t, def.Category, "Definition should have a category")
+			assert.NotEmpty(t, def.Description, "Definition should have a description")
+			assert.NotEmpty(t, def.DetailedHelp, "Definition should have detailed help")
+			assert.NotEmpty(t, def.UsageExamples, "Definition should have usage examples")
+			assert.NotEmpty(t, def.SemanticTags, "Definition should have semantic tags")
+			assert.NotNil(t, def.InputSchema, "Definition should have input schema")
+		}
+	})
+
+	t.Run("Repository management definition", func(t *testing.T) {
+		definitions := provider.GetEnhancedAIOptimizedDefinitions()
+		var repoDef *providers.AIOptimizedToolDefinition
+
+		for _, def := range definitions {
+			if def.Name == "artifactory_repositories" {
+				repoDef = &def
+				break
+			}
+		}
+
+		require.NotNil(t, repoDef, "Should have repository management definition")
+
+		// Check repository definition specifics
+		assert.Equal(t, "repository_management", repoDef.Category)
+		assert.Equal(t, "configuration", repoDef.Subcategory)
+		assert.Contains(t, repoDef.Description, "local, remote, virtual")
+
+		// Check examples
+		assert.GreaterOrEqual(t, len(repoDef.UsageExamples), 4, "Should have multiple examples")
+		for _, example := range repoDef.UsageExamples {
+			assert.NotEmpty(t, example.Scenario, "Example should have a scenario")
+			assert.NotEmpty(t, example.Input, "Example should have input")
+			assert.NotEmpty(t, example.Explanation, "Example should have explanation")
+		}
+
+		// Check semantic tags
+		assert.Contains(t, repoDef.SemanticTags, "repository")
+		assert.Contains(t, repoDef.SemanticTags, "maven")
+		assert.Contains(t, repoDef.SemanticTags, "docker")
+
+		// Check input schema
+		assert.Equal(t, "object", repoDef.InputSchema.Type)
+		assert.NotEmpty(t, repoDef.InputSchema.Properties)
+		assert.Contains(t, repoDef.InputSchema.Properties, "action")
+		assert.Contains(t, repoDef.InputSchema.Properties, "parameters")
+
+		// Check AI hints
+		assert.NotNil(t, repoDef.InputSchema.AIHints, "Should have AI hints")
+		assert.NotEmpty(t, repoDef.InputSchema.AIHints.ParameterGrouping, "Should have parameter grouping")
+		assert.NotEmpty(t, repoDef.InputSchema.AIHints.SmartDefaults, "Should have smart defaults")
+		assert.NotEmpty(t, repoDef.InputSchema.AIHints.ConditionalRequirements, "Should have conditional requirements")
+
+		// Check capabilities
+		assert.NotNil(t, repoDef.Capabilities, "Should have capabilities")
+		assert.NotEmpty(t, repoDef.Capabilities.Capabilities, "Should have capability list")
+		assert.NotEmpty(t, repoDef.Capabilities.Limitations, "Should have limitations")
+	})
+
+	t.Run("Artifact management definition", func(t *testing.T) {
+		definitions := provider.GetEnhancedAIOptimizedDefinitions()
+		var artifactDef *providers.AIOptimizedToolDefinition
+
+		for _, def := range definitions {
+			if def.Name == "artifactory_artifacts" {
+				artifactDef = &def
+				break
+			}
+		}
+
+		require.NotNil(t, artifactDef, "Should have artifact management definition")
+
+		assert.Equal(t, "artifact_management", artifactDef.Category)
+		assert.Contains(t, artifactDef.Description, "upload, download, copy, move")
+		assert.GreaterOrEqual(t, len(artifactDef.UsageExamples), 3, "Should have multiple examples")
+
+		// Check semantic tags for artifacts
+		assert.Contains(t, artifactDef.SemanticTags, "upload")
+		assert.Contains(t, artifactDef.SemanticTags, "download")
+		assert.Contains(t, artifactDef.SemanticTags, "properties")
+		assert.Contains(t, artifactDef.SemanticTags, "metadata")
+	})
+
+	t.Run("Search operations definition", func(t *testing.T) {
+		definitions := provider.GetEnhancedAIOptimizedDefinitions()
+		var searchDef *providers.AIOptimizedToolDefinition
+
+		for _, def := range definitions {
+			if def.Name == "artifactory_search" {
+				searchDef = &def
+				break
+			}
+		}
+
+		require.NotNil(t, searchDef, "Should have search operations definition")
+
+		assert.Equal(t, "search", searchDef.Category)
+		assert.Contains(t, searchDef.Description, "AQL")
+		assert.Contains(t, searchDef.Description, "GAVC")
+		assert.Contains(t, searchDef.Description, "checksums")
+
+		// Check for AQL examples
+		foundAQLExample := false
+		for _, example := range searchDef.UsageExamples {
+			if example.Scenario == "Complex AQL search for recent large artifacts" {
+				foundAQLExample = true
+				assert.Contains(t, example.Input["action"], "aql")
+				params := example.Input["parameters"].(map[string]interface{})
+				assert.Contains(t, params["query"], "items.find")
+				break
+			}
+		}
+		assert.True(t, foundAQLExample, "Should have AQL example")
+	})
+
+	t.Run("Security management definition", func(t *testing.T) {
+		definitions := provider.GetEnhancedAIOptimizedDefinitions()
+		var securityDef *providers.AIOptimizedToolDefinition
+
+		for _, def := range definitions {
+			if def.Name == "artifactory_security" {
+				securityDef = &def
+				break
+			}
+		}
+
+		require.NotNil(t, securityDef, "Should have security management definition")
+
+		assert.Equal(t, "security", securityDef.Category)
+		assert.Contains(t, securityDef.Description, "users")
+		assert.Contains(t, securityDef.Description, "groups")
+		assert.Contains(t, securityDef.Description, "permissions")
+		assert.Contains(t, securityDef.Description, "tokens")
+
+		// Check semantic tags
+		assert.Contains(t, securityDef.SemanticTags, "user")
+		assert.Contains(t, securityDef.SemanticTags, "permission")
+		assert.Contains(t, securityDef.SemanticTags, "rbac")
+	})
+
+	t.Run("Internal helper operations definition", func(t *testing.T) {
+		definitions := provider.GetEnhancedAIOptimizedDefinitions()
+		var helperDef *providers.AIOptimizedToolDefinition
+
+		for _, def := range definitions {
+			if def.Name == "artifactory_helpers" {
+				helperDef = &def
+				break
+			}
+		}
+
+		require.NotNil(t, helperDef, "Should have helper operations definition")
+
+		assert.Equal(t, "internal", helperDef.Category)
+		assert.Equal(t, "helpers", helperDef.Subcategory)
+		assert.Contains(t, helperDef.Description, "multi-step processes")
+		assert.Contains(t, helperDef.DetailedHelp, "current user")
+		assert.Contains(t, helperDef.DetailedHelp, "available features")
+
+		// Check for internal operations examples
+		foundCurrentUserExample := false
+		foundFeaturesExample := false
+		for _, example := range helperDef.UsageExamples {
+			if example.Scenario == "Get current authenticated user details" {
+				foundCurrentUserExample = true
+				assert.Equal(t, "internal/current-user", example.Input["action"])
+			}
+			if example.Scenario == "Check what JFrog features are available" {
+				foundFeaturesExample = true
+				assert.Equal(t, "internal/available-features", example.Input["action"])
+			}
+		}
+		assert.True(t, foundCurrentUserExample, "Should have current user example")
+		assert.True(t, foundFeaturesExample, "Should have available features example")
+	})
+}
+
+func TestParameterValidation(t *testing.T) {
+	logger := &observability.NoopLogger{}
+	provider := NewArtifactoryProvider(logger)
+	definitions := provider.GetEnhancedAIOptimizedDefinitions()
+
+	t.Run("Repository parameters have validation rules", func(t *testing.T) {
+		var repoDef *providers.AIOptimizedToolDefinition
+		for _, def := range definitions {
+			if def.Name == "artifactory_repositories" {
+				repoDef = &def
+				break
+			}
+		}
+		require.NotNil(t, repoDef)
+
+		params := repoDef.InputSchema.Properties["parameters"]
+		assert.NotNil(t, params.Properties)
+
+		// Check repoKey validation
+		repoKeyProp := params.Properties["repoKey"]
+		assert.Equal(t, "string", repoKeyProp.Type)
+		assert.NotEmpty(t, repoKeyProp.Description)
+		assert.Equal(t, "^[a-z0-9-_]+$", repoKeyProp.Template)
+		assert.Equal(t, 2, repoKeyProp.MinLength)
+		assert.Equal(t, 64, repoKeyProp.MaxLength)
+
+		// Check rclass validation
+		rclassProp := params.Properties["rclass"]
+		assert.Equal(t, "string", rclassProp.Type)
+		assert.Contains(t, rclassProp.Examples, "local")
+		assert.Contains(t, rclassProp.Examples, "remote")
+		assert.Contains(t, rclassProp.Examples, "virtual")
+		assert.Equal(t, "local", rclassProp.SmartDefault)
+
+		// Check packageType validation
+		packageTypeProp := params.Properties["packageType"]
+		assert.Equal(t, "string", packageTypeProp.Type)
+		assert.Contains(t, packageTypeProp.Examples, "maven")
+		assert.Contains(t, packageTypeProp.Examples, "docker")
+		assert.Equal(t, "generic", packageTypeProp.SmartDefault)
+	})
+
+	t.Run("Conditional requirements are defined", func(t *testing.T) {
+		var repoDef *providers.AIOptimizedToolDefinition
+		for _, def := range definitions {
+			if def.Name == "artifactory_repositories" {
+				repoDef = &def
+				break
+			}
+		}
+		require.NotNil(t, repoDef)
+
+		hints := repoDef.InputSchema.AIHints
+		require.NotNil(t, hints)
+		require.NotEmpty(t, hints.ConditionalRequirements)
+
+		// Check specific conditional requirements
+		foundRemoteURL := false
+		foundVirtualRepos := false
+		foundCreateRequirements := false
+
+		for _, req := range hints.ConditionalRequirements {
+			if req.If == "rclass=remote" && req.Then == "url is required" {
+				foundRemoteURL = true
+			}
+			if req.If == "rclass=virtual" && req.Then == "repositories is required" {
+				foundVirtualRepos = true
+			}
+			if req.If == "action=create" && req.Then == "repoKey,rclass are required" {
+				foundCreateRequirements = true
+			}
+		}
+
+		assert.True(t, foundRemoteURL, "Should have remote URL requirement")
+		assert.True(t, foundVirtualRepos, "Should have virtual repos requirement")
+		assert.True(t, foundCreateRequirements, "Should have create requirements")
+	})
+}
+
+func TestGetAQLTemplates(t *testing.T) {
+	templates := GetAQLTemplates()
+
+	t.Run("Has basic templates", func(t *testing.T) {
+		assert.NotEmpty(t, templates)
+		assert.Contains(t, templates, "find-by-name")
+		assert.Contains(t, templates, "find-by-repo")
+		assert.Contains(t, templates, "find-by-path")
+	})
+
+	t.Run("Has date-based templates", func(t *testing.T) {
+		assert.Contains(t, templates, "find-recent")
+		assert.Contains(t, templates, "find-old")
+		assert.Contains(t, templates, "find-date-range")
+	})
+
+	t.Run("Has size-based templates", func(t *testing.T) {
+		assert.Contains(t, templates, "find-large-files")
+		assert.Contains(t, templates, "find-small-files")
+		assert.Contains(t, templates, "find-size-range")
+	})
+
+	t.Run("Has checksum templates", func(t *testing.T) {
+		assert.Contains(t, templates, "find-by-sha1")
+		assert.Contains(t, templates, "find-by-sha256")
+		assert.Contains(t, templates, "find-by-md5")
+	})
+
+	t.Run("Has property templates", func(t *testing.T) {
+		assert.Contains(t, templates, "find-by-property")
+		assert.Contains(t, templates, "find-by-properties")
+		assert.Contains(t, templates, "find-property-exists")
+	})
+
+	t.Run("Has complex templates", func(t *testing.T) {
+		assert.Contains(t, templates, "find-maven-artifacts")
+		assert.Contains(t, templates, "find-docker-images")
+		assert.Contains(t, templates, "find-npm-packages")
+	})
+
+	t.Run("Templates are valid AQL", func(t *testing.T) {
+		// Check that templates contain valid AQL structure
+		assert.Contains(t, templates["find-by-name"], "items.find")
+		assert.Contains(t, templates["find-by-name"], "$match")
+		assert.Contains(t, templates["find-recent"], "$gt")
+		assert.Contains(t, templates["find-large-files"], "size")
+	})
+}
+
+func TestGetErrorResolutions(t *testing.T) {
+	resolutions := GetErrorResolutions()
+
+	t.Run("Has common HTTP error resolutions", func(t *testing.T) {
+		assert.NotEmpty(t, resolutions)
+		assert.Contains(t, resolutions, "401 Unauthorized")
+		assert.Contains(t, resolutions, "403 Forbidden")
+		assert.Contains(t, resolutions, "404 Not Found")
+		assert.Contains(t, resolutions, "409 Conflict")
+		assert.Contains(t, resolutions, "500 Internal Server Error")
+	})
+
+	t.Run("Has Artifactory-specific error resolutions", func(t *testing.T) {
+		assert.Contains(t, resolutions, "Repository does not exist")
+		assert.Contains(t, resolutions, "Package type cannot be changed")
+		assert.Contains(t, resolutions, "Invalid repository key")
+		assert.Contains(t, resolutions, "Invalid AQL query")
+		assert.Contains(t, resolutions, "Xray not available")
+		assert.Contains(t, resolutions, "Token expired")
+		assert.Contains(t, resolutions, "Insufficient storage")
+	})
+
+	t.Run("Resolutions provide actionable advice", func(t *testing.T) {
+		// Check that resolutions contain helpful actions
+		assert.Contains(t, resolutions["401 Unauthorized"], "internal/current-user")
+		assert.Contains(t, resolutions["403 Forbidden"], "internal/available-features")
+		assert.Contains(t, resolutions["Repository does not exist"], "repos/list")
+		assert.Contains(t, resolutions["Xray not available"], "internal/available-features")
+	})
+}
+
+func TestGetCapabilityDescriptions(t *testing.T) {
+	capabilities := GetCapabilityDescriptions()
+
+	t.Run("Has all major capabilities", func(t *testing.T) {
+		assert.NotEmpty(t, capabilities)
+		assert.Contains(t, capabilities, "repository_management")
+		assert.Contains(t, capabilities, "artifact_operations")
+		assert.Contains(t, capabilities, "property_management")
+		assert.Contains(t, capabilities, "advanced_search")
+		assert.Contains(t, capabilities, "build_integration")
+		assert.Contains(t, capabilities, "security_management")
+		assert.Contains(t, capabilities, "docker_registry")
+		assert.Contains(t, capabilities, "multi_protocol")
+	})
+
+	t.Run("Capabilities have proper structure", func(t *testing.T) {
+		for name, cap := range capabilities {
+			assert.NotEmpty(t, cap.Action, "Capability %s should have action", name)
+			assert.NotEmpty(t, cap.Resource, "Capability %s should have resource", name)
+			assert.NotEmpty(t, cap.Constraints, "Capability %s should have constraints", name)
+
+			// Constraints should contain descriptive text
+			for _, constraint := range cap.Constraints {
+				assert.NotEmpty(t, constraint, "Constraint should not be empty")
+			}
+		}
+	})
+}
+
+func TestEnhancedDefinitionsIntegration(t *testing.T) {
+	logger := &observability.NoopLogger{}
+	provider := NewArtifactoryProvider(logger)
+
+	t.Run("GetAIOptimizedDefinitions uses enhanced definitions", func(t *testing.T) {
+		// The main method should now use the enhanced definitions
+		definitions := provider.GetAIOptimizedDefinitions()
+		assert.NotEmpty(t, definitions)
+
+		// Should have the enhanced features
+		foundRepoWithDetailedHelp := false
+		for _, def := range definitions {
+			if def.Name == "artifactory_repositories" {
+				// Check that it has the enhanced fields
+				assert.NotEmpty(t, def.DetailedHelp)
+				assert.NotNil(t, def.InputSchema.AIHints)
+				assert.NotNil(t, def.Capabilities)
+				foundRepoWithDetailedHelp = true
+				break
+			}
+		}
+		assert.True(t, foundRepoWithDetailedHelp, "Should use enhanced definitions")
+	})
+
+	t.Run("Legacy definitions still available", func(t *testing.T) {
+		// The legacy method should still work
+		legacyDefs := provider.GetAIOptimizedDefinitionsLegacy()
+		assert.NotEmpty(t, legacyDefs)
+
+		// Legacy definitions have simpler structure
+		for _, def := range legacyDefs {
+			// Legacy definitions don't have DetailedHelp or AIHints
+			assert.Empty(t, def.DetailedHelp)
+			assert.True(t, def.InputSchema.AIHints == nil ||
+				len(def.InputSchema.AIHints.ConditionalRequirements) == 0)
+		}
+	})
+}
+
+func TestNilProviderHandling(t *testing.T) {
+	t.Run("GetEnhancedAIOptimizedDefinitions handles nil provider", func(t *testing.T) {
+		var provider *ArtifactoryProvider
+		definitions := provider.GetEnhancedAIOptimizedDefinitions()
+		assert.Nil(t, definitions)
+	})
+
+	t.Run("GetAIOptimizedDefinitions handles nil provider", func(t *testing.T) {
+		var provider *ArtifactoryProvider
+		definitions := provider.GetAIOptimizedDefinitions()
+		assert.Nil(t, definitions)
+	})
+}

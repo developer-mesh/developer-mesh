@@ -243,7 +243,7 @@ func TestGetAIOptimizedDefinitions(t *testing.T) {
 	provider := NewArtifactoryProvider(logger)
 
 	definitions := provider.GetAIOptimizedDefinitions()
-	assert.Len(t, definitions, 5)
+	assert.GreaterOrEqual(t, len(definitions), 7, "Should have at least 7 category definitions")
 
 	// Check repositories definition
 	reposDef := definitions[0]

@@ -609,6 +609,18 @@ func (p *ArtifactoryProvider) GetAIOptimizedDefinitions() []providers.AIOptimize
 		return nil
 	}
 
+	// Use the enhanced AI-optimized definitions from Story 0.2
+	return p.GetEnhancedAIOptimizedDefinitions()
+}
+
+// GetAIOptimizedDefinitionsLegacy returns the original simpler definitions
+// Kept for backward compatibility if needed
+func (p *ArtifactoryProvider) GetAIOptimizedDefinitionsLegacy() []providers.AIOptimizedToolDefinition {
+	// Defensive nil check
+	if p == nil {
+		return nil
+	}
+
 	return []providers.AIOptimizedToolDefinition{
 		{
 			Name:        "artifactory_repositories",
