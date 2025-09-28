@@ -335,82 +335,29 @@ This epic makes the difference between 30% and 90%+ success rate.
   ```
 - Include in health check response
 
-### Story 0.5: Add JFrog-Specific Authentication Headers
+### Story 0.5: Add JFrog-Specific Authentication Headers ✅ COMPLETE
 **Points:** 2
 **Critical:** Many JFrog installations require X-JFrog-Art-Api header
+**Status:** COMPLETE - Implemented and tested
 **Acceptance Criteria:**
-- Support X-JFrog-Art-Api header for API key authentication
-- Maintain backward compatibility with Bearer token auth
-- Auto-detect which header to use based on credential type
-- Test with both authentication methods
+- ✅ Support X-JFrog-Art-Api header for API key authentication
+- ✅ Maintain backward compatibility with Bearer token auth
+- ✅ Auto-detect which header to use based on credential type
+- ✅ Test with both authentication methods
 
-**Technical Tasks:**
-- Extend BaseProvider's applyAuthentication method:
-  ```go
-  // In base_provider.go applyAuthentication method
-  func (p *BaseProvider) applyAuthentication(req *http.Request, pctx *ProviderContext) error {
-      // Check if this is JFrog provider (artifactory or xray)
-      if p.Name == "artifactory" || p.Name == "xray" {
-          // Use X-JFrog-Art-Api for API keys
-          if pctx.Credentials.APIKey != "" {
-              req.Header.Set("X-JFrog-Art-Api", pctx.Credentials.APIKey)
-              return nil
-          }
-          // Fall back to Bearer token if available
-          if pctx.Credentials.Token != "" {
-              req.Header.Set("Authorization", "Bearer " + pctx.Credentials.Token)
-              return nil
-          }
-      }
-
-      // Standard authentication for other providers
-      switch strings.ToLower(pctx.Credentials.Type) {
-      case "bearer":
-          if pctx.Credentials.Token != "" {
-              req.Header.Set("Authorization", "Bearer " + pctx.Credentials.Token)
-          }
-      case "api_key":
-          if pctx.Credentials.APIKey != "" {
-              // For JFrog, this is handled above
-              // For others, use standard API key header
-              req.Header.Set("X-API-Key", pctx.Credentials.APIKey)
-          }
-      // ... other auth types
-      }
-      return nil
-  }
-  ```
-- Add authentication type detection:
-  ```go
-  func (p *ArtifactoryProvider) detectAuthType(credentials Credentials) string {
-      // API keys that start with certain patterns
-      if strings.HasPrefix(credentials.APIKey, "AKC") ||
-         strings.HasPrefix(credentials.APIKey, "cmVm") {
-          return "artifactory_api_key"
-      }
-      // Access tokens
-      if strings.Contains(credentials.Token, ".") &&
-         len(credentials.Token) > 50 {
-          return "access_token"
-      }
-      return "unknown"
-  }
-  ```
-- Test authentication with both headers:
-  ```go
-  // Test with X-JFrog-Art-Api header
-  testWithAPIKey(t, "X-JFrog-Art-Api", apiKey)
-
-  // Test with Bearer token
-  testWithBearer(t, "Authorization", "Bearer " + token)
-  ```
-- Add logging for authentication method used:
-  ```go
-  p.logger.Debug("Using JFrog authentication", map[string]interface{}{
-      "method": authMethod,
-      "header": headerName,
-  })
-  ```
+**Implementation Complete:**
+- ✅ Extended BaseProvider's applyAuthentication method in `base_provider.go`
+- ✅ Added special handling for JFrog providers (artifactory and xray)
+- ✅ Implemented `detectJFrogAuthType` method for automatic auth type detection
+- ✅ Added support for X-JFrog-Art-Api header for API keys
+- ✅ Maintained Bearer token support for access tokens
+- ✅ Preserved backward compatibility for all existing providers
+- ✅ Added comprehensive logging for authentication methods
+- ✅ Created test suite in `base_provider_jfrog_auth_test.go` with:
+  - Tests for both X-JFrog-Art-Api and Bearer authentication
+  - Auto-detection tests for different credential patterns
+  - Backward compatibility tests for non-JFrog providers
+  - All tests passing (100% success rate)
 
 ## Epic 1: Enhance Core Artifactory Operations
 
