@@ -281,16 +281,33 @@ This epic makes the difference between 30% and 90%+ success rate.
 - ✅ Comprehensive test suite in `aql_query_builder_test.go`
 - ✅ All tests passing (100% coverage on new code)
 
-### Story 0.4: Implement Capability Reporting
+### Story 0.4: Implement Capability Reporting ✅ COMPLETE
 **Points:** 2
 **Critical:** AI needs to know what's not available and why
+**Status:** COMPLETE - Implemented and tested
 **Acceptance Criteria:**
 - Report unavailable operations with clear reasons
 - Distinguish between: not installed, no permission, cloud-only
 - Return structured capability report
 - Cache capability discovery results
 
-**Technical Tasks:**
+**Implementation Complete:**
+- ✅ Created `artifactory_capability_reporting.go` with full capability reporting system
+- ✅ Defined `Capability` and `CapabilityReport` structs as specified
+- ✅ Implemented `CapabilityDiscoverer` with comprehensive feature discovery:
+  - Probes endpoints to detect available features (Xray, Pipelines, etc.)
+  - Checks admin permissions for privileged operations
+  - Identifies package types in use
+  - Distinguishes between license/permission/installation issues
+- ✅ Added 15-minute cache for capability reports with invalidation support
+- ✅ Integrated capability checking into `ExecuteOperation` method
+- ✅ Returns structured `FormatCapabilityError` for unavailable operations
+- ✅ Added `HealthCheckWithCapabilities` method for health + capability info
+- ✅ Added public methods: `GetCapabilityReport`, `InvalidateCapabilityCache`
+- ✅ Handles authentication-free discovery gracefully
+- ✅ Created comprehensive test suite in `artifactory_capability_reporting_test.go`
+
+**Technical Tasks (Completed):**
 - Add capability reporting to both providers:
   ```go
   type Capability struct {
@@ -302,6 +319,8 @@ This epic makes the difference between 30% and 90%+ success rate.
   type CapabilityReport struct {
       Operations map[string]Capability `json:"operations"`
       Features   map[string]Capability `json:"features"`
+      Timestamp  time.Time             `json:"timestamp"`
+      CacheValid bool                  `json:"cache_valid"`
   }
   ```
 - Return for unavailable operations:
@@ -310,6 +329,7 @@ This epic makes the difference between 30% and 90%+ success rate.
       "error": "operation_unavailable",
       "operation": "xray/scan/artifact",
       "reason": "Xray is not installed or accessible",
+      "required": ["Xray license", "Xray installation"],
       "resolution": "Ensure Xray is installed and your API key has access"
   }
   ```

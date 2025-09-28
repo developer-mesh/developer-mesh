@@ -21,6 +21,7 @@ type ArtifactoryProvider struct {
 	permissionDiscoverer *ArtifactoryPermissionDiscoverer      // Permission discovery integration
 	filteredOperations   map[string]providers.OperationMapping // Filtered operations based on permissions
 	allOperations        map[string]providers.OperationMapping // Cache of all operations
+	capabilityDiscoverer *CapabilityDiscoverer                 // Capability reporting
 }
 
 // NewArtifactoryProvider creates a new Artifactory provider instance
@@ -40,6 +41,7 @@ func NewArtifactoryProvider(logger observability.Logger) *ArtifactoryProvider {
 			Timeout: 60 * time.Second, // Longer timeout for large artifact operations
 		},
 		permissionDiscoverer: NewArtifactoryPermissionDiscoverer(logger, base.GetDefaultConfiguration().BaseURL),
+		capabilityDiscoverer: NewCapabilityDiscoverer(logger),
 		allOperations:        nil, // Will be initialized when first accessed
 	}
 
@@ -867,6 +869,82 @@ func (p *ArtifactoryProvider) HealthCheck(ctx context.Context) error {
 	return nil
 }
 
+// HealthCheckWithCapabilities performs a health check and returns capability information
+func (p *ArtifactoryProvider) HealthCheckWithCapabilities(ctx context.Context) (map[string]interface{}, error) {
+	// Defensive nil checks
+	if ctx == nil {
+		return nil, fmt.Errorf("artifactory health check: context cannot be nil")
+	}
+	if p == nil || p.BaseProvider == nil {
+		return nil, fmt.Errorf("artifactory health check: provider not properly initialized")
+	}
+
+	// Perform basic health check
+	healthErr := p.HealthCheck(ctx)
+
+	result := map[string]interface{}{
+		"provider": "artifactory",
+		"healthy":  healthErr == nil,
+		"baseURL":  p.BaseProvider.GetDefaultConfiguration().BaseURL,
+	}
+
+	if healthErr != nil {
+		result["error"] = healthErr.Error()
+	}
+
+	// Include capability report if available
+	if p.capabilityDiscoverer != nil {
+		report, err := p.capabilityDiscoverer.DiscoverCapabilities(ctx, p)
+		if err == nil {
+			result["capabilities"] = map[string]interface{}{
+				"features":           report.Features,
+				"operations_summary": p.summarizeOperationCapabilities(report.Operations),
+				"cache_valid":        report.CacheValid,
+				"timestamp":          report.Timestamp,
+			}
+		} else {
+			result["capability_error"] = fmt.Sprintf("Failed to discover capabilities: %v", err)
+		}
+	}
+
+	return result, healthErr
+}
+
+// summarizeOperationCapabilities creates a summary of operation availability
+func (p *ArtifactoryProvider) summarizeOperationCapabilities(operations map[string]Capability) map[string]interface{} {
+	total := len(operations)
+	available := 0
+	unavailable := 0
+	categories := make(map[string]int)
+
+	for _, cap := range operations {
+		if cap.Available {
+			available++
+		} else {
+			unavailable++
+			// Categorize unavailable reasons
+			if strings.Contains(cap.Reason, "license") {
+				categories["license_required"]++
+			} else if strings.Contains(cap.Reason, "permission") {
+				categories["permission_required"]++
+			} else if strings.Contains(cap.Reason, "not installed") {
+				categories["not_installed"]++
+			} else if strings.Contains(cap.Reason, "cloud-only") {
+				categories["cloud_only"]++
+			} else {
+				categories["other"]++
+			}
+		}
+	}
+
+	return map[string]interface{}{
+		"total":                  total,
+		"available":              available,
+		"unavailable":            unavailable,
+		"unavailable_categories": categories,
+	}
+}
+
 // ExecuteOperation executes an Artifactory operation
 func (p *ArtifactoryProvider) ExecuteOperation(ctx context.Context, operation string, params map[string]interface{}) (interface{}, error) {
 	// Defensive nil checks
@@ -897,6 +975,35 @@ func (p *ArtifactoryProvider) ExecuteOperation(ctx context.Context, operation st
 			availableOps = append(availableOps[:10], "...")
 		}
 		return nil, fmt.Errorf("artifactory: unknown operation '%s'. Available operations include: %v", operation, availableOps)
+	}
+
+	// Check capability if discoverer is available
+	if p.capabilityDiscoverer != nil {
+		// Try to get cached report first
+		report := p.capabilityDiscoverer.GetCachedReport()
+		if report == nil {
+			// Perform discovery if no cached report
+			var err error
+			report, err = p.capabilityDiscoverer.DiscoverCapabilities(ctx, p)
+			if err != nil {
+				// Log error but continue - we don't want to block operations due to capability check failures
+				if p.GetLogger() != nil {
+					p.GetLogger().Warn("Failed to discover capabilities", map[string]interface{}{
+						"error": err.Error(),
+					})
+				}
+			}
+		}
+
+		// Check if operation is available
+		if report != nil && report.Operations != nil {
+			if capability, exists := report.Operations[operation]; exists {
+				if !capability.Available {
+					// Return structured error for unavailable operations
+					return FormatCapabilityError(operation, capability), nil
+				}
+			}
+		}
 	}
 
 	// Use base provider's execution with Artifactory-specific handling
@@ -1292,6 +1399,36 @@ func (p *ArtifactoryProvider) checkRepositoryTypes(ctx context.Context) map[stri
 	}
 
 	return result
+}
+
+// GetCapabilityReport returns the current capability report for this provider
+func (p *ArtifactoryProvider) GetCapabilityReport(ctx context.Context) (*CapabilityReport, error) {
+	// Defensive nil checks
+	if ctx == nil {
+		return nil, fmt.Errorf("GetCapabilityReport: context cannot be nil")
+	}
+	if p == nil {
+		return nil, fmt.Errorf("GetCapabilityReport: provider not initialized")
+	}
+	if p.capabilityDiscoverer == nil {
+		return nil, fmt.Errorf("GetCapabilityReport: capability discoverer not initialized")
+	}
+
+	// Try cached report first
+	report := p.capabilityDiscoverer.GetCachedReport()
+	if report != nil {
+		return report, nil
+	}
+
+	// Perform discovery
+	return p.capabilityDiscoverer.DiscoverCapabilities(ctx, p)
+}
+
+// InvalidateCapabilityCache forces the next capability discovery to refresh
+func (p *ArtifactoryProvider) InvalidateCapabilityCache() {
+	if p != nil && p.capabilityDiscoverer != nil {
+		p.capabilityDiscoverer.InvalidateCache()
+	}
 }
 
 // discoverOperations discovers available operations based on user permissions
