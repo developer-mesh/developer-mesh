@@ -125,9 +125,10 @@ This epic makes the difference between 30% and 90%+ success rate.
   ```
 - Create comprehensive tests to verify filtering works
 
-### Story 0.1: Create AI-Friendly Operation Helpers
+### Story 0.1: Create AI-Friendly Operation Helpers ✅ COMPLETE
 **Points:** 3
 **Critical:** Required for AI agents to use the API effectively
+**Status:** COMPLETE - Implemented and tested
 **Acceptance Criteria:**
 - Simplify complex multi-step operations into single callable operations
 - Add clear operation discovery mechanisms
@@ -196,6 +197,16 @@ This epic makes the difference between 30% and 90%+ success rate.
   }
   ```
 - Wrap all errors with context: what failed, why, and suggested action
+
+**Implementation Complete:**
+- ✅ Added `OperationHandler` type to provider interface
+- ✅ Modified BaseProvider Execute to support INTERNAL method type
+- ✅ Implemented `handleGetCurrentUser` - encapsulates user identification logic
+- ✅ Implemented `handleGetAvailableFeatures` - probes JFrog features availability
+- ✅ Added helper methods: `probeFeature` and `checkRepositoryTypes`
+- ✅ Created comprehensive test suite in `artifactory_internal_operations_test.go`
+- ✅ Fixed operation name normalization to preserve internal operation names
+- ✅ All tests passing
 
 ### Story 0.2: Enhance Operation Definitions for AI Discovery
 **Points:** 3

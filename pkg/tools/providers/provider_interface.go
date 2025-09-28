@@ -88,6 +88,9 @@ type ExampleDef struct {
 	Output      interface{}            `json:"output,omitempty"`
 }
 
+// OperationHandler is a function type for handling internal operations
+type OperationHandler func(ctx context.Context, params map[string]interface{}) (interface{}, error)
+
 // OperationMapping maps a simplified operation name to its full specification
 type OperationMapping struct {
 	OperationID    string           `json:"operationId"`
@@ -97,6 +100,7 @@ type OperationMapping struct {
 	OptionalParams []string         `json:"optionalParams,omitempty"`
 	BodySchema     *json.RawMessage `json:"bodySchema,omitempty"`
 	ResponseSchema *json.RawMessage `json:"responseSchema,omitempty"`
+	Handler        OperationHandler `json:"-"` // For INTERNAL method type operations
 }
 
 // ProviderConfig contains configuration for a provider

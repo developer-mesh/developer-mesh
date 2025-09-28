@@ -490,6 +490,22 @@ func (p *ArtifactoryProvider) getAllOperationMappings() map[string]providers.Ope
 			RequiredParams: []string{"repoKey", "imagePath"},
 			OptionalParams: []string{"n", "last"},
 		},
+
+		// Internal operations for AI-friendly helpers
+		"internal/current-user": {
+			OperationID:    "getCurrentUser",
+			Method:         "INTERNAL",
+			PathTemplate:   "", // No external API call
+			RequiredParams: []string{},
+			Handler:        p.handleGetCurrentUser,
+		},
+		"internal/available-features": {
+			OperationID:    "getAvailableFeatures",
+			Method:         "INTERNAL",
+			PathTemplate:   "", // No external API call
+			RequiredParams: []string{},
+			Handler:        p.handleGetAvailableFeatures,
+		},
 	}
 }
 
@@ -882,6 +898,11 @@ func (p *ArtifactoryProvider) normalizeOperationName(operation string) string {
 		return ""
 	}
 
+	// Special case: internal operations should not be normalized
+	if strings.HasPrefix(operation, "internal/") {
+		return operation
+	}
+
 	// First, handle different separators to normalize format
 	normalized := strings.ReplaceAll(operation, "-", "/")
 	normalized = strings.ReplaceAll(normalized, "_", "/")
@@ -1043,6 +1064,222 @@ func (p *ArtifactoryProvider) InitializeWithPermissions(ctx context.Context, api
 	}
 
 	return nil
+}
+
+// handleGetCurrentUser handles the internal/current-user operation
+// This encapsulates the complex 2-step process of getting user details
+func (p *ArtifactoryProvider) handleGetCurrentUser(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Defensive nil checks
+	if ctx == nil {
+		return nil, fmt.Errorf("handleGetCurrentUser: context cannot be nil")
+	}
+	if p == nil || p.BaseProvider == nil {
+		return nil, fmt.Errorf("handleGetCurrentUser: provider not initialized")
+	}
+
+	// Step 1: Call /api/security/apiKey to get API key context
+	// This doesn't exist directly, but we can use the permission target endpoint
+	// Actually, we need to discover this from the context we have
+	// Let's use a different approach - try to get user info from the context
+
+	// Try to extract credentials from context to determine user
+	pctx, ok := providers.FromContext(ctx)
+	if !ok || pctx.Credentials == nil {
+		return nil, fmt.Errorf("no credentials found in context for user identification")
+	}
+
+	// We can try to list users and find ourselves, or use the permissions endpoint
+	// The most reliable way is to use the security endpoint to check what we can access
+	// For now, let's use a simpler approach - try to get our own user details by checking permissions
+
+	// Call the permissions endpoint to get user context
+	permissionsResp, err := p.Execute(ctx, "permissions/list", params)
+	if err != nil {
+		// If we can't list permissions, try a different approach
+		// We may not have permission to list all permissions
+		// Try to get system info which often contains user info
+		sysInfo, sysErr := p.Execute(ctx, "system/info", params)
+		if sysErr != nil {
+			return nil, fmt.Errorf("failed to identify current user: permissions error: %w, system info error: %w", err, sysErr)
+		}
+		// Try to extract user info from system response
+		if sysMap, ok := sysInfo.(map[string]interface{}); ok {
+			// Look for user info in the response
+			userInfo := map[string]interface{}{
+				"source": "system_info",
+				"data":   sysMap,
+			}
+			return userInfo, nil
+		}
+		return nil, fmt.Errorf("failed to extract user info from system response")
+	}
+
+	// Extract user information from permissions response
+	// The permissions response typically contains information about the current user
+	userInfo := map[string]interface{}{
+		"source":      "permissions",
+		"permissions": permissionsResp,
+		"message":     "User identification through permissions endpoint",
+	}
+
+	return userInfo, nil
+}
+
+// handleGetAvailableFeatures handles the internal/available-features operation
+// This probes various endpoints to determine what features are available
+func (p *ArtifactoryProvider) handleGetAvailableFeatures(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Defensive nil checks
+	if ctx == nil {
+		return nil, fmt.Errorf("handleGetAvailableFeatures: context cannot be nil")
+	}
+	if p == nil || p.BaseProvider == nil {
+		return nil, fmt.Errorf("handleGetAvailableFeatures: provider not initialized")
+	}
+
+	features := make(map[string]interface{})
+
+	// Check core Artifactory features
+	features["artifactory"] = p.probeFeature(ctx, "/api/system/ping")
+
+	// Check for Xray integration
+	features["xray"] = p.probeFeature(ctx, "/xray/api/v1/system/version")
+
+	// Check for Pipelines
+	features["pipelines"] = p.probeFeature(ctx, "/pipelines/api/v1/system/info")
+
+	// Check for Mission Control
+	features["mission_control"] = p.probeFeature(ctx, "/mc/api/v1/system/info")
+
+	// Check for Distribution
+	features["distribution"] = p.probeFeature(ctx, "/distribution/api/v1/system/info")
+
+	// Check for Access (usually always available with Artifactory)
+	features["access"] = p.probeFeature(ctx, "/access/api/v1/system/ping")
+
+	// Check repository types available
+	repoTypes := p.checkRepositoryTypes(ctx)
+	features["repository_types"] = repoTypes
+
+	// Check available package types
+	features["package_types"] = []string{
+		"maven", "gradle", "ivy", "sbt",
+		"npm", "bower", "yarn",
+		"nuget",
+		"gems", "bundler",
+		"pypi", "conda",
+		"docker", "helm",
+		"go", "cargo",
+		"conan", "opkg",
+		"debian", "rpm", "yum",
+		"vagrant", "gitlfs",
+		"generic",
+	}
+
+	// Include information about operations available
+	operations := p.GetOperationMappings()
+	features["operations_count"] = len(operations)
+	features["filtered_operations"] = p.filteredOperations != nil
+
+	return features, nil
+}
+
+// probeFeature checks if a feature endpoint is available
+func (p *ArtifactoryProvider) probeFeature(ctx context.Context, endpoint string) interface{} {
+	// Try to call the endpoint
+	resp, err := p.ExecuteHTTPRequest(ctx, "GET", endpoint, nil, nil)
+	if err != nil {
+		return map[string]interface{}{
+			"available": false,
+			"reason":    fmt.Sprintf("probe failed: %v", err),
+		}
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	// Check the status code
+	switch resp.StatusCode {
+	case http.StatusOK:
+		return map[string]interface{}{
+			"available": true,
+			"status":    "active",
+		}
+	case http.StatusUnauthorized, http.StatusForbidden:
+		return map[string]interface{}{
+			"available": false,
+			"reason":    "no permission to access this feature",
+			"status":    resp.StatusCode,
+		}
+	case http.StatusNotFound:
+		return map[string]interface{}{
+			"available": false,
+			"reason":    "feature not installed or not available",
+		}
+	default:
+		return map[string]interface{}{
+			"available": false,
+			"reason":    fmt.Sprintf("unexpected status code: %d", resp.StatusCode),
+			"status":    resp.StatusCode,
+		}
+	}
+}
+
+// checkRepositoryTypes checks what repository types are available
+func (p *ArtifactoryProvider) checkRepositoryTypes(ctx context.Context) map[string]interface{} {
+	result := make(map[string]interface{})
+
+	// Try to list repositories to see what types exist
+	repos, err := p.Execute(ctx, "repos/list", map[string]interface{}{})
+	if err != nil {
+		result["error"] = fmt.Sprintf("failed to list repositories: %v", err)
+		return result
+	}
+
+	// Extract repository classes from response
+	localRepos := 0
+	remoteRepos := 0
+	virtualRepos := 0
+	federatedRepos := 0
+
+	if repoList, ok := repos.([]interface{}); ok {
+		for _, repo := range repoList {
+			if repoMap, ok := repo.(map[string]interface{}); ok {
+				if rclass, ok := repoMap["type"].(string); ok {
+					switch rclass {
+					case "LOCAL":
+						localRepos++
+					case "REMOTE":
+						remoteRepos++
+					case "VIRTUAL":
+						virtualRepos++
+					case "FEDERATED":
+						federatedRepos++
+					}
+				}
+			}
+		}
+	}
+
+	result["local"] = map[string]interface{}{
+		"supported": true,
+		"count":     localRepos,
+	}
+	result["remote"] = map[string]interface{}{
+		"supported": true,
+		"count":     remoteRepos,
+	}
+	result["virtual"] = map[string]interface{}{
+		"supported": true,
+		"count":     virtualRepos,
+	}
+	if federatedRepos > 0 {
+		result["federated"] = map[string]interface{}{
+			"supported": true,
+			"count":     federatedRepos,
+		}
+	}
+
+	return result
 }
 
 // discoverOperations discovers available operations based on user permissions

@@ -117,6 +117,11 @@ func (p *BaseProvider) Execute(ctx context.Context, operation string, params map
 		return nil, fmt.Errorf("operation %s not found", operation)
 	}
 
+	// Handle INTERNAL method type with handler
+	if mapping.Method == "INTERNAL" && mapping.Handler != nil {
+		return mapping.Handler(ctx, params)
+	}
+
 	// Build path with parameters
 	path := mapping.PathTemplate
 	queryParams := make(map[string]string)
