@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **JFrog Projects API Support** (2025-09-28): Complete implementation of project-based operations
+  - Added 22 new operations for JFrog Projects management (Enterprise/Pro feature)
+  - Core project operations: `list`, `get`, `create`, `update`, `delete` via `/access/api/v1/projects`
+  - Project membership management: add/remove/update users and groups with role assignments
+  - Custom role management: create/update/delete project-specific roles with fine-grained permissions
+  - Repository scoping: assign/unassign repositories to projects for isolated access control
+  - Added "projects" operation group to provider configuration for better organization
+  - Integrated with capability detection - operations auto-disabled without Pro/Enterprise license
+  - Comprehensive test suite with mock server for all project operations
+  - Result: Full support for JFrog's enterprise project management features
+
 - **JFrog Artifactory Provider AI Enhancements** (2025-09-28): Major improvements for AI agent integration
   - Permission-based operation filtering allowing AI agents to only see permitted operations
   - INTERNAL operation type for complex multi-step operations (e.g., user lookup, feature detection)

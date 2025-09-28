@@ -500,21 +500,36 @@ This epic makes the difference between 30% and 90%+ success rate.
 - Added pagination support with limit parameter
 - Created extensive test suite with 4 test functions covering all scenarios
 
-### Story 1.2: Add Project-Based Operations
+### Story 1.2: Add Project-Based Operations ✅ COMPLETE
 **Points:** 3 (reduced - may use existing repo APIs)
 **Note:** Research indicates Projects may be enterprise-only
+**Status:** COMPLETE - Implemented and tested
 **Acceptance Criteria:**
-- Verify if JFrog Projects API is available in self-hosted versions
-- If available, add project management operations
-- Support project-scoped repository access if available
-- Handle project membership and permissions
+- ✅ Verify if JFrog Projects API is available in self-hosted versions
+- ✅ If available, add project management operations
+- ✅ Support project-scoped repository access if available
+- ✅ Handle project membership and permissions
 
-**Technical Tasks:**
-- Check if Projects API exists in target JFrog version
-- If available, implement using existing repository patterns
-- Add project context to repository operations
-- Update permission operations if project-scoped
-- Create tests with project scenarios
+**Technical Tasks (Completed):**
+- ✅ Checked if Projects API exists in target JFrog version
+- ✅ Implemented comprehensive project operations using `/access/api/v1/projects`
+- ✅ Added project context to repository operations
+- ✅ Updated permission operations for project-scoped access
+- ✅ Created tests with project scenarios
+
+**Implementation Complete:**
+- ✅ Added 22 new project-related operations to ArtifactoryProvider
+- ✅ Core project operations: list, get, create, update, delete
+- ✅ Project membership operations: users and groups (add, remove, update)
+- ✅ Project role management: create, update, delete custom roles
+- ✅ Project-scoped repository operations: assign, unassign, list
+- ✅ All operations properly configured with correct endpoints and parameters
+- ✅ Added "projects" operation group to provider configuration
+- ✅ Integrated with existing capability reporting system
+- ✅ Operations automatically filtered when Projects feature unavailable
+- ✅ Comprehensive test suite in `artifactory_projects_test.go`
+- ✅ Tests cover all project operations with mock server
+- ✅ Tests verify capability filtering when feature is unavailable
 
 ## Epic 2: Add Xray Security Scanning Support
 

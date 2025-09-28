@@ -447,6 +447,167 @@ func (p *ArtifactoryProvider) getAllOperationMappings() map[string]providers.Ope
 			OptionalParams: []string{"access_token"},
 		},
 
+		// Project operations - Enterprise/Pro feature
+		// Note: Projects API is available at /access/api/v1/projects
+		// Requires Platform Pro or Enterprise license
+		"projects/list": {
+			OperationID:    "listProjects",
+			Method:         "GET",
+			PathTemplate:   "/access/api/v1/projects",
+			RequiredParams: []string{},
+			OptionalParams: []string{"pageNum", "numOfRows", "orderBy"},
+		},
+		"projects/get": {
+			OperationID:    "getProject",
+			Method:         "GET",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}",
+			RequiredParams: []string{"projectKey"},
+		},
+		"projects/create": {
+			OperationID:    "createProject",
+			Method:         "POST",
+			PathTemplate:   "/access/api/v1/projects",
+			RequiredParams: []string{"projectKey", "displayName"},
+			OptionalParams: []string{"description", "adminPrivileges", "storageQuotaBytes", "softLimit"},
+		},
+		"projects/update": {
+			OperationID:    "updateProject",
+			Method:         "PUT",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}",
+			RequiredParams: []string{"projectKey"},
+			OptionalParams: []string{"displayName", "description", "adminPrivileges", "storageQuotaBytes", "softLimit"},
+		},
+		"projects/delete": {
+			OperationID:    "deleteProject",
+			Method:         "DELETE",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}",
+			RequiredParams: []string{"projectKey"},
+		},
+
+		// Project membership operations
+		"projects/users/list": {
+			OperationID:    "listProjectUsers",
+			Method:         "GET",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}/users",
+			RequiredParams: []string{"projectKey"},
+			OptionalParams: []string{"pageNum", "numOfRows"},
+		},
+		"projects/users/get": {
+			OperationID:    "getProjectUser",
+			Method:         "GET",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}/users/{username}",
+			RequiredParams: []string{"projectKey", "username"},
+		},
+		"projects/users/add": {
+			OperationID:    "addProjectUser",
+			Method:         "PUT",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}/users/{username}",
+			RequiredParams: []string{"projectKey", "username"},
+			OptionalParams: []string{"roles"},
+		},
+		"projects/users/update": {
+			OperationID:    "updateProjectUser",
+			Method:         "PUT",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}/users/{username}",
+			RequiredParams: []string{"projectKey", "username", "roles"},
+		},
+		"projects/users/remove": {
+			OperationID:    "removeProjectUser",
+			Method:         "DELETE",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}/users/{username}",
+			RequiredParams: []string{"projectKey", "username"},
+		},
+
+		// Project group operations
+		"projects/groups/list": {
+			OperationID:    "listProjectGroups",
+			Method:         "GET",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}/groups",
+			RequiredParams: []string{"projectKey"},
+			OptionalParams: []string{"pageNum", "numOfRows"},
+		},
+		"projects/groups/get": {
+			OperationID:    "getProjectGroup",
+			Method:         "GET",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}/groups/{groupName}",
+			RequiredParams: []string{"projectKey", "groupName"},
+		},
+		"projects/groups/add": {
+			OperationID:    "addProjectGroup",
+			Method:         "PUT",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}/groups/{groupName}",
+			RequiredParams: []string{"projectKey", "groupName"},
+			OptionalParams: []string{"roles"},
+		},
+		"projects/groups/update": {
+			OperationID:    "updateProjectGroup",
+			Method:         "PUT",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}/groups/{groupName}",
+			RequiredParams: []string{"projectKey", "groupName", "roles"},
+		},
+		"projects/groups/remove": {
+			OperationID:    "removeProjectGroup",
+			Method:         "DELETE",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}/groups/{groupName}",
+			RequiredParams: []string{"projectKey", "groupName"},
+		},
+
+		// Project roles operations
+		"projects/roles/list": {
+			OperationID:    "listProjectRoles",
+			Method:         "GET",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}/roles",
+			RequiredParams: []string{"projectKey"},
+		},
+		"projects/roles/get": {
+			OperationID:    "getProjectRole",
+			Method:         "GET",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}/roles/{roleName}",
+			RequiredParams: []string{"projectKey", "roleName"},
+		},
+		"projects/roles/create": {
+			OperationID:    "createProjectRole",
+			Method:         "POST",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}/roles",
+			RequiredParams: []string{"projectKey", "name", "type"},
+			OptionalParams: []string{"environments", "actions", "description"},
+		},
+		"projects/roles/update": {
+			OperationID:    "updateProjectRole",
+			Method:         "PUT",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}/roles/{roleName}",
+			RequiredParams: []string{"projectKey", "roleName"},
+			OptionalParams: []string{"environments", "actions", "description"},
+		},
+		"projects/roles/delete": {
+			OperationID:    "deleteProjectRole",
+			Method:         "DELETE",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}/roles/{roleName}",
+			RequiredParams: []string{"projectKey", "roleName"},
+		},
+
+		// Project-scoped repository operations
+		"projects/repos/assign": {
+			OperationID:    "assignRepoToProject",
+			Method:         "PUT",
+			PathTemplate:   "/access/api/v1/projects/_/attach/repositories/{repoKey}/{projectKey}",
+			RequiredParams: []string{"repoKey", "projectKey"},
+			OptionalParams: []string{"force"},
+		},
+		"projects/repos/unassign": {
+			OperationID:    "unassignRepoFromProject",
+			Method:         "DELETE",
+			PathTemplate:   "/access/api/v1/projects/_/attach/repositories/{repoKey}",
+			RequiredParams: []string{"repoKey"},
+		},
+		"projects/repos/list": {
+			OperationID:    "listProjectRepositories",
+			Method:         "GET",
+			PathTemplate:   "/api/repositories?project={projectKey}",
+			RequiredParams: []string{"projectKey"},
+			OptionalParams: []string{"type", "packageType"},
+		},
+
 		// System operations
 		"system/info": {
 			OperationID:    "getSystemInfo",
@@ -577,6 +738,18 @@ func (p *ArtifactoryProvider) GetDefaultConfiguration() providers.ProviderConfig
 				Operations: []string{
 					"builds/list", "builds/get", "builds/runs",
 					"builds/upload", "builds/promote", "builds/delete",
+				},
+			},
+			{
+				Name:        "projects",
+				DisplayName: "Project Management",
+				Description: "Project-based access control and organization (Pro/Enterprise feature)",
+				Operations: []string{
+					"projects/list", "projects/get", "projects/create", "projects/update", "projects/delete",
+					"projects/users/list", "projects/users/get", "projects/users/add", "projects/users/update", "projects/users/remove",
+					"projects/groups/list", "projects/groups/get", "projects/groups/add", "projects/groups/update", "projects/groups/remove",
+					"projects/roles/list", "projects/roles/get", "projects/roles/create", "projects/roles/update", "projects/roles/delete",
+					"projects/repos/assign", "projects/repos/unassign", "projects/repos/list",
 				},
 			},
 			{
