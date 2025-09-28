@@ -43,16 +43,16 @@ Each repository type supports specific package formats (Maven, npm, Docker, PyPI
 					Input: map[string]interface{}{
 						"action": "create",
 						"parameters": map[string]interface{}{
-							"repoKey":         "my-maven-releases",
-							"rclass":          "local",
-							"packageType":     "maven",
-							"description":     "Maven release artifacts",
-							"includesPattern": "**/*",
-							"excludesPattern": "**/*.tmp",
-							"repoLayoutRef":   "maven-2-default",
-							"handleReleases":  true,
-							"handleSnapshots": false,
-							"maxUniqueSnapshots": 0,
+							"repoKey":                 "my-maven-releases",
+							"rclass":                  "local",
+							"packageType":             "maven",
+							"description":             "Maven release artifacts",
+							"includesPattern":         "**/*",
+							"excludesPattern":         "**/*.tmp",
+							"repoLayoutRef":           "maven-2-default",
+							"handleReleases":          true,
+							"handleSnapshots":         false,
+							"maxUniqueSnapshots":      0,
 							"snapshotVersionBehavior": "unique",
 						},
 					},
@@ -63,16 +63,16 @@ Each repository type supports specific package formats (Maven, npm, Docker, PyPI
 					Input: map[string]interface{}{
 						"action": "create",
 						"parameters": map[string]interface{}{
-							"repoKey":     "maven-central-remote",
-							"rclass":      "remote",
-							"packageType": "maven",
-							"url":         "https://repo.maven.apache.org/maven2",
-							"description": "Proxy for Maven Central",
-							"offline":     false,
-							"storeArtifactsLocally": true,
-							"socketTimeoutMillis": 15000,
-							"cacheExpirationSeconds": 7200,
-							"retrievalCachePeriodSecs": 7200,
+							"repoKey":                        "maven-central-remote",
+							"rclass":                         "remote",
+							"packageType":                    "maven",
+							"url":                            "https://repo.maven.apache.org/maven2",
+							"description":                    "Proxy for Maven Central",
+							"offline":                        false,
+							"storeArtifactsLocally":          true,
+							"socketTimeoutMillis":            15000,
+							"cacheExpirationSeconds":         7200,
+							"retrievalCachePeriodSecs":       7200,
 							"missedRetrievalCachePeriodSecs": 1800,
 						},
 					},
@@ -92,7 +92,7 @@ Each repository type supports specific package formats (Maven, npm, Docker, PyPI
 								"maven-central-remote",
 							},
 							"defaultDeploymentRepo": "libs-snapshot-local",
-							"description": "Virtual repository aggregating all Maven repositories",
+							"description":           "Virtual repository aggregating all Maven repositories",
 						},
 					},
 					Explanation: "Creates a virtual repository that provides a single URL for accessing multiple Maven repositories",
@@ -102,9 +102,9 @@ Each repository type supports specific package formats (Maven, npm, Docker, PyPI
 					Input: map[string]interface{}{
 						"action": "update",
 						"parameters": map[string]interface{}{
-							"repoKey":     "my-maven-releases",
-							"description": "Updated description for Maven releases",
-							"notes":       "This repository contains production-ready artifacts",
+							"repoKey":         "my-maven-releases",
+							"description":     "Updated description for Maven releases",
+							"notes":           "This repository contains production-ready artifacts",
 							"includesPattern": "**/*.jar,**/*.pom",
 							"excludesPattern": "**/*-sources.jar",
 						},
@@ -140,15 +140,15 @@ Each repository type supports specific package formats (Maven, npm, Docker, PyPI
 								MaxLength:   64,
 							},
 							"rclass": {
-								Type:        "string",
-								Description: "Repository class determining storage and proxy behavior",
-								Examples:    []interface{}{"local", "remote", "virtual", "federated"},
+								Type:         "string",
+								Description:  "Repository class determining storage and proxy behavior",
+								Examples:     []interface{}{"local", "remote", "virtual", "federated"},
 								SmartDefault: "local",
 							},
 							"packageType": {
-								Type:        "string",
-								Description: "Package format the repository will store",
-								Examples:    []interface{}{"maven", "gradle", "npm", "pypi", "docker", "helm", "go", "nuget", "generic"},
+								Type:         "string",
+								Description:  "Package format the repository will store",
+								Examples:     []interface{}{"maven", "gradle", "npm", "pypi", "docker", "helm", "go", "nuget", "generic"},
 								SmartDefault: "generic",
 							},
 							"url": {
@@ -169,9 +169,9 @@ Each repository type supports specific package formats (Maven, npm, Docker, PyPI
 								MaxLength:   1024,
 							},
 							"includesPattern": {
-								Type:        "string",
-								Description: "Pattern for artifacts to include (Ant-style wildcards)",
-								Examples:    []interface{}{"**/*", "**/*.jar", "com/mycompany/**"},
+								Type:         "string",
+								Description:  "Pattern for artifacts to include (Ant-style wildcards)",
+								Examples:     []interface{}{"**/*", "**/*.jar", "com/mycompany/**"},
 								SmartDefault: "**/*",
 							},
 							"excludesPattern": {
@@ -260,13 +260,13 @@ Each repository type supports specific package formats (Maven, npm, Docker, PyPI
 					Input: map[string]interface{}{
 						"action": "copy",
 						"parameters": map[string]interface{}{
-							"srcRepoKey":    "libs-snapshot-local",
-							"srcItemPath":   "com/mycompany/myapp/1.0.0-SNAPSHOT/",
-							"targetRepoKey": "libs-release-local",
-							"targetItemPath": "com/mycompany/myapp/1.0.0/",
-							"dry":           false,
+							"srcRepoKey":      "libs-snapshot-local",
+							"srcItemPath":     "com/mycompany/myapp/1.0.0-SNAPSHOT/",
+							"targetRepoKey":   "libs-release-local",
+							"targetItemPath":  "com/mycompany/myapp/1.0.0/",
+							"dry":             false,
 							"suppressLayouts": false,
-							"failFast":      true,
+							"failFast":        true,
 						},
 					},
 					Explanation: "Promotes snapshot artifacts to release repository with path transformation",
@@ -324,13 +324,13 @@ Each repository type supports specific package formats (Maven, npm, Docker, PyPI
 								Examples:    []interface{}{map[string]string{"build.number": "123", "quality": "verified"}},
 							},
 							"recursive": {
-								Type:        "boolean",
-								Description: "Apply operation to all children (for directories)",
+								Type:         "boolean",
+								Description:  "Apply operation to all children (for directories)",
 								SmartDefault: "false",
 							},
 							"dry": {
-								Type:        "boolean",
-								Description: "Simulate operation without making changes",
+								Type:         "boolean",
+								Description:  "Simulate operation without making changes",
 								SmartDefault: "false",
 							},
 						},
@@ -374,10 +374,10 @@ Each repository type supports specific package formats (Maven, npm, Docker, PyPI
 					Input: map[string]interface{}{
 						"action": "gavc",
 						"parameters": map[string]interface{}{
-							"g": "com.mycompany",
-							"a": "myapp",
-							"v": "1.0.*",
-							"c": "sources",
+							"g":     "com.mycompany",
+							"a":     "myapp",
+							"v":     "1.0.*",
+							"c":     "sources",
 							"repos": "libs-release-local,libs-snapshot-local",
 						},
 					},
@@ -545,14 +545,14 @@ Each repository type supports specific package formats (Maven, npm, Docker, PyPI
 					Input: map[string]interface{}{
 						"action": "promote",
 						"parameters": map[string]interface{}{
-							"buildName":     "myapp",
-							"buildNumber":   "123",
-							"targetRepo":    "libs-prod-local",
-							"status":        "Released",
-							"comment":       "Promoted to production after QA approval",
-							"ciUser":        "jenkins",
-							"copy":          true,
-							"dependencies":  true,
+							"buildName":    "myapp",
+							"buildNumber":  "123",
+							"targetRepo":   "libs-prod-local",
+							"status":       "Released",
+							"comment":      "Promoted to production after QA approval",
+							"ciUser":       "jenkins",
+							"copy":         true,
+							"dependencies": true,
 							"properties": map[string]string{
 								"release.version": "1.0.0",
 								"release.date":    "2025-01-28",
@@ -626,14 +626,14 @@ Each repository type supports specific package formats (Maven, npm, Docker, PyPI
 					Input: map[string]interface{}{
 						"action": "users/create",
 						"parameters": map[string]interface{}{
-							"userName":        "john.doe",
-							"email":           "john.doe@company.com",
-							"password":        "SecurePass123!",
-							"admin":           false,
+							"userName":         "john.doe",
+							"email":            "john.doe@company.com",
+							"password":         "SecurePass123!",
+							"admin":            false,
 							"profileUpdatable": true,
 							"disableUIAccess":  false,
-							"groups":          []string{"developers", "readers"},
-							"watcherEnabled":  true,
+							"groups":           []string{"developers", "readers"},
+							"watcherEnabled":   true,
 						},
 					},
 					Explanation: "Creates a developer user with appropriate group memberships and UI access",
@@ -646,7 +646,7 @@ Each repository type supports specific package formats (Maven, npm, Docker, PyPI
 							"name": "dev-team-maven-access",
 							"repositories": map[string]interface{}{
 								"libs-snapshot-local": map[string]interface{}{
-									"actions": []string{"read", "write", "delete", "annotate"},
+									"actions":         []string{"read", "write", "delete", "annotate"},
 									"includePatterns": []string{"com/mycompany/**"},
 									"excludePatterns": []string{"com/mycompany/internal/**"},
 								},
@@ -656,11 +656,11 @@ Each repository type supports specific package formats (Maven, npm, Docker, PyPI
 							},
 							"principals": map[string]interface{}{
 								"groups": map[string][]string{
-									"developers": []string{"manage", "read", "write"},
-									"qa-team":    []string{"read", "annotate"},
+									"developers": {"manage", "read", "write"},
+									"qa-team":    {"read", "annotate"},
 								},
 								"users": map[string][]string{
-									"lead-dev": []string{"manage", "read", "write", "delete"},
+									"lead-dev": {"manage", "read", "write", "delete"},
 								},
 							},
 						},
@@ -672,12 +672,12 @@ Each repository type supports specific package formats (Maven, npm, Docker, PyPI
 					Input: map[string]interface{}{
 						"action": "tokens/create",
 						"parameters": map[string]interface{}{
-							"username":     "ci-pipeline",
-							"scope":        "applied-permissions/user",
-							"expires_in":   2592000, // 30 days
-							"refreshable":  true,
-							"description":  "Token for Jenkins pipeline",
-							"audience":     "jfrt@*",
+							"username":                "ci-pipeline",
+							"scope":                   "applied-permissions/user",
+							"expires_in":              2592000, // 30 days
+							"refreshable":             true,
+							"description":             "Token for Jenkins pipeline",
+							"audience":                "jfrt@*",
 							"include_reference_token": true,
 						},
 					},
@@ -805,8 +805,8 @@ Each repository type supports specific package formats (Maven, npm, Docker, PyPI
 								Examples:    []interface{}{"library/nginx", "mycompany/myapp"},
 							},
 							"n": {
-								Type:        "integer",
-								Description: "Number of results to return",
+								Type:         "integer",
+								Description:  "Number of results to return",
 								SmartDefault: "100",
 							},
 						},
@@ -924,6 +924,7 @@ Each repository type supports specific package formats (Maven, npm, Docker, PyPI
 
 // GetAQLTemplates returns common AQL query templates for AI agents
 // This helps AI agents construct valid AQL queries without syntax errors
+// NOTE: Consider using AQLQueryBuilder for programmatic query construction
 func GetAQLTemplates() map[string]string {
 	return map[string]string{
 		// Basic templates
@@ -932,59 +933,81 @@ func GetAQLTemplates() map[string]string {
 		"find-by-path": `items.find({"path": {"$match": "%s"}})`,
 
 		// Date-based templates
-		"find-recent": `items.find({"modified": {"$gt": "%s"}})`,
-		"find-old": `items.find({"created": {"$lt": "%s"}})`,
+		"find-recent":     `items.find({"modified": {"$gt": "%s"}})`,
+		"find-old":        `items.find({"created": {"$lt": "%s"}})`,
 		"find-date-range": `items.find({"created": {"$gt": "%s", "$lt": "%s"}})`,
 
 		// Size-based templates
 		"find-large-files": `items.find({"size": {"$gt": %d}})`,
 		"find-small-files": `items.find({"size": {"$lt": %d}})`,
-		"find-size-range": `items.find({"size": {"$gt": %d, "$lt": %d}})`,
+		"find-size-range":  `items.find({"size": {"$gt": %d, "$lt": %d}})`,
 
 		// Checksum templates
-		"find-by-sha1": `items.find({"actual_sha1": "%s"})`,
+		"find-by-sha1":   `items.find({"actual_sha1": "%s"})`,
 		"find-by-sha256": `items.find({"sha256": "%s"})`,
-		"find-by-md5": `items.find({"actual_md5": "%s"})`,
+		"find-by-md5":    `items.find({"actual_md5": "%s"})`,
 
 		// Property templates
-		"find-by-property": `items.find({"@%s": "%s"})`,
-		"find-by-properties": `items.find({"@%s": "%s", "@%s": "%s"})`,
+		"find-by-property":     `items.find({"@%s": "%s"})`,
+		"find-by-properties":   `items.find({"@%s": "%s", "@%s": "%s"})`,
 		"find-property-exists": `items.find({"@%s": {"$match": "*"}})`,
 
 		// Complex templates
 		"find-maven-artifacts": `items.find({"repo": {"$match": "*maven*"}, "name": {"$match": "*.jar"}})`,
-		"find-docker-images": `items.find({"repo": {"$match": "*docker*"}, "name": "manifest.json"})`,
-		"find-npm-packages": `items.find({"repo": {"$match": "*npm*"}, "name": {"$match": "*.tgz"}})`,
+		"find-docker-images":   `items.find({"repo": {"$match": "*docker*"}, "name": "manifest.json"})`,
+		"find-npm-packages":    `items.find({"repo": {"$match": "*npm*"}, "name": {"$match": "*.tgz"}})`,
 
 		// With includes
 		"find-with-properties": `items.find(%s).include("property")`,
-		"find-with-stats": `items.find(%s).include("stat")`,
-		"find-with-all": `items.find(%s).include("*")`,
+		"find-with-stats":      `items.find(%s).include("stat")`,
+		"find-with-all":        `items.find(%s).include("*")`,
 
 		// Sorting and limiting
-		"find-sorted": `items.find(%s).sort({"$desc": ["size"]})`,
+		"find-sorted":  `items.find(%s).sort({"$desc": ["size"]})`,
 		"find-limited": `items.find(%s).limit(%d)`,
-		"find-offset": `items.find(%s).offset(%d).limit(%d)`,
+		"find-offset":  `items.find(%s).offset(%d).limit(%d)`,
 	}
+}
+
+// GetAQLBuilderExamples returns examples of using the AQLQueryBuilder
+// This helps AI agents understand how to programmatically build AQL queries
+func GetAQLBuilderExamples() map[string]string {
+	examples := make(map[string]string)
+
+	// Get the common examples from the builder
+	builderExamples := GetCommonAQLExamples()
+
+	// Convert each example to its query string
+	for name, builderFunc := range builderExamples {
+		builder := builderFunc()
+		query, _ := builder.Build()
+		examples[name] = query
+	}
+
+	// Add descriptions for AI agents
+	examples["_description"] = "Use AQLQueryBuilder for safe, programmatic query construction"
+	examples["_usage"] = "builder := NewAQLQueryBuilder().FindItemsByRepo('libs-release').FindItemsByName('*.jar').Build()"
+
+	return examples
 }
 
 // GetErrorResolutions returns common error patterns and their resolutions
 // This helps AI agents provide actionable solutions when operations fail
 func GetErrorResolutions() map[string]string {
 	return map[string]string{
-		"401 Unauthorized": "Check that your API key or token is valid and not expired. Use 'internal/current-user' to verify authentication.",
-		"403 Forbidden": "You don't have permission for this operation. Check your user permissions or use 'internal/available-features' to see what's accessible.",
-		"404 Not Found": "The requested resource doesn't exist. Verify the repository key, artifact path, or username is correct.",
-		"409 Conflict": "Resource already exists. Use a different name or delete the existing resource first.",
-		"400 Bad Request": "Invalid parameters. Check that all required parameters are provided and properly formatted.",
-		"500 Internal Server Error": "Artifactory server error. Check system health with 'system/ping' and retry the operation.",
-		"Repository does not exist": "The specified repository was not found. Use 'repos/list' to see available repositories.",
+		"401 Unauthorized":               "Check that your API key or token is valid and not expired. Use 'internal/current-user' to verify authentication.",
+		"403 Forbidden":                  "You don't have permission for this operation. Check your user permissions or use 'internal/available-features' to see what's accessible.",
+		"404 Not Found":                  "The requested resource doesn't exist. Verify the repository key, artifact path, or username is correct.",
+		"409 Conflict":                   "Resource already exists. Use a different name or delete the existing resource first.",
+		"400 Bad Request":                "Invalid parameters. Check that all required parameters are provided and properly formatted.",
+		"500 Internal Server Error":      "Artifactory server error. Check system health with 'system/ping' and retry the operation.",
+		"Repository does not exist":      "The specified repository was not found. Use 'repos/list' to see available repositories.",
 		"Package type cannot be changed": "Cannot change package type after repository creation. Delete and recreate the repository.",
-		"Invalid repository key": "Repository keys must be lowercase alphanumeric with hyphens and underscores only.",
-		"Invalid AQL query": "AQL syntax error. Use the AQL templates or refer to the examples for correct syntax.",
-		"Xray not available": "Xray is not installed or not accessible. Use 'internal/available-features' to check what's available.",
-		"Token expired": "Access token has expired. Generate a new token using 'tokens/create' operation.",
-		"Insufficient storage": "Server is running low on storage. Contact administrator or use 'system/storage' to check usage.",
+		"Invalid repository key":         "Repository keys must be lowercase alphanumeric with hyphens and underscores only.",
+		"Invalid AQL query":              "AQL syntax error. Use AQLQueryBuilder for safe query construction, or GetAQLTemplates() for templates. Call ValidateAQLQuery() to check syntax.",
+		"Xray not available":             "Xray is not installed or not accessible. Use 'internal/available-features' to check what's available.",
+		"Token expired":                  "Access token has expired. Generate a new token using 'tokens/create' operation.",
+		"Insufficient storage":           "Server is running low on storage. Contact administrator or use 'system/storage' to check usage.",
 	}
 }
 

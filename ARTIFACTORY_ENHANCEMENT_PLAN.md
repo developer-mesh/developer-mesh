@@ -258,38 +258,28 @@ This epic makes the difference between 30% and 90%+ success rate.
 - Add similar detailed definitions for ALL operations
 - Include error examples with resolution steps
 
-### Story 0.3: Add AQL Query Builder for AI Agents
+### Story 0.3: Add AQL Query Builder for AI Agents ✅ COMPLETE
 **Points:** 2
 **Critical:** AQL syntax is complex for AI to construct
+**Status:** COMPLETE - Implemented and tested
 **Acceptance Criteria:**
-- Provide structured AQL query builder
-- Include common query templates
-- Validate queries before execution
-- Return clear error messages for invalid queries
+- ✅ Provide structured AQL query builder
+- ✅ Include common query templates
+- ✅ Validate queries before execution
+- ✅ Return clear error messages for invalid queries
 
-**Technical Tasks:**
-- Create AQL helper methods:
-  ```go
-  type AQLQueryBuilder struct {
-      findClause   string
-      includeFields []string
-      sortBy       string
-      limit        int
-  }
-
-  func (b *AQLQueryBuilder) FindItemsByName(pattern string) *AQLQueryBuilder
-  func (b *AQLQueryBuilder) FindItemsByProperty(key, value string) *AQLQueryBuilder
-  func (b *AQLQueryBuilder) Build() (string, error) // Returns valid AQL string
-  ```
-- Add common query templates:
-  ```go
-  AQLTemplates = map[string]string{
-      "find-by-name": `items.find({"name":{"$match":"%s"}})`,
-      "find-by-checksum": `items.find({"actual_sha1":"%s"})`,
-      "find-recent": `items.find({"modified":{"$gt":"%s"}})`,
-  }
-  ```
-- Include in operation definition with examples
+**Implementation Complete:**
+- ✅ Created `aql_query_builder.go` with full AQLQueryBuilder implementation
+- ✅ Fluent interface for building queries: `NewAQLQueryBuilder().FindItemsByRepo().FindItemsByName().Build()`
+- ✅ Support for all criteria types: name, repo, path, properties, checksums, size, dates, type
+- ✅ Include fields, sorting, pagination (limit/offset)
+- ✅ Build() and BuildSimple() methods for different output formats
+- ✅ ValidateAQLQuery() function for syntax validation
+- ✅ GetCommonAQLExamples() with pre-built query examples
+- ✅ Enhanced GetAQLTemplates() with builder integration
+- ✅ Added GetAQLBuilderExamples() for AI guidance
+- ✅ Comprehensive test suite in `aql_query_builder_test.go`
+- ✅ All tests passing (100% coverage on new code)
 
 ### Story 0.4: Implement Capability Reporting
 **Points:** 2
