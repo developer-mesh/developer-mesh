@@ -16,8 +16,11 @@ import (
 // ArtifactoryProvider implements the StandardToolProvider interface for JFrog Artifactory
 type ArtifactoryProvider struct {
 	*providers.BaseProvider
-	specCache  repository.OpenAPICacheRepository // For caching the OpenAPI spec
-	httpClient *http.Client
+	specCache            repository.OpenAPICacheRepository // For caching the OpenAPI spec
+	httpClient           *http.Client
+	permissionDiscoverer *ArtifactoryPermissionDiscoverer      // Permission discovery integration
+	filteredOperations   map[string]providers.OperationMapping // Filtered operations based on permissions
+	allOperations        map[string]providers.OperationMapping // Cache of all operations
 }
 
 // NewArtifactoryProvider creates a new Artifactory provider instance
@@ -36,10 +39,15 @@ func NewArtifactoryProvider(logger observability.Logger) *ArtifactoryProvider {
 		httpClient: &http.Client{
 			Timeout: 60 * time.Second, // Longer timeout for large artifact operations
 		},
+		permissionDiscoverer: NewArtifactoryPermissionDiscoverer(logger, base.GetDefaultConfiguration().BaseURL),
+		allOperations:        nil, // Will be initialized when first accessed
 	}
 
-	// Set operation mappings in base provider
-	provider.SetOperationMappings(provider.GetOperationMappings())
+	// Store all operations for later filtering
+	provider.allOperations = provider.getAllOperationMappings()
+
+	// Set operation mappings in base provider (initially all operations)
+	provider.SetOperationMappings(provider.allOperations)
 	// Set configuration to ensure auth type is configured
 	provider.SetConfiguration(provider.GetDefaultConfiguration())
 	return provider
@@ -99,8 +107,29 @@ func (p *ArtifactoryProvider) GetToolDefinitions() []providers.ToolDefinition {
 	}
 }
 
-// GetOperationMappings returns Artifactory-specific operation mappings
+// GetOperationMappings returns Artifactory-specific operation mappings (may be filtered by permissions)
 func (p *ArtifactoryProvider) GetOperationMappings() map[string]providers.OperationMapping {
+	// Defensive nil check
+	if p == nil {
+		return nil
+	}
+
+	// Return filtered operations if available
+	if p.filteredOperations != nil {
+		return p.filteredOperations
+	}
+
+	// Otherwise return all operations (backward compatibility)
+	if p.allOperations != nil {
+		return p.allOperations
+	}
+
+	// Fallback to getting all operations
+	return p.getAllOperationMappings()
+}
+
+// getAllOperationMappings returns all Artifactory operation mappings (unfiltered)
+func (p *ArtifactoryProvider) getAllOperationMappings() map[string]providers.OperationMapping {
 	// Defensive nil check
 	if p == nil {
 		return nil
@@ -966,6 +995,51 @@ func (p *ArtifactoryProvider) ValidateCredentials(ctx context.Context, creds map
 	err := p.HealthCheck(ctx)
 	if err != nil {
 		return fmt.Errorf("artifactory validate credentials failed: %w", err)
+	}
+
+	return nil
+}
+
+// InitializeWithPermissions triggers permission discovery and operation filtering
+func (p *ArtifactoryProvider) InitializeWithPermissions(ctx context.Context, apiKey string) error {
+	// Defensive nil checks
+	if ctx == nil {
+		return fmt.Errorf("artifactory InitializeWithPermissions: context cannot be nil")
+	}
+	if p == nil {
+		return fmt.Errorf("artifactory InitializeWithPermissions: provider not initialized")
+	}
+	if apiKey == "" {
+		return fmt.Errorf("artifactory InitializeWithPermissions: API key cannot be empty")
+	}
+	if p.permissionDiscoverer == nil {
+		return fmt.Errorf("artifactory InitializeWithPermissions: permission discoverer not initialized")
+	}
+
+	// Discover permissions for the given API key
+	permissions, err := p.permissionDiscoverer.DiscoverPermissions(ctx, apiKey)
+	if err != nil {
+		return fmt.Errorf("failed to discover permissions: %w", err)
+	}
+
+	// Filter operations based on discovered permissions
+	p.filteredOperations = p.permissionDiscoverer.FilterOperationsByPermissions(
+		p.allOperations,
+		permissions,
+	)
+
+	// Update base provider with filtered operations
+	p.SetOperationMappings(p.filteredOperations)
+
+	// Log the initialization results
+	if p.BaseProvider != nil && p.GetLogger() != nil {
+		p.GetLogger().Info("Initialized Artifactory provider with filtered operations", map[string]interface{}{
+			"total_operations":   len(p.allOperations),
+			"allowed_operations": len(p.filteredOperations),
+			"is_admin":           permissions.IsAdmin,
+			"feature_count":      len(permissions.EnabledFeatures),
+			"repo_count":         len(permissions.Repositories),
+		})
 	}
 
 	return nil
