@@ -9,6 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Artifactory Package Discovery Operations** (2025-09-29): Epic 4, Story 4.2 - Simplified package discovery using storage API
+  - **Generic Package Operations**: Universal operations for any package type using storage API
+    - `packages/info` - Get comprehensive package information with metadata
+    - `packages/versions` - List all versions with deep directory listing support
+    - `packages/latest` - Find latest version based on modification timestamps
+    - `packages/stats` - Retrieve download statistics and usage metrics
+    - `packages/properties` - Access package properties and custom metadata
+  - **Package-Type Specific Operations**: Tailored operations for different package ecosystems
+    - **Maven**: GAV-based info retrieval, version listing, and POM file access
+    - **NPM**: Package metadata, scoped package support, and tarball downloads
+    - **Docker**: Image manifests, comprehensive tag listing, and layer information
+    - **PyPI**: Simple API integration for Python package versions
+    - **NuGet**: FindPackagesById() API support for .NET package discovery
+  - **Discovery and Relationship Operations**: Advanced search and dependency tracking
+    - `packages/search` - Search for packages using name patterns and filters
+    - `packages/dependencies` - Get full package dependency information
+    - `packages/dependents` - Find artifacts that depend on specific packages
+  - **Technical Implementation**: Robust API integration and parameter handling
+    - Query parameters properly handled through OptionalParams field
+    - Support for package-specific path formatting (Maven GAV coordinates, NPM scopes, Docker namespaces)
+    - Intelligent version validation to filter non-version directories
+    - Comprehensive test suite with package-type specific scenarios and mock servers
+  - Result: Streamlined package discovery enabling AI agents and tools to easily navigate and manage artifacts across different package types
+
 - **Artifactory Enhanced Search Operations** (2025-01-29): Epic 4, Story 4.1 - Comprehensive search capabilities
   - **Enhanced Existing Search Operations**: Added missing parameters for complete search functionality
     - `search/artifacts` - Added type, size, created, modified, lastDownloaded parameters

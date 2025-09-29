@@ -639,6 +639,12 @@ func (p *ArtifactoryProvider) getAllOperationMappings() map[string]providers.Ope
 		operations[key] = op
 	}
 
+	// Merge in package discovery operations (Epic 4, Story 4.2)
+	packageOps := p.getPackageDiscoveryOperations()
+	for key, op := range packageOps {
+		operations[key] = op
+	}
+
 	return operations
 }
 
@@ -745,6 +751,21 @@ func (p *ArtifactoryProvider) GetDefaultConfiguration() providers.ProviderConfig
 				DisplayName: "Docker Registry",
 				Description: "Docker-specific operations",
 				Operations:  []string{"docker/repositories", "docker/tags"},
+			},
+			{
+				Name:        "packages",
+				DisplayName: "Package Discovery",
+				Description: "Simplified package discovery and version management",
+				Operations: []string{
+					"packages/info", "packages/versions", "packages/latest",
+					"packages/stats", "packages/properties", "packages/search",
+					"packages/dependencies", "packages/dependents",
+					"packages/maven/info", "packages/maven/versions", "packages/maven/pom",
+					"packages/npm/info", "packages/npm/versions", "packages/npm/tarball",
+					"packages/docker/info", "packages/docker/tags", "packages/docker/layers",
+					"packages/pypi/info", "packages/pypi/versions",
+					"packages/nuget/info", "packages/nuget/versions",
+				},
 			},
 		},
 	}
