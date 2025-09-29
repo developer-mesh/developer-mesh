@@ -682,13 +682,13 @@ This epic makes the difference between 30% and 90%+ success rate.
 - ✅ Tests confirm custom base URLs for various instance types
 - ✅ All tests passing (100% success rate)
 
-### Story 3.2: Create Integration Tests
+### Story 3.2: Create Integration Tests ✅ COMPLETED
 **Points:** 5
 **Dependencies:** All implementation stories
 **Acceptance Criteria:**
-- Mock server responses based on actual API responses
-- End-to-end testing for implemented operations
-- Performance testing
+- ✅ Mock server responses based on actual API responses
+- ✅ End-to-end testing for implemented operations
+- ✅ Performance testing
 
 **Technical Tasks:**
 - Extend mockserver with Xray response formats

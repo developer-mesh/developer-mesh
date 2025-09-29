@@ -24,11 +24,11 @@ func SetupHandlers(mux *http.ServeMux) {
 	// SonarQube API mock
 	mux.HandleFunc("/mock-sonarqube/", SonarQubeHandler)
 
-	// Artifactory API mock
-	mux.HandleFunc("/mock-artifactory/", ArtifactoryHandler)
+	// Artifactory API mock - use comprehensive handler from jfrog.go
+	mux.HandleFunc("/mock-artifactory/", JFrogArtifactoryHandler)
 
-	// Xray API mock
-	mux.HandleFunc("/mock-xray/", XrayHandler)
+	// Xray API mock - use comprehensive handler from jfrog.go
+	mux.HandleFunc("/mock-xray/", JFrogXrayHandler)
 
 	// Mock webhook endpoints
 	mux.HandleFunc("/api/v1/webhook/github", func(w http.ResponseWriter, r *http.Request) {
