@@ -9,122 +9,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Artifactory Package Discovery Operations** (2025-09-29): Epic 4, Story 4.2 - Simplified package discovery using storage API
-  - **Generic Package Operations**: Universal operations for any package type using storage API
-    - `packages/info` - Get comprehensive package information with metadata
-    - `packages/versions` - List all versions with deep directory listing support
-    - `packages/latest` - Find latest version based on modification timestamps
-    - `packages/stats` - Retrieve download statistics and usage metrics
-    - `packages/properties` - Access package properties and custom metadata
-  - **Package-Type Specific Operations**: Tailored operations for different package ecosystems
-    - **Maven**: GAV-based info retrieval, version listing, and POM file access
-    - **NPM**: Package metadata, scoped package support, and tarball downloads
-    - **Docker**: Image manifests, comprehensive tag listing, and layer information
-    - **PyPI**: Simple API integration for Python package versions
-    - **NuGet**: FindPackagesById() API support for .NET package discovery
-  - **Discovery and Relationship Operations**: Advanced search and dependency tracking
-    - `packages/search` - Search for packages using name patterns and filters
-    - `packages/dependencies` - Get full package dependency information
-    - `packages/dependents` - Find artifacts that depend on specific packages
-  - **Technical Implementation**: Robust API integration and parameter handling
-    - Query parameters properly handled through OptionalParams field
-    - Support for package-specific path formatting (Maven GAV coordinates, NPM scopes, Docker namespaces)
-    - Intelligent version validation to filter non-version directories
-    - Comprehensive test suite with package-type specific scenarios and mock servers
-  - Result: Streamlined package discovery enabling AI agents and tools to easily navigate and manage artifacts across different package types
+- **JFrog Artifactory: Simplified Package Discovery** - Implemented comprehensive package discovery operations using storage API (Epic 4, Story 4.2)
+  - Added 21 new package discovery operations across 5 package ecosystems
+  - Generic operations work with any package type: `packages/info`, `packages/versions`, `packages/latest`, `packages/stats`, `packages/properties`
+  - Package-specific operations for Maven (GAV coordinates), NPM (scoped packages), Docker (image tags), PyPI (Simple API), and NuGet (FindPackagesById)
+  - Search and dependency operations: `packages/search`, `packages/dependencies`, `packages/dependents`
+  - Proper query parameter handling through OptionalParams field instead of hardcoded URLs
+  - Support for package-specific path formatting and version validation
+  - Comprehensive test coverage with mock servers for all package types
 
-- **Artifactory Enhanced Search Operations** (2025-01-29): Epic 4, Story 4.1 - Comprehensive search capabilities
-  - **Enhanced Existing Search Operations**: Added missing parameters for complete search functionality
-    - `search/artifacts` - Added type, size, created, modified, lastDownloaded parameters
-    - `search/property` - Fixed to include actual property parameters (p, recursive)
-    - `search/gavc` - Added recursive and limit parameters for better Maven searches
-    - `search/pattern` - Added recursive parameter for deep searches
-  - **9 New Search Operations**: Expanded search capabilities for diverse use cases
-    - `search/dates` - Search artifacts by creation/modification dates with ISO 8601 support
-    - `search/buildArtifacts` - Find artifacts associated with specific builds
-    - `search/dependency` - Discover artifact dependencies using SHA1 checksums
-    - `search/usage` - Identify unused artifacts based on access patterns
-    - `search/latestVersion` - Retrieve latest versions using GAVC coordinates
-    - `search/stats` - Include download statistics in search results
-    - `search/badChecksum` - Detect artifacts with corrupted or missing checksums
-    - `search/license` - Search by license information for compliance
-    - `search/metadata` - Query artifacts using custom metadata
-  - **Robust Parameter Validation**: Comprehensive input validation with clear error messages
-    - Required parameter checks for each operation type
-    - Type validation for dates, checksums, and enumerations
-    - Contextual error messages guiding correct usage
-  - **Test Coverage**: Created comprehensive test suite with 100+ test cases
-    - Operation availability tests for all 15 search operations
-    - Parameter validation tests with 22+ edge cases
-    - Integration tests simulating real API interactions
-    - URL formatting and example usage validation
-  - Result: Significantly improved search capabilities enabling AI agents and users to efficiently discover and manage artifacts
+- **JFrog Artifactory: Enhanced Search Operations** - Comprehensive search capabilities (Epic 4, Story 4.1)
+  - Enhanced 4 existing search operations with missing parameters for complete functionality
+  - Added 9 new search operations: dates, buildArtifacts, dependency, usage, latestVersion, stats, badChecksum, license, metadata
+  - Implemented robust parameter validation with contextual error messages
+  - Created comprehensive test suite with 100+ test cases covering all 15 operations
+  - Improved AI agent and user artifact discovery capabilities
 
-- **JFrog Provider Documentation and AI-Optimized Definitions** (2025-01-29): Story 3.3 - Comprehensive documentation and examples
-  - **Enhanced AI-Optimized Definitions**: Improved AI agent success rates through comprehensive operation coverage
-    - Artifactory: Confirmed and leveraged existing `GetEnhancedAIOptimizedDefinitions()` with 8 categories
-    - Xray: Completely rebuilt definitions from 9 basic to 4 comprehensive categories covering all 50+ operations
-    - Added extensive semantic tags for improved AI discovery across all operation types
-    - Included detailed parameter schemas with conditional requirements and AI hints
-  - **Workflow Documentation** (`docs/ARTIFACTORY_XRAY_WORKFLOWS.md`): 8 real-world workflow examples
-    - Repository setup with security monitoring integration
-    - Artifact upload with automated scanning and quality gates
-    - CI/CD build promotion pipelines with security validation
-    - Docker image security assessment workflows
-    - Comprehensive vulnerability management and remediation
-    - License compliance monitoring and SBOM generation
-    - Advanced dependency graph analysis for impact assessment
-    - Automated cleanup based on security scan results
-  - **Authentication Guide** (`docs/JFROG_AUTHENTICATION.md`): Complete authentication documentation
-    - Automatic detection logic for API keys, JWT tokens, and reference tokens
-    - Unified JFrog Platform authentication across Artifactory and Xray
-    - Security best practices including token rotation and scope management
-    - Troubleshooting guides for common authentication errors (401, 403)
-    - Integration examples for CI/CD (GitHub Actions), Kubernetes, and Terraform
-    - Migration guide from API keys to access tokens
-  - **Impact**: Significantly improved AI agent effectiveness with better operation discovery, real-world examples, and clear authentication patterns
+- **JFrog Provider Documentation and AI-Optimized Definitions** - Comprehensive documentation and AI agent improvements (Story 3.3)
+  - Enhanced AI-optimized definitions for both Artifactory (8 categories) and Xray (4 categories covering 50+ operations)
+  - Added workflow documentation (`docs/ARTIFACTORY_XRAY_WORKFLOWS.md`) with 8 real-world integration examples
+  - Created authentication guide (`docs/JFROG_AUTHENTICATION.md`) covering all token types and troubleshooting
+  - Improved semantic tags and parameter schemas for better AI agent operation discovery
 
-- **JFrog Integration Test Suite Implementation** (2025-01-28): Story 3.2 - Comprehensive testing infrastructure
-  - Created complete integration test suite in `test/integration/jfrog_integration_test.go` with 800+ lines of test code
-  - **Mock Server Implementation**: Realistic JFrog API simulation with proper authentication and response structures
-    - `createArtifactoryMockServer()` - Full Artifactory API mock with all endpoints (repos, users, AQL, projects, permissions)
-    - `createXrayMockServer()` - Complete Xray API mock supporting scans, components, reports, policies, and watches
-    - Authentication verification matching real JFrog behavior (API keys, JWT tokens, headers)
-    - HTTP status codes and error responses matching production API behavior
-  - **Test Coverage Categories**: End-to-end testing across all provider operations
-    - **Provider Integration Tests**: `TestArtifactoryIntegration` and `TestXrayIntegration` with 6 sub-tests each
-    - **Cross-Provider Tests**: `TestArtifactoryXrayIntegration` for workflow validation (artifact discovery → security scanning)
-    - **Error Handling Tests**: `TestErrorHandling` for invalid URLs, missing parameters, authentication failures
-    - **Concurrency Tests**: `TestConcurrency` validating thread-safety with 10+ concurrent operations
-    - **Performance Tests**: `BenchmarkArtifactoryOperations` and `BenchmarkXrayOperations` for load testing
-    - **Edge Case Tests**: Rate limiting, timeouts, and graceful degradation scenarios
-  - **Operation Validation**: Tests verify correct usage of all implemented operations
-    - Artifactory: `users/list`, `users/get`, `repos/list`, `repos/create`, `search/aql`, `projects/list`
-    - Xray: `summary/artifact`, `scan/artifact`, `components/details`, `components/search`, `reports/vulnerability`
-    - Parameter validation ensuring correct `repoKey`, `userName`, `componentId`, and other required fields
-  - **Test Results**: All 22 test cases passing with comprehensive coverage
-    - 8 main test suites covering different scenarios
-    - Performance benchmarks confirming acceptable response times
-    - Concurrency validation with no race conditions detected
-    - Error scenarios properly handled without panics
-  - Result: Robust testing infrastructure ensuring pipeline stability and provider reliability
+- **JFrog Integration Test Suite** - Comprehensive testing infrastructure (Story 3.2)
+  - Created 800+ line integration test suite (`test/integration/jfrog_integration_test.go`)
+  - Implemented mock servers for both Artifactory and Xray APIs with realistic authentication
+  - Added 22 test cases covering integration, cross-provider workflows, error handling, and concurrency
+  - Validated all operations with proper parameter handling and edge case scenarios
+  - Included performance benchmarks and stress testing capabilities
 
-- **JFrog Xray Passthrough Authentication Implementation** (2025-09-28): Story 3.1 - Unified authentication support
-  - Enhanced BaseProvider authentication to properly handle JFrog JWT tokens in APIKey field
-  - JWT tokens (starting with "ey") now correctly use `Authorization: Bearer` header
-  - API keys and reference tokens use `X-JFrog-Art-Api` header as expected
-  - Support for unified JFrog Platform tokens that work across Artifactory and Xray
-  - Custom base URL support for various deployment configurations:
-    - JFrog Cloud instances (e.g., `https://mycompany.jfrog.io/xray`)
-    - Self-hosted installations with custom domains
-    - Installations with non-standard ports
-    - Subdomain-based configurations
-  - Created comprehensive test suite `xray_passthrough_auth_test.go` with:
-    - Tests for all authentication methods (API keys, JWT tokens, reference tokens)
-    - Verification of unified platform token support
-    - Custom base URL configuration tests
-    - Header selection validation based on credential type
-  - Result: Xray provider now seamlessly inherits and uses JFrog's unified authentication system
+- **JFrog Xray Passthrough Authentication** - Unified authentication support (Story 3.1)
+  - Enhanced BaseProvider to handle JFrog JWT tokens with proper Bearer authentication
+  - Support for API keys, JWT tokens, and reference tokens with correct headers
+  - Added unified JFrog Platform token support working across Artifactory and Xray
+  - Custom base URL support for cloud, self-hosted, and custom domain configurations
+  - Created comprehensive test suite validating all authentication methods
 
 - **JFrog Xray Reports and Metrics Implementation** (2025-09-28): Comprehensive reporting and analytics capabilities
   - Created `xray_reports_metrics.go` with 23 new operations for report generation and metrics
