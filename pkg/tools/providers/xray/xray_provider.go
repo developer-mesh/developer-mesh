@@ -85,7 +85,7 @@ func (p *XrayProvider) GetToolDefinitions() []providers.ToolDefinition {
 			Name:        "xray_scans",
 			DisplayName: "Xray Security Scans",
 			Description: "Perform security vulnerability scanning",
-			Category:    "security_scanning",
+			Category:    "security",
 		},
 		{
 			Name:        "xray_violations",

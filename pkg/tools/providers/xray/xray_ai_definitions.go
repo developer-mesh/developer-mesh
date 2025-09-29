@@ -9,7 +9,7 @@ func getXrayAIOptimizedDefinitions() []providers.AIOptimizedToolDefinition {
 		{
 			Name:        "xray_scanning",
 			DisplayName: "Security Scanning Operations",
-			Category:    "security_scanning",
+			Category:    "security",
 			Subcategory: "vulnerability_scanning",
 			Description: "Comprehensive security scanning for artifacts, builds, and components to detect vulnerabilities, license violations, and operational risks",
 			DetailedHelp: `Xray scanning operations provide comprehensive security analysis:
