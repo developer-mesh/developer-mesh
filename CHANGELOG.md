@@ -9,6 +9,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **JFrog Xray Component Intelligence Implementation** (2025-09-28): Complete component vulnerability and dependency analysis
+  - Created `xray_component_intelligence.go` with 14 new operations for component analysis
+  - **CVE Search Operations**: Find components by CVE and vice versa
+    - `components/searchByCves` - Search for components containing specific CVEs
+    - `components/searchCvesByComponents` - Find CVEs in specific components
+    - `components/findByName` - Search components by name from JFrog Global database
+    - `components/exportDetails` - Export detailed component info in JSON/PDF/CSV formats
+  - **Dependency Graph Analysis**: Complete dependency tree visualization and analysis
+    - `graph/artifact` - Get full dependency graph for artifacts
+    - `graph/build` - Analyze build dependencies
+    - `graph/compareArtifacts` - Compare dependency graphs between artifacts
+    - `graph/compareBuilds` - Diff dependencies between builds
+  - **License Compliance Operations**: License analysis and reporting
+    - `licenses/report` - Generate comprehensive license compliance reports
+    - `licenses/summary` - Get license distribution and compliance status
+  - **Enhanced Vulnerability Operations**: Advanced security analysis
+    - `vulnerabilities/componentSummary` - Detailed vulnerability summary with severity breakdown
+    - `vulnerabilities/exportSBOM` - Export Software Bill of Materials (SBOM)
+  - **Component Metadata Operations**: Version and impact analysis
+    - `components/versions` - Get all versions with security information
+    - `components/impact` - Analyze component impact across repositories and builds
+  - **Helper Functions and Utilities**:
+    - Component identifier builders for 20+ package types (Maven, Docker, NPM, PyPI, Go, etc.)
+    - Request formatters for all operation types
+    - Response parsers with proper error handling
+    - Severity filtering and categorization utilities
+    - Dependency depth and critical path analysis
+    - Component identifier validation
+  - **Comprehensive Test Coverage** in `xray_component_intelligence_test.go`:
+    - Full integration tests with mock server
+    - Unit tests for all helper functions
+    - Package type identifier tests
+    - Severity filtering and analysis tests
+    - 100% test pass rate
+  - Result: Complete component intelligence capabilities for vulnerability management and dependency analysis
+
 - **JFrog Xray Scan Operations Implementation** (2025-09-28): Complete scan operations support for Xray provider
   - Created `xray_scan_operations.go` with comprehensive vulnerability scanning support
   - Data structures for all scan types: artifact scans, build scans, status tracking, summaries

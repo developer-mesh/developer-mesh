@@ -1,0 +1,72 @@
+# Snyk (https://snyk.io) policy file
+version: v1.25.0
+
+# Ignore test files from vulnerability scanning
+exclude:
+  global:
+    # Exclude all test files
+    - '**/*_test.go'
+    - '**/testdata/**'
+    - '**/test/**'
+    - '**/tests/**'
+    - '**/testing/**'
+    - '**/*.test.js'
+    - '**/*.spec.js'
+    - '**/mock/**'
+    - '**/mocks/**'
+    - '**/fixtures/**'
+    - '**/e2e/**'
+
+    # Exclude example and sample files
+    - '**/examples/**'
+    - '**/example/**'
+    - '**/samples/**'
+    - '**/sample/**'
+
+    # Exclude documentation
+    - '**/*.md'
+    - 'docs/**'
+    - 'documentation/**'
+
+    # Exclude build artifacts
+    - 'build/**'
+    - 'dist/**'
+    - 'bin/**'
+    - 'target/**'
+    - 'out/**'
+
+    # Exclude vendor and dependencies (they have their own vulnerability tracking)
+    - 'vendor/**'
+    - 'node_modules/**'
+
+    # Exclude CI/CD configurations
+    - '.github/**'
+    - '.gitlab/**'
+    - '.circleci/**'
+
+    # Exclude development tools and configs
+    - 'scripts/**'
+    - 'tools/**'
+    - '.vscode/**'
+    - '.idea/**'
+
+    # Exclude generated files
+    - '**/*.pb.go'
+    - '**/generated/**'
+    - '**/gen/**'
+
+    # Exclude migration files (often contain test data)
+    - 'migrations/**'
+
+    # Exclude mock server (test utility)
+    - 'apps/mockserver/**'
+
+# Patches section for ignoring specific vulnerabilities
+# Add specific vulnerability ignores here if needed
+patches: {}
+
+# Language-specific settings
+language-settings:
+  go:
+    enableLicensesScan: true
+    enableVulnerabilitiesScan: true

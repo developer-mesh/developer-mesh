@@ -1,0 +1,59 @@
+# DeepCode/Snyk Code ignore file for VS Code extension
+# Syntax is identical to .gitignore
+
+# Test files
+**/*_test.go
+**/testdata/
+**/test/
+**/tests/
+**/testing/
+**/*.test.js
+**/*.spec.js
+**/mock/
+**/mocks/
+**/fixtures/
+**/e2e/
+
+# Example and sample files
+**/examples/
+**/example/
+**/samples/
+**/sample/
+
+# Documentation
+**/*.md
+docs/
+documentation/
+
+# Build artifacts
+build/
+dist/
+bin/
+target/
+out/
+
+# Dependencies
+vendor/
+node_modules/
+
+# CI/CD configurations
+.github/
+.gitlab/
+.circleci/
+
+# Development tools and configs
+scripts/
+tools/
+.vscode/
+.idea/
+
+# Generated files
+**/*.pb.go
+**/generated/
+**/gen/
+
+# Migration files
+migrations/
+
+# Mock server
+apps/mockserver/

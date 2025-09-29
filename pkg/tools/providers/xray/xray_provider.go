@@ -189,7 +189,7 @@ func (p *XrayProvider) GetOperationMappings() map[string]providers.OperationMapp
 
 // getAllOperationMappings returns all Xray operation mappings
 func (p *XrayProvider) getAllOperationMappings() map[string]providers.OperationMapping {
-	return map[string]providers.OperationMapping{
+	operations := map[string]providers.OperationMapping{
 		// System operations
 		"system/ping": {
 			OperationID:  "SystemPing",
@@ -393,6 +393,14 @@ func (p *XrayProvider) getAllOperationMappings() map[string]providers.OperationM
 			RequiredParams: []string{"id"},
 		},
 	}
+
+	// Merge component intelligence operations
+	componentOps := p.AddComponentIntelligenceOperations()
+	for key, op := range componentOps {
+		operations[key] = op
+	}
+
+	return operations
 }
 
 // GetDefaultConfiguration returns the default configuration for Xray
