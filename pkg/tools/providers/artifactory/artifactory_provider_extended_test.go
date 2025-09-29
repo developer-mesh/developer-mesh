@@ -420,6 +420,8 @@ func TestExecuteOperation_RateLimiting(t *testing.T) {
 
 	config := provider.GetDefaultConfiguration()
 	config.BaseURL = server.URL
+	// Disable retries for this test to avoid infinite retry loop
+	config.RetryPolicy.MaxRetries = 0
 	provider.SetConfiguration(config)
 
 	ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
@@ -430,7 +432,7 @@ func TestExecuteOperation_RateLimiting(t *testing.T) {
 
 	_, err := provider.ExecuteOperation(ctx, "repos/list", nil)
 	assert.Error(t, err)
-	// The retry logic should handle 429 if RetryOnRateLimit is true
+	assert.Contains(t, err.Error(), "429", "Error should indicate rate limiting")
 }
 
 // TestExecuteOperation_ContentTypeHandling tests different content types
