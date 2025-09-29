@@ -139,7 +139,8 @@ func (p *ArtifactoryProvider) getAllOperationMappings() map[string]providers.Ope
 		return nil
 	}
 
-	return map[string]providers.OperationMapping{
+	// Start with base operations
+	operations := map[string]providers.OperationMapping{
 		// Repository operations
 		"repos/list": {
 			OperationID:    "listRepositories",
@@ -230,48 +231,7 @@ func (p *ArtifactoryProvider) getAllOperationMappings() map[string]providers.Ope
 			OptionalParams: []string{"recursive"},
 		},
 
-		// Search operations
-		"search/artifacts": {
-			OperationID:    "searchArtifacts",
-			Method:         "GET",
-			PathTemplate:   "/api/search/artifact",
-			RequiredParams: []string{},
-			OptionalParams: []string{"name", "repos", "includeRemote"},
-		},
-		"search/aql": {
-			OperationID:    "searchAQL",
-			Method:         "POST",
-			PathTemplate:   "/api/search/aql",
-			RequiredParams: []string{"query"},
-		},
-		"search/gavc": {
-			OperationID:    "searchGAVC",
-			Method:         "GET",
-			PathTemplate:   "/api/search/gavc",
-			RequiredParams: []string{},
-			OptionalParams: []string{"g", "a", "v", "c", "repos"},
-		},
-		"search/property": {
-			OperationID:    "searchByProperty",
-			Method:         "GET",
-			PathTemplate:   "/api/search/prop",
-			RequiredParams: []string{},
-			OptionalParams: []string{"repos"},
-		},
-		"search/checksum": {
-			OperationID:    "searchByChecksum",
-			Method:         "GET",
-			PathTemplate:   "/api/search/checksum",
-			RequiredParams: []string{},
-			OptionalParams: []string{"md5", "sha1", "sha256", "repos"},
-		},
-		"search/pattern": {
-			OperationID:    "searchByPattern",
-			Method:         "GET",
-			PathTemplate:   "/api/search/pattern",
-			RequiredParams: []string{"pattern"},
-			OptionalParams: []string{"repos"},
-		},
+		// Search operations are replaced below after basic operations
 
 		// Build operations
 		"builds/list": {
@@ -672,6 +632,14 @@ func (p *ArtifactoryProvider) getAllOperationMappings() map[string]providers.Ope
 			Handler:        p.handleGetAvailableFeatures,
 		},
 	}
+
+	// Merge in enhanced search operations (Epic 4, Story 4.1)
+	searchOps := p.getEnhancedSearchOperations()
+	for key, op := range searchOps {
+		operations[key] = op
+	}
+
+	return operations
 }
 
 // GetDefaultConfiguration returns default Artifactory configuration
@@ -729,6 +697,9 @@ func (p *ArtifactoryProvider) GetDefaultConfiguration() providers.ProviderConfig
 				Operations: []string{
 					"search/artifacts", "search/aql", "search/gavc",
 					"search/property", "search/checksum", "search/pattern",
+					"search/dates", "search/buildArtifacts", "search/dependency",
+					"search/usage", "search/latestVersion", "search/stats",
+					"search/badChecksum", "search/license", "search/metadata",
 				},
 			},
 			{
@@ -1294,6 +1265,13 @@ func (p *ArtifactoryProvider) ExecuteOperation(ctx context.Context, operation st
 			availableOps = append(availableOps[:10], "...")
 		}
 		return nil, fmt.Errorf("artifactory: unknown operation '%s'. Available operations include: %v", operation, availableOps)
+	}
+
+	// Validate search operation parameters (Epic 4, Story 4.1)
+	if strings.HasPrefix(operation, "search/") {
+		if err := p.validateSearchParameters(operation, params); err != nil {
+			return nil, fmt.Errorf("artifactory: invalid search parameters: %w", err)
+		}
 	}
 
 	// Check capability if discoverer is available

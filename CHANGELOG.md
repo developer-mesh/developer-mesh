@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Artifactory Enhanced Search Operations** (2025-01-29): Epic 4, Story 4.1 - Comprehensive search capabilities
+  - **Enhanced Existing Search Operations**: Added missing parameters for complete search functionality
+    - `search/artifacts` - Added type, size, created, modified, lastDownloaded parameters
+    - `search/property` - Fixed to include actual property parameters (p, recursive)
+    - `search/gavc` - Added recursive and limit parameters for better Maven searches
+    - `search/pattern` - Added recursive parameter for deep searches
+  - **9 New Search Operations**: Expanded search capabilities for diverse use cases
+    - `search/dates` - Search artifacts by creation/modification dates with ISO 8601 support
+    - `search/buildArtifacts` - Find artifacts associated with specific builds
+    - `search/dependency` - Discover artifact dependencies using SHA1 checksums
+    - `search/usage` - Identify unused artifacts based on access patterns
+    - `search/latestVersion` - Retrieve latest versions using GAVC coordinates
+    - `search/stats` - Include download statistics in search results
+    - `search/badChecksum` - Detect artifacts with corrupted or missing checksums
+    - `search/license` - Search by license information for compliance
+    - `search/metadata` - Query artifacts using custom metadata
+  - **Robust Parameter Validation**: Comprehensive input validation with clear error messages
+    - Required parameter checks for each operation type
+    - Type validation for dates, checksums, and enumerations
+    - Contextual error messages guiding correct usage
+  - **Test Coverage**: Created comprehensive test suite with 100+ test cases
+    - Operation availability tests for all 15 search operations
+    - Parameter validation tests with 22+ edge cases
+    - Integration tests simulating real API interactions
+    - URL formatting and example usage validation
+  - Result: Significantly improved search capabilities enabling AI agents and users to efficiently discover and manage artifacts
+
 - **JFrog Provider Documentation and AI-Optimized Definitions** (2025-01-29): Story 3.3 - Comprehensive documentation and examples
   - **Enhanced AI-Optimized Definitions**: Improved AI agent success rates through comprehensive operation coverage
     - Artifactory: Confirmed and leveraged existing `GetEnhancedAIOptimizedDefinitions()` with 8 categories

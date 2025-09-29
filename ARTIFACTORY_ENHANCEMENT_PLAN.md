@@ -749,19 +749,32 @@ This epic makes the difference between 30% and 90%+ success rate.
 
 ## Epic 4: Enhanced Search and Discovery
 
-### Story 4.1: Enhance Existing Search Operations
+### Story 4.1: Enhance Existing Search Operations ✅ COMPLETE
 **Points:** 2
+**Status:** COMPLETE - Implemented and tested
 **Note:** We already have search operations - minor enhancements only
 **Acceptance Criteria:**
-- Review existing search operations for completeness
-- Add any missing search parameters
-- Ensure all search types are covered
+- ✅ Review existing search operations for completeness
+- ✅ Add any missing search parameters
+- ✅ Ensure all search types are covered
 
-**Technical Tasks:**
-- Verify existing operations: artifact, AQL, GAVC, property, checksum
-- Add any missing query parameters
-- Ensure proper error handling for search operations
-- Update tests for search enhancements
+**Technical Tasks (Completed):**
+- ✅ Verified existing operations: artifact, AQL, GAVC, property, checksum, pattern
+- ✅ Added missing query parameters to existing operations
+- ✅ Added 9 new search operations:
+  - `search/dates` - Search by creation/modification dates
+  - `search/buildArtifacts` - Search artifacts by build
+  - `search/dependency` - Search for artifact dependencies
+  - `search/usage` - Search by usage patterns
+  - `search/latestVersion` - Find latest version of artifact
+  - `search/stats` - Search with download statistics
+  - `search/badChecksum` - Find artifacts with bad checksums
+  - `search/license` - Search by license information
+  - `search/metadata` - Search by metadata
+- ✅ Implemented proper parameter validation for all search operations
+- ✅ Added comprehensive error handling with clear error messages
+- ✅ Created test suite with 100+ tests for search operations
+- ✅ All tests passing
 
 ### Story 4.2: Simplify Package Discovery
 **Points:** 2 (reduced - uses existing endpoints)
