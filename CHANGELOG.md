@@ -9,6 +9,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **JFrog Xray Reports and Metrics Implementation** (2025-09-28): Comprehensive reporting and analytics capabilities
+  - Created `xray_reports_metrics.go` with 23 new operations for report generation and metrics
+  - **Report Generation Operations**: Support for multiple report types with extensive filtering
+    - `reports/vulnerability` - Vulnerability reports with severity, CVE, and date filtering
+    - `reports/license` - License compliance reports with approved/banned/unknown categorization
+    - `reports/operational_risk` - Risk assessment reports for EOL and outdated components
+    - `reports/sbom` - Software Bill of Materials generation (SPDX, CycloneDX formats)
+    - `reports/compliance` - Compliance reports for standards (PCI-DSS, HIPAA, SOC2, etc.)
+  - **Report Management Operations**: Full lifecycle management of reports
+    - `reports/status` - Check generation progress of async reports
+    - `reports/download` - Download completed reports in various formats
+    - `reports/list` - List all reports with filtering and pagination
+    - `reports/schedule` - Create scheduled reports with email/webhook delivery
+    - `reports/export/violations` - Export violations data for external analysis
+    - `reports/export/inventory` - Export component inventory with metadata
+  - **Metrics and Analytics Operations**: Real-time security metrics and trends
+    - `metrics/violations` - Time-series violation metrics with severity breakdown
+    - `metrics/scans` - Scan activity metrics and success rates
+    - `metrics/components` - Component distribution and vulnerability density
+    - `metrics/exposure` - Vulnerability exposure analysis across repositories
+    - `metrics/trends` - Trend analysis with period-over-period comparison
+    - `metrics/summary` - Aggregated dashboard summaries
+    - `metrics/dashboard` - Complete dashboard metrics for visualization
+  - **Helper Functions**: Comprehensive request/response handling utilities
+    - `FormatReportRequest()` - Formats report generation requests with all options
+    - `FormatMetricsQuery()` - Builds metrics queries with time ranges and filters
+    - `ParseReportResponse()` - Parses async report responses with status
+    - `ParseMetricsResponse()` - Handles complex metrics data structures
+    - `GetReportStatus()` - Checks report readiness and download availability
+    - Validation functions for report types and formats
+  - **Format Support**: All industry-standard formats
+    - JSON for programmatic consumption
+    - PDF for compliance documentation
+    - CSV for spreadsheet analysis
+    - XML for enterprise integration
+    - SPDX and CycloneDX for SBOM standards
+  - **Integration**: Fully integrated into XrayProvider
+    - Added "metrics" operation group to provider configuration
+    - Updated operation mappings to include all new endpoints
+    - Operations automatically available through MCP protocol
+  - **Testing**: Comprehensive test coverage
+    - Created `xray_reports_metrics_test.go` with 15+ test functions
+    - Table-driven tests for all formatters and parsers
+    - Integration tests simulating complete workflows
+    - Mock server for offline testing
+    - All tests passing (100% success rate)
+  - Result: Complete reporting and analytics capabilities for JFrog Xray security data
+
 - **JFrog Xray Component Intelligence Implementation** (2025-09-28): Complete component vulnerability and dependency analysis
   - Created `xray_component_intelligence.go` with 14 new operations for component analysis
   - **CVE Search Operations**: Find components by CVE and vice versa

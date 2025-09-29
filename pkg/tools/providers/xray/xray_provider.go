@@ -334,45 +334,6 @@ func (p *XrayProvider) getAllOperationMappings() map[string]providers.OperationM
 			RequiredParams: []string{"name"},
 		},
 
-		// Report operations
-		"reports/vulnerabilities": {
-			OperationID:    "GenerateVulnerabilityReport",
-			Method:         "POST",
-			PathTemplate:   "/api/v1/reports/vulnerabilities",
-			RequiredParams: []string{"name"},
-			OptionalParams: []string{
-				"type",        // repo, build, component
-				"filters",     // severity, cve, etc.
-				"format",      // json, pdf, csv
-				"repositories", // list of repos
-				"builds",      // list of builds
-			},
-		},
-		"reports/licenses": {
-			OperationID:    "GenerateLicenseReport",
-			Method:         "POST",
-			PathTemplate:   "/api/v1/reports/licenses",
-			RequiredParams: []string{"name"},
-			OptionalParams: []string{
-				"type",        // repo, build
-				"format",      // json, pdf, csv
-				"repositories", // list of repos
-				"builds",      // list of builds
-			},
-		},
-		"reports/get": {
-			OperationID:    "GetReport",
-			Method:         "GET",
-			PathTemplate:   "/api/v1/reports/{report_id}",
-			RequiredParams: []string{"report_id"},
-		},
-		"reports/delete": {
-			OperationID:    "DeleteReport",
-			Method:         "DELETE",
-			PathTemplate:   "/api/v1/reports/{report_id}",
-			RequiredParams: []string{"report_id"},
-		},
-
 		// Ignore rules operations
 		"ignore-rules/list": {
 			OperationID:  "ListIgnoreRules",
@@ -397,6 +358,12 @@ func (p *XrayProvider) getAllOperationMappings() map[string]providers.OperationM
 	// Merge component intelligence operations
 	componentOps := p.AddComponentIntelligenceOperations()
 	for key, op := range componentOps {
+		operations[key] = op
+	}
+
+	// Merge reports and metrics operations
+	reportsOps := p.AddReportsAndMetricsOperations()
+	for key, op := range reportsOps {
 		operations[key] = op
 	}
 
@@ -449,7 +416,22 @@ func (p *XrayProvider) GetDefaultConfiguration() providers.ProviderConfig {
 				Name:        "reports",
 				DisplayName: "Reporting",
 				Description: "Generate security and compliance reports",
-				Operations:  []string{"reports/vulnerabilities", "reports/licenses", "reports/get", "reports/delete"},
+				Operations: []string{
+					"reports/vulnerability", "reports/license", "reports/operational_risk",
+					"reports/sbom", "reports/compliance", "reports/status", "reports/download",
+					"reports/list", "reports/get", "reports/delete", "reports/schedule",
+					"reports/schedule/list", "reports/schedule/delete",
+					"reports/export/violations", "reports/export/inventory",
+				},
+			},
+			{
+				Name:        "metrics",
+				DisplayName: "Metrics & Analytics",
+				Description: "Security metrics and trend analysis",
+				Operations: []string{
+					"metrics/violations", "metrics/scans", "metrics/components",
+					"metrics/exposure", "metrics/trends", "metrics/summary", "metrics/dashboard",
+				},
 			},
 			{
 				Name:        "system",

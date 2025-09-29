@@ -619,20 +619,47 @@ This epic makes the difference between 30% and 90%+ success rate.
 - ✅ Comprehensive test suite in `xray_component_intelligence_test.go`
 - ✅ All tests passing (100% success rate)
 
-### Story 2.4: Implement Xray Reports and Metrics
+### Story 2.4: Implement Xray Reports and Metrics ✅ COMPLETE
 **Points:** 5
 **Dependencies:** Research Task 1
+**Status:** COMPLETE - Implemented and tested
 **Acceptance Criteria:**
-- Add report generation operations if supported by Xray API
-- Support report types available in actual API
-- Include metrics based on API capabilities
+- ✅ Add report generation operations if supported by Xray API
+- ✅ Support report types available in actual API
+- ✅ Include metrics based on API capabilities
 
-**Technical Tasks:**
-- Research actual Xray Reports API endpoints
-- Determine available report types and formats from API
-- Add operations based on actual API (not assumed operation names)
-- Implement only supported report formats (verify JSON, PDF, CSV availability)
-- Add filtering parameters as actually supported by API
+**Implementation Complete:**
+- ✅ Created `xray_reports_metrics.go` with comprehensive reports and metrics support
+- ✅ Added 23 new report and metrics operations to XrayProvider
+- ✅ Enhanced Report Generation Operations:
+  - `reports/vulnerability`: Vulnerability reports with extensive filtering
+  - `reports/license`: License compliance reports
+  - `reports/operational_risk`: Operational risk reports
+  - `reports/sbom`: SBOM generation (SPDX, CycloneDX formats)
+  - `reports/compliance`: Compliance reports (PCI-DSS, HIPAA, etc.)
+- ✅ Report Management Operations:
+  - Status checking, downloading, listing, deletion
+  - Scheduled report creation and management
+  - Export operations for violations and inventory
+- ✅ Comprehensive Metrics Operations:
+  - `metrics/violations`: Violation metrics with time series
+  - `metrics/scans`: Scan activity metrics
+  - `metrics/components`: Component analytics
+  - `metrics/exposure`: Vulnerability exposure metrics
+  - `metrics/trends`: Trend analysis across all metrics
+  - `metrics/summary`: Aggregated dashboard summaries
+  - `metrics/dashboard`: Complete dashboard metrics
+- ✅ Helper Functions:
+  - `FormatReportRequest()`: Formats report generation requests
+  - `FormatMetricsQuery()`: Formats metrics queries
+  - `ParseReportResponse()`: Parses report responses
+  - `ParseMetricsResponse()`: Parses metrics responses
+  - `GetReportStatus()`: Checks report readiness
+  - Validation functions for types and formats
+- ✅ Support for all report formats: JSON, PDF, CSV, XML, SPDX, CycloneDX
+- ✅ Added "metrics" operation group to provider configuration
+- ✅ Comprehensive test suite in `xray_reports_metrics_test.go`
+- ✅ All tests passing (100% success rate)
 
 ## Epic 3: Integration and Testing
 
