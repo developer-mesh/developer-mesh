@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **JFrog Xray Passthrough Authentication Implementation** (2025-09-28): Story 3.1 - Unified authentication support
+  - Enhanced BaseProvider authentication to properly handle JFrog JWT tokens in APIKey field
+  - JWT tokens (starting with "ey") now correctly use `Authorization: Bearer` header
+  - API keys and reference tokens use `X-JFrog-Art-Api` header as expected
+  - Support for unified JFrog Platform tokens that work across Artifactory and Xray
+  - Custom base URL support for various deployment configurations:
+    - JFrog Cloud instances (e.g., `https://mycompany.jfrog.io/xray`)
+    - Self-hosted installations with custom domains
+    - Installations with non-standard ports
+    - Subdomain-based configurations
+  - Created comprehensive test suite `xray_passthrough_auth_test.go` with:
+    - Tests for all authentication methods (API keys, JWT tokens, reference tokens)
+    - Verification of unified platform token support
+    - Custom base URL configuration tests
+    - Header selection validation based on credential type
+  - Result: Xray provider now seamlessly inherits and uses JFrog's unified authentication system
+
 - **JFrog Xray Reports and Metrics Implementation** (2025-09-28): Comprehensive reporting and analytics capabilities
   - Created `xray_reports_metrics.go` with 23 new operations for report generation and metrics
   - **Report Generation Operations**: Support for multiple report types with extensive filtering

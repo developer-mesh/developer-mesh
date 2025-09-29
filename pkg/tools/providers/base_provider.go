@@ -548,6 +548,14 @@ func (p *BaseProvider) detectJFrogAuthType(credentials *ProviderCredentials) str
 
 	// Check for API key patterns
 	if credentials.APIKey != "" {
+		// Check if it's a JWT token (starts with "ey" and contains dots)
+		if strings.HasPrefix(credentials.APIKey, "ey") && strings.Contains(credentials.APIKey, ".") {
+			// JWT tokens should be treated as access tokens
+			// Store in Token field for Bearer authentication
+			credentials.Token = credentials.APIKey
+			return "access_token"
+		}
+
 		// JFrog API keys often start with certain patterns
 		if strings.HasPrefix(credentials.APIKey, "AKC") ||
 			strings.HasPrefix(credentials.APIKey, "cmVm") {
