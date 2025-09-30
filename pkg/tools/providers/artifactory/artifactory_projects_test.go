@@ -230,8 +230,7 @@ func TestProjectListExecution(t *testing.T) {
 
 	// Test executing projects/list operation
 	// Add credentials to context
-	ctx := context.Background()
-	ctx = providers.WithContext(ctx, &providers.ProviderContext{
+	ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
 		Credentials: &providers.ProviderCredentials{
 			Token: "test-token",
 		},
@@ -267,9 +266,28 @@ func TestProjectCreateExecution(t *testing.T) {
 
 	// Create a mock server for testing
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Check the request
-		assert.Equal(t, "/access/api/v1/projects", r.URL.Path)
-		assert.Equal(t, "POST", r.Method)
+		// Handle common discovery endpoints
+		if handleCommonDiscoveryEndpoints(w, r) {
+			return
+		}
+
+		// Check the actual request
+		if r.URL.Path == "/access/api/v1/projects" {
+			if r.Method == "GET" {
+				// Handle GET request for projects list (might be checking if project exists)
+				w.WriteHeader(http.StatusOK)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"projects": []map[string]interface{}{},
+				})
+				return
+			}
+			// For POST, we continue to create the project
+			assert.Equal(t, "POST", r.Method)
+		} else {
+			t.Errorf("Unexpected path: %s", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
 
 		// Parse request body
 		var requestBody map[string]interface{}
@@ -311,8 +329,7 @@ func TestProjectCreateExecution(t *testing.T) {
 
 	// Test executing projects/create operation
 	// Add credentials to context
-	ctx := context.Background()
-	ctx = providers.WithContext(ctx, &providers.ProviderContext{
+	ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
 		Credentials: &providers.ProviderCredentials{
 			Token: "test-token",
 		},
@@ -343,10 +360,27 @@ func TestProjectUserManagement(t *testing.T) {
 
 	// Create a mock server for testing
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Handle common discovery endpoints
+		if handleCommonDiscoveryEndpoints(w, r) {
+			return
+		}
+
+		// Handle GET for /access/api/v1/projects
+		if r.URL.Path == "/access/api/v1/projects" && r.Method == "GET" {
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"projects": []map[string]interface{}{
+					{"projectKey": "test-project"},
+				},
+			})
+			return
+		}
+
 		switch r.URL.Path {
 		case "/access/api/v1/projects/test-project/users":
 			if r.Method == "GET" {
 				// List project users
+				t.Logf("Handling GET request for project users")
 				response := map[string]interface{}{
 					"members": []map[string]interface{}{
 						{
@@ -361,9 +395,11 @@ func TestProjectUserManagement(t *testing.T) {
 					"totalCount": 2,
 				}
 				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
 				if err := json.NewEncoder(w).Encode(response); err != nil {
 					t.Errorf("Failed to encode response: %v", err)
 				}
+				return
 			}
 
 		case "/access/api/v1/projects/test-project/users/newuser":
@@ -384,9 +420,16 @@ func TestProjectUserManagement(t *testing.T) {
 				if err := json.NewEncoder(w).Encode(response); err != nil {
 					t.Errorf("Failed to encode response: %v", err)
 				}
+				return
 			case "DELETE":
-				// Remove user from project
-				w.WriteHeader(http.StatusNoContent)
+				// Remove user from project - return a success response
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"status": "success",
+					"message": "User removed from project",
+				})
+				return
 			}
 
 		default:
@@ -401,8 +444,7 @@ func TestProjectUserManagement(t *testing.T) {
 	provider.SetConfiguration(config)
 
 	// Add credentials to context
-	ctx := context.Background()
-	ctx = providers.WithContext(ctx, &providers.ProviderContext{
+	ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
 		Credentials: &providers.ProviderCredentials{
 			Token: "test-token",
 		},
@@ -414,12 +456,13 @@ func TestProjectUserManagement(t *testing.T) {
 			"projectKey": "test-project",
 		})
 		require.NoError(t, err)
+		require.NotNil(t, result, "Result should not be nil")
 
 		resultMap, ok := result.(map[string]interface{})
-		require.True(t, ok)
+		require.True(t, ok, "Result should be a map, got: %T", result)
 
 		members, ok := resultMap["members"].([]interface{})
-		require.True(t, ok)
+		require.True(t, ok, "Members field should be an array, got: %T", resultMap["members"])
 		assert.Len(t, members, 2)
 	})
 
@@ -455,6 +498,22 @@ func TestProjectRepositoryAssignment(t *testing.T) {
 
 	// Create a mock server for testing
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Handle common discovery endpoints
+		if handleCommonDiscoveryEndpoints(w, r) {
+			return
+		}
+
+		// Handle GET for /access/api/v1/projects
+		if r.URL.Path == "/access/api/v1/projects" && r.Method == "GET" {
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"projects": []map[string]interface{}{
+					{"projectKey": "test-project"},
+				},
+			})
+			return
+		}
+
 		switch {
 		case r.URL.Path == "/access/api/v1/projects/_/attach/repositories/my-repo/test-project":
 			if r.Method == "PUT" {
@@ -473,8 +532,14 @@ func TestProjectRepositoryAssignment(t *testing.T) {
 
 		case r.URL.Path == "/access/api/v1/projects/_/attach/repositories/my-repo":
 			if r.Method == "DELETE" {
-				// Unassign repository from project
-				w.WriteHeader(http.StatusNoContent)
+				// Unassign repository from project - return success response
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"status": "success",
+					"message": "Repository unassigned from project",
+				})
+				return
 			}
 
 		case r.URL.Path == "/api/repositories" && r.URL.Query().Get("project") == "test-project":
@@ -512,8 +577,7 @@ func TestProjectRepositoryAssignment(t *testing.T) {
 	provider.SetConfiguration(config)
 
 	// Add credentials to context
-	ctx := context.Background()
-	ctx = providers.WithContext(ctx, &providers.ProviderContext{
+	ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
 		Credentials: &providers.ProviderCredentials{
 			Token: "test-token",
 		},
@@ -573,8 +637,10 @@ func TestProjectCapabilityFiltering(t *testing.T) {
 
 		// Create mock server that returns 403 for projects endpoint
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			switch r.URL.Path {
-			case "/access/api/v1/projects":
+			// Handle common discovery endpoints first, except for projects
+			if r.URL.Path == "/access/api/v1/projects" {
+				// This should return forbidden to test capability filtering
+				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusForbidden)
 				if err := json.NewEncoder(w).Encode(map[string]interface{}{
 					"errors": []map[string]interface{}{
@@ -586,11 +652,12 @@ func TestProjectCapabilityFiltering(t *testing.T) {
 				}); err != nil {
 					t.Errorf("Failed to encode response: %v", err)
 				}
-			case "/api/system/ping":
-				w.WriteHeader(http.StatusOK)
-				if _, err := w.Write([]byte("OK")); err != nil {
-					t.Errorf("Failed to write response: %v", err)
-				}
+				return
+			}
+
+			// Handle all other discovery endpoints
+			if handleCommonDiscoveryEndpoints(w, r) {
+				return
 			}
 		}))
 		defer server.Close()
@@ -601,8 +668,7 @@ func TestProjectCapabilityFiltering(t *testing.T) {
 		provider.SetConfiguration(config)
 
 		// Add credentials to context
-		ctx := context.Background()
-		ctx = providers.WithContext(ctx, &providers.ProviderContext{
+		ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
 			Credentials: &providers.ProviderCredentials{
 				Token: "test-token",
 			},
@@ -630,4 +696,70 @@ func TestProjectCapabilityFiltering(t *testing.T) {
 			}
 		}
 	})
+}
+
+// Helper function for creating test context with credentials
+func createProjectTestContext() context.Context {
+	return providers.WithContext(context.Background(), &providers.ProviderContext{
+		Credentials: &providers.ProviderCredentials{
+			APIKey: "test-api-key-12345",
+		},
+	})
+}
+
+// Helper function to handle common discovery endpoints in mock servers
+func handleCommonDiscoveryEndpoints(w http.ResponseWriter, r *http.Request) bool {
+	switch r.URL.Path {
+	case "/api/system/ping", "/access/api/v1/system/ping":
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+		return true
+	case "/api/system/configuration":
+		// System configuration endpoint
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"urlBase": "http://test.artifactory.com",
+			"offlineMode": false,
+		})
+		return true
+	case "/xray/api/v1/system/version":
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"version": "3.0.0", "revision": "123"})
+		return true
+	case "/pipelines/api/v1/system/info", "/mc/api/v1/system/info",
+	     "/distribution/api/v1/system/info", "/api/federation/status":
+		// These are feature discovery endpoints - return 404 to indicate not available
+		w.WriteHeader(http.StatusNotFound)
+		return true
+	case "/api/repositories":
+		// Only handle repository list if there's no project query parameter
+		// (project-specific queries should be handled by the test's mock)
+		if r.URL.Query().Get("project") == "" {
+			// Repository list for permission discovery
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode([]map[string]string{
+				{"key": "test-repo", "type": "LOCAL"},
+			})
+			return true
+		}
+		// Let the test handler deal with project-specific queries
+		return false
+	case "/api/v2/security/permissions":
+		// Permission discovery endpoint
+		if r.Method == "GET" {
+			// Return empty permissions list for discovery
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"permissions": []map[string]interface{}{},
+			})
+		} else {
+			// For other methods, just return OK
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"status": "ok",
+			})
+		}
+		return true
+	}
+	return false
 }

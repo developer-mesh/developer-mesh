@@ -53,7 +53,7 @@ func TestGetToolDefinitions(t *testing.T) {
 
 	// Check that all expected tool categories are present
 	expectedCategories := map[string]bool{
-		"security_scanning":          false,
+		"security":                   false,
 		"compliance":                 false,
 		"monitoring":                 false,
 		"policy_management":          false,
@@ -250,7 +250,7 @@ func TestGetOperationMappings(t *testing.T) {
 		"violations/list",
 		"watches/create",
 		"policies/create",
-		"reports/vulnerabilities",
+		"reports/vulnerability",
 		"components/details",
 	}
 

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/tools/providers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -149,8 +150,14 @@ func TestCapabilityDiscoverer_DiscoverCapabilities(t *testing.T) {
 			// Create capability discoverer
 			discoverer := NewCapabilityDiscoverer(logger)
 
+			// Create context with credentials
+			ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
+				Credentials: &providers.ProviderCredentials{
+					APIKey: "test-api-key-12345",
+				},
+			})
+
 			// Discover capabilities
-			ctx := context.Background()
 			report, err := discoverer.DiscoverCapabilities(ctx, provider)
 
 			// Check error expectation
@@ -205,7 +212,12 @@ func TestCapabilityDiscoverer_Caching(t *testing.T) {
 	discoverer := NewCapabilityDiscoverer(logger)
 	discoverer.cacheDuration = 100 * time.Millisecond
 
-	ctx := context.Background()
+	// Create context with credentials
+	ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
+		Credentials: &providers.ProviderCredentials{
+			APIKey: "test-api-key-12345",
+		},
+	})
 
 	// First discovery should hit the server
 	report1, err := discoverer.DiscoverCapabilities(ctx, provider)
@@ -347,7 +359,7 @@ func TestArtifactoryProvider_ExecuteOperationWithCapabilities(t *testing.T) {
 	config.BaseURL = server.URL
 	provider.SetConfiguration(config)
 
-	ctx := context.Background()
+	ctx := createTestContext()
 
 	// Pre-discover capabilities to populate cache
 	report, err := provider.GetCapabilityReport(ctx)
@@ -394,7 +406,7 @@ func TestArtifactoryProvider_HealthCheckWithCapabilities(t *testing.T) {
 	config.BaseURL = server.URL
 	provider.SetConfiguration(config)
 
-	ctx := context.Background()
+	ctx := createTestContext()
 
 	// Perform health check with capabilities
 	result, err := provider.HealthCheckWithCapabilities(ctx)
@@ -491,7 +503,7 @@ func TestCapabilityDiscoverer_OperationPermissionChecks(t *testing.T) {
 			provider.SetConfiguration(config)
 
 			// Discover capabilities
-			ctx := context.Background()
+			ctx := createTestContext()
 			discoverer := NewCapabilityDiscoverer(logger)
 			report, err := discoverer.DiscoverCapabilities(ctx, provider)
 			require.NoError(t, err)
@@ -543,7 +555,7 @@ func TestCapabilityDiscoverer_PackageTypeSupport(t *testing.T) {
 	provider.SetConfiguration(config)
 
 	// Discover capabilities
-	ctx := context.Background()
+	ctx := createTestContext()
 	discoverer := NewCapabilityDiscoverer(logger)
 	report, err := discoverer.DiscoverCapabilities(ctx, provider)
 	require.NoError(t, err)
@@ -566,4 +578,13 @@ func TestCapabilityDiscoverer_PackageTypeSupport(t *testing.T) {
 		assert.Contains(t, feature.Reason, "not currently in use",
 			"Package type %s should indicate it's not in use", pt)
 	}
+}
+
+// Helper function for creating test context with credentials
+func createTestContext() context.Context {
+	return providers.WithContext(context.Background(), &providers.ProviderContext{
+		Credentials: &providers.ProviderCredentials{
+			APIKey: "test-api-key-12345",
+		},
+	})
 }

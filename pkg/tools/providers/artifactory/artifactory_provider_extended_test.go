@@ -113,7 +113,7 @@ func TestHealthCheck_Failure(t *testing.T) {
 				provider.SetConfiguration(config)
 			}
 
-			ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
+			ctx := providers.WithContext(createExtendedTestContext(), &providers.ProviderContext{
 				Credentials: &providers.ProviderCredentials{
 					Token: "test-token",
 				},
@@ -143,7 +143,7 @@ func TestHealthCheck_ContextCancellation(t *testing.T) {
 	provider.SetConfiguration(config)
 
 	// Create a context that will be cancelled
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(createExtendedTestContext())
 	ctx = providers.WithContext(ctx, &providers.ProviderContext{
 		Credentials: &providers.ProviderCredentials{
 			Token: "test-token",
@@ -220,7 +220,7 @@ func TestExecuteOperation_InvalidParameters(t *testing.T) {
 			config.BaseURL = server.URL
 			provider.SetConfiguration(config)
 
-			ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
+			ctx := providers.WithContext(createExtendedTestContext(), &providers.ProviderContext{
 				Credentials: &providers.ProviderCredentials{
 					Token: "test-token",
 				},
@@ -333,7 +333,7 @@ func TestExecuteOperation_LargePayload(t *testing.T) {
 	config.BaseURL = server.URL
 	provider.SetConfiguration(config)
 
-	ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
+	ctx := providers.WithContext(createExtendedTestContext(), &providers.ProviderContext{
 		Credentials: &providers.ProviderCredentials{
 			Token: "test-token",
 		},
@@ -361,7 +361,7 @@ func TestExecuteOperation_Timeout(t *testing.T) {
 	config.Timeout = 100 * time.Millisecond // Very short timeout
 	provider.SetConfiguration(config)
 
-	ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
+	ctx := providers.WithContext(createExtendedTestContext(), &providers.ProviderContext{
 		Credentials: &providers.ProviderCredentials{
 			Token: "test-token",
 		},
@@ -393,7 +393,7 @@ func TestExecuteOperation_RetryLogic(t *testing.T) {
 	// Retry policy is already set in default config
 	provider.SetConfiguration(config)
 
-	ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
+	ctx := providers.WithContext(createExtendedTestContext(), &providers.ProviderContext{
 		Credentials: &providers.ProviderCredentials{
 			Token: "test-token",
 		},
@@ -424,7 +424,7 @@ func TestExecuteOperation_RateLimiting(t *testing.T) {
 	config.RetryPolicy.MaxRetries = 0
 	provider.SetConfiguration(config)
 
-	ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
+	ctx := providers.WithContext(createExtendedTestContext(), &providers.ProviderContext{
 		Credentials: &providers.ProviderCredentials{
 			Token: "test-token",
 		},
@@ -485,7 +485,7 @@ func TestExecuteOperation_ContentTypeHandling(t *testing.T) {
 			config.BaseURL = server.URL
 			provider.SetConfiguration(config)
 
-			ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
+			ctx := providers.WithContext(createExtendedTestContext(), &providers.ProviderContext{
 				Credentials: &providers.ProviderCredentials{
 					Token: "test-token",
 				},
@@ -520,7 +520,7 @@ func TestConcurrentOperations(t *testing.T) {
 	config.BaseURL = server.URL
 	provider.SetConfiguration(config)
 
-	ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
+	ctx := providers.WithContext(createExtendedTestContext(), &providers.ProviderContext{
 		Credentials: &providers.ProviderCredentials{
 			Token: "test-token",
 		},
@@ -566,7 +566,7 @@ func TestSecurityHeaders(t *testing.T) {
 	config.BaseURL = server.URL
 	provider.SetConfiguration(config)
 
-	ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
+	ctx := providers.WithContext(createExtendedTestContext(), &providers.ProviderContext{
 		Credentials: &providers.ProviderCredentials{
 			Token: "test-secure-token",
 		},
@@ -613,7 +613,7 @@ func BenchmarkExecuteOperation(b *testing.B) {
 	config.BaseURL = server.URL
 	provider.SetConfiguration(config)
 
-	ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
+	ctx := providers.WithContext(createExtendedTestContext(), &providers.ProviderContext{
 		Credentials: &providers.ProviderCredentials{
 			Token: "test-token",
 		},
@@ -623,4 +623,13 @@ func BenchmarkExecuteOperation(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_, _ = provider.ExecuteOperation(ctx, "repos/list", nil)
 	}
+}
+
+// Helper function for creating test context with credentials
+func createExtendedTestContext() context.Context {
+	return providers.WithContext(context.Background(), &providers.ProviderContext{
+		Credentials: &providers.ProviderCredentials{
+			APIKey: "test-api-key-12345",
+		},
+	})
 }
