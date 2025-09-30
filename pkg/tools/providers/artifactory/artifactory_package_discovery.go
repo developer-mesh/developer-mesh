@@ -428,13 +428,13 @@ func sortPackageVersions(versions []PackageVersion, packageType string) {
 func (p *ArtifactoryProvider) getPackageTypeFromRepo(repoKey string) string {
 	// Common repository naming patterns
 	patterns := map[string][]string{
-		"maven":  {"maven", "libs", "releases", "snapshots"},
-		"npm":    {"npm", "node"},
-		"docker": {"docker", "containers"},
-		"pypi":   {"pypi", "python"},
-		"nuget":  {"nuget", "dotnet"},
-		"go":     {"go", "golang"},
-		"helm":   {"helm", "charts"},
+		"maven":   {"maven", "libs", "releases", "snapshots"},
+		"npm":     {"npm", "node"},
+		"docker":  {"docker", "containers"},
+		"pypi":    {"pypi", "python"},
+		"nuget":   {"nuget", "dotnet"},
+		"go":      {"go", "golang"},
+		"helm":    {"helm", "charts"},
 		"generic": {"generic", "files"},
 	}
 

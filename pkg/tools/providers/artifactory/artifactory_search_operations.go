@@ -49,13 +49,13 @@ func (p *ArtifactoryProvider) getEnhancedSearchOperations() map[string]providers
 			PathTemplate:   "/api/search/gavc",
 			RequiredParams: []string{},
 			OptionalParams: []string{
-				"g",          // Group ID
-				"a",          // Artifact ID
-				"v",          // Version
-				"c",          // Classifier
-				"repos",      // Comma-separated list of repositories
-				"recursive",  // Search recursively
-				"limit",      // Limit results
+				"g",         // Group ID
+				"a",         // Artifact ID
+				"v",         // Version
+				"c",         // Classifier
+				"repos",     // Comma-separated list of repositories
+				"recursive", // Search recursively
+				"limit",     // Limit results
 			},
 		},
 
@@ -105,10 +105,10 @@ func (p *ArtifactoryProvider) getEnhancedSearchOperations() map[string]providers
 			PathTemplate:   "/api/search/dates",
 			RequiredParams: []string{},
 			OptionalParams: []string{
-				"dateFields",   // created/lastModified
-				"from",         // From date (ISO 8601)
-				"to",           // To date (ISO 8601)
-				"repos",        // Comma-separated list of repositories
+				"dateFields", // created/lastModified
+				"from",       // From date (ISO 8601)
+				"to",         // To date (ISO 8601)
+				"repos",      // Comma-separated list of repositories
 			},
 		},
 
@@ -159,11 +159,11 @@ func (p *ArtifactoryProvider) getEnhancedSearchOperations() map[string]providers
 			PathTemplate:   "/api/search/latestVersion",
 			RequiredParams: []string{},
 			OptionalParams: []string{
-				"g",        // Group ID
-				"a",        // Artifact ID
-				"v",        // Version pattern
-				"repos",    // Comma-separated list of repositories
-				"remote",   // Include remote repositories
+				"g",         // Group ID
+				"a",         // Artifact ID
+				"v",         // Version pattern
+				"repos",     // Comma-separated list of repositories
+				"remote",    // Include remote repositories
 				"listFiles", // List files in the version
 			},
 			// Note: Response is text/plain, not JSON
@@ -176,8 +176,8 @@ func (p *ArtifactoryProvider) getEnhancedSearchOperations() map[string]providers
 			PathTemplate:   "/api/search/stats",
 			RequiredParams: []string{},
 			OptionalParams: []string{
-				"name",     // Artifact name pattern
-				"repos",    // Comma-separated list of repositories
+				"name",      // Artifact name pattern
+				"repos",     // Comma-separated list of repositories
 				"statsOnly", // Return only statistics
 			},
 		},
@@ -189,8 +189,8 @@ func (p *ArtifactoryProvider) getEnhancedSearchOperations() map[string]providers
 			PathTemplate:   "/api/search/badChecksum",
 			RequiredParams: []string{},
 			OptionalParams: []string{
-				"type",      // Checksum type (md5/sha1/sha256)
-				"repos",     // Comma-separated list of repositories
+				"type",  // Checksum type (md5/sha1/sha256)
+				"repos", // Comma-separated list of repositories
 			},
 		},
 
@@ -201,10 +201,10 @@ func (p *ArtifactoryProvider) getEnhancedSearchOperations() map[string]providers
 			PathTemplate:   "/api/search/license",
 			RequiredParams: []string{},
 			OptionalParams: []string{
-				"license",   // License name or pattern
-				"repos",     // Comma-separated list of repositories
-				"approved",  // true/false - filter by approval status
-				"unknown",   // Include artifacts with unknown licenses
+				"license",  // License name or pattern
+				"repos",    // Comma-separated list of repositories
+				"approved", // true/false - filter by approval status
+				"unknown",  // Include artifacts with unknown licenses
 			},
 		},
 
@@ -358,7 +358,6 @@ func (p *ArtifactoryProvider) formatSearchURL(baseURL string, params map[string]
 
 	return fmt.Sprintf("%s?%s", baseURL, values.Encode())
 }
-
 
 // GetSearchExamples returns example usage for search operations
 func GetSearchExamples() map[string][]map[string]interface{} {

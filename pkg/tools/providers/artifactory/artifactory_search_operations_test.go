@@ -270,7 +270,9 @@ func TestSearchOperationExecution(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				t.Errorf("Failed to encode response: %v", err)
+			}
 
 		case "/api/search/gavc":
 			// Mock GAVC search response
@@ -282,7 +284,9 @@ func TestSearchOperationExecution(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				t.Errorf("Failed to encode response: %v", err)
+			}
 
 		case "/api/search/dates":
 			// Mock dates search response
@@ -295,21 +299,25 @@ func TestSearchOperationExecution(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				t.Errorf("Failed to encode response: %v", err)
+			}
 
 		case "/api/search/buildArtifacts":
 			// Mock build artifacts search response
 			response := map[string]interface{}{
 				"results": []map[string]interface{}{
 					{
-						"uri":        "http://localhost/artifactory/api/storage/libs-release-local/build-artifact.jar",
-						"buildName":  "my-app",
+						"uri":         "http://localhost/artifactory/api/storage/libs-release-local/build-artifact.jar",
+						"buildName":   "my-app",
 						"buildNumber": "42",
 					},
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				t.Errorf("Failed to encode response: %v", err)
+			}
 
 		case "/api/search/latestVersion":
 			// Mock latest version response - returns JSON with version
@@ -318,7 +326,9 @@ func TestSearchOperationExecution(t *testing.T) {
 				"uri":     "http://localhost/artifactory/api/storage/libs-release-local/com/example/my-lib/1.2.3",
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				t.Errorf("Failed to encode response: %v", err)
+			}
 
 		default:
 			w.WriteHeader(http.StatusNotFound)

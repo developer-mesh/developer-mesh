@@ -60,9 +60,9 @@ type ArtifactSummaryResponse struct {
 
 // ArtifactSummary contains summary information for a single artifact
 type ArtifactSummary struct {
-	General       GeneralInfo       `json:"general"`
-	Issues        []Issue          `json:"issues"`
-	Licenses      []License        `json:"licenses"`
+	General              GeneralInfo `json:"general"`
+	Issues               []Issue     `json:"issues"`
+	Licenses             []License   `json:"licenses"`
 	VulnerableComponents []Component `json:"vulnerable_components,omitempty"`
 }
 
@@ -108,8 +108,8 @@ type License struct {
 
 // Component represents a component with vulnerabilities
 type Component struct {
-	ID              string   `json:"component_id"`
-	FixedVersions   []string `json:"fixed_versions,omitempty"`
+	ID                string   `json:"component_id"`
+	FixedVersions     []string `json:"fixed_versions,omitempty"`
 	ImpactedArtifacts []string `json:"impacted_artifacts,omitempty"`
 }
 

@@ -576,7 +576,7 @@ func TestExecuteAQLQuery(t *testing.T) {
 			},
 		},
 		{
-			name: "AQL query with include fields",
+			name:  "AQL query with include fields",
 			query: `items.find({"repo":"libs-release-local"}).include("name","repo","path","actual_md5","actual_sha1","size")`,
 			mockResponse: `{
 				"results": [
@@ -627,7 +627,7 @@ func TestExecuteAQLQuery(t *testing.T) {
 			},
 		},
 		{
-			name: "Complex AQL with sorting and limit",
+			name:  "Complex AQL with sorting and limit",
 			query: `items.find({"repo":"libs-release-local"}).sort({"$asc":["created"]}).limit(10)`,
 			mockResponse: `{
 				"results": [

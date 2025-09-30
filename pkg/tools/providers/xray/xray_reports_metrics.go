@@ -84,18 +84,18 @@ func (p *XrayProvider) AddReportsAndMetricsOperations() map[string]providers.Ope
 			PathTemplate:   "/api/v2/reports/sbom",
 			RequiredParams: []string{"name", "artifact_path"},
 			OptionalParams: []string{
-				"repository",         // Repository key
-				"build_name",         // Build name
-				"build_number",       // Build number
-				"release_bundle",     // Release bundle name
-				"format",             // spdx, cyclonedx-json, cyclonedx-xml
-				"spec_version",       // SBOM spec version
-				"include_vex",        // Include VEX (Vulnerability Exploitability eXchange)
-				"component_scope",    // all, direct, transitive
-				"include_dev_deps",   // Include development dependencies
-				"include_licenses",   // Include license information
-				"include_vulns",      // Include vulnerability information
-				"output_file_name",   // Custom output filename
+				"repository",       // Repository key
+				"build_name",       // Build name
+				"build_number",     // Build number
+				"release_bundle",   // Release bundle name
+				"format",           // spdx, cyclonedx-json, cyclonedx-xml
+				"spec_version",     // SBOM spec version
+				"include_vex",      // Include VEX (Vulnerability Exploitability eXchange)
+				"component_scope",  // all, direct, transitive
+				"include_dev_deps", // Include development dependencies
+				"include_licenses", // Include license information
+				"include_vulns",    // Include vulnerability information
+				"output_file_name", // Custom output filename
 			},
 		},
 		"reports/compliance": {
@@ -168,13 +168,13 @@ func (p *XrayProvider) AddReportsAndMetricsOperations() map[string]providers.Ope
 			PathTemplate:   "/api/v2/reports/schedule",
 			RequiredParams: []string{"name", "report_type", "schedule"},
 			OptionalParams: []string{
-				"description",     // Report description
-				"filters",         // Report filters
-				"repositories",    // Repositories to include
-				"format",          // Output format
+				"description",      // Report description
+				"filters",          // Report filters
+				"repositories",     // Repositories to include
+				"format",           // Output format
 				"email_recipients", // Email addresses for delivery
-				"webhook_url",     // Webhook for notifications
-				"retention_days",  // How long to keep reports
+				"webhook_url",      // Webhook for notifications
+				"retention_days",   // How long to keep reports
 			},
 		},
 		"reports/schedule/list": {
@@ -200,13 +200,13 @@ func (p *XrayProvider) AddReportsAndMetricsOperations() map[string]providers.Ope
 			Method:       "GET",
 			PathTemplate: "/api/v2/metrics/violations",
 			OptionalParams: []string{
-				"date_from",     // Start date
-				"date_to",       // End date
-				"granularity",   // hour, day, week, month
-				"repositories",  // Filter by repositories
-				"severities",    // Filter by severity levels
+				"date_from",      // Start date
+				"date_to",        // End date
+				"granularity",    // hour, day, week, month
+				"repositories",   // Filter by repositories
+				"severities",     // Filter by severity levels
 				"violation_type", // security, license, operational_risk
-				"group_by",      // repository, severity, type, policy
+				"group_by",       // repository, severity, type, policy
 			},
 		},
 		"metrics/scans": {
@@ -227,13 +227,13 @@ func (p *XrayProvider) AddReportsAndMetricsOperations() map[string]providers.Ope
 			Method:       "GET",
 			PathTemplate: "/api/v2/metrics/components",
 			OptionalParams: []string{
-				"date_from",      // Start date
-				"date_to",        // End date
-				"repositories",   // Filter by repositories
-				"package_types",  // maven, npm, docker, etc.
-				"include_vulns",  // Include vulnerability counts
+				"date_from",        // Start date
+				"date_to",          // End date
+				"repositories",     // Filter by repositories
+				"package_types",    // maven, npm, docker, etc.
+				"include_vulns",    // Include vulnerability counts
 				"include_licenses", // Include license counts
-				"group_by",       // package_type, repository
+				"group_by",         // package_type, repository
 			},
 		},
 		"metrics/exposure": {
@@ -254,12 +254,12 @@ func (p *XrayProvider) AddReportsAndMetricsOperations() map[string]providers.Ope
 			Method:       "GET",
 			PathTemplate: "/api/v2/metrics/trends",
 			OptionalParams: []string{
-				"metric_type",   // violations, scans, components, exposure
-				"date_from",     // Start date (required for trends)
-				"date_to",       // End date
-				"granularity",   // hour, day, week, month
-				"repositories",  // Filter by repositories
-				"compare_to",    // Previous period for comparison
+				"metric_type",    // violations, scans, components, exposure
+				"date_from",      // Start date (required for trends)
+				"date_to",        // End date
+				"granularity",    // hour, day, week, month
+				"repositories",   // Filter by repositories
+				"compare_to",     // Previous period for comparison
 				"trend_analysis", // Calculate trend direction
 			},
 		},
@@ -308,10 +308,10 @@ func (p *XrayProvider) AddReportsAndMetricsOperations() map[string]providers.Ope
 			PathTemplate:   "/api/v2/reports/export/inventory",
 			RequiredParams: []string{"format"},
 			OptionalParams: []string{
-				"repositories",    // Repositories to include
-				"package_types",   // Package types to include
+				"repositories",     // Repositories to include
+				"package_types",    // Package types to include
 				"include_metadata", // Include extended metadata
-				"async",           // Generate asynchronously
+				"async",            // Generate asynchronously
 			},
 		},
 	}
@@ -321,48 +321,48 @@ func (p *XrayProvider) AddReportsAndMetricsOperations() map[string]providers.Ope
 
 // ReportRequest represents a report generation request
 type ReportRequest struct {
-	Name        string                 `json:"name"`
-	Type        string                 `json:"type"`
-	Filters     ReportFilters          `json:"filters,omitempty"`
-	Format      string                 `json:"format,omitempty"`
-	Options     map[string]interface{} `json:"options,omitempty"`
+	Name    string                 `json:"name"`
+	Type    string                 `json:"type"`
+	Filters ReportFilters          `json:"filters,omitempty"`
+	Format  string                 `json:"format,omitempty"`
+	Options map[string]interface{} `json:"options,omitempty"`
 }
 
 // ReportFilters represents filters for report generation
 type ReportFilters struct {
-	Repositories    []string    `json:"repositories,omitempty"`
-	Builds          []string    `json:"builds,omitempty"`
-	ReleaseBundles  []string    `json:"release_bundles,omitempty"`
-	ComponentIDs    []string    `json:"component_ids,omitempty"`
-	Artifacts       []string    `json:"artifacts,omitempty"`
-	Severities      []string    `json:"severities,omitempty"`
-	CVEs            []string    `json:"cves,omitempty"`
-	Licenses        []string    `json:"licenses,omitempty"`
-	WatchNames      []string    `json:"watch_names,omitempty"`
-	PolicyNames     []string    `json:"policy_names,omitempty"`
-	DateFrom        *time.Time  `json:"date_from,omitempty"`
-	DateTo          *time.Time  `json:"date_to,omitempty"`
+	Repositories   []string   `json:"repositories,omitempty"`
+	Builds         []string   `json:"builds,omitempty"`
+	ReleaseBundles []string   `json:"release_bundles,omitempty"`
+	ComponentIDs   []string   `json:"component_ids,omitempty"`
+	Artifacts      []string   `json:"artifacts,omitempty"`
+	Severities     []string   `json:"severities,omitempty"`
+	CVEs           []string   `json:"cves,omitempty"`
+	Licenses       []string   `json:"licenses,omitempty"`
+	WatchNames     []string   `json:"watch_names,omitempty"`
+	PolicyNames    []string   `json:"policy_names,omitempty"`
+	DateFrom       *time.Time `json:"date_from,omitempty"`
+	DateTo         *time.Time `json:"date_to,omitempty"`
 }
 
 // ReportResponse represents a report generation response
 type ReportResponse struct {
-	ReportID    string    `json:"report_id"`
-	Name        string    `json:"name"`
-	Type        string    `json:"type"`
-	Status      string    `json:"status"`
-	CreatedAt   time.Time `json:"created_at"`
+	ReportID    string     `json:"report_id"`
+	Name        string     `json:"name"`
+	Type        string     `json:"type"`
+	Status      string     `json:"status"`
+	CreatedAt   time.Time  `json:"created_at"`
 	CompletedAt *time.Time `json:"completed_at,omitempty"`
-	DownloadURL string    `json:"download_url,omitempty"`
-	Format      string    `json:"format,omitempty"`
-	Size        int64     `json:"size,omitempty"`
-	Error       string    `json:"error,omitempty"`
+	DownloadURL string     `json:"download_url,omitempty"`
+	Format      string     `json:"format,omitempty"`
+	Size        int64      `json:"size,omitempty"`
+	Error       string     `json:"error,omitempty"`
 }
 
 // MetricsResponse represents a metrics query response
 type MetricsResponse struct {
-	Metrics    []MetricPoint          `json:"metrics"`
-	Summary    map[string]interface{} `json:"summary,omitempty"`
-	Metadata   MetricsMetadata        `json:"metadata"`
+	Metrics  []MetricPoint          `json:"metrics"`
+	Summary  map[string]interface{} `json:"summary,omitempty"`
+	Metadata MetricsMetadata        `json:"metadata"`
 }
 
 // MetricPoint represents a single metric data point
@@ -717,7 +717,7 @@ func GetReportFormats() []string {
 		"pdf",
 		"csv",
 		"xml",
-		"spdx",         // For SBOM
+		"spdx",           // For SBOM
 		"cyclonedx-json", // For SBOM
 		"cyclonedx-xml",  // For SBOM
 	}

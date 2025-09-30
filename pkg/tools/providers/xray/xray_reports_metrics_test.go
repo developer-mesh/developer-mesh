@@ -87,8 +87,8 @@ func TestFormatReportRequest(t *testing.T) {
 			name:       "License Report with Defaults",
 			reportType: "license",
 			params: map[string]interface{}{
-				"name":    "license-report",
-				"builds":  []string{"build1", "build2"},
+				"name":     "license-report",
+				"builds":   []string{"build1", "build2"},
 				"licenses": []string{"MIT", "Apache-2.0"},
 			},
 			validate: func(t *testing.T, req interface{}) {
@@ -134,10 +134,10 @@ func TestFormatReportRequest(t *testing.T) {
 			name:       "Compliance Report",
 			reportType: "compliance",
 			params: map[string]interface{}{
-				"name":            "compliance-report",
-				"standards":       []string{"PCI-DSS", "HIPAA"},
-				"include_passed":  false,
-				"include_failed":  true,
+				"name":             "compliance-report",
+				"standards":        []string{"PCI-DSS", "HIPAA"},
+				"include_passed":   false,
+				"include_failed":   true,
 				"include_warnings": false,
 			},
 			validate: func(t *testing.T, req interface{}) {
@@ -275,7 +275,7 @@ func TestParseMetricsResponse(t *testing.T) {
 				"timestamp": "2024-01-01T10:00:00Z",
 				"value":     float64(42),
 				"labels": map[string]interface{}{
-					"severity": "Critical",
+					"severity":   "Critical",
 					"repository": "repo1",
 				},
 				"details": map[string]interface{}{
@@ -287,24 +287,24 @@ func TestParseMetricsResponse(t *testing.T) {
 				"timestamp": "2024-01-01T11:00:00Z",
 				"value":     float64(35),
 				"labels": map[string]interface{}{
-					"severity": "High",
+					"severity":   "High",
 					"repository": "repo2",
 				},
 			},
 		},
 		"summary": map[string]interface{}{
-			"total":    float64(77),
-			"average":  float64(38.5),
-			"max":      float64(42),
-			"min":      float64(35),
+			"total":   float64(77),
+			"average": float64(38.5),
+			"max":     float64(42),
+			"min":     float64(35),
 		},
 		"metadata": map[string]interface{}{
-			"date_from":    "2024-01-01T00:00:00Z",
-			"date_to":      "2024-01-31T23:59:59Z",
-			"granularity":  "hour",
-			"metric_type":  "violations",
-			"group_by":     []interface{}{"severity", "repository"},
-			"total_count":  float64(2),
+			"date_from":   "2024-01-01T00:00:00Z",
+			"date_to":     "2024-01-31T23:59:59Z",
+			"granularity": "hour",
+			"metric_type": "violations",
+			"group_by":    []interface{}{"severity", "repository"},
+			"total_count": float64(2),
 		},
 	}
 
@@ -592,9 +592,9 @@ func TestMetricsAggregationWorkflow(t *testing.T) {
 					},
 				},
 				"summary": map[string]interface{}{
-					"total":           float64(25),
-					"critical_count":  float64(10),
-					"high_count":      float64(15),
+					"total":          float64(25),
+					"critical_count": float64(10),
+					"high_count":     float64(15),
 				},
 			}
 			_ = json.NewEncoder(w).Encode(response)

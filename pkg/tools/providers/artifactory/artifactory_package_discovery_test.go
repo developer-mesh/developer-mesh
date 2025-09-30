@@ -64,9 +64,9 @@ func TestPackageDiscoveryExecution(t *testing.T) {
 			if r.URL.Query().Get("list") != "" {
 				// List versions response
 				response := map[string]interface{}{
-					"uri": "http://localhost/artifactory/api/storage/maven-central/org/springframework/spring-core",
+					"uri":     "http://localhost/artifactory/api/storage/maven-central/org/springframework/spring-core",
 					"created": "2020-01-01T00:00:00.000Z",
-					"files": []interface{}{},
+					"files":   []interface{}{},
 					"children": []interface{}{
 						map[string]interface{}{
 							"uri":    "/5.3.23",
@@ -87,17 +87,21 @@ func TestPackageDiscoveryExecution(t *testing.T) {
 					},
 				}
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(response)
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Errorf("Failed to encode response: %v", err)
+				}
 			} else if r.URL.Query().Get("stats") != "" {
 				// Stats response
 				response := map[string]interface{}{
-					"uri": "http://localhost/artifactory/api/storage/maven-central/org/springframework/spring-core",
-					"downloadCount": 1523,
-					"lastDownloaded": "2024-01-15T10:30:00.000Z",
+					"uri":              "http://localhost/artifactory/api/storage/maven-central/org/springframework/spring-core",
+					"downloadCount":    1523,
+					"lastDownloaded":   "2024-01-15T10:30:00.000Z",
 					"lastDownloadedBy": "jenkins",
 				}
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(response)
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Errorf("Failed to encode response: %v", err)
+				}
 			} else if r.URL.Query().Get("properties") != "" {
 				// Properties response
 				response := map[string]interface{}{
@@ -108,7 +112,9 @@ func TestPackageDiscoveryExecution(t *testing.T) {
 					},
 				}
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(response)
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Errorf("Failed to encode response: %v", err)
+				}
 			} else {
 				// Package info response
 				response := map[string]interface{}{
@@ -130,7 +136,9 @@ func TestPackageDiscoveryExecution(t *testing.T) {
 					},
 				}
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(response)
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Errorf("Failed to encode response: %v", err)
+				}
 			}
 
 		case "/api/storage/npm-local/@angular/core":
@@ -154,13 +162,15 @@ func TestPackageDiscoveryExecution(t *testing.T) {
 					},
 				}
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(response)
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Errorf("Failed to encode response: %v", err)
+				}
 			}
 
 		case "/api/npm/npm-registry/express":
 			// NPM package info
 			response := map[string]interface{}{
-				"name": "express",
+				"name":        "express",
 				"description": "Fast, unopinionated, minimalist web framework",
 				"dist-tags": map[string]interface{}{
 					"latest": "4.18.2",
@@ -182,7 +192,9 @@ func TestPackageDiscoveryExecution(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				t.Errorf("Failed to encode response: %v", err)
+			}
 
 		case "/api/docker/docker-local/v2/nginx/tags/list":
 			// Docker tags list
@@ -197,7 +209,9 @@ func TestPackageDiscoveryExecution(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				t.Errorf("Failed to encode response: %v", err)
+			}
 
 		case "/api/pypi/pypi-local/simple/requests":
 			// PyPI package info (HTML response simplified as JSON for testing)
@@ -210,7 +224,9 @@ func TestPackageDiscoveryExecution(t *testing.T) {
 			<a href="requests-2.28.2.tar.gz">requests-2.28.2.tar.gz</a>
 			</body>
 			</html>`
-			w.Write([]byte(html))
+			if _, err := w.Write([]byte(html)); err != nil {
+				t.Errorf("Failed to write response: %v", err)
+			}
 
 		case "/api/nuget/nuget-local/FindPackagesById()":
 			// NuGet versions
@@ -240,7 +256,9 @@ func TestPackageDiscoveryExecution(t *testing.T) {
 					},
 				}
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(response)
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Errorf("Failed to encode response: %v", err)
+				}
 			}
 
 		case "/api/search/artifact":
@@ -256,7 +274,9 @@ func TestPackageDiscoveryExecution(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				t.Errorf("Failed to encode response: %v", err)
+			}
 
 		case "/api/search/dependency":
 			// Package dependents
@@ -268,7 +288,9 @@ func TestPackageDiscoveryExecution(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				t.Errorf("Failed to encode response: %v", err)
+			}
 
 		default:
 			w.WriteHeader(http.StatusNotFound)

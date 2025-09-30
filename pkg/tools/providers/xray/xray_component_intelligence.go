@@ -116,14 +116,14 @@ func (p *XrayProvider) AddComponentIntelligenceOperations() map[string]providers
 
 // ComponentVulnerabilityInfo represents vulnerability information for a component
 type ComponentVulnerabilityInfo struct {
-	ComponentID   string                 `json:"component_id"`
-	ComponentName string                 `json:"component_name"`
-	PackageType   string                 `json:"package_type"`
-	Version       string                 `json:"version"`
-	Issues        []VulnerabilityIssue   `json:"issues"`
-	Licenses      []LicenseInfo          `json:"licenses"`
-	Dependencies  []DependencyInfo       `json:"dependencies"`
-	Summary       VulnerabilitySummary   `json:"summary"`
+	ComponentID   string               `json:"component_id"`
+	ComponentName string               `json:"component_name"`
+	PackageType   string               `json:"package_type"`
+	Version       string               `json:"version"`
+	Issues        []VulnerabilityIssue `json:"issues"`
+	Licenses      []LicenseInfo        `json:"licenses"`
+	Dependencies  []DependencyInfo     `json:"dependencies"`
+	Summary       VulnerabilitySummary `json:"summary"`
 }
 
 // VulnerabilityIssue represents a single vulnerability
@@ -144,20 +144,20 @@ type VulnerabilityIssue struct {
 
 // LicenseInfo represents license information for a component
 type LicenseInfo struct {
-	Name         string   `json:"name"`
-	FullName     string   `json:"full_name"`
-	Approved     bool     `json:"approved"`
-	Risk         string   `json:"risk"`
-	Components   []string `json:"components,omitempty"`
-	MoreInfoURL  string   `json:"more_info_url,omitempty"`
+	Name        string   `json:"name"`
+	FullName    string   `json:"full_name"`
+	Approved    bool     `json:"approved"`
+	Risk        string   `json:"risk"`
+	Components  []string `json:"components,omitempty"`
+	MoreInfoURL string   `json:"more_info_url,omitempty"`
 }
 
 // DependencyInfo represents dependency information
 type DependencyInfo struct {
-	ComponentID string                `json:"component_id"`
-	Depth       int                   `json:"depth"`
-	ParentID    string                `json:"parent_id,omitempty"`
-	Issues      []VulnerabilityIssue  `json:"issues,omitempty"`
+	ComponentID string               `json:"component_id"`
+	Depth       int                  `json:"depth"`
+	ParentID    string               `json:"parent_id,omitempty"`
+	Issues      []VulnerabilityIssue `json:"issues,omitempty"`
 }
 
 // VulnerabilitySummary provides a summary of vulnerabilities
@@ -173,11 +173,11 @@ type VulnerabilitySummary struct {
 
 // DependencyGraph represents a component dependency graph
 type DependencyGraph struct {
-	RootComponent ComponentNode   `json:"root_component"`
-	Nodes         []ComponentNode `json:"nodes"`
+	RootComponent ComponentNode    `json:"root_component"`
+	Nodes         []ComponentNode  `json:"nodes"`
 	Edges         []DependencyEdge `json:"edges"`
-	TotalNodes    int             `json:"total_nodes"`
-	MaxDepth      int             `json:"max_depth"`
+	TotalNodes    int              `json:"total_nodes"`
+	MaxDepth      int              `json:"max_depth"`
 }
 
 // ComponentNode represents a node in the dependency graph
@@ -363,7 +363,7 @@ func BuildComponentIdentifier(packageType, group, name, version string) string {
 func GetSupportedPackageTypes() []string {
 	return []string{
 		"maven",
-		"gav",  // Maven component identifier prefix
+		"gav", // Maven component identifier prefix
 		"gradle",
 		"ivy",
 		"sbt",
@@ -453,13 +453,13 @@ func FilterVulnerabilitiesBySeverity(issues []VulnerabilityIssue, minSeverity st
 // AnalyzeDependencyDepth analyzes the dependency graph depth and complexity
 func AnalyzeDependencyDepth(graph *DependencyGraph) map[string]interface{} {
 	analysis := map[string]interface{}{
-		"total_nodes":          graph.TotalNodes,
-		"max_depth":            graph.MaxDepth,
-		"direct_dependencies":  0,
+		"total_nodes":             graph.TotalNodes,
+		"max_depth":               graph.MaxDepth,
+		"direct_dependencies":     0,
 		"transitive_dependencies": 0,
-		"vulnerable_nodes":     0,
-		"licensed_nodes":       0,
-		"depth_distribution":   make(map[int]int),
+		"vulnerable_nodes":        0,
+		"licensed_nodes":          0,
+		"depth_distribution":      make(map[int]int),
 	}
 
 	depthDist := make(map[int]int)

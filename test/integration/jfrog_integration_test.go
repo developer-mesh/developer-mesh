@@ -55,22 +55,22 @@ func createArtifactoryMockServer() *httptest.Server {
 
 		case strings.Contains(r.URL.Path, "/system/version"):
 			json.NewEncoder(w).Encode(map[string]interface{}{
-				"version": "7.41.12",
+				"version":  "7.41.12",
 				"revision": "12345",
-				"license": "Enterprise Plus",
+				"license":  "Enterprise Plus",
 			})
 
 		// Repository endpoints
 		case strings.Contains(r.URL.Path, "/api/repositories") && r.Method == "GET":
 			json.NewEncoder(w).Encode([]map[string]interface{}{
 				{
-					"key": "libs-release-local",
-					"type": "LOCAL",
+					"key":         "libs-release-local",
+					"type":        "LOCAL",
 					"packageType": "Generic",
 				},
 				{
-					"key": "libs-snapshot-local",
-					"type": "LOCAL",
+					"key":         "libs-snapshot-local",
+					"type":        "LOCAL",
 					"packageType": "Generic",
 				},
 			})
@@ -78,8 +78,8 @@ func createArtifactoryMockServer() *httptest.Server {
 		case strings.Contains(r.URL.Path, "/api/repositories/") && r.Method == "PUT":
 			// Create repository
 			json.NewEncoder(w).Encode(map[string]interface{}{
-				"key": "test-repo",
-				"type": "LOCAL",
+				"key":         "test-repo",
+				"type":        "LOCAL",
 				"description": "Test repository",
 			})
 
@@ -87,12 +87,12 @@ func createArtifactoryMockServer() *httptest.Server {
 		case strings.Contains(r.URL.Path, "/api/security/users") && r.Method == "GET":
 			json.NewEncoder(w).Encode([]map[string]interface{}{
 				{
-					"name": "admin",
+					"name":  "admin",
 					"email": "admin@example.com",
 					"admin": true,
 				},
 				{
-					"name": "test-user",
+					"name":  "test-user",
 					"email": "test@example.com",
 					"admin": false,
 				},
@@ -100,7 +100,7 @@ func createArtifactoryMockServer() *httptest.Server {
 
 		case strings.Contains(r.URL.Path, "/api/security/users/"):
 			json.NewEncoder(w).Encode(map[string]interface{}{
-				"name": "test-user",
+				"name":  "test-user",
 				"email": "test@example.com",
 				"admin": false,
 			})
@@ -118,8 +118,8 @@ func createArtifactoryMockServer() *httptest.Server {
 				},
 				"range": map[string]interface{}{
 					"start_pos": 0,
-					"end_pos": 1,
-					"total": 1,
+					"end_pos":   1,
+					"total":     1,
 				},
 			})
 
@@ -127,9 +127,9 @@ func createArtifactoryMockServer() *httptest.Server {
 		case strings.Contains(r.URL.Path, "/access/api/v1/projects"):
 			json.NewEncoder(w).Encode([]map[string]interface{}{
 				{
-					"project_key": "proj1",
+					"project_key":  "proj1",
 					"display_name": "Project 1",
-					"description": "Test project",
+					"description":  "Test project",
 				},
 			})
 
@@ -141,7 +141,7 @@ func createArtifactoryMockServer() *httptest.Server {
 						"name": "test-permission",
 						"repo": map[string]interface{}{
 							"repositories": []string{"libs-release-local"},
-							"actions": []string{"read", "write", "deploy"},
+							"actions":      []string{"read", "write", "deploy"},
 						},
 					},
 				},
@@ -177,7 +177,7 @@ func createXrayMockServer() *httptest.Server {
 
 		case strings.Contains(r.URL.Path, "/api/v1/system/version"):
 			json.NewEncoder(w).Encode(map[string]interface{}{
-				"version": "3.43.1",
+				"version":  "3.43.1",
 				"revision": "54321",
 			})
 
@@ -185,7 +185,7 @@ func createXrayMockServer() *httptest.Server {
 		case strings.Contains(r.URL.Path, "/api/v1/scan/artifact"):
 			json.NewEncoder(w).Encode(map[string]interface{}{
 				"scan_id": "scan-123",
-				"status": "completed",
+				"status":  "completed",
 			})
 
 		case strings.Contains(r.URL.Path, "/api/v1/summary/artifact"):
@@ -198,7 +198,7 @@ func createXrayMockServer() *httptest.Server {
 						"issues": []map[string]interface{}{
 							{
 								"severity": "High",
-								"summary": "Security vulnerability CVE-2023-1234",
+								"summary":  "Security vulnerability CVE-2023-1234",
 							},
 						},
 					},
@@ -215,7 +215,7 @@ func createXrayMockServer() *httptest.Server {
 						"component_id": "gav://com.example:app:1.0.0",
 						"vulnerabilities": []map[string]interface{}{
 							{
-								"cve": "CVE-2023-1234",
+								"cve":      "CVE-2023-1234",
 								"severity": "High",
 							},
 						},
@@ -227,7 +227,7 @@ func createXrayMockServer() *httptest.Server {
 			json.NewEncoder(w).Encode(map[string]interface{}{
 				"components": []map[string]interface{}{
 					{
-						"id": "spring-core",
+						"id":           "spring-core",
 						"package_type": "Maven",
 					},
 				},
@@ -236,8 +236,8 @@ func createXrayMockServer() *httptest.Server {
 		// Reports endpoints
 		case strings.Contains(r.URL.Path, "/api/v2/reports/vulnerabilities"):
 			json.NewEncoder(w).Encode(map[string]interface{}{
-				"report_id": "report-123",
-				"status": "completed",
+				"report_id":        "report-123",
+				"status":           "completed",
 				"total_violations": 5,
 			})
 
@@ -245,7 +245,7 @@ func createXrayMockServer() *httptest.Server {
 		case strings.Contains(r.URL.Path, "/api/v2/watches"):
 			json.NewEncoder(w).Encode([]map[string]interface{}{
 				{
-					"name": "production-watch",
+					"name":        "production-watch",
 					"description": "Watch for production artifacts",
 				},
 			})

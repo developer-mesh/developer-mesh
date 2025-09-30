@@ -119,9 +119,9 @@ All scans return detailed vulnerability information with CVSS scores, severity l
 					Input: map[string]interface{}{
 						"action": "scan/artifact",
 						"parameters": map[string]interface{}{
-							"componentId":       "docker://docker-prod/api-server:2.1.0",
-							"watch":             "production-watch",
-							"include_licenses":  true,
+							"componentId":      "docker://docker-prod/api-server:2.1.0",
+							"watch":            "production-watch",
+							"include_licenses": true,
 						},
 					},
 					Explanation: "Initiates a comprehensive scan of the Docker image including vulnerability and license checks",
@@ -131,7 +131,7 @@ All scans return detailed vulnerability information with CVSS scores, severity l
 					Input: map[string]interface{}{
 						"action": "summary/artifact",
 						"parameters": map[string]interface{}{
-							"paths": []string{"default/docker-local/nginx:latest", "default/npm-local/lodash/-/lodash-4.17.21.tgz"},
+							"paths":            []string{"default/docker-local/nginx:latest", "default/npm-local/lodash/-/lodash-4.17.21.tgz"},
 							"include_licenses": true,
 						},
 					},
@@ -317,10 +317,10 @@ All operations support role-based access control and integrate with CI/CD for po
 					Input: map[string]interface{}{
 						"action": "watches/create",
 						"parameters": map[string]interface{}{
-							"name":        "prod-docker-watch",
-							"description": "Monitor production Docker repositories",
-							"repositories": []string{"docker-prod-local", "docker-prod-remote"},
-							"policies":     []string{"no-critical-cves", "approved-licenses"},
+							"name":             "prod-docker-watch",
+							"description":      "Monitor production Docker repositories",
+							"repositories":     []string{"docker-prod-local", "docker-prod-remote"},
+							"policies":         []string{"no-critical-cves", "approved-licenses"},
 							"watch_recipients": []string{"security@company.com"},
 						},
 					},
@@ -460,9 +460,9 @@ All reports support filtering, scheduling, and automated delivery to stakeholder
 				Required: []string{"action"},
 				AIHints: &providers.AIParameterHints{
 					ParameterGrouping: map[string][]string{
-						"reports": {"name", "type", "format", "repositories", "filters", "scheduled"},
-						"metrics": {"time_range", "group_by", "include_trends", "filters"},
-						"export":  {"format", "name"},
+						"reports":  {"name", "type", "format", "repositories", "filters", "scheduled"},
+						"metrics":  {"time_range", "group_by", "include_trends", "filters"},
+						"export":   {"format", "name"},
 						"schedule": {"frequency", "recipients", "scheduled"},
 					},
 					ConditionalRequirements: []providers.ConditionalRequirement{
@@ -576,11 +576,11 @@ These operations are essential for monitoring, alerting, and maintaining Xray se
 // GetXrayErrorResolutions provides resolution suggestions for common Xray errors
 func GetXrayErrorResolutions() map[string]string {
 	return map[string]string{
-		"scan_in_progress": "Scan is still running. Check status with scan/status operation",
-		"policy_violation":  "Artifact violates configured policies. Review violations with violations/list",
-		"no_xray_data":     "No Xray data available for this artifact. Trigger a scan first",
-		"watch_not_found":  "Watch does not exist. Create it with watches/create or list existing with watches/list",
-		"policy_not_found": "Policy does not exist. Create it with policies/create or list existing with policies/list",
+		"scan_in_progress":         "Scan is still running. Check status with scan/status operation",
+		"policy_violation":         "Artifact violates configured policies. Review violations with violations/list",
+		"no_xray_data":             "No Xray data available for this artifact. Trigger a scan first",
+		"watch_not_found":          "Watch does not exist. Create it with watches/create or list existing with watches/list",
+		"policy_not_found":         "Policy does not exist. Create it with policies/create or list existing with policies/list",
 		"insufficient_permissions": "API key lacks required permissions. Ensure Xray access is enabled for this key",
 		"component_not_found":      "Component not found in Xray database. It may not be scanned yet or doesn't exist",
 	}
@@ -594,9 +594,9 @@ func GetXrayCapabilityDescriptions() map[string]string {
 		"operational_risk":       "Identify operational risks like outdated or unmaintained packages",
 		"continuous_monitoring":  "Continuously monitor repositories with watches and policies",
 		"policy_enforcement":     "Create and enforce security and compliance policies",
-		"reporting":             "Generate comprehensive security and compliance reports",
+		"reporting":              "Generate comprehensive security and compliance reports",
 		"component_intelligence": "Access detailed vulnerability data for specific components",
-		"ignore_rules":          "Create rules to suppress false positives or accepted risks",
-		"impact_analysis":       "Analyze the impact of vulnerabilities across your software supply chain",
+		"ignore_rules":           "Create rules to suppress false positives or accepted risks",
+		"impact_analysis":        "Analyze the impact of vulnerabilities across your software supply chain",
 	}
 }

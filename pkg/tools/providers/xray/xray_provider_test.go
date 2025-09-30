@@ -54,11 +54,11 @@ func TestGetToolDefinitions(t *testing.T) {
 	// Check that all expected tool categories are present
 	expectedCategories := map[string]bool{
 		"security_scanning":          false,
-		"compliance":                false,
-		"monitoring":                false,
-		"policy_management":         false,
+		"compliance":                 false,
+		"monitoring":                 false,
+		"policy_management":          false,
 		"vulnerability_intelligence": false,
-		"reporting":                false,
+		"reporting":                  false,
 	}
 
 	for _, tool := range tools {
@@ -324,9 +324,9 @@ func TestHealthCheck(t *testing.T) {
 			expectError:  false,
 		},
 		{
-			name:         "service unavailable",
-			serverStatus: http.StatusServiceUnavailable,
-			expectError:  true,
+			name:          "service unavailable",
+			serverStatus:  http.StatusServiceUnavailable,
+			expectError:   true,
 			errorContains: "status 503",
 		},
 		{

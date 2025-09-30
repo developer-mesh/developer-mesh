@@ -160,7 +160,9 @@ func TestProjectListExecution(t *testing.T) {
 		switch r.URL.Path {
 		case "/api/system/ping":
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("OK"))
+			if _, err := w.Write([]byte("OK")); err != nil {
+				t.Errorf("Failed to write response: %v", err)
+			}
 			return
 		case "/xray/api/v1/system/version":
 			// Xray not available
@@ -211,7 +213,9 @@ func TestProjectListExecution(t *testing.T) {
 
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				t.Errorf("Failed to encode response: %v", err)
+			}
 		default:
 			// Handle other capability discovery endpoints
 			w.WriteHeader(http.StatusNotFound)
@@ -294,7 +298,9 @@ func TestProjectCreateExecution(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(response)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			t.Errorf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -355,14 +361,19 @@ func TestProjectUserManagement(t *testing.T) {
 					"totalCount": 2,
 				}
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(response)
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Errorf("Failed to encode response: %v", err)
+				}
 			}
 
 		case "/access/api/v1/projects/test-project/users/newuser":
-			if r.Method == "PUT" {
+			switch r.Method {
+			case "PUT":
 				// Add user to project
 				var requestBody map[string]interface{}
-				json.NewDecoder(r.Body).Decode(&requestBody)
+				if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+					t.Errorf("Failed to decode request body: %v", err)
+				}
 
 				response := map[string]interface{}{
 					"name":  "newuser",
@@ -370,8 +381,10 @@ func TestProjectUserManagement(t *testing.T) {
 				}
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusCreated)
-				json.NewEncoder(w).Encode(response)
-			} else if r.Method == "DELETE" {
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Errorf("Failed to encode response: %v", err)
+				}
+			case "DELETE":
 				// Remove user from project
 				w.WriteHeader(http.StatusNoContent)
 			}
@@ -453,7 +466,9 @@ func TestProjectRepositoryAssignment(t *testing.T) {
 				}
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
-				json.NewEncoder(w).Encode(response)
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Errorf("Failed to encode response: %v", err)
+				}
 			}
 
 		case r.URL.Path == "/access/api/v1/projects/_/attach/repositories/my-repo":
@@ -480,7 +495,9 @@ func TestProjectRepositoryAssignment(t *testing.T) {
 					},
 				}
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(response)
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					t.Errorf("Failed to encode response: %v", err)
+				}
 			}
 
 		default:
@@ -556,19 +573,24 @@ func TestProjectCapabilityFiltering(t *testing.T) {
 
 		// Create mock server that returns 403 for projects endpoint
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path == "/access/api/v1/projects" {
+			switch r.URL.Path {
+			case "/access/api/v1/projects":
 				w.WriteHeader(http.StatusForbidden)
-				json.NewEncoder(w).Encode(map[string]interface{}{
+				if err := json.NewEncoder(w).Encode(map[string]interface{}{
 					"errors": []map[string]interface{}{
 						{
 							"code":    "FORBIDDEN",
 							"message": "Projects feature requires Platform Pro or Enterprise license",
 						},
 					},
-				})
-			} else if r.URL.Path == "/api/system/ping" {
+				}); err != nil {
+					t.Errorf("Failed to encode response: %v", err)
+				}
+			case "/api/system/ping":
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte("OK"))
+				if _, err := w.Write([]byte("OK")); err != nil {
+					t.Errorf("Failed to write response: %v", err)
+				}
 			}
 		}))
 		defer server.Close()
