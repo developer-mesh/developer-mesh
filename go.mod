@@ -8,8 +8,8 @@ toolchain go1.24.2
 // Replace directives removed - using go workspaces instead
 
 require (
-	github.com/coder/websocket v1.8.13
-	github.com/developer-mesh/developer-mesh/pkg v0.0.0-20250910135710-7961ecbc97fe
+	github.com/coder/websocket v1.8.14
+	github.com/developer-mesh/developer-mesh/pkg v0.0.0-20250930014720-422c5e75d188
 	github.com/golang-migrate/migrate/v4 v4.18.3
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
@@ -114,6 +114,7 @@ require (
 	github.com/oasdiff/yaml v0.0.0-20250309154309-f31be36b4037 // indirect
 	github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90 // indirect
 	github.com/perimeterx/marshmallow v1.1.5 // indirect
+	github.com/shopspring/decimal v1.2.0 // indirect
 	github.com/spf13/cast v1.7.1 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
