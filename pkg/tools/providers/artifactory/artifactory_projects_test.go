@@ -276,9 +276,11 @@ func TestProjectCreateExecution(t *testing.T) {
 			if r.Method == "GET" {
 				// Handle GET request for projects list (might be checking if project exists)
 				w.WriteHeader(http.StatusOK)
-				json.NewEncoder(w).Encode(map[string]interface{}{
+				if err := json.NewEncoder(w).Encode(map[string]interface{}{
 					"projects": []map[string]interface{}{},
-				})
+				}); err != nil {
+					t.Errorf("Failed to encode response: %v", err)
+				}
 				return
 			}
 			// For POST, we continue to create the project
@@ -368,11 +370,13 @@ func TestProjectUserManagement(t *testing.T) {
 		// Handle GET for /access/api/v1/projects
 		if r.URL.Path == "/access/api/v1/projects" && r.Method == "GET" {
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			if err := json.NewEncoder(w).Encode(map[string]interface{}{
 				"projects": []map[string]interface{}{
 					{"projectKey": "test-project"},
 				},
-			})
+			}); err != nil {
+				t.Errorf("Failed to encode response: %v", err)
+			}
 			return
 		}
 
@@ -425,10 +429,12 @@ func TestProjectUserManagement(t *testing.T) {
 				// Remove user from project - return a success response
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
-				json.NewEncoder(w).Encode(map[string]interface{}{
-					"status": "success",
+				if err := json.NewEncoder(w).Encode(map[string]interface{}{
+					"status":  "success",
 					"message": "User removed from project",
-				})
+				}); err != nil {
+					t.Errorf("Failed to encode response: %v", err)
+				}
 				return
 			}
 
@@ -506,11 +512,13 @@ func TestProjectRepositoryAssignment(t *testing.T) {
 		// Handle GET for /access/api/v1/projects
 		if r.URL.Path == "/access/api/v1/projects" && r.Method == "GET" {
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			if err := json.NewEncoder(w).Encode(map[string]interface{}{
 				"projects": []map[string]interface{}{
 					{"projectKey": "test-project"},
 				},
-			})
+			}); err != nil {
+				t.Errorf("Failed to encode response: %v", err)
+			}
 			return
 		}
 
@@ -535,10 +543,12 @@ func TestProjectRepositoryAssignment(t *testing.T) {
 				// Unassign repository from project - return success response
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
-				json.NewEncoder(w).Encode(map[string]interface{}{
-					"status": "success",
+				if err := json.NewEncoder(w).Encode(map[string]interface{}{
+					"status":  "success",
 					"message": "Repository unassigned from project",
-				})
+				}); err != nil {
+					t.Errorf("Failed to encode response: %v", err)
+				}
 				return
 			}
 
@@ -698,36 +708,27 @@ func TestProjectCapabilityFiltering(t *testing.T) {
 	})
 }
 
-// Helper function for creating test context with credentials
-func createProjectTestContext() context.Context {
-	return providers.WithContext(context.Background(), &providers.ProviderContext{
-		Credentials: &providers.ProviderCredentials{
-			APIKey: "test-api-key-12345",
-		},
-	})
-}
-
 // Helper function to handle common discovery endpoints in mock servers
 func handleCommonDiscoveryEndpoints(w http.ResponseWriter, r *http.Request) bool {
 	switch r.URL.Path {
 	case "/api/system/ping", "/access/api/v1/system/ping":
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, _ = w.Write([]byte("OK"))
 		return true
 	case "/api/system/configuration":
 		// System configuration endpoint
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"urlBase": "http://test.artifactory.com",
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"urlBase":     "http://test.artifactory.com",
 			"offlineMode": false,
 		})
 		return true
 	case "/xray/api/v1/system/version":
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"version": "3.0.0", "revision": "123"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"version": "3.0.0", "revision": "123"})
 		return true
 	case "/pipelines/api/v1/system/info", "/mc/api/v1/system/info",
-	     "/distribution/api/v1/system/info", "/api/federation/status":
+		"/distribution/api/v1/system/info", "/api/federation/status":
 		// These are feature discovery endpoints - return 404 to indicate not available
 		w.WriteHeader(http.StatusNotFound)
 		return true
@@ -737,7 +738,7 @@ func handleCommonDiscoveryEndpoints(w http.ResponseWriter, r *http.Request) bool
 		if r.URL.Query().Get("project") == "" {
 			// Repository list for permission discovery
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode([]map[string]string{
+			_ = json.NewEncoder(w).Encode([]map[string]string{
 				{"key": "test-repo", "type": "LOCAL"},
 			})
 			return true
@@ -749,13 +750,13 @@ func handleCommonDiscoveryEndpoints(w http.ResponseWriter, r *http.Request) bool
 		if r.Method == "GET" {
 			// Return empty permissions list for discovery
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"permissions": []map[string]interface{}{},
 			})
 		} else {
 			// For other methods, just return OK
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"status": "ok",
 			})
 		}

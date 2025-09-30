@@ -417,7 +417,7 @@ func TestExecuteOperation_RetryLogic(t *testing.T) {
 
 	// Use artifacts/info operation which is a valid operation
 	result, err := provider.ExecuteOperation(ctx, "artifacts/info", map[string]interface{}{
-		"repoKey": "test-repo",
+		"repoKey":  "test-repo",
 		"itemPath": "test.jar",
 	})
 	assert.NoError(t, err)
@@ -659,29 +659,29 @@ func handleCommonDiscoveryEndpointsExtended(t *testing.T, w http.ResponseWriter,
 	switch r.URL.Path {
 	case "/api/system/ping", "/access/api/v1/system/ping":
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, _ = w.Write([]byte("OK"))
 		return true
 	case "/api/system/configuration":
 		// System configuration endpoint
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"urlBase": "http://test.artifactory.com",
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"urlBase":     "http://test.artifactory.com",
 			"offlineMode": false,
 		})
 		return true
 	case "/xray/api/v1/system/version":
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"version": "3.0.0", "revision": "123"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"version": "3.0.0", "revision": "123"})
 		return true
 	case "/pipelines/api/v1/system/info", "/mc/api/v1/system/info",
-	     "/distribution/api/v1/system/info", "/api/federation/status":
+		"/distribution/api/v1/system/info", "/api/federation/status":
 		// These are feature discovery endpoints - return 404 to indicate not available
 		w.WriteHeader(http.StatusNotFound)
 		return true
 	case "/api/repositories":
 		// Repository list for permission discovery
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode([]map[string]string{
+		_ = json.NewEncoder(w).Encode([]map[string]string{
 			{"key": "test-repo", "type": "LOCAL"},
 		})
 		return true
@@ -690,13 +690,13 @@ func handleCommonDiscoveryEndpointsExtended(t *testing.T, w http.ResponseWriter,
 		if r.Method == "GET" {
 			// Return empty permissions list for discovery
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"permissions": []map[string]interface{}{},
 			})
 		} else {
 			// For other methods, just return OK
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"status": "ok",
 			})
 		}
@@ -705,7 +705,7 @@ func handleCommonDiscoveryEndpointsExtended(t *testing.T, w http.ResponseWriter,
 		// Handle GET for projects list (capability discovery)
 		if r.Method == "GET" {
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"projects": []map[string]interface{}{},
 			})
 			return true
