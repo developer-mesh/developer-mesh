@@ -331,6 +331,11 @@ func TestExecuteOperation_ListRepos(t *testing.T) {
 
 	// Create a mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Handle common discovery endpoints
+		if handleCommonDiscoveryEndpointsForTests(t, w, r) {
+			return
+		}
+
 		assert.Equal(t, "/api/repositories", r.URL.Path)
 		assert.Equal(t, "GET", r.Method)
 
@@ -370,6 +375,11 @@ func TestExecuteOperation_ListRepos(t *testing.T) {
 func TestExecuteOperation_CreateUser(t *testing.T) {
 	// Create a mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Handle common discovery endpoints
+		if handleCommonDiscoveryEndpointsForTests(t, w, r) {
+			return
+		}
+
 		assert.Equal(t, "/api/security/users/john.doe", r.URL.Path)
 		assert.Equal(t, "PUT", r.Method)
 
@@ -435,6 +445,11 @@ func TestExecuteOperation_SearchArtifacts(t *testing.T) {
 
 	// Create a mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Handle common discovery endpoints
+		if handleCommonDiscoveryEndpointsForTests(t, w, r) {
+			return
+		}
+
 		assert.Equal(t, "/api/search/artifact", r.URL.Path)
 		assert.Equal(t, "GET", r.Method)
 
@@ -498,6 +513,11 @@ func TestExecuteOperation_UnknownOperation(t *testing.T) {
 func TestExecuteOperation_BuildPromote(t *testing.T) {
 	// Create a mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Handle common discovery endpoints
+		if handleCommonDiscoveryEndpointsForTests(t, w, r) {
+			return
+		}
+
 		assert.Equal(t, "/api/build/promote/myapp/123", r.URL.Path)
 		assert.Equal(t, "POST", r.Method)
 
@@ -985,4 +1005,72 @@ func TestAQLWithPagination(t *testing.T) {
 	assert.Len(t, results, 5)
 	assert.Equal(t, true, res["has_more"])
 	assert.Equal(t, 5, res["total_count"])
+}
+
+// Helper function to handle common discovery endpoints in mock servers
+func handleCommonDiscoveryEndpointsForTests(t *testing.T, w http.ResponseWriter, r *http.Request) bool {
+	switch r.URL.Path {
+	case "/api/system/ping", "/access/api/v1/system/ping":
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+		return true
+	case "/api/system/configuration":
+		// System configuration endpoint
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"urlBase": "http://test.artifactory.com",
+			"offlineMode": false,
+		})
+		return true
+	case "/xray/api/v1/system/version":
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"version": "3.0.0", "revision": "123"})
+		return true
+	case "/pipelines/api/v1/system/info", "/mc/api/v1/system/info",
+	     "/distribution/api/v1/system/info", "/api/federation/status":
+		// These are feature discovery endpoints - return 404 to indicate not available
+		w.WriteHeader(http.StatusNotFound)
+		return true
+	case "/api/repositories":
+		// Only handle repository list if there's no project query parameter
+		if r.URL.Query().Get("project") == "" {
+			// Repository list for permission discovery and tests
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode([]map[string]interface{}{
+				{"key": "test-repo", "type": "LOCAL", "packageType": "maven"},
+				{"key": "npm-local", "type": "LOCAL", "packageType": "npm"},
+			})
+			return true
+		}
+		// Let the test handler deal with project-specific queries
+		return false
+	case "/api/v2/security/permissions":
+		// Permission discovery endpoint
+		if r.Method == "GET" {
+			// Return empty permissions list for discovery
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"permissions": []map[string]interface{}{},
+			})
+		} else {
+			// For other methods, just return OK
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"status": "ok",
+			})
+		}
+		return true
+	case "/access/api/v1/projects":
+		// Handle GET for projects list (capability discovery)
+		if r.Method == "GET" {
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"projects": []map[string]interface{}{},
+			})
+			return true
+		}
+		// Let test handle other methods
+		return false
+	}
+	return false
 }

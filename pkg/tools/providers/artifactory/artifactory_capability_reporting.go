@@ -154,21 +154,32 @@ func (cd *CapabilityDiscoverer) discoverFeatures(ctx context.Context, provider *
 		capability := cd.probeEndpoint(ctx, provider, feature.endpoint)
 		capability.Required = feature.required
 
-		// Add context-specific reasons
-		if !capability.Available && capability.Reason == "" {
+		// Add context-specific reasons or override generic messages
+		if !capability.Available {
 			switch feature.name {
 			case "xray":
-				capability.Reason = "Xray is not installed or accessible"
+				if capability.Reason == "" {
+					capability.Reason = "Xray is not installed or accessible"
+				}
 			case "pipelines":
-				capability.Reason = "Pipelines is a cloud-only feature or not configured"
+				if capability.Reason == "" {
+					capability.Reason = "Pipelines is a cloud-only feature or not configured"
+				}
 			case "mission_control":
-				capability.Reason = "Mission Control requires Enterprise license"
+				if capability.Reason == "" {
+					capability.Reason = "Mission Control requires Enterprise license"
+				}
 			case "projects":
+				// Always override for projects to provide specific license info
 				capability.Reason = "Projects feature requires Platform Pro or Enterprise license"
 			case "federation":
-				capability.Reason = "Federation requires Enterprise Plus license"
+				if capability.Reason == "" {
+					capability.Reason = "Federation requires Enterprise Plus license"
+				}
 			default:
-				capability.Reason = fmt.Sprintf("%s is not available", feature.name)
+				if capability.Reason == "" {
+					capability.Reason = fmt.Sprintf("%s is not available", feature.name)
+				}
 			}
 		}
 
