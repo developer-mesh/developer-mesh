@@ -80,7 +80,6 @@ func TestRetryWithBackoff_NonRetryableError(t *testing.T) {
 	assert.Equal(t, 1, attempts) // Should not retry
 }
 
-
 func TestRetryWithBackoff_ExponentialBackoff(t *testing.T) {
 	config := &RetryConfig{
 		MaxAttempts:  4,

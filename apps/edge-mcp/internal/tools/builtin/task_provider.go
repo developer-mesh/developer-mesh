@@ -47,6 +47,8 @@ func (p *TaskProvider) GetDefinitions() []tools.ToolDefinition {
 		{
 			Name:        "task_list",
 			Description: "List all tasks with optional filters",
+			Category:    string(tools.CategoryTask),
+			Tags:        []string{string(tools.CapabilityRead), string(tools.CapabilityList), string(tools.CapabilityFilter), string(tools.CapabilitySort), string(tools.CapabilityPaginate)},
 			InputSchema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
@@ -92,6 +94,8 @@ func (p *TaskProvider) GetDefinitions() []tools.ToolDefinition {
 		{
 			Name:        "task_get",
 			Description: "Get details of a specific task",
+			Category:    string(tools.CategoryTask),
+			Tags:        []string{string(tools.CapabilityRead)},
 			InputSchema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
@@ -107,6 +111,8 @@ func (p *TaskProvider) GetDefinitions() []tools.ToolDefinition {
 		{
 			Name:        "task_get_batch",
 			Description: "Get details of multiple tasks in a single operation",
+			Category:    string(tools.CategoryTask),
+			Tags:        []string{string(tools.CapabilityRead), string(tools.CapabilityBatch)},
 			InputSchema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
@@ -126,6 +132,8 @@ func (p *TaskProvider) GetDefinitions() []tools.ToolDefinition {
 		{
 			Name:        "task_create",
 			Description: "Create a new task",
+			Category:    string(tools.CategoryTask),
+			Tags:        []string{string(tools.CapabilityWrite), string(tools.CapabilityValidation), string(tools.CapabilityIdempotent)},
 			InputSchema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{

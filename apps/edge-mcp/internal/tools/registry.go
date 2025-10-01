@@ -13,6 +13,10 @@ type ToolDefinition struct {
 	Description string                 `json:"description"`
 	InputSchema map[string]interface{} `json:"inputSchema"`
 	Handler     ToolHandler            `json:"-"`
+
+	// Enhanced metadata for AI agents
+	Category string   `json:"category,omitempty"` // Primary category (repository, issues, ci/cd, etc.)
+	Tags     []string `json:"tags,omitempty"`     // Tags for capabilities (read, write, delete, etc.)
 }
 
 // ToolHandler is a function that executes a tool
@@ -59,6 +63,71 @@ func (r *Registry) ListAll() []ToolDefinition {
 		tools = append(tools, tool)
 	}
 	return tools
+}
+
+// ListByCategory returns tools filtered by category
+func (r *Registry) ListByCategory(category string) []ToolDefinition {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	tools := make([]ToolDefinition, 0)
+	for _, tool := range r.tools {
+		if tool.Category == category {
+			tools = append(tools, tool)
+		}
+	}
+	return tools
+}
+
+// ListByTags returns tools that have all specified tags
+func (r *Registry) ListByTags(tags []string) []ToolDefinition {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	tools := make([]ToolDefinition, 0)
+	for _, tool := range r.tools {
+		if hasAllTags(tool.Tags, tags) {
+			tools = append(tools, tool)
+		}
+	}
+	return tools
+}
+
+// ListWithFilter returns tools matching the filter criteria
+func (r *Registry) ListWithFilter(category string, tags []string) []ToolDefinition {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	tools := make([]ToolDefinition, 0)
+	for _, tool := range r.tools {
+		// Check category if specified
+		if category != "" && tool.Category != category {
+			continue
+		}
+
+		// Check tags if specified
+		if len(tags) > 0 && !hasAllTags(tool.Tags, tags) {
+			continue
+		}
+
+		tools = append(tools, tool)
+	}
+	return tools
+}
+
+// hasAllTags checks if tool tags contain all required tags
+func hasAllTags(toolTags []string, requiredTags []string) bool {
+	tagMap := make(map[string]bool)
+	for _, tag := range toolTags {
+		tagMap[tag] = true
+	}
+
+	for _, tag := range requiredTags {
+		if !tagMap[tag] {
+			return false
+		}
+	}
+	return true
 }
 
 // Execute executes a tool

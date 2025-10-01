@@ -11,13 +11,13 @@ import (
 
 // RetryConfig configures retry behavior
 type RetryConfig struct {
-	MaxAttempts     int                    // Maximum number of attempts (including first try)
-	InitialDelay    time.Duration          // Initial delay between retries
-	MaxDelay        time.Duration          // Maximum delay between retries
-	Multiplier      float64                // Multiplier for exponential backoff
-	JitterFactor    float64                // Jitter factor (0-1) to randomize delays
-	RetryableErrors []error                // Specific errors that trigger retry
-	RetryIf         func(error) bool       // Custom function to determine if retry
+	MaxAttempts     int              // Maximum number of attempts (including first try)
+	InitialDelay    time.Duration    // Initial delay between retries
+	MaxDelay        time.Duration    // Maximum delay between retries
+	Multiplier      float64          // Multiplier for exponential backoff
+	JitterFactor    float64          // Jitter factor (0-1) to randomize delays
+	RetryableErrors []error          // Specific errors that trigger retry
+	RetryIf         func(error) bool // Custom function to determine if retry
 }
 
 // DefaultRetryConfig returns sensible defaults

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"testing"
+
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tools"
 	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
@@ -86,7 +87,7 @@ func TestFilterToolsByPermissions_NoPermissions(t *testing.T) {
 
 	// Session without permissions
 	session := &Session{
-		ID: "test-session",
+		ID:              "test-session",
 		PassthroughAuth: nil,
 	}
 

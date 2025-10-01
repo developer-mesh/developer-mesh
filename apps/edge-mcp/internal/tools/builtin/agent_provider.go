@@ -38,6 +38,8 @@ func (p *AgentProvider) GetDefinitions() []tools.ToolDefinition {
 		{
 			Name:        "agent_list",
 			Description: "List all registered agents with their current status",
+			Category:    string(tools.CategoryAgent),
+			Tags:        []string{string(tools.CapabilityRead), string(tools.CapabilityList), string(tools.CapabilityFilter), string(tools.CapabilitySort), string(tools.CapabilityPaginate)},
 			InputSchema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
@@ -74,6 +76,8 @@ func (p *AgentProvider) GetDefinitions() []tools.ToolDefinition {
 		{
 			Name:        "agent_heartbeat",
 			Description: "Send agent heartbeat to maintain connection status",
+			Category:    string(tools.CategoryAgent),
+			Tags:        []string{string(tools.CapabilityWrite), string(tools.CapabilityRealtime)},
 			InputSchema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
@@ -98,6 +102,8 @@ func (p *AgentProvider) GetDefinitions() []tools.ToolDefinition {
 		{
 			Name:        "agent_status",
 			Description: "Get the current status of an agent",
+			Category:    string(tools.CategoryAgent),
+			Tags:        []string{string(tools.CapabilityRead)},
 			InputSchema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{

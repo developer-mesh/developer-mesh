@@ -3,6 +3,7 @@ package auth
 import (
 	"net/http"
 	"testing"
+
 	"github.com/stretchr/testify/assert"
 )
 

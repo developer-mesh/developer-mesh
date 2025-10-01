@@ -63,6 +63,8 @@ func (p *WorkflowProvider) GetDefinitions() []tools.ToolDefinition {
 		{
 			Name:        "workflow_list",
 			Description: "List all workflow definitions",
+			Category:    string(tools.CategoryWorkflow),
+			Tags:        []string{string(tools.CapabilityRead), string(tools.CapabilityList), string(tools.CapabilityFilter), string(tools.CapabilitySort), string(tools.CapabilityPaginate)},
 			InputSchema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{

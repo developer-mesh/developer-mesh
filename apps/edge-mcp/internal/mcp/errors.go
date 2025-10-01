@@ -22,15 +22,15 @@ const (
 
 // StructuredError provides rich error context
 type StructuredError struct {
-	Type        ErrorType              `json:"type"`
-	Message     string                 `json:"message"`
-	Details     string                 `json:"details,omitempty"`
-	Operation   string                 `json:"operation,omitempty"`
-	RequestID   string                 `json:"request_id,omitempty"`
-	Suggestion  string                 `json:"suggestion,omitempty"`
-	RetryAfter  *time.Duration         `json:"retry_after,omitempty"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
-	wrapped     error
+	Type       ErrorType              `json:"type"`
+	Message    string                 `json:"message"`
+	Details    string                 `json:"details,omitempty"`
+	Operation  string                 `json:"operation,omitempty"`
+	RequestID  string                 `json:"request_id,omitempty"`
+	Suggestion string                 `json:"suggestion,omitempty"`
+	RetryAfter *time.Duration         `json:"retry_after,omitempty"`
+	Metadata   map[string]interface{} `json:"metadata,omitempty"`
+	wrapped    error
 }
 
 // Error implements the error interface

@@ -111,7 +111,7 @@ func TestStructuredError_ErrorTypes(t *testing.T) {
 		{NewValidationError("field", "msg"), -32602},
 		{NewNotFoundError("resource", "id"), -32002},
 		{NewRateLimitError(1 * time.Second), -32003},
-		{NewTimeoutError("op", 1 * time.Second), -32004},
+		{NewTimeoutError("op", 1*time.Second), -32004},
 	}
 
 	for _, tc := range testCases {
