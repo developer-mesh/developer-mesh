@@ -600,7 +600,7 @@ PASS
 
 ---
 
-#### Story 1.1.3: Authentication & Permission Tests
+#### Story 1.1.3: Authentication & Permission Tests ✅ COMPLETED
 **Difficulty:** Junior-Mid
 **Time Estimate:** 5-6 hours
 **Prerequisites:**
@@ -919,6 +919,21 @@ PASS
 - Test both header-based and environment-based auth
 - Don't hardcode real credentials in tests
 - Always test permission filtering edge cases
+
+**✅ COMPLETION NOTES:**
+- Implementation completed: `auth_test.go` and `passthrough_auth_test.go` created with comprehensive tests
+- All 9 test cases passing:
+  - TestEdgeAuthenticator_NoAPIKey - Tests development mode with no API key
+  - TestEdgeAuthenticator_BearerToken (4 sub-tests) - Tests Bearer token authentication
+  - TestEdgeAuthenticator_XAPIKey (3 sub-tests) - Tests X-API-Key header authentication
+  - TestEdgeAuthenticator_PreferAuthorizationHeader - Tests header preference
+  - TestEdgeAuthenticator_NoCredentials - Tests rejection of unauthenticated requests
+  - TestExtractPassthroughAuth_FromHeaders - Tests credential extraction from headers
+  - TestExtractPassthroughAuthFromEnv - Tests credential extraction from environment
+  - TestFilterToolsByPermissions_NoPermissions - Tests tool filtering without permissions
+  - TestFilterToolsByPermissions_WithHarnessPermissions - Tests Harness permission filtering
+- Test coverage: 100% for auth.go, partial for mcp package (testing specific functions)
+- Tests verify authentication methods, passthrough auth extraction, and permission-based filtering
 
 ---
 
