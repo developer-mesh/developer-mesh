@@ -57,6 +57,9 @@ type Handler struct {
 	// Request tracking for cancellation
 	activeRequests map[interface{}]context.CancelFunc
 	requestsMu     sync.RWMutex
+
+	// Goroutine tracking for cleanup
+	activeRefreshes sync.WaitGroup
 }
 
 // Session represents an MCP session
@@ -127,32 +130,29 @@ func (h *Handler) HandleConnection(conn *websocket.Conn, r *http.Request) {
 	h.sessions[sessionID] = session
 	h.sessionsMu.Unlock()
 
+	// Create connection context - properly cancelled on cleanup
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel() // Ensure context is cancelled
+
 	defer func() {
+		// Clean up session
 		h.sessionsMu.Lock()
 		delete(h.sessions, sessionID)
 		h.sessionsMu.Unlock()
+
+		// Cancel context to stop all goroutines
+		cancel()
+
+		// Close connection
 		_ = conn.Close(websocket.StatusNormalClosure, "")
 	}()
 
-	// Create a context for this connection
-	// Use background context, not request context which gets cancelled after upgrade
-	ctx := context.Background()
-
-	// Start ping ticker to keep connection alive
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				if err := conn.Ping(ctx); err != nil {
-					return
-				}
-			case <-ctx.Done():
-				return
-			}
-		}
+	// Start ping ticker with proper cleanup
+	pingDone := make(chan struct{})
+	go h.pingLoop(ctx, conn, pingDone)
+	defer func() {
+		cancel()   // Signal ping loop to stop
+		<-pingDone // Wait for ping loop to finish
 	}()
 
 	// Message handling loop
@@ -206,6 +206,69 @@ func (h *Handler) HandleConnection(conn *websocket.Conn, r *http.Request) {
 			}
 		}
 	}
+}
+
+// pingLoop handles WebSocket ping/pong with proper cleanup
+func (h *Handler) pingLoop(ctx context.Context, conn *websocket.Conn, done chan struct{}) {
+	defer close(done) // Signal completion when exiting
+
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			// Set deadline for ping
+			pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			err := conn.Ping(pingCtx)
+			cancel()
+
+			if err != nil {
+				h.logger.Debug("Ping failed, closing connection", map[string]interface{}{
+					"error": err.Error(),
+				})
+				return
+			}
+		case <-ctx.Done():
+			h.logger.Debug("Ping loop stopped due to context cancellation", nil)
+			return
+		}
+	}
+}
+
+// Shutdown gracefully shuts down the MCP handler
+func (h *Handler) Shutdown(ctx context.Context) error {
+	h.logger.Info("Shutting down MCP handler", nil)
+
+	// Cancel all active requests
+	h.requestsMu.Lock()
+	for _, cancel := range h.activeRequests {
+		cancel()
+	}
+	h.requestsMu.Unlock()
+
+	// Wait for active refreshes with timeout
+	done := make(chan struct{})
+	go func() {
+		h.activeRefreshes.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		h.logger.Info("All refresh operations completed", nil)
+	case <-ctx.Done():
+		h.logger.Warn("Shutdown timeout, some operations may be incomplete", nil)
+	}
+
+	// Close all sessions
+	h.sessionsMu.Lock()
+	for id := range h.sessions {
+		delete(h.sessions, id)
+	}
+	h.sessionsMu.Unlock()
+
+	return nil
 }
 
 // HandleStdio handles MCP protocol over stdin/stdout for Claude Code integration
@@ -516,11 +579,21 @@ func (h *Handler) handleInitialize(sessionID string, msg *MCPMessage) (*MCPMessa
 
 			// Trigger tool refresh on new connection
 			if h.refreshManager != nil {
+				// Create a context with timeout for refresh
+				refreshCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+
+				// Track the goroutine
+				h.activeRefreshes.Add(1)
+
 				go func() {
+					defer h.activeRefreshes.Done()
+					defer cancel()
+
 					h.logger.Debug("Refreshing tools on new connection", map[string]interface{}{
 						"client": params.ClientInfo.Name,
 					})
-					h.refreshManager.OnReconnect(context.Background())
+
+					h.refreshManager.OnReconnect(refreshCtx)
 				}()
 			}
 		}
