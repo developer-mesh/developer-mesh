@@ -177,22 +177,21 @@ func (h *Handler) HandleConnection(conn *websocket.Conn, r *http.Request) {
 		// Handle message
 		response, err := h.handleMessage(sessionID, &msg)
 		if err != nil {
-			var structuredErr *StructuredError
-			if errors.As(err, &structuredErr) {
+			var errResp *models.ErrorResponse
+			if errors.As(err, &errResp) {
 				response = &MCPMessage{
 					JSONRPC: "2.0",
 					ID:      msg.ID,
-					Error:   structuredErr.ToMCPError(),
+					Error:   ToMCPError(errResp),
 				}
 			} else {
-				// Fallback for non-structured errors
+				// Fallback for non-structured errors - convert to semantic error
 				response = &MCPMessage{
 					JSONRPC: "2.0",
 					ID:      msg.ID,
-					Error: &MCPError{
-						Code:    -32603,
-						Message: err.Error(),
-					},
+					Error: ToMCPError(
+						errorTemplates.InternalError("unknown", err),
+					),
 				}
 			}
 		}
@@ -355,22 +354,21 @@ func (h *Handler) HandleStdio() {
 		// Handle message
 		response, err := h.handleMessage(sessionID, &msg)
 		if err != nil {
-			var structuredErr *StructuredError
-			if errors.As(err, &structuredErr) {
+			var errResp *models.ErrorResponse
+			if errors.As(err, &errResp) {
 				response = &MCPMessage{
 					JSONRPC: "2.0",
 					ID:      msg.ID,
-					Error:   structuredErr.ToMCPError(),
+					Error:   ToMCPError(errResp),
 				}
 			} else {
-				// Fallback for non-structured errors
+				// Fallback for non-structured errors - convert to semantic error
 				response = &MCPMessage{
 					JSONRPC: "2.0",
 					ID:      msg.ID,
-					Error: &MCPError{
-						Code:    -32603,
-						Message: err.Error(),
-					},
+					Error: ToMCPError(
+						errorTemplates.InternalError("unknown", err),
+					),
 				}
 			}
 		}
@@ -862,7 +860,9 @@ func (h *Handler) handleToolCall(sessionID string, msg *MCPMessage) (*MCPMessage
 	}
 
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
-		return nil, fmt.Errorf("invalid tool call params: %w", err)
+		return nil, NewValidationError("params", fmt.Sprintf("Invalid tool call parameters: %v", err)).
+			WithOperation("tools/call").
+			WithRequestID(fmt.Sprintf("%v", msg.ID))
 	}
 
 	// CRITICAL: Handle context operations specially for sync with Core Platform
@@ -899,7 +899,41 @@ func (h *Handler) handleToolCall(sessionID string, msg *MCPMessage) (*MCPMessage
 	// Execute tool with cancellable context (includes passthrough auth if available)
 	result, err := h.tools.Execute(ctx, params.Name, params.Arguments)
 	if err != nil {
-		return nil, NewToolExecutionError(params.Name, err).
+		// Check for special error types and enhance with AI-friendly information
+		var toolNotFoundErr *tools.ToolNotFoundError
+		var toolConfigErr *tools.ToolConfigError
+
+		if errors.As(err, &toolNotFoundErr) {
+			// Get available categories for suggestions
+			allTools := h.tools.ListAll()
+			categories := make([]string, 0)
+			categoryMap := make(map[string]bool)
+			for _, t := range allTools {
+				if t.Category != "" && !categoryMap[t.Category] {
+					categoryMap[t.Category] = true
+					categories = append(categories, t.Category)
+				}
+			}
+
+			return nil, errorTemplates.ToolNotFound(params.Name, categories).
+				WithOperation(fmt.Sprintf("tools/call:%s", params.Name)).
+				WithRequestID(fmt.Sprintf("%v", msg.ID)).
+				WithMetadata("available_tools_count", len(allTools))
+
+		} else if errors.As(err, &toolConfigErr) {
+			return nil, errorTemplates.InternalError(
+				fmt.Sprintf("tools/call:%s", params.Name),
+				err,
+			).WithRequestID(fmt.Sprintf("%v", msg.ID))
+		}
+
+		// Default tool execution error with possible alternatives
+		var alternatives []string
+		if tool, exists := h.tools.Get(params.Name); exists {
+			alternatives = tool.Alternatives
+		}
+
+		return nil, NewToolExecutionErrorWithAlternatives(params.Name, err, alternatives).
 			WithRequestID(fmt.Sprintf("%v", msg.ID))
 	}
 
@@ -962,7 +996,8 @@ func (h *Handler) handleContextOperation(sessionID string, msgID interface{}, op
 	h.sessionsMu.RUnlock()
 
 	if coreContextID == "" {
-		return nil, fmt.Errorf("no active Core Platform session")
+		return nil, errorTemplates.UninitializedSession().
+			WithDetails("Core Platform session must be established before context operations")
 	}
 
 	var result interface{}
@@ -972,7 +1007,8 @@ func (h *Handler) handleContextOperation(sessionID string, msgID interface{}, op
 	case "context.update":
 		var contextUpdate map[string]interface{}
 		if err := json.Unmarshal(args, &contextUpdate); err != nil {
-			return nil, fmt.Errorf("invalid context update: %w", err)
+			return nil, NewValidationError("arguments", fmt.Sprintf("Invalid context update data: %v", err)).
+				WithOperation("context.update")
 		}
 
 		err = h.coreClient.UpdateContext(context.Background(), coreContextID, contextUpdate)
@@ -999,7 +1035,8 @@ func (h *Handler) handleContextOperation(sessionID string, msgID interface{}, op
 	case "context.append":
 		var appendData map[string]interface{}
 		if err := json.Unmarshal(args, &appendData); err != nil {
-			return nil, fmt.Errorf("invalid append data: %w", err)
+			return nil, NewValidationError("arguments", fmt.Sprintf("Invalid append data: %v", err)).
+				WithOperation("context.append")
 		}
 
 		err = h.coreClient.AppendContext(context.Background(), coreContextID, appendData)
@@ -1009,7 +1046,8 @@ func (h *Handler) handleContextOperation(sessionID string, msgID interface{}, op
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("context operation failed: %w", err)
+		return nil, errorTemplates.InternalError(operation, err).
+			WithSuggestion("Retry the operation or check Core Platform connectivity")
 	}
 
 	return &MCPMessage{
@@ -1075,7 +1113,8 @@ func (h *Handler) handleResourceRead(sessionID string, msg *MCPMessage) (*MCPMes
 	}
 
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
-		return nil, fmt.Errorf("invalid resource read params: %w", err)
+		return nil, NewValidationError("params", fmt.Sprintf("Invalid resource read parameters: %v", err)).
+			WithOperation("resources/read")
 	}
 
 	var content interface{}
@@ -1111,7 +1150,8 @@ func (h *Handler) handleResourceRead(sessionID string, msg *MCPMessage) (*MCPMes
 		}
 
 	default:
-		return nil, fmt.Errorf("resource not found: %s", params.URI)
+		return nil, errorTemplates.ResourceNotFound("resource", params.URI, []string{"resources/list"}).
+			WithOperation("resources/read")
 	}
 
 	contentJSON, _ := json.Marshal(content)
@@ -1150,7 +1190,8 @@ func (h *Handler) handleLoggingSetLevel(sessionID string, msg *MCPMessage) (*MCP
 	}
 
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
-		return nil, fmt.Errorf("invalid logging params: %w", err)
+		return nil, NewValidationError("params", fmt.Sprintf("Invalid logging parameters: %v", err)).
+			WithOperation("logging/setLevel")
 	}
 
 	// Map MCP log levels to observability log levels
@@ -1164,7 +1205,9 @@ func (h *Handler) handleLoggingSetLevel(sessionID string, msg *MCPMessage) (*MCP
 
 	newLevel, ok := levelMap[params.Level]
 	if !ok {
-		return nil, fmt.Errorf("invalid log level: %s", params.Level)
+		validLevels := []string{"debug", "info", "warning", "warn", "error"}
+		return nil, NewValidationError("level", fmt.Sprintf("Invalid log level '%s'. Valid levels: %v", params.Level, validLevels)).
+			WithOperation("logging/setLevel")
 	}
 
 	// Create a new logger with the specified level if StandardLogger
@@ -1189,7 +1232,8 @@ func (h *Handler) handleCancelRequest(sessionID string, msg *MCPMessage) (*MCPMe
 	}
 
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
-		return nil, fmt.Errorf("invalid cancel params: %w", err)
+		return nil, NewValidationError("params", fmt.Sprintf("Invalid cancel request parameters: %v", err)).
+			WithOperation("$/cancelRequest")
 	}
 
 	// Look up and cancel the request

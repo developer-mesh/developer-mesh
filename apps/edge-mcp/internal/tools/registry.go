@@ -147,14 +147,42 @@ func (r *Registry) Execute(ctx context.Context, name string, args json.RawMessag
 	r.mu.RUnlock()
 
 	if !exists {
-		return nil, fmt.Errorf("tool not found: %s", name)
+		// Return a special error type that the handler can recognize and enhance
+		return nil, &ToolNotFoundError{ToolName: name}
 	}
 
 	if tool.Handler == nil {
-		return nil, fmt.Errorf("tool %s has no handler", name)
+		return nil, &ToolConfigError{ToolName: name, Reason: "no handler configured"}
 	}
 
 	return tool.Handler(ctx, args)
+}
+
+// ToolNotFoundError indicates a tool was not found
+type ToolNotFoundError struct {
+	ToolName string
+}
+
+func (e *ToolNotFoundError) Error() string {
+	return fmt.Sprintf("tool not found: %s", e.ToolName)
+}
+
+// ToolConfigError indicates a tool configuration error
+type ToolConfigError struct {
+	ToolName string
+	Reason   string
+}
+
+func (e *ToolConfigError) Error() string {
+	return fmt.Sprintf("tool %s configuration error: %s", e.ToolName, e.Reason)
+}
+
+// Get retrieves a tool by name
+func (r *Registry) Get(name string) (ToolDefinition, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	tool, exists := r.tools[name]
+	return tool, exists
 }
 
 // Count returns the number of registered tools
