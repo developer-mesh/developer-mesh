@@ -488,16 +488,86 @@ This plan addresses critical technical gaps preventing reliable AI agent integra
   - Flexible search options for different use cases
   - Tool suggestions for partial/incomplete queries
 
-#### Story 2.3.2: Add Tool Capability Query
+#### Story 2.3.2: Add Tool Capability Query ✅ COMPLETED
 **Size:** 3 points
 ```
-- [ ] Create capabilities endpoint
-- [ ] Return supported operations per service
-- [ ] Include permission requirements
-- [ ] Add feature flags per tool
-- [ ] Document API versions supported
+- [x] Create capabilities endpoint
+- [x] Return supported operations per service
+- [x] Include permission requirements
+- [x] Add feature flags per tool
+- [x] Document API versions supported
 ```
-**Files:** `apps/edge-mcp/internal/mcp/capabilities.go` (new)
+**Files:**
+- `apps/edge-mcp/internal/mcp/capabilities.go` (created)
+- `apps/edge-mcp/internal/mcp/capabilities_test.go` (created)
+
+**✅ COMPLETION NOTES:**
+- Implementation completed: Comprehensive tool capability query system
+- Key features implemented:
+  - Created CapabilityManager for managing service and operation capabilities
+  - ServiceCapability structure groups tools by service (GitHub, Harness, Agent, Workflow, etc.)
+  - OperationCapability provides detailed information about each tool/operation
+  - Permission structure defines required permissions (read, write, admin scopes)
+  - Feature flags identify tool capabilities (async, batching, streaming, webhooks, etc.)
+  - API version tracking per service (GitHub v3/2022-11-28, Harness v1, etc.)
+- Built-in services initialized:
+  - Agent Management - agent lifecycle and orchestration
+  - Workflow Management - workflow creation and execution
+  - Task Management - task assignment and tracking
+  - Context Management - session state management
+- Dynamic service detection:
+  - Automatically extracts service name from tool names
+  - Groups tools by service provider (github, harness, etc.)
+  - Builds service capabilities from registered tools
+- Permission extraction:
+  - Read permissions for read operations
+  - Write permissions for write operations
+  - Admin permissions for delete operations
+  - Category-based permission scoping (e.g., "repository:write", "issues:read")
+- Feature flag mapping:
+  - supports_async - for async operations
+  - supports_batching - for batch operations
+  - supports_streaming - for streaming support
+  - supports_webhooks - for webhook capabilities
+  - supports_caching - for caching support
+  - supports_retry - for retry logic
+  - is_idempotent - for idempotent operations
+  - supports_passthrough_auth - all tools support passthrough authentication
+- Authentication types:
+  - GitHub: api_key, oauth, personal_access_token
+  - Harness: api_key, bearer_token, service_account
+  - Built-in services: api_key
+- Query methods:
+  - GetAllServiceCapabilities() - Get all services and their capabilities
+  - GetServiceCapability(service) - Get capabilities for specific service
+  - GetToolCapability(toolName) - Get capability for specific tool
+  - GetRequiredPermissions(toolName) - Get permission requirements
+  - GetToolFeatures(toolName) - Get feature flags for a tool
+- Test coverage: Created comprehensive test suite with 14 test functions
+  - TestNewCapabilityManager - Manager initialization
+  - TestCapabilityManager_BuiltinServices - Built-in service verification
+  - TestCapabilityManager_RefreshFromRegistry - Registry refresh
+  - TestCapabilityManager_GetServiceCapability - Service capability retrieval
+  - TestCapabilityManager_GetToolCapability - Tool capability retrieval
+  - TestCapabilityManager_GetRequiredPermissions - Permission extraction
+  - TestCapabilityManager_GetToolFeatures - Feature flag extraction
+  - TestExtractServiceName - Service name extraction
+  - TestIsBuiltinService - Built-in service detection
+  - TestExtractParameters - Parameter extraction from schemas
+  - TestExtractServiceFeatures - Service-level feature extraction
+  - TestExtractAuthTypes - Authentication type determination
+  - TestExtractAPIVersion - API version extraction
+  - TestFormatDisplayName - Display name formatting
+  - TestExtractFeatures - Operation-level feature extraction
+  - TestExtractPermissions - Permission requirement extraction
+  - All tests passing (57 sub-tests total)
+- Benefits for AI agents:
+  - Complete visibility into available services and operations
+  - Clear permission requirements for authorization planning
+  - Feature flags help agents understand tool capabilities
+  - API version information ensures compatibility
+  - Service grouping improves tool discovery
+  - Structured capability data enables intelligent tool selection
 
 ---
 
