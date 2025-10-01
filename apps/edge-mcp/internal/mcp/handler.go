@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -176,13 +177,23 @@ func (h *Handler) HandleConnection(conn *websocket.Conn, r *http.Request) {
 		// Handle message
 		response, err := h.handleMessage(sessionID, &msg)
 		if err != nil {
-			response = &MCPMessage{
-				JSONRPC: "2.0",
-				ID:      msg.ID,
-				Error: &MCPError{
-					Code:    -32603,
-					Message: err.Error(),
-				},
+			var structuredErr *StructuredError
+			if errors.As(err, &structuredErr) {
+				response = &MCPMessage{
+					JSONRPC: "2.0",
+					ID:      msg.ID,
+					Error:   structuredErr.ToMCPError(),
+				}
+			} else {
+				// Fallback for non-structured errors
+				response = &MCPMessage{
+					JSONRPC: "2.0",
+					ID:      msg.ID,
+					Error: &MCPError{
+						Code:    -32603,
+						Message: err.Error(),
+					},
+				}
 			}
 		}
 
@@ -281,13 +292,23 @@ func (h *Handler) HandleStdio() {
 		// Handle message
 		response, err := h.handleMessage(sessionID, &msg)
 		if err != nil {
-			response = &MCPMessage{
-				JSONRPC: "2.0",
-				ID:      msg.ID,
-				Error: &MCPError{
-					Code:    -32603,
-					Message: err.Error(),
-				},
+			var structuredErr *StructuredError
+			if errors.As(err, &structuredErr) {
+				response = &MCPMessage{
+					JSONRPC: "2.0",
+					ID:      msg.ID,
+					Error:   structuredErr.ToMCPError(),
+				}
+			} else {
+				// Fallback for non-structured errors
+				response = &MCPMessage{
+					JSONRPC: "2.0",
+					ID:      msg.ID,
+					Error: &MCPError{
+						Code:    -32603,
+						Message: err.Error(),
+					},
+				}
 			}
 		}
 
@@ -432,7 +453,8 @@ func (h *Handler) handleMessage(sessionID string, msg *MCPMessage) (*MCPMessage,
 	case "$/cancelRequest":
 		return h.handleCancelRequest(sessionID, msg)
 	default:
-		return nil, fmt.Errorf("method not found: %s", msg.Method)
+		return nil, NewProtocolError(msg.Method, "Method not found",
+			fmt.Sprintf("The method '%s' is not supported by this server", msg.Method))
 	}
 }
 
@@ -448,7 +470,8 @@ func (h *Handler) handleInitialize(sessionID string, msg *MCPMessage) (*MCPMessa
 	}
 
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
-		return nil, fmt.Errorf("invalid initialize params: %w", err)
+		return nil, NewProtocolError("initialize", "Invalid initialize params",
+			fmt.Sprintf("Failed to parse initialize parameters: %v", err))
 	}
 
 	// Verify protocol version - accept all known MCP protocol versions
@@ -465,7 +488,10 @@ func (h *Handler) handleInitialize(sessionID string, msg *MCPMessage) (*MCPMessa
 		}
 	}
 	if !versionSupported {
-		return nil, fmt.Errorf("unsupported protocol version: %s (supported: %v)", params.ProtocolVersion, supportedVersions)
+		return nil, NewProtocolError("initialize",
+			"Unsupported protocol version",
+			fmt.Sprintf("Version %s is not supported. Supported versions: %v",
+				params.ProtocolVersion, supportedVersions))
 	}
 
 	// Update session
@@ -800,7 +826,8 @@ func (h *Handler) handleToolCall(sessionID string, msg *MCPMessage) (*MCPMessage
 	// Execute tool with cancellable context (includes passthrough auth if available)
 	result, err := h.tools.Execute(ctx, params.Name, params.Arguments)
 	if err != nil {
-		return nil, fmt.Errorf("tool execution failed: %w", err)
+		return nil, NewToolExecutionError(params.Name, err).
+			WithRequestID(fmt.Sprintf("%v", msg.ID))
 	}
 
 	// Record execution with Core Platform if connected
@@ -849,7 +876,8 @@ func (h *Handler) handleToolCall(sessionID string, msg *MCPMessage) (*MCPMessage
 func (h *Handler) handleContextOperation(sessionID string, msgID interface{}, operation string, args json.RawMessage) (*MCPMessage, error) {
 	// If not connected to Core Platform, return error
 	if h.coreClient == nil {
-		return nil, fmt.Errorf("context operations require Core Platform connection")
+		return nil, NewProtocolError(operation, "Core Platform required",
+			"Context operations require connection to Core Platform")
 	}
 
 	h.sessionsMu.RLock()
