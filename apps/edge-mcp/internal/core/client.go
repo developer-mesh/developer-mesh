@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tools"
 	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/utils"
 )
 
 // contextKey is a type for context keys to avoid collisions
@@ -75,12 +77,13 @@ func normalizeClientType(clientName, clientType string) string {
 // Edge MCP maintains only in-memory state and syncs through this API client
 // No direct Redis or database connections are used
 type Client struct {
-	baseURL    string
-	tenantID   string // Retrieved from Core Platform after authentication
-	edgeMCPID  string
-	apiKey     string
-	httpClient *http.Client
-	logger     observability.Logger
+	baseURL     string
+	tenantID    string // Retrieved from Core Platform after authentication
+	edgeMCPID   string
+	apiKey      string
+	httpClient  *http.Client
+	logger      observability.Logger
+	retryConfig *utils.RetryConfig // Retry configuration for external calls
 
 	// Connection status
 	connected       bool
@@ -100,6 +103,35 @@ type Client struct {
 
 // NewClient creates a new Core Platform client
 func NewClient(baseURL, apiKey, edgeMCPID string, logger observability.Logger) *Client {
+	// Setup default retry configuration
+	retryConfig := &utils.RetryConfig{
+		MaxAttempts:  3,
+		InitialDelay: 1 * time.Second,
+		MaxDelay:     10 * time.Second,
+		Multiplier:   2,
+		JitterFactor: 0.1,
+		RetryIf: func(err error) bool {
+			// Retry on network errors and specific HTTP status codes
+			var httpErr utils.HTTPError
+			if errors.As(err, &httpErr) {
+				return httpErr.IsRetryable()
+			}
+
+			// Retry on timeout
+			if errors.Is(err, context.DeadlineExceeded) {
+				return true
+			}
+
+			// Retry on temporary network errors
+			var netErr utils.NetworkError
+			if errors.As(err, &netErr) {
+				return true
+			}
+
+			return false
+		},
+	}
+
 	return &Client{
 		baseURL:   baseURL,
 		apiKey:    apiKey,
@@ -108,6 +140,7 @@ func NewClient(baseURL, apiKey, edgeMCPID string, logger observability.Logger) *
 			Timeout: 30 * time.Second,
 		},
 		logger:      logger,
+		retryConfig: retryConfig,
 		maxFailures: 3,
 		backoffTime: 5 * time.Second,
 		toolIDMap:   make(map[string]string),
@@ -221,90 +254,113 @@ func (c *Client) handleFailure(err error) {
 	}
 }
 
-// FetchRemoteTools fetches available tools from Core Platform
+// FetchRemoteTools fetches available tools from Core Platform with retry logic
 func (c *Client) FetchRemoteTools(ctx context.Context) ([]tools.ToolDefinition, error) {
 	if !c.connected {
 		return []tools.ToolDefinition{}, nil // Return empty list in offline mode
 	}
 
-	// Make request to fetch tools
-	resp, err := c.doRequest(ctx, "GET", fmt.Sprintf("/api/v1/tools?tenant_id=%s&edge_mcp=true", c.tenantID), nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch tools: %w", err)
-	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			c.logger.Warn("Failed to close response body", map[string]interface{}{
-				"error": err.Error(),
-			})
+	var result []tools.ToolDefinition
+
+	// Use retry logic for fetching tools
+	retryResult, err := utils.RetryWithBackoff(ctx, c.retryConfig, func() error {
+		// Make request to fetch tools
+		resp, err := c.doRequest(ctx, "GET", fmt.Sprintf("/api/v1/tools?tenant_id=%s&edge_mcp=true", c.tenantID), nil)
+		if err != nil {
+			// Wrap as network error to make it retryable
+			return utils.NetworkError{Message: err.Error()}
 		}
-	}()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				c.logger.Warn("Failed to close response body", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+		}()
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("failed to fetch tools, status %d: %s", resp.StatusCode, string(body))
-	}
-
-	// Parse response
-	var toolsResp struct {
-		Tools []struct {
-			ID          string                 `json:"id"` // Tool ID for execution
-			Name        string                 `json:"tool_name"`
-			DisplayName string                 `json:"display_name"`
-			Description string                 `json:"description"`
-			Config      map[string]interface{} `json:"config"`
-			Schema      map[string]interface{} `json:"schema"` // Direct schema field (if present)
-		} `json:"tools"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&toolsResp); err != nil {
-		return nil, fmt.Errorf("failed to decode tools response: %w", err)
-	}
-
-	// Convert to ToolDefinition
-	definitions := make([]tools.ToolDefinition, 0, len(toolsResp.Tools))
-	for _, t := range toolsResp.Tools {
-		description := t.Description
-		if description == "" && t.DisplayName != "" {
-			description = t.DisplayName + " integration"
-		}
-
-		// Try to get schema from config first (where we store generated schemas)
-		// then fall back to direct schema field
-		var inputSchema map[string]interface{}
-		if t.Config != nil {
-			if configSchema, ok := t.Config["schema"].(map[string]interface{}); ok {
-				inputSchema = configSchema
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			// Return HTTPError to enable proper retry logic
+			return utils.HTTPError{
+				StatusCode: resp.StatusCode,
+				Message:    fmt.Sprintf("Failed to fetch tools: %s", string(body)),
 			}
 		}
-		if inputSchema == nil && t.Schema != nil {
-			inputSchema = t.Schema
+
+		// Parse response
+		var toolsResp struct {
+			Tools []struct {
+				ID          string                 `json:"id"` // Tool ID for execution
+				Name        string                 `json:"tool_name"`
+				DisplayName string                 `json:"display_name"`
+				Description string                 `json:"description"`
+				Config      map[string]interface{} `json:"config"`
+				Schema      map[string]interface{} `json:"schema"` // Direct schema field (if present)
+			} `json:"tools"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&toolsResp); err != nil {
+			return fmt.Errorf("failed to decode tools response: %w", err)
 		}
 
-		// Store the tool ID mapping for execution
-		c.mu.Lock()
-		c.toolIDMap[t.Name] = t.ID
-		c.mu.Unlock()
+		// Convert to ToolDefinition
+		definitions := make([]tools.ToolDefinition, 0, len(toolsResp.Tools))
+		for _, t := range toolsResp.Tools {
+			description := t.Description
+			if description == "" && t.DisplayName != "" {
+				description = t.DisplayName + " integration"
+			}
 
-		c.logger.Debug("Registering tool with ID mapping", map[string]interface{}{
-			"tool_name": t.Name,
-			"tool_id":   t.ID,
-		})
+			// Try to get schema from config first (where we store generated schemas)
+			// then fall back to direct schema field
+			var inputSchema map[string]interface{}
+			if t.Config != nil {
+				if configSchema, ok := t.Config["schema"].(map[string]interface{}); ok {
+					inputSchema = configSchema
+				}
+			}
+			if inputSchema == nil && t.Schema != nil {
+				inputSchema = t.Schema
+			}
 
-		definitions = append(definitions, tools.ToolDefinition{
-			Name:        t.Name,
-			Description: description,
-			InputSchema: inputSchema,
-			// Handler will be a proxy handler that calls Core Platform
-			// Note: Passthrough auth will be injected at execution time
-			Handler: c.createProxyHandler(t.Name, t.ID),
-		})
-	}
+			// Store the tool ID mapping for execution
+			c.mu.Lock()
+			c.toolIDMap[t.Name] = t.ID
+			c.mu.Unlock()
 
-	c.logger.Info("Fetched remote tools from Core Platform", map[string]interface{}{
-		"count": len(definitions),
+			c.logger.Debug("Registering tool with ID mapping", map[string]interface{}{
+				"tool_name": t.Name,
+				"tool_id":   t.ID,
+			})
+
+			definitions = append(definitions, tools.ToolDefinition{
+				Name:        t.Name,
+				Description: description,
+				InputSchema: inputSchema,
+				// Handler will be a proxy handler that calls Core Platform
+				// Note: Passthrough auth will be injected at execution time
+				Handler: c.createProxyHandler(t.Name, t.ID),
+			})
+		}
+
+		result = definitions
+		return nil
 	})
 
-	return definitions, nil
+	if err != nil {
+		c.logger.Error("Failed to fetch remote tools after retries", map[string]interface{}{
+			"attempts":       retryResult.Attempts,
+			"total_duration": retryResult.TotalDuration.Seconds(),
+			"error":          err.Error(),
+		})
+		return nil, err
+	}
+
+	c.logger.Info("Successfully fetched remote tools", map[string]interface{}{
+		"count":    len(result),
+		"attempts": retryResult.Attempts,
+	})
+
+	return result, nil
 }
 
 // createProxyHandler creates a handler that proxies to Core Platform
