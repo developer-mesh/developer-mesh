@@ -182,18 +182,48 @@ This plan addresses critical technical gaps preventing reliable AI agent integra
   - Contextual tool recommendations based on agent type
   - Improved tool selection accuracy
 
-#### Story 2.1.2: Add Usage Examples to Tools
+#### Story 2.1.2: Add Usage Examples to Tools ✅ COMPLETED
 **Size:** 5 points
 ```
-- [ ] Define example schema structure
-- [ ] Add 2-3 examples per tool (simple, complex, error case)
-- [ ] Include expected outputs in examples
-- [ ] Add example validation in tests
-- [ ] Generate example documentation
+- [x] Define example schema structure
+- [x] Add 2-3 examples per tool (simple, complex, error case)
+- [x] Include expected outputs in examples
+- [x] Add example validation in tests
+- [x] Generate example documentation
 ```
 **Files:**
-- `pkg/tools/providers/github/enhanced_tool_definitions.go`
-- `pkg/tools/providers/harness/*.go`
+- `pkg/tools/providers/github/enhanced_tool_definitions.go` (enhanced)
+- `pkg/tools/providers/harness/ai_definitions.go` (already had examples)
+- `pkg/tools/providers/github/enhanced_tool_definitions_test.go` (created)
+- `docs/tool-usage-examples.md` (created)
+
+**✅ COMPLETION NOTES:**
+- Implementation completed: Added comprehensive usage examples to tool definitions
+- Key features implemented:
+  - Created UsageExample struct with Name, Description, Input, ExpectedOutput, ExpectedError, and Notes fields
+  - Added 2-3 examples per tool (simple, complex, error_case patterns)
+  - Included expected outputs for success cases and expected errors for failure cases
+  - Added contextual notes to help AI agents understand usage patterns
+- Examples added to:
+  - GitHub issue tools: get_issue, list_issues, create_issue (3 examples each)
+  - GitHub PR tools: get_pull_request (3 examples)
+  - Harness tools: Already had comprehensive examples in place
+- Test coverage: Created validation test suite in enhanced_tool_definitions_test.go
+  - TestUsageExamplesStructure - Validates structure and required fields
+  - TestExampleCoverage - Ensures minimum example requirements
+  - TestExampleConsistency - Checks consistent patterns
+  - TestExampleDocumentation - Verifies documentation readiness
+  - TestErrorExamples - Validates error case examples
+  - All tests passing with proper validation
+- Documentation: Created comprehensive guide in docs/tool-usage-examples.md
+  - Explains example structure and best practices
+  - Documents all examples for reference
+  - Provides guidance for AI agents using the tools
+- Benefits for AI agents:
+  - Clear understanding of tool usage patterns
+  - Concrete examples with real-world scenarios
+  - Error handling guidance with recovery strategies
+  - Reduced trial and error in tool usage
 
 #### Story 2.1.3: Document Tool Relationships
 **Size:** 3 points

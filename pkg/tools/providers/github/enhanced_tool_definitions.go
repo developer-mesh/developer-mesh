@@ -16,6 +16,7 @@ type EnhancedToolDefinition struct {
 	ResponseExample ResponseExample        `json:"responseExample,omitempty"`
 	CommonErrors    []CommonError          `json:"commonErrors,omitempty"`
 	SemanticTags    []string               `json:"semanticTags,omitempty"`
+	UsageExamples   []UsageExample         `json:"usageExamples,omitempty"`
 }
 
 // ToolMetadata provides additional metadata for tools
@@ -38,6 +39,16 @@ type CommonError struct {
 	Code     int    `json:"code"`
 	Reason   string `json:"reason"`
 	Solution string `json:"solution"`
+}
+
+// UsageExample provides concrete examples of how to use the tool
+type UsageExample struct {
+	Name         string                 `json:"name"`        // Short name for the example (e.g., "simple", "complex", "error_case")
+	Description  string                 `json:"description"` // What this example demonstrates
+	Input        map[string]interface{} `json:"input"`       // Example input parameters
+	ExpectedOutput interface{}          `json:"expectedOutput,omitempty"` // Expected successful output (simplified)
+	ExpectedError  *CommonError         `json:"expectedError,omitempty"`  // Expected error for error case examples
+	Notes        string                 `json:"notes,omitempty"`          // Additional context or tips
 }
 
 // Enhanced parameter patterns and validation
@@ -138,6 +149,66 @@ func GetEnhancedIssueToolDefinitions() []EnhancedToolDefinition {
 				},
 			},
 			SemanticTags: []string{"github", "issues", "read", "fetch", "metadata"},
+			UsageExamples: []UsageExample{
+				{
+					Name:        "simple",
+					Description: "Get basic issue information for a public repository",
+					Input: map[string]interface{}{
+						"owner":        "facebook",
+						"repo":         "react",
+						"issue_number": 1234,
+					},
+					ExpectedOutput: map[string]interface{}{
+						"number": 1234,
+						"title":  "Bug: Something is broken",
+						"state":  "open",
+						"user": map[string]interface{}{
+							"login": "octocat",
+						},
+					},
+					Notes: "This is the simplest use case - fetching a single issue from a public repository",
+				},
+				{
+					Name:        "complex",
+					Description: "Get issue with full details including labels, assignees, and milestone",
+					Input: map[string]interface{}{
+						"owner":        "microsoft",
+						"repo":         "vscode",
+						"issue_number": 98765,
+					},
+					ExpectedOutput: map[string]interface{}{
+						"number": 98765,
+						"title":  "Feature: Add support for new language",
+						"state":  "open",
+						"labels": []interface{}{
+							map[string]interface{}{"name": "enhancement"},
+							map[string]interface{}{"name": "help wanted"},
+						},
+						"assignees": []interface{}{
+							map[string]interface{}{"login": "developer1"},
+						},
+						"milestone": map[string]interface{}{
+							"title": "v1.75.0",
+						},
+					},
+					Notes: "Complex issues often have multiple labels, assignees, and are part of milestones",
+				},
+				{
+					Name:        "error_case",
+					Description: "Attempting to access a non-existent issue",
+					Input: map[string]interface{}{
+						"owner":        "github",
+						"repo":         "hub",
+						"issue_number": 999999999,
+					},
+					ExpectedError: &CommonError{
+						Code:     404,
+						Reason:   "Issue not found or you lack access to the repository",
+						Solution: "Verify the issue exists and you have read permission to the repository",
+					},
+					Notes: "Always handle 404 errors gracefully - the issue might be deleted or in a private repo",
+				},
+			},
 		},
 		{
 			Name:         "list_issues",
@@ -257,6 +328,73 @@ func GetEnhancedIssueToolDefinitions() []EnhancedToolDefinition {
 				},
 			},
 			SemanticTags: []string{"github", "issues", "list", "filter", "pagination"},
+			UsageExamples: []UsageExample{
+				{
+					Name:        "simple",
+					Description: "List all open issues in a repository",
+					Input: map[string]interface{}{
+						"owner": "golang",
+						"repo":  "go",
+					},
+					ExpectedOutput: []interface{}{
+						map[string]interface{}{
+							"number": 58901,
+							"title":  "proposal: add generic constraints",
+							"state":  "open",
+						},
+						map[string]interface{}{
+							"number": 58902,
+							"title":  "cmd/go: improve error messages",
+							"state":  "open",
+						},
+					},
+					Notes: "By default, returns only open issues sorted by creation date (newest first)",
+				},
+				{
+					Name:        "complex",
+					Description: "List issues with multiple filters and custom pagination",
+					Input: map[string]interface{}{
+						"owner":     "kubernetes",
+						"repo":      "kubernetes",
+						"state":     "open",
+						"labels":    "bug,priority/P0",
+						"assignee":  "johndoe",
+						"sort":      "updated",
+						"direction": "desc",
+						"per_page":  50,
+						"page":      2,
+					},
+					ExpectedOutput: []interface{}{
+						map[string]interface{}{
+							"number": 111234,
+							"title":  "Critical: Pod scheduling failure",
+							"labels": []interface{}{
+								map[string]interface{}{"name": "bug"},
+								map[string]interface{}{"name": "priority/P0"},
+							},
+							"assignees": []interface{}{
+								map[string]interface{}{"login": "johndoe"},
+							},
+						},
+					},
+					Notes: "Complex queries can filter by multiple criteria and control pagination for large result sets",
+				},
+				{
+					Name:        "error_case",
+					Description: "Invalid filter parameter value",
+					Input: map[string]interface{}{
+						"owner": "torvalds",
+						"repo":  "linux",
+						"state": "invalid_state",
+					},
+					ExpectedError: &CommonError{
+						Code:     422,
+						Reason:   "Invalid parameter values (e.g., invalid state, sort, or direction)",
+						Solution: "Check that all parameters use valid enum values",
+					},
+					Notes: "The 'state' parameter only accepts 'open', 'closed', or 'all' values",
+				},
+			},
 		},
 		{
 			Name:         "create_issue",
@@ -345,6 +483,72 @@ func GetEnhancedIssueToolDefinitions() []EnhancedToolDefinition {
 				},
 			},
 			SemanticTags: []string{"github", "issues", "create", "write", "collaboration"},
+			UsageExamples: []UsageExample{
+				{
+					Name:        "simple",
+					Description: "Create a basic issue with just title and body",
+					Input: map[string]interface{}{
+						"owner": "myorg",
+						"repo":  "myapp",
+						"title": "Bug: Login button not working",
+						"body":  "The login button on the homepage is not responding to clicks.\n\n**Steps to reproduce:**\n1. Go to homepage\n2. Click login button\n3. Nothing happens",
+					},
+					ExpectedOutput: map[string]interface{}{
+						"number":   5678,
+						"title":    "Bug: Login button not working",
+						"state":    "open",
+						"html_url": "https://github.com/myorg/myapp/issues/5678",
+					},
+					Notes: "Minimal required fields are owner, repo, and title. Body is optional but recommended.",
+				},
+				{
+					Name:        "complex",
+					Description: "Create issue with labels, assignees, and milestone",
+					Input: map[string]interface{}{
+						"owner": "kubernetes",
+						"repo":  "kubernetes",
+						"title": "Feature: Add support for custom resource validation",
+						"body":  "## Description\nWe need to add validation for custom resources...\n\n## Acceptance Criteria\n- [ ] Schema validation\n- [ ] Webhook validation\n- [ ] Documentation",
+						"labels": []interface{}{"enhancement", "priority/P1", "sig/api-machinery"},
+						"assignees": []interface{}{"developer1", "developer2"},
+						"milestone": 42,
+					},
+					ExpectedOutput: map[string]interface{}{
+						"number": 112233,
+						"title":  "Feature: Add support for custom resource validation",
+						"labels": []interface{}{
+							map[string]interface{}{"name": "enhancement"},
+							map[string]interface{}{"name": "priority/P1"},
+							map[string]interface{}{"name": "sig/api-machinery"},
+						},
+						"assignees": []interface{}{
+							map[string]interface{}{"login": "developer1"},
+							map[string]interface{}{"login": "developer2"},
+						},
+						"milestone": map[string]interface{}{
+							"number": 42,
+							"title":  "v1.28",
+						},
+					},
+					Notes: "Labels must exist in the repo, assignees must be collaborators, milestone must be valid",
+				},
+				{
+					Name:        "error_case",
+					Description: "Creating issue with invalid assignee",
+					Input: map[string]interface{}{
+						"owner":     "nodejs",
+						"repo":      "node",
+						"title":     "Test issue",
+						"assignees": []interface{}{"nonexistent-user-12345"},
+					},
+					ExpectedError: &CommonError{
+						Code:     422,
+						Reason:   "Validation failed - invalid assignee, label, or milestone",
+						Solution: "Ensure assignees are collaborators, labels exist, and milestone is valid",
+					},
+					Notes: "GitHub validates that assignees must have push access to the repository",
+				},
+			},
 		},
 		{
 			Name:         "update_issue",
@@ -596,6 +800,71 @@ func GetEnhancedPullRequestToolDefinitions() []EnhancedToolDefinition {
 				},
 			},
 			SemanticTags: []string{"github", "pull-requests", "read", "code-review"},
+			UsageExamples: []UsageExample{
+				{
+					Name:        "simple",
+					Description: "Get basic pull request information",
+					Input: map[string]interface{}{
+						"owner":       "golang",
+						"repo":        "go",
+						"pull_number": 45678,
+					},
+					ExpectedOutput: map[string]interface{}{
+						"number":    45678,
+						"title":     "cmd/go: add module graph pruning",
+						"state":     "open",
+						"draft":     false,
+						"mergeable": true,
+					},
+					Notes: "Basic PR info includes state, draft status, and mergeability",
+				},
+				{
+					Name:        "complex",
+					Description: "Get PR with review status and CI checks information",
+					Input: map[string]interface{}{
+						"owner":       "kubernetes",
+						"repo":        "kubernetes",
+						"pull_number": 108234,
+					},
+					ExpectedOutput: map[string]interface{}{
+						"number":          108234,
+						"title":           "Add ephemeral containers support",
+						"mergeable_state": "blocked",
+						"reviews": []interface{}{
+							map[string]interface{}{
+								"user":  map[string]interface{}{"login": "reviewer1"},
+								"state": "APPROVED",
+							},
+							map[string]interface{}{
+								"user":  map[string]interface{}{"login": "reviewer2"},
+								"state": "CHANGES_REQUESTED",
+							},
+						},
+						"status_checks": []interface{}{
+							map[string]interface{}{
+								"context": "continuous-integration/jenkins",
+								"state":   "success",
+							},
+						},
+					},
+					Notes: "Complex PRs include review decisions, CI status, and merge conflict info",
+				},
+				{
+					Name:        "error_case",
+					Description: "Attempting to access non-existent pull request",
+					Input: map[string]interface{}{
+						"owner":       "torvalds",
+						"repo":        "linux",
+						"pull_number": 999999999,
+					},
+					ExpectedError: &CommonError{
+						Code:     404,
+						Reason:   "Pull request not found or you lack access to the repository",
+						Solution: "Verify the PR exists and you have read permission to the repository",
+					},
+					Notes: "PRs in the Linux kernel repo are managed differently - this would return 404",
+				},
+			},
 		},
 		{
 			Name:         "create_pull_request",
