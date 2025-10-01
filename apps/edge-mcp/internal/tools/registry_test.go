@@ -296,7 +296,7 @@ func TestRegistry_ExecuteTool_NoHandler(t *testing.T) {
 
 	// Verify error
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "tool no_handler_tool has no handler")
+	assert.Contains(t, err.Error(), "no handler configured")
 }
 
 func TestRegistry_MultipleProviders(t *testing.T) {
