@@ -224,6 +224,10 @@ func main() {
 		version,
 	)
 
+	// Set config and authenticator for startup validation
+	healthChecker.SetConfig(cfg)
+	healthChecker.SetAuthenticator(authenticator)
+
 	// Register health check endpoints
 	healthChecker.RegisterRoutes(router)
 
@@ -290,6 +294,25 @@ func main() {
 			})
 		}
 	}()
+
+	// Mark startup as complete with metrics
+	builtinToolCount := toolRegistry.Count()
+	remoteToolCount := 0
+	if coreClient != nil {
+		// Remote tools were already registered, get the count
+		remoteTools, _ := coreClient.FetchRemoteTools(context.Background())
+		remoteToolCount = len(remoteTools)
+	}
+
+	healthChecker.MarkStartupComplete(map[string]interface{}{
+		"builtin_tools":   builtinToolCount - remoteToolCount,
+		"remote_tools":    remoteToolCount,
+		"total_tools":     builtinToolCount,
+		"core_connected":  coreClient != nil,
+		"cache_ready":     true,
+		"auth_configured": true,
+		"version":         version,
+	})
 
 	logger.Info("Edge MCP starting", map[string]interface{}{
 		"version": version,

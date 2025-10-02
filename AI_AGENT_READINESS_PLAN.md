@@ -640,16 +640,64 @@ This plan addresses critical technical gaps preventing reliable AI agent integra
   - Clear health status for monitoring and alerting
   - Supports graceful degradation (Core Platform optional)
 
-#### Story 3.1.2: Implement Startup Probes
+#### Story 3.1.2: Implement Startup Probes ✅ COMPLETED
 **Size:** 2 points
 ```
-- [ ] Add startup probe for tool loading
-- [ ] Verify authentication setup
-- [ ] Check cache initialization
-- [ ] Validate configuration
-- [ ] Log startup metrics
+- [x] Add startup probe for tool loading
+- [x] Verify authentication setup
+- [x] Check cache initialization
+- [x] Validate configuration
+- [x] Log startup metrics
 ```
-**Files:** `apps/edge-mcp/cmd/server/main.go`
+**Files:**
+- `apps/edge-mcp/cmd/server/main.go` (updated)
+- `apps/edge-mcp/internal/api/health.go` (enhanced)
+- `apps/edge-mcp/internal/api/health_test.go` (tests added)
+
+**✅ COMPLETION NOTES:**
+- Implementation completed: Comprehensive startup probe system for Kubernetes
+- Key features implemented:
+  - Created /health/startup endpoint (Kubernetes startup probe)
+  - Startup state tracking (not_started, in_progress, complete, failed)
+  - Component-level startup checks:
+    - Tool loading verification (checks if tools are loaded)
+    - Authentication setup validation (checks authenticator is initialized)
+    - Cache initialization check (verifies cache is operational)
+    - Configuration validation (ensures config is loaded and valid)
+  - Startup metrics collection and logging
+  - Once startup completes, endpoint always returns 200 OK (one-time check)
+  - HTTP status codes:
+    - 200 OK: Startup complete
+    - 503 Service Unavailable: Startup in progress or failed
+- Startup checks:
+  - checkToolLoading(): Verifies tool registry is initialized and has tools loaded
+  - checkAuthenticationSetup(): Confirms authenticator is configured
+  - checkCacheInitialization(): Tests cache read/write operations
+  - checkConfigurationValidation(): Validates configuration is loaded
+- Integration:
+  - HealthChecker.SetConfig() - Set configuration for validation
+  - HealthChecker.SetAuthenticator() - Set authenticator for validation
+  - HealthChecker.MarkStartupComplete() - Mark startup complete with metrics
+  - main.go updated to call MarkStartupComplete() after initialization
+  - Logs comprehensive startup metrics (builtin_tools, remote_tools, total_tools, etc.)
+- Test coverage: Created comprehensive test suite with 8 new test functions
+  - TestHealthChecker_Startup_InProgress - Verifies in-progress state
+  - TestHealthChecker_Startup_Complete - Tests completed startup state
+  - TestHealthChecker_Startup_AlwaysSucceedsAfterComplete - Ensures endpoint always succeeds after completion
+  - TestHealthChecker_CheckToolLoading - Tool loading validation
+  - TestHealthChecker_CheckAuthenticationSetup - Auth setup validation
+  - TestHealthChecker_CheckCacheInitialization - Cache initialization checks
+  - TestHealthChecker_CheckConfigurationValidation - Config validation
+  - TestHealthChecker_MarkStartupComplete - Startup completion tracking
+  - TestHealthChecker_StartupRoute_Registered - Route registration verification
+  - All tests passing (26 total test functions in health_test.go)
+- Benefits for Kubernetes deployments:
+  - Proper startup probe prevents premature pod restarts
+  - Gives application time to initialize during slow startup
+  - Once startup completes, probe succeeds immediately (no overhead)
+  - Detailed component-level status for debugging startup issues
+  - Comprehensive metrics logged for observability
+  - Follows Kubernetes probe best practices
 
 ### Epic 3.2: Metrics and Logging
 

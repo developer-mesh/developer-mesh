@@ -653,3 +653,394 @@ func BenchmarkHealthChecker_ReadinessCached(b *testing.B) {
 		router.ServeHTTP(w, req)
 	}
 }
+
+// Startup probe tests
+func TestHealthChecker_Startup_InProgress(t *testing.T) {
+	logger := observability.NewStandardLogger("test")
+	registry := tools.NewRegistry()
+	memCache := cache.NewMemoryCache(100, 5*time.Minute)
+
+	// No tools registered yet - startup should be in progress
+	healthChecker := NewHealthChecker(
+		registry,
+		memCache,
+		nil,
+		nil,
+		logger,
+		"1.0.0",
+	)
+
+	router := setupTestRouter(healthChecker)
+
+	req, _ := http.NewRequest("GET", "/health/startup", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Should return 503 when startup is in progress
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+
+	var response StartupResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	require.NoError(t, err)
+
+	assert.Equal(t, StartupStateInProgress, response.State)
+	assert.NotZero(t, response.Timestamp)
+	assert.Contains(t, response.Components, "tool_loading")
+	assert.Equal(t, HealthStatusUnhealthy, response.Components["tool_loading"].Status)
+}
+
+func TestHealthChecker_Startup_Complete(t *testing.T) {
+	logger := observability.NewStandardLogger("test")
+	registry := tools.NewRegistry()
+	memCache := cache.NewMemoryCache(100, 5*time.Minute)
+
+	// Add tools
+	provider := &mockToolProvider{
+		tools: []tools.ToolDefinition{
+			{Name: "test_tool", Description: "Test tool"},
+		},
+	}
+	registry.Register(provider)
+
+	// Create mock config
+	mockConfig := map[string]interface{}{
+		"server": map[string]interface{}{"port": 8082},
+	}
+
+	// Create mock authenticator
+	mockAuth := struct{}{}
+
+	healthChecker := NewHealthChecker(
+		registry,
+		memCache,
+		nil,
+		nil,
+		logger,
+		"1.0.0",
+	)
+
+	healthChecker.SetConfig(mockConfig)
+	healthChecker.SetAuthenticator(mockAuth)
+
+	// Mark startup as complete
+	metrics := map[string]interface{}{
+		"builtin_tools": 1,
+		"remote_tools":  0,
+		"total_tools":   1,
+	}
+	healthChecker.MarkStartupComplete(metrics)
+
+	router := setupTestRouter(healthChecker)
+
+	req, _ := http.NewRequest("GET", "/health/startup", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Should return 200 when startup is complete
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response StartupResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	require.NoError(t, err)
+
+	assert.Equal(t, StartupStateComplete, response.State)
+	assert.NotZero(t, response.Timestamp)
+	assert.Greater(t, response.StartupDuration, 0.0)
+	assert.NotNil(t, response.Metrics)
+	// JSON unmarshaling converts numbers to float64
+	assert.Equal(t, float64(1), response.Metrics["builtin_tools"])
+	assert.Equal(t, float64(0), response.Metrics["remote_tools"])
+	assert.Equal(t, float64(1), response.Metrics["total_tools"])
+}
+
+func TestHealthChecker_Startup_AlwaysSucceedsAfterComplete(t *testing.T) {
+	logger := observability.NewStandardLogger("test")
+	registry := tools.NewRegistry()
+	memCache := cache.NewMemoryCache(100, 5*time.Minute)
+
+	// Add tools
+	provider := &mockToolProvider{
+		tools: []tools.ToolDefinition{
+			{Name: "test_tool", Description: "Test tool"},
+		},
+	}
+	registry.Register(provider)
+
+	healthChecker := NewHealthChecker(
+		registry,
+		memCache,
+		nil,
+		nil,
+		logger,
+		"1.0.0",
+	)
+
+	healthChecker.SetConfig(map[string]interface{}{})
+	healthChecker.SetAuthenticator(struct{}{})
+
+	// Mark startup as complete
+	healthChecker.MarkStartupComplete(map[string]interface{}{
+		"tools": 1,
+	})
+
+	router := setupTestRouter(healthChecker)
+
+	// Make multiple requests - all should succeed
+	for i := 0; i < 3; i++ {
+		req, _ := http.NewRequest("GET", "/health/startup", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code, "Request %d should succeed", i+1)
+
+		var response StartupResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		require.NoError(t, err)
+
+		assert.Equal(t, StartupStateComplete, response.State)
+	}
+}
+
+func TestHealthChecker_CheckToolLoading(t *testing.T) {
+	logger := observability.NewStandardLogger("test")
+
+	tests := []struct {
+		name        string
+		registry    *tools.Registry
+		setup       func(*tools.Registry)
+		wantStatus  HealthStatus
+		wantMessage string
+	}{
+		{
+			name:        "nil registry",
+			registry:    nil,
+			wantStatus:  HealthStatusUnhealthy,
+			wantMessage: "not initialized",
+		},
+		{
+			name:        "no tools loaded",
+			registry:    tools.NewRegistry(),
+			wantStatus:  HealthStatusUnhealthy,
+			wantMessage: "No tools loaded",
+		},
+		{
+			name:     "tools loaded successfully",
+			registry: tools.NewRegistry(),
+			setup: func(r *tools.Registry) {
+				provider := &mockToolProvider{
+					tools: []tools.ToolDefinition{
+						{Name: "tool1", Description: "Tool 1"},
+						{Name: "tool2", Description: "Tool 2"},
+					},
+				}
+				r.Register(provider)
+			},
+			wantStatus:  HealthStatusHealthy,
+			wantMessage: "successfully loaded",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.setup != nil && tt.registry != nil {
+				tt.setup(tt.registry)
+			}
+
+			healthChecker := &HealthChecker{
+				toolRegistry: tt.registry,
+				logger:       logger,
+			}
+
+			result := healthChecker.checkToolLoading()
+			assert.Equal(t, tt.wantStatus, result.Status)
+			assert.Contains(t, result.Message, tt.wantMessage)
+
+			if tt.wantStatus == HealthStatusHealthy {
+				assert.Contains(t, result.Details, "tool_count")
+			}
+		})
+	}
+}
+
+func TestHealthChecker_CheckAuthenticationSetup(t *testing.T) {
+	logger := observability.NewStandardLogger("test")
+
+	tests := []struct {
+		name          string
+		authenticator interface{}
+		wantStatus    HealthStatus
+		wantMessage   string
+	}{
+		{
+			name:          "nil authenticator",
+			authenticator: nil,
+			wantStatus:    HealthStatusUnhealthy,
+			wantMessage:   "not initialized",
+		},
+		{
+			name:          "authenticator configured",
+			authenticator: struct{}{}, // Mock authenticator
+			wantStatus:    HealthStatusHealthy,
+			wantMessage:   "configured",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			healthChecker := &HealthChecker{
+				authenticator: tt.authenticator,
+				logger:        logger,
+			}
+
+			result := healthChecker.checkAuthenticationSetup()
+			assert.Equal(t, tt.wantStatus, result.Status)
+			assert.Contains(t, result.Message, tt.wantMessage)
+		})
+	}
+}
+
+func TestHealthChecker_CheckCacheInitialization(t *testing.T) {
+	logger := observability.NewStandardLogger("test")
+
+	tests := []struct {
+		name        string
+		cache       cache.Cache
+		wantStatus  HealthStatus
+		wantMessage string
+	}{
+		{
+			name:        "nil cache",
+			cache:       nil,
+			wantStatus:  HealthStatusUnhealthy,
+			wantMessage: "not initialized",
+		},
+		{
+			name:        "cache operational",
+			cache:       cache.NewMemoryCache(100, 5*time.Minute),
+			wantStatus:  HealthStatusHealthy,
+			wantMessage: "operational",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			healthChecker := &HealthChecker{
+				cache:  tt.cache,
+				logger: logger,
+			}
+
+			result := healthChecker.checkCacheInitialization()
+			assert.Equal(t, tt.wantStatus, result.Status)
+			assert.Contains(t, result.Message, tt.wantMessage)
+		})
+	}
+}
+
+func TestHealthChecker_CheckConfigurationValidation(t *testing.T) {
+	logger := observability.NewStandardLogger("test")
+
+	tests := []struct {
+		name        string
+		config      interface{}
+		wantStatus  HealthStatus
+		wantMessage string
+	}{
+		{
+			name:        "nil config",
+			config:      nil,
+			wantStatus:  HealthStatusUnhealthy,
+			wantMessage: "not loaded",
+		},
+		{
+			name: "config validated",
+			config: map[string]interface{}{
+				"server": map[string]interface{}{"port": 8082},
+			},
+			wantStatus:  HealthStatusHealthy,
+			wantMessage: "validated",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			healthChecker := &HealthChecker{
+				config: tt.config,
+				logger: logger,
+			}
+
+			result := healthChecker.checkConfigurationValidation()
+			assert.Equal(t, tt.wantStatus, result.Status)
+			assert.Contains(t, result.Message, tt.wantMessage)
+		})
+	}
+}
+
+func TestHealthChecker_MarkStartupComplete(t *testing.T) {
+	logger := observability.NewStandardLogger("test")
+	registry := tools.NewRegistry()
+	memCache := cache.NewMemoryCache(100, 5*time.Minute)
+
+	healthChecker := NewHealthChecker(
+		registry,
+		memCache,
+		nil,
+		nil,
+		logger,
+		"1.0.0",
+	)
+
+	// Initial state should be in progress
+	assert.Equal(t, StartupStateInProgress, healthChecker.startupState)
+
+	metrics := map[string]interface{}{
+		"builtin_tools": 5,
+		"remote_tools":  3,
+		"total_tools":   8,
+	}
+
+	// Mark startup as complete
+	healthChecker.MarkStartupComplete(metrics)
+
+	// State should be complete
+	assert.Equal(t, StartupStateComplete, healthChecker.startupState)
+	assert.NotZero(t, healthChecker.startupComplete)
+	assert.Equal(t, metrics, healthChecker.startupMetrics)
+}
+
+func TestHealthChecker_StartupRoute_Registered(t *testing.T) {
+	logger := observability.NewStandardLogger("test")
+	registry := tools.NewRegistry()
+	memCache := cache.NewMemoryCache(100, 5*time.Minute)
+
+	// Add tools
+	provider := &mockToolProvider{
+		tools: []tools.ToolDefinition{
+			{Name: "test_tool", Description: "Test tool"},
+		},
+	}
+	registry.Register(provider)
+
+	healthChecker := NewHealthChecker(
+		registry,
+		memCache,
+		nil,
+		nil,
+		logger,
+		"1.0.0",
+	)
+
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	healthChecker.RegisterRoutes(router)
+
+	// Test startup endpoint exists
+	req, _ := http.NewRequest("GET", "/health/startup", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Should not be 404
+	assert.NotEqual(t, http.StatusNotFound, w.Code)
+
+	// Should be either 200 (complete) or 503 (in progress)
+	assert.Contains(t, []int{http.StatusOK, http.StatusServiceUnavailable}, w.Code)
+}

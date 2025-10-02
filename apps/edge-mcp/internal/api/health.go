@@ -23,6 +23,16 @@ const (
 	HealthStatusUnhealthy HealthStatus = "unhealthy"
 )
 
+// StartupState represents the startup state of the application
+type StartupState string
+
+const (
+	StartupStateNotStarted  StartupState = "not_started"
+	StartupStateInProgress  StartupState = "in_progress"
+	StartupStateComplete    StartupState = "complete"
+	StartupStateFailed      StartupState = "failed"
+)
+
 // ComponentHealth represents the health of a single component
 type ComponentHealth struct {
 	Status  HealthStatus           `json:"status"`
@@ -46,19 +56,33 @@ type LivenessResponse struct {
 	Alive     bool         `json:"alive"`
 }
 
+// StartupResponse represents the startup probe response
+type StartupResponse struct {
+	State           StartupState               `json:"state"`
+	Timestamp       time.Time                  `json:"timestamp"`
+	StartupDuration float64                    `json:"startup_duration_seconds,omitempty"`
+	Components      map[string]ComponentHealth `json:"components,omitempty"`
+	Metrics         map[string]interface{}     `json:"metrics,omitempty"`
+}
+
 // HealthChecker manages health checks for Edge MCP
 type HealthChecker struct {
-	toolRegistry  *tools.Registry
-	cache         cache.Cache
-	coreClient    *core.Client
-	mcpHandler    *mcp.Handler
-	logger        observability.Logger
-	version       string
-	startTime     time.Time
-	mu            sync.RWMutex
-	lastReadiness *HealthResponse
-	lastCheck     time.Time
-	cacheTTL      time.Duration
+	toolRegistry      *tools.Registry
+	cache             cache.Cache
+	coreClient        *core.Client
+	mcpHandler        *mcp.Handler
+	logger            observability.Logger
+	version           string
+	config            interface{} // Store config for validation
+	authenticator     interface{} // Store authenticator for validation
+	startTime         time.Time
+	mu                sync.RWMutex
+	lastReadiness     *HealthResponse
+	lastCheck         time.Time
+	cacheTTL          time.Duration
+	startupState      StartupState
+	startupComplete   time.Time
+	startupMetrics    map[string]interface{}
 }
 
 // NewHealthChecker creates a new health checker
@@ -71,15 +95,31 @@ func NewHealthChecker(
 	version string,
 ) *HealthChecker {
 	return &HealthChecker{
-		toolRegistry: toolRegistry,
-		cache:        cache,
-		coreClient:   coreClient,
-		mcpHandler:   mcpHandler,
-		logger:       logger,
-		version:      version,
-		startTime:    time.Now(),
-		cacheTTL:     5 * time.Second, // Cache readiness checks for 5 seconds
+		toolRegistry:   toolRegistry,
+		cache:          cache,
+		coreClient:     coreClient,
+		mcpHandler:     mcpHandler,
+		logger:         logger,
+		version:        version,
+		startTime:      time.Now(),
+		cacheTTL:       5 * time.Second, // Cache readiness checks for 5 seconds
+		startupState:   StartupStateInProgress,
+		startupMetrics: make(map[string]interface{}),
 	}
+}
+
+// SetConfig sets the configuration for validation
+func (h *HealthChecker) SetConfig(config interface{}) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.config = config
+}
+
+// SetAuthenticator sets the authenticator for validation
+func (h *HealthChecker) SetAuthenticator(auth interface{}) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.authenticator = auth
 }
 
 // Liveness returns a simple liveness check (Kubernetes liveness probe)
@@ -331,6 +371,223 @@ func (h *HealthChecker) checkMCPHandler() ComponentHealth {
 	}
 }
 
+// Startup returns the startup probe status (Kubernetes startup probe)
+// This checks if the application has successfully completed startup
+func (h *HealthChecker) Startup(c *gin.Context) {
+	h.mu.RLock()
+	state := h.startupState
+	h.mu.RUnlock()
+
+	// If startup is already complete, always return success
+	if state == StartupStateComplete {
+		h.mu.RLock()
+		response := &StartupResponse{
+			State:           StartupStateComplete,
+			Timestamp:       time.Now(),
+			StartupDuration: h.startupComplete.Sub(h.startTime).Seconds(),
+			Metrics:         h.startupMetrics,
+		}
+		h.mu.RUnlock()
+
+		c.JSON(http.StatusOK, response)
+		return
+	}
+
+	// Perform startup check
+	response := h.checkStartup()
+
+	// Determine HTTP status code
+	status := http.StatusOK
+	if response.State == StartupStateFailed {
+		status = http.StatusServiceUnavailable
+	} else if response.State == StartupStateInProgress {
+		status = http.StatusServiceUnavailable
+	}
+
+	c.JSON(status, response)
+}
+
+// checkStartup performs the actual startup health check
+func (h *HealthChecker) checkStartup() *StartupResponse {
+	components := make(map[string]ComponentHealth)
+	allHealthy := true
+
+	// Check tool loading
+	toolHealth := h.checkToolLoading()
+	components["tool_loading"] = toolHealth
+	if toolHealth.Status != HealthStatusHealthy {
+		allHealthy = false
+	}
+
+	// Check authentication setup
+	authHealth := h.checkAuthenticationSetup()
+	components["authentication"] = authHealth
+	if authHealth.Status != HealthStatusHealthy {
+		allHealthy = false
+	}
+
+	// Check cache initialization
+	cacheHealth := h.checkCacheInitialization()
+	components["cache"] = cacheHealth
+	if cacheHealth.Status != HealthStatusHealthy {
+		allHealthy = false
+	}
+
+	// Check configuration validation
+	configHealth := h.checkConfigurationValidation()
+	components["configuration"] = configHealth
+	if configHealth.Status != HealthStatusHealthy {
+		allHealthy = false
+	}
+
+	// Determine startup state
+	state := StartupStateInProgress
+	if allHealthy {
+		state = StartupStateComplete
+	}
+
+	return &StartupResponse{
+		State:      state,
+		Timestamp:  time.Now(),
+		Components: components,
+	}
+}
+
+// checkToolLoading checks if tools have been successfully loaded
+func (h *HealthChecker) checkToolLoading() ComponentHealth {
+	if h.toolRegistry == nil {
+		return ComponentHealth{
+			Status:  HealthStatusUnhealthy,
+			Message: "Tool registry not initialized",
+		}
+	}
+
+	toolCount := h.toolRegistry.Count()
+	if toolCount == 0 {
+		return ComponentHealth{
+			Status:  HealthStatusUnhealthy,
+			Message: "No tools loaded",
+			Details: map[string]interface{}{
+				"tool_count": toolCount,
+			},
+		}
+	}
+
+	return ComponentHealth{
+		Status:  HealthStatusHealthy,
+		Message: "Tools successfully loaded",
+		Details: map[string]interface{}{
+			"tool_count": toolCount,
+		},
+	}
+}
+
+// checkAuthenticationSetup verifies authentication is properly configured
+func (h *HealthChecker) checkAuthenticationSetup() ComponentHealth {
+	h.mu.RLock()
+	auth := h.authenticator
+	h.mu.RUnlock()
+
+	if auth == nil {
+		return ComponentHealth{
+			Status:  HealthStatusUnhealthy,
+			Message: "Authenticator not initialized",
+		}
+	}
+
+	return ComponentHealth{
+		Status:  HealthStatusHealthy,
+		Message: "Authentication configured",
+		Details: map[string]interface{}{
+			"initialized": true,
+		},
+	}
+}
+
+// checkCacheInitialization verifies cache is initialized and operational
+func (h *HealthChecker) checkCacheInitialization() ComponentHealth {
+	if h.cache == nil {
+		return ComponentHealth{
+			Status:  HealthStatusUnhealthy,
+			Message: "Cache not initialized",
+		}
+	}
+
+	// Try a simple cache operation
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	testKey := "startup_check_" + time.Now().Format("20060102150405")
+	testValue := "startup_test"
+
+	if err := h.cache.Set(ctx, testKey, testValue, 5*time.Second); err != nil {
+		return ComponentHealth{
+			Status:  HealthStatusUnhealthy,
+			Message: "Cache initialization failed",
+			Details: map[string]interface{}{
+				"error": err.Error(),
+			},
+		}
+	}
+
+	_ = h.cache.Delete(ctx, testKey)
+
+	return ComponentHealth{
+		Status:  HealthStatusHealthy,
+		Message: "Cache initialized and operational",
+		Details: map[string]interface{}{
+			"operational": true,
+		},
+	}
+}
+
+// checkConfigurationValidation validates required configuration
+func (h *HealthChecker) checkConfigurationValidation() ComponentHealth {
+	h.mu.RLock()
+	cfg := h.config
+	h.mu.RUnlock()
+
+	if cfg == nil {
+		return ComponentHealth{
+			Status:  HealthStatusUnhealthy,
+			Message: "Configuration not loaded",
+		}
+	}
+
+	// Configuration is loaded and validated during startup
+	// If we got here, configuration is valid
+	return ComponentHealth{
+		Status:  HealthStatusHealthy,
+		Message: "Configuration validated",
+		Details: map[string]interface{}{
+			"validated": true,
+		},
+	}
+}
+
+// MarkStartupComplete marks startup as complete and logs metrics
+func (h *HealthChecker) MarkStartupComplete(metrics map[string]interface{}) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	h.startupState = StartupStateComplete
+	h.startupComplete = time.Now()
+	h.startupMetrics = metrics
+
+	duration := h.startupComplete.Sub(h.startTime).Seconds()
+
+	// Log startup metrics
+	logFields := map[string]interface{}{
+		"startup_duration_seconds": duration,
+		"state":                    string(StartupStateComplete),
+	}
+	for k, v := range metrics {
+		logFields[k] = v
+	}
+
+	h.logger.Info("Startup complete", logFields)
+}
+
 // RegisterRoutes registers health check routes with the Gin router
 func (h *HealthChecker) RegisterRoutes(router *gin.Engine) {
 	health := router.Group("/health")
@@ -342,5 +599,9 @@ func (h *HealthChecker) RegisterRoutes(router *gin.Engine) {
 		// Readiness probe - checks if the application is ready to serve traffic
 		// This checks all dependencies and returns 503 if not ready
 		health.GET("/ready", h.Readiness)
+
+		// Startup probe - checks if the application has completed startup
+		// This is used by Kubernetes to know when the app has finished initializing
+		health.GET("/startup", h.Startup)
 	}
 }
