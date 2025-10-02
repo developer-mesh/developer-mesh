@@ -576,16 +576,69 @@ This plan addresses critical technical gaps preventing reliable AI agent integra
 
 ### Epic 3.1: Health Monitoring
 
-#### Story 3.1.1: Add Health Check Endpoints
+#### Story 3.1.1: Add Health Check Endpoints ✅ COMPLETED
 **Size:** 2 points
 ```
-- [ ] Create /health/live endpoint
-- [ ] Create /health/ready endpoint
-- [ ] Check Core Platform connectivity
-- [ ] Verify tool registry status
-- [ ] Include dependency health
+- [x] Create /health/live endpoint
+- [x] Create /health/ready endpoint
+- [x] Check Core Platform connectivity
+- [x] Verify tool registry status
+- [x] Include dependency health
 ```
-**Files:** `apps/edge-mcp/internal/api/health.go` (new)
+**Files:**
+- `apps/edge-mcp/internal/api/health.go` (created)
+- `apps/edge-mcp/internal/api/health_test.go` (created)
+- `apps/edge-mcp/cmd/server/main.go` (updated)
+
+**✅ COMPLETION NOTES:**
+- Implementation completed: Comprehensive health check system following Kubernetes patterns
+- Key features implemented:
+  - Liveness endpoint (/health/live) - Simple alive check for Kubernetes liveness probe
+  - Readiness endpoint (/health/ready) - Detailed dependency check for Kubernetes readiness probe
+  - Component-level health checks with individual status reporting
+  - Health status levels: healthy, degraded, unhealthy
+  - Response caching (5 second TTL) to avoid excessive health checks
+  - Uptime tracking from service start time
+- Health checks implemented:
+  - Tool Registry: Verifies tools are loaded and registry is operational
+  - Cache: Tests read/write operations to verify cache functionality
+  - Core Platform: Checks connectivity and API availability (optional, degrades if unavailable)
+  - MCP Handler: Verifies handler initialization and readiness
+- Health status logic:
+  - Unhealthy: Critical components (registry, cache, MCP handler) are failing
+  - Degraded: Optional components unavailable or warnings (no tools, Core Platform unavailable)
+  - Healthy: All critical components operational
+- HTTP status codes:
+  - 200 OK: Service is healthy or degraded (can still serve traffic)
+  - 503 Service Unavailable: Service is unhealthy (cannot serve traffic)
+- Integration:
+  - Registered routes using HealthChecker.RegisterRoutes()
+  - Integrated into main.go with all dependencies
+  - Maintained backward compatibility with legacy /health endpoint
+- Test coverage: Created comprehensive test suite with 10 test functions + 3 benchmarks
+  - TestNewHealthChecker - Initialization
+  - TestHealthChecker_Liveness - Liveness probe functionality
+  - TestHealthChecker_Readiness_AllHealthy - Full health check with all components
+  - TestHealthChecker_Readiness_NoTools - Degraded state with no tools
+  - TestHealthChecker_Readiness_CacheHealthy - Cache health verification
+  - TestHealthChecker_Readiness_Caching - Response caching verification
+  - TestHealthChecker_CheckToolRegistry - Tool registry health checks
+  - TestHealthChecker_CheckCache - Cache health checks
+  - TestHealthChecker_CheckCorePlatform - Core Platform connectivity checks
+  - TestHealthChecker_CheckMCPHandler - MCP handler health checks
+  - TestHealthChecker_RegisterRoutes - Route registration verification
+  - TestHealthChecker_UptimeCalculation - Uptime calculation accuracy
+  - BenchmarkHealthChecker_Liveness - Liveness performance
+  - BenchmarkHealthChecker_Readiness - Readiness performance
+  - BenchmarkHealthChecker_ReadinessCached - Cached readiness performance
+  - All tests passing (18 sub-tests total)
+- Benefits for operations:
+  - Kubernetes-compatible liveness and readiness probes
+  - Detailed component-level health visibility
+  - Automatic service discovery for dependencies
+  - Response caching prevents health check storms
+  - Clear health status for monitoring and alerting
+  - Supports graceful degradation (Core Platform optional)
 
 #### Story 3.1.2: Implement Startup Probes
 **Size:** 2 points

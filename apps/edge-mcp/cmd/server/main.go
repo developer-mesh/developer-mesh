@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/api"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/auth"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/cache"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/config"
@@ -213,7 +214,20 @@ func main() {
 	router := gin.New()
 	router.Use(gin.Recovery())
 
-	// Health check endpoint
+	// Initialize health checker
+	healthChecker := api.NewHealthChecker(
+		toolRegistry,
+		memCache,
+		coreClient,
+		mcpHandler,
+		logger,
+		version,
+	)
+
+	// Register health check endpoints
+	healthChecker.RegisterRoutes(router)
+
+	// Legacy health check endpoint for backward compatibility
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status":         "healthy",
