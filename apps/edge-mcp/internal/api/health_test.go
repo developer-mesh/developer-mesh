@@ -97,6 +97,7 @@ func TestHealthChecker_Readiness_AllHealthy(t *testing.T) {
 		nil,
 		nil,
 		logger,
+		nil, // metrics not needed for health tests
 	)
 
 	healthChecker := NewHealthChecker(
@@ -156,6 +157,7 @@ func TestHealthChecker_Readiness_NoTools(t *testing.T) {
 		nil,
 		nil,
 		logger,
+		nil, // metrics not needed for health tests
 	)
 
 	healthChecker := NewHealthChecker(
@@ -478,6 +480,7 @@ func TestHealthChecker_RegisterRoutes(t *testing.T) {
 		nil,
 		nil,
 		logger,
+		nil, // metrics not needed for health tests
 	)
 
 	healthChecker := NewHealthChecker(

@@ -17,6 +17,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/auth"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/cache"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/core"
+	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/metrics"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/platform"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tools"
 	"github.com/developer-mesh/developer-mesh/pkg/models"
@@ -53,6 +54,7 @@ type Handler struct {
 	sessionsMu     sync.RWMutex
 	logger         observability.Logger
 	refreshManager *tools.RefreshManager
+	metrics        *metrics.Metrics
 
 	// Request tracking for cancellation
 	activeRequests map[interface{}]context.CancelFunc
@@ -82,6 +84,7 @@ func NewHandler(
 	coreClient *core.Client,
 	authenticator auth.Authenticator,
 	logger observability.Logger,
+	metricsCollector *metrics.Metrics,
 ) *Handler {
 	h := &Handler{
 		tools:          toolRegistry,
@@ -90,6 +93,7 @@ func NewHandler(
 		authenticator:  authenticator,
 		sessions:       make(map[string]*Session),
 		logger:         logger,
+		metrics:        metricsCollector,
 		activeRequests: make(map[interface{}]context.CancelFunc),
 	}
 

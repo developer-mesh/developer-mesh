@@ -17,11 +17,13 @@ import (
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/config"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/core"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/mcp"
+	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/metrics"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/platform"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tools"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tools/builtin"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
@@ -134,6 +136,10 @@ func main() {
 	// Initialize authentication
 	authenticator := auth.NewEdgeAuthenticator(cfg.Auth.APIKey)
 
+	// Initialize Prometheus metrics
+	metricsCollector := metrics.New()
+	logger.Info("Initialized Prometheus metrics", nil)
+
 	// Initialize tool registry
 	toolRegistry := tools.NewRegistry()
 
@@ -185,6 +191,7 @@ func main() {
 		coreClient,
 		authenticator,
 		logger,
+		metricsCollector,
 	)
 
 	// Check if we should run in stdio mode
@@ -239,6 +246,9 @@ func main() {
 			"core_connected": coreClient != nil,
 		})
 	})
+
+	// Prometheus metrics endpoint
+	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	// MCP WebSocket endpoint
 	router.GET("/ws", func(c *gin.Context) {

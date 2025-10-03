@@ -701,16 +701,66 @@ This plan addresses critical technical gaps preventing reliable AI agent integra
 
 ### Epic 3.2: Metrics and Logging
 
-#### Story 3.2.1: Add Prometheus Metrics
+#### Story 3.2.1: Add Prometheus Metrics ✅ COMPLETED
 **Size:** 3 points
 ```
-- [ ] Tool execution duration histogram
-- [ ] Active connections gauge
-- [ ] Error rate counter by type
-- [ ] Cache hit/miss ratio
-- [ ] Request rate by tool
+- [x] Tool execution duration histogram
+- [x] Active connections gauge
+- [x] Error rate counter by type
+- [x] Cache hit/miss ratio
+- [x] Request rate by tool
 ```
-**Files:** `apps/edge-mcp/internal/metrics/metrics.go` (new)
+**Files:** `apps/edge-mcp/internal/metrics/metrics.go` (created)
+
+**✅ COMPLETION NOTES:**
+- Implementation completed: Comprehensive Prometheus metrics system
+- Key features implemented:
+  - Created metrics package at `apps/edge-mcp/internal/metrics/metrics.go`
+  - Tool execution duration histogram with custom buckets (10ms to 30s)
+  - Active connections gauge and total connections counter
+  - Error rate counter by error type and error code
+  - Cache operations counter by operation and result
+  - Cache hit ratio gauge (0-1 scale)
+  - Request rate counter by tool name and method
+  - In-flight requests gauge for monitoring active operations
+  - Session lifecycle metrics (active sessions, total sessions, duration)
+  - Message metrics (sent/received by type)
+- Advanced features:
+  - Timer functions for automatic duration recording
+  - Thread-safe concurrent metrics recording
+  - Proper metric labeling for multi-dimensional analysis
+  - All metrics use `edge_mcp` namespace for identification
+- Test coverage: Created comprehensive test suite with 16 test functions
+  - TestNew - Metrics initialization
+  - TestRecordToolExecution - Tool execution tracking
+  - TestRecordToolExecutionError - Error recording
+  - TestRecordConnectionLifecycle - Connection tracking
+  - TestRecordError - Error counting by type
+  - TestRecordCacheOperation - Cache operation tracking
+  - TestUpdateCacheHitRatio - Hit ratio calculations
+  - TestRecordRequest - Request rate tracking
+  - TestRecordRequestDuration - Request timing
+  - TestRequestInflight - In-flight request tracking
+  - TestSessionLifecycle - Session metrics
+  - TestRecordMessages - Message tracking
+  - TestStartToolExecutionTimer - Timer functions
+  - TestStartRequestTimer - Request timer functions
+  - TestMetricsNamespace - Namespace verification
+  - TestConcurrentMetricsRecording - Thread safety
+  - All tests passing
+- Integration:
+  - Added `/metrics` endpoint at apps/edge-mcp/cmd/server/main.go:250
+  - Integrated metrics into MCP handler (Handler struct updated)
+  - Updated NewHandler to accept metrics parameter
+  - Updated all test files to pass metrics (or nil for tests)
+- Metrics exposed via Prometheus HTTP handler at `/metrics` endpoint
+- Benefits for operations:
+  - Real-time monitoring of tool execution performance
+  - Connection and session tracking for capacity planning
+  - Error rate monitoring by type for alerting
+  - Cache performance optimization via hit/miss tracking
+  - Request throughput and latency monitoring
+  - Complete observability of Edge MCP service
 
 #### Story 3.2.2: Structured Logging Enhancement
 **Size:** 3 points
