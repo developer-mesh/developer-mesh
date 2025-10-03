@@ -9,6 +9,192 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+## [0.0.5] - 2025-10-03
+
+### Added - AI Agent Readiness Initiative (29 Stories Across 5 Sprints)
+
+This release represents a comprehensive AI Agent Readiness initiative aimed at making Developer Mesh production-ready for AI agent orchestration. The work spans 29 completed stories across 5 sprints, delivering enhanced tool discoverability, semantic error handling, comprehensive observability, production hardening, and extensive documentation.
+
+#### Sprint 1: Testing & Resilience
+- **Fixed Goroutine Leaks** - Comprehensive goroutine leak fixes in MCP handler
+  - Added proper cleanup for ping ticker and refresh manager goroutines
+  - Implemented `Shutdown()` method with WaitGroup tracking for graceful cleanup
+  - Created comprehensive test suite (`goroutine_leak_test.go`) with 5 test cases
+  - All connections now properly cleaned up on cancellation
+
+#### Sprint 2: AI Agent Usability (Tool Discovery & Semantic Errors)
+- **Enhanced Tool Metadata System** - Complete tool categorization and tagging
+  - Created 16 standard tool categories (repository, issues, ci/cd, workflow, etc.)
+  - Defined 20 capability tags (read, write, execute, async, batch, etc.)
+  - Implemented category and tag-based filtering in Registry
+  - Added AI agent helper functions for tool discovery and recommendations
+
+- **Usage Examples for Tools** - Comprehensive usage examples for all tools
+  - Added 2-3 examples per tool (simple, complex, error_case patterns)
+  - Included expected outputs for success and error scenarios
+  - Created validation test suite with 5 test functions
+  - Generated comprehensive documentation (`docs/tool-usage-examples.md`)
+
+- **Tool Relationship Management** - Intelligent tool sequencing and workflows
+  - Implemented RelationshipManager with prerequisites, commonly-used-with, next-steps
+  - Created I/O compatibility checking system
+  - Defined 4 comprehensive workflow templates (code review, issue resolution, deployment, multi-agent)
+  - Added dependency validation and conflict detection
+
+- **Semantic Error System** - AI-friendly error responses with recovery guidance
+  - Created comprehensive error taxonomy with 50+ standardized error codes
+  - Implemented ErrorResponse with recovery suggestions, retry strategies, and next steps
+  - Created 15+ error templates with actionable recovery steps
+  - Added automatic error type detection for intelligent responses
+
+- **Error Recovery Documentation** - Comprehensive error handling guide
+  - Documented 5 major error categories with real-world examples
+  - Provided recovery code examples in Go and Python
+  - Implemented 3 retry strategies (exponential backoff, fixed interval, adaptive)
+  - Created 7 best practices with complete code examples
+
+- **Tool Search System** - Multi-criteria tool discovery with fuzzy matching
+  - Implemented keyword search in names and descriptions
+  - Added category, tag, and I/O type filtering
+  - Created fuzzy matching using Levenshtein distance algorithm
+  - Implemented relevance scoring (0-100 scale) for search results
+
+- **Tool Capability Query System** - Service and operation capability management
+  - Created CapabilityManager for managing service capabilities
+  - Implemented automatic service detection and grouping
+  - Added permission extraction and feature flag mapping
+  - Supports 14 feature flags (async, batching, streaming, webhooks, etc.)
+
+#### Sprint 3: Observability & Resilience
+- **Health Check System** - Kubernetes-compatible health monitoring
+  - Implemented liveness (`/health/live`) and readiness (`/health/ready`) endpoints
+  - Added startup probes (`/health/startup`) with component-level checks
+  - Response caching (5s TTL) to prevent health check storms
+  - Created comprehensive test suite with 26 test functions
+
+- **Prometheus Metrics** - Complete observability with metrics
+  - Tool execution duration histogram with custom buckets (10ms to 30s)
+  - Active connections gauge and error rate counters by type
+  - Cache hit/miss ratio tracking and request rate by tool
+  - Session lifecycle and message metrics
+  - Exposed via `/metrics` endpoint
+
+- **Structured Logging Enhancement** - Context-aware logging with audit trails
+  - Enhanced StandardLogger with contextual fields (request_id, tenant_id, session_id)
+  - Implemented request-scoped loggers for all MCP messages
+  - Added tool execution audit trail with performance metrics
+  - Created SampledLogger for high-volume log control
+  - Added PerformanceLogger for automatic duration tracking
+
+- **Distributed Tracing** - OpenTelemetry integration for end-to-end tracing
+  - Implemented TracerProvider with OTLP and Zipkin exporters
+  - Added spans for tool execution, Core Platform calls, and cache operations
+  - Created TracedCache wrapper for cache operation tracing
+  - Configurable sampling rates and batch processing
+
+- **Circuit Breaker Pattern** - Resilience with fallback mechanisms
+  - Enhanced existing circuit breaker with ExecuteWithFallback()
+  - Implemented three states (CLOSED, OPEN, HALF_OPEN) with automatic transitions
+  - Added per-service circuit breakers via CircuitBreakerManager
+  - Created fallback metrics for monitoring degraded operations
+
+- **Bulkhead Pattern** - Resource isolation and backpressure
+  - Implemented semaphore-based resource isolation
+  - Added per-tenant/service bulkhead instances
+  - Created operation queueing with configurable depth and timeout
+  - Integrated with existing RateLimiter for unified rate management
+
+#### Sprint 4: Production Hardening
+- **Response Streaming** - Efficient handling of large payloads
+  - Implemented StreamManager for WebSocket-based streaming
+  - Added progress notifications ($/progress) for long operations
+  - Created log streaming ($/logMessage) for real-time visibility
+  - Chunked content with configurable size (default 64KB)
+  - Stream interruption handling with proper cleanup
+
+- **Request Batching** - Parallel and sequential batch execution
+  - Created BatchExecutor with parallel/sequential modes
+  - Configurable batch size limits (default: 10 tools)
+  - Partial failure handling with detailed per-tool results
+  - Timeout management with context cancellation
+  - Integration with `/tools/batch` MCP endpoint
+
+- **Two-Tier Caching** - L1 memory + optional L2 Redis with graceful degradation
+  - Implemented TieredCache with L1 always enabled, L2 optional
+  - Automatic fallback to memory-only when Redis unavailable
+  - Cache compression for values >1KB (50-70% savings)
+  - Cache warming, pattern-based invalidation, and comprehensive statistics
+  - Created deployment guide (`docs/deployment/cache-configuration.md`)
+
+- **Rate Limiting** - Token bucket algorithm with multi-tier limits
+  - Implemented three-tier rate limiting (global, per-tenant, per-tool)
+  - Added quota management with daily/monthly tracking
+  - Integrated with Edge MCP handler for automatic enforcement
+  - Created comprehensive test suite with 18 test functions
+
+- **Credential Security** - Enhanced credential management with rotation
+  - Created CredentialManager service with encryption and validation
+  - Implemented credential rotation with audit logging
+  - Added expiry management and inactivity detection
+  - Type-specific validation for API keys, basic auth, OAuth2
+
+- **Request Validation** - Comprehensive input validation and sanitization
+  - Created Validator with JSON-RPC 2.0 and MCP protocol validation
+  - Implemented JSON schema validation for tool parameters
+  - Added input sanitization (control character removal, size limits)
+  - Integrated validation failure logging with security audit trail
+
+- **Graceful Shutdown** - Four-phase shutdown with proper cleanup
+  - Implemented SIGTERM/SIGINT signal handling
+  - Added connection draining (15s), HTTP shutdown (10s), resource cleanup (5s)
+  - Total shutdown timeout: 30 seconds with graceful degradation
+  - Created comprehensive test suite with 6 test functions
+
+- **Configuration Hot Reload** - Live configuration updates without restart
+  - Implemented fsnotify-based file watching with 500ms debouncing
+  - Added comprehensive validation before applying changes
+  - Created callback system for components to react to changes
+  - Thread-safe atomic config updates with detailed change tracking
+
+- **Kubernetes Deployment Readiness** - Production-ready K8s manifests
+  - Created base manifests (deployment, service, configmap, secret, RBAC)
+  - Implemented HorizontalPodAutoscaler (3-10 replicas, CPU/memory based)
+  - Added PodDisruptionBudget (minAvailable: 2) for high availability
+  - Created Helm chart with comprehensive values and templates
+  - Added example configurations (development, staging, production)
+  - Comprehensive deployment guide (400+ lines) with troubleshooting
+
+#### Sprint 5: Documentation & Training
+- **OpenAPI Specifications** - Complete API documentation with SDK generation
+  - Created comprehensive OpenAPI 3.1 specification (1000+ lines)
+  - Documented all 6 REST endpoints and 15+ JSON-RPC methods
+  - Included authentication details and semantic error responses
+  - Created SDK generation script supporting Go, Python, TypeScript, Java, C#, Ruby
+  - Provided example client implementations in Go, Python, and TypeScript
+
+- **Integration Guides** - Platform-specific setup documentation
+  - Created Claude Code integration guide with MCP configuration
+  - Added Cursor IDE integration guide with workspace settings
+  - Created Windsurf integration guide with JSON configuration
+  - Implemented generic MCP client guide with protocol examples
+  - Comprehensive troubleshooting guide covering all scenarios
+
+- **Quick Start Guide** - 5-minute setup for new users
+  - Created step-by-step Docker Compose setup guide
+  - Documented 5 common use cases with AI agent and API examples
+  - Added FAQ section with 10 frequently asked questions
+  - Included video walkthrough script for future video production
+  - Comprehensive tool catalog with 200+ available tools
+
+- **Interactive Examples** - Working code examples for all features
+  - Created example repository structure with common utilities
+  - Implemented 5 workflow examples (GitHub, Harness, agents, batching, context)
+  - Added 3 error scenario examples (tool not found, authentication, rate limiting)
+  - Created performance example comparing sequential vs parallel execution
+  - Built test harness with 15 integration tests and 7 benchmarks
+
+### Changed
+
 - **JFrog Artifactory: Simplified Package Discovery** - Implemented comprehensive package discovery operations using storage API (Epic 4, Story 4.2)
   - Added 21 new package discovery operations across 5 package ecosystems
   - Generic operations work with any package type: `packages/info`, `packages/versions`, `packages/latest`, `packages/stats`, `packages/properties`
