@@ -22,6 +22,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/platform"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tools"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tracing"
+	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/validation"
 	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/tools/providers/harness"
@@ -63,6 +64,7 @@ type Handler struct {
 	streamManager  *StreamManager          // Stream manager for response streaming
 	batchExecutor  *BatchExecutor          // Batch executor for batching tool calls
 	rateLimiter    *middleware.RateLimiter // Rate limiter for request throttling
+	validator      *validation.Validator   // Input validator for security and validation
 
 	// Request tracking for cancellation
 	activeRequests map[interface{}]context.CancelFunc
@@ -112,6 +114,10 @@ func NewHandler(
 	rateLimitConfig := middleware.DefaultRateLimitConfig()
 	rateLimiter := middleware.NewRateLimiter(rateLimitConfig, logger, metricsCollector)
 
+	// Create input validator with default config
+	validatorConfig := validation.DefaultConfig()
+	validator := validation.NewValidator(validatorConfig, logger)
+
 	h := &Handler{
 		tools:          toolRegistry,
 		cache:          cache,
@@ -124,6 +130,7 @@ func NewHandler(
 		streamManager:  streamManager,
 		batchExecutor:  batchExecutor,
 		rateLimiter:    rateLimiter,
+		validator:      validator,
 		activeRequests: make(map[interface{}]context.CancelFunc),
 	}
 
@@ -692,24 +699,34 @@ func (h *Handler) handleInitialize(sessionID string, msg *MCPMessage) (*MCPMessa
 			fmt.Sprintf("Failed to parse initialize parameters: %v", err))
 	}
 
-	// Verify protocol version - accept all known MCP protocol versions
-	supportedVersions := []string{
-		"2024-11-05", // Original Claude Code version
-		"2025-03-26", // March 2025 release with OAuth improvements
-		"2025-06-18", // Latest version with structured outputs
+	// Validate protocol version
+	if err := h.validator.ValidateMCPProtocolVersion(params.ProtocolVersion); err != nil {
+		h.validator.LogValidationFailure(context.Background(), err, map[string]interface{}{
+			"method":     "initialize",
+			"version":    params.ProtocolVersion,
+			"session":    sessionID,
+			"message_id": msg.ID,
+		})
+		errResp := h.validator.ToErrorResponse(err, "initialize")
+		return nil, errResp
 	}
-	versionSupported := false
-	for _, v := range supportedVersions {
-		if params.ProtocolVersion == v {
-			versionSupported = true
-			break
-		}
+
+	// Validate client info
+	clientInfoMap := map[string]interface{}{
+		"name":    params.ClientInfo.Name,
+		"version": params.ClientInfo.Version,
 	}
-	if !versionSupported {
-		return nil, NewProtocolError("initialize",
-			"Unsupported protocol version",
-			fmt.Sprintf("Version %s is not supported. Supported versions: %v",
-				params.ProtocolVersion, supportedVersions))
+	if params.ClientInfo.Type != "" {
+		clientInfoMap["type"] = params.ClientInfo.Type
+	}
+	if err := h.validator.ValidateClientInfo(clientInfoMap); err != nil {
+		h.validator.LogValidationFailure(context.Background(), err, map[string]interface{}{
+			"method":     "initialize",
+			"session":    sessionID,
+			"message_id": msg.ID,
+		})
+		errResp := h.validator.ToErrorResponse(err, "initialize")
+		return nil, errResp
 	}
 
 	// Update session
@@ -1020,6 +1037,20 @@ func (h *Handler) handleToolCall(sessionID string, msg *MCPMessage) (*MCPMessage
 		return nil, NewValidationError("params", fmt.Sprintf("Invalid tool call parameters: %v", err)).
 			WithOperation("tools/call").
 			WithRequestID(fmt.Sprintf("%v", msg.ID))
+	}
+
+	// Validate tool name format
+	if err := h.validator.ValidateToolName(params.Name); err != nil {
+		// Log validation failure
+		h.validator.LogValidationFailure(context.Background(), err, map[string]interface{}{
+			"method":   "tools/call",
+			"tool":     params.Name,
+			"session":  sessionID,
+			"message_id": msg.ID,
+		})
+		// Convert to error response
+		errResp := h.validator.ToErrorResponse(err, "tools/call")
+		return nil, errResp
 	}
 
 	// CRITICAL: Handle context operations specially for sync with Core Platform
