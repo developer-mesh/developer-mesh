@@ -1789,16 +1789,67 @@ cache:
   - Health check documentation for deployment
   - Prometheus metrics for monitoring
 
-#### Story 5.1.2: Create Integration Guides
+#### Story 5.1.2: Create Integration Guides ✅ COMPLETED
 **Size:** 5 points
 ```
-- [ ] Claude Code integration guide
-- [ ] Cursor IDE integration guide
-- [ ] Windsurf integration guide
-- [ ] Generic MCP client guide
-- [ ] Troubleshooting guide
+- [x] Claude Code integration guide
+- [x] Cursor IDE integration guide
+- [x] Windsurf integration guide
+- [x] Generic MCP client guide
+- [x] Troubleshooting guide
 ```
-**Files:** `docs/integrations/` (new directory)
+**Files:**
+- `docs/integrations/claude-code.md` (created)
+- `docs/integrations/cursor.md` (created)
+- `docs/integrations/windsurf.md` (created)
+- `docs/integrations/generic-mcp-client.md` (created)
+- `docs/integrations/troubleshooting.md` (created)
+- `docs/integrations/README.md` (created)
+
+**✅ COMPLETION NOTES:**
+- Implementation completed: Comprehensive integration guides for all major AI code editors and MCP clients
+- Key features documented:
+  - **Claude Code Integration Guide**: Complete setup for Claude Code CLI with MCP configuration
+  - **Cursor IDE Integration Guide**: Settings-based configuration with workspace integration
+  - **Windsurf Integration Guide**: JSON configuration with multiple environment support
+  - **Generic MCP Client Guide**: Protocol-level integration with Go, Python, TypeScript examples
+  - **Troubleshooting Guide**: Comprehensive troubleshooting covering all integration scenarios
+- Documentation structure:
+  - Each guide includes: Overview, Prerequisites, Quick Start, Configuration, Usage Examples, Advanced Configuration, Troubleshooting
+  - Consistent format across all guides for easy navigation
+  - Platform-specific sections for each editor/client
+  - Real-world examples with actual Edge MCP implementation details
+- Configuration examples:
+  - Authentication: Bearer token and API key header methods
+  - Passthrough authentication for GitHub and Harness
+  - Environment variable support
+  - Local development and production configurations
+  - Multiple instance setup (dev, staging, prod)
+- Usage examples provided:
+  - GitHub repository operations
+  - Issue and PR management
+  - Harness pipeline status
+  - Batch operations
+  - Agent task assignment
+  - Context management
+  - Multi-step workflows
+- Troubleshooting coverage:
+  - Connection issues (WebSocket, DNS, firewall, proxy)
+  - Authentication problems (401, 403, passthrough auth)
+  - Tool execution errors (404, 400, timeouts)
+  - Performance issues (caching, batch operations)
+  - Rate limiting (429 errors, quota management)
+  - Protocol errors (JSON-RPC, version mismatch)
+  - Platform-specific issues (Claude Code, Cursor, Windsurf)
+  - Advanced debugging (tracing, metrics, health checks)
+- Benefits for developers and AI agents:
+  - Clear, step-by-step integration instructions
+  - Copy-paste ready configuration examples
+  - Real error scenarios with solutions
+  - Production-ready security practices
+  - Performance optimization guidance
+  - Comprehensive troubleshooting with diagnostic commands
+  - Platform-specific guidance for each editor
 
 ### Epic 5.2: Developer Experience
 
