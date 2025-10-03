@@ -6,7 +6,7 @@ import "time"
 // Note: Edge MCP uses only in-memory storage and syncs with Core Platform via API
 type ContextManagerConfig struct {
 	// In-memory cache configuration
-	Cache CacheConfig `yaml:"cache"`
+	Cache ContextCacheConfig `yaml:"cache"`
 
 	// Circuit breaker settings for Core Platform API calls
 	CircuitBreaker CircuitBreakerConfig `yaml:"circuit_breaker"`
@@ -18,8 +18,8 @@ type ContextManagerConfig struct {
 // Note: Edge MCP does not use direct database connections
 // All persistent state is managed through Core Platform API
 
-// CacheConfig configures caching strategy for Edge MCP (in-memory only)
-type CacheConfig struct {
+// ContextCacheConfig configures caching strategy for Edge MCP (in-memory only)
+type ContextCacheConfig struct {
 	// In-memory LRU cache settings
 	InMemory InMemoryCacheConfig `yaml:"in_memory"`
 
@@ -66,7 +66,7 @@ type MonitoringConfig struct {
 // DefaultContextManagerConfig returns production-ready default configuration for Edge MCP
 func DefaultContextManagerConfig() *ContextManagerConfig {
 	return &ContextManagerConfig{
-		Cache: CacheConfig{
+		Cache: ContextCacheConfig{
 			InMemory: InMemoryCacheConfig{
 				Enabled:     true,
 				MaxSize:     10000,

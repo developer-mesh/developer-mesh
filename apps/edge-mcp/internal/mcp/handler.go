@@ -18,6 +18,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/cache"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/core"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/metrics"
+	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/middleware"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/platform"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tools"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tracing"
@@ -59,8 +60,9 @@ type Handler struct {
 	refreshManager *tools.RefreshManager
 	metrics        *metrics.Metrics
 	spanHelper     *tracing.SpanHelper
-	streamManager  *StreamManager // Stream manager for response streaming
-	batchExecutor  *BatchExecutor // Batch executor for batching tool calls
+	streamManager  *StreamManager          // Stream manager for response streaming
+	batchExecutor  *BatchExecutor          // Batch executor for batching tool calls
+	rateLimiter    *middleware.RateLimiter // Rate limiter for request throttling
 
 	// Request tracking for cancellation
 	activeRequests map[interface{}]context.CancelFunc
@@ -106,6 +108,10 @@ func NewHandler(
 	batchConfig := DefaultBatchConfig()
 	batchExecutor := NewBatchExecutor(toolRegistry, batchConfig, logger)
 
+	// Create rate limiter with default config
+	rateLimitConfig := middleware.DefaultRateLimitConfig()
+	rateLimiter := middleware.NewRateLimiter(rateLimitConfig, logger, metricsCollector)
+
 	h := &Handler{
 		tools:          toolRegistry,
 		cache:          cache,
@@ -117,6 +123,7 @@ func NewHandler(
 		spanHelper:     spanHelper,
 		streamManager:  streamManager,
 		batchExecutor:  batchExecutor,
+		rateLimiter:    rateLimiter,
 		activeRequests: make(map[interface{}]context.CancelFunc),
 	}
 
@@ -348,6 +355,11 @@ func (h *Handler) Shutdown(ctx context.Context) error {
 	// Close all active streams
 	if h.streamManager != nil {
 		h.streamManager.CloseAll()
+	}
+
+	// Close rate limiter
+	if h.rateLimiter != nil {
+		h.rateLimiter.Close()
 	}
 
 	// Wait for active refreshes with timeout
@@ -594,6 +606,45 @@ func (h *Handler) extractPassthroughAuthFromEnv() *models.PassthroughAuthBundle 
 
 // handleMessage processes an MCP message
 func (h *Handler) handleMessage(sessionID string, msg *MCPMessage) (*MCPMessage, error) {
+	// Get session for rate limiting
+	h.sessionsMu.RLock()
+	session, exists := h.sessions[sessionID]
+	h.sessionsMu.RUnlock()
+
+	if !exists {
+		return nil, NewProtocolError(msg.Method, "Session not found",
+			"The session does not exist or has expired")
+	}
+
+	// Extract tool name for per-tool rate limiting
+	var toolName string
+	if msg.Method == "tools/call" {
+		var params struct {
+			Name string `json:"name"`
+		}
+		if err := json.Unmarshal(msg.Params, &params); err == nil {
+			toolName = params.Name
+		}
+	}
+
+	// Check rate limits (skip for initialize and ping methods)
+	if h.rateLimiter != nil && msg.Method != "initialize" && msg.Method != "initialized" && msg.Method != "ping" {
+		result := h.rateLimiter.CheckRateLimit(context.Background(), session.TenantID, toolName)
+		if !result.Allowed {
+			// Rate limit exceeded - return error with rate limit info
+			errorData := h.rateLimiter.CreateRateLimitError(result)
+			return &MCPMessage{
+				JSONRPC: "2.0",
+				ID:      msg.ID,
+				Error: &MCPError{
+					Code:    429, // Too Many Requests
+					Message: fmt.Sprintf("Rate limit exceeded: %s", result.LimitType),
+					Data:    errorData,
+				},
+			}, nil
+		}
+	}
+
 	switch msg.Method {
 	case "initialize":
 		return h.handleInitialize(sessionID, msg)

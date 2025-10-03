@@ -1308,16 +1308,74 @@ cache:
 
 ### Epic 4.2: Security Hardening
 
-#### Story 4.2.1: Add Rate Limiting
+#### Story 4.2.1: Add Rate Limiting ✅ COMPLETED
 **Size:** 3 points
 ```
-- [ ] Implement token bucket algorithm
-- [ ] Add per-tenant limits
-- [ ] Configure per-tool limits
-- [ ] Add rate limit headers
-- [ ] Implement quota management
+- [x] Implement token bucket algorithm
+- [x] Add per-tenant limits
+- [x] Configure per-tool limits
+- [x] Add rate limit headers
+- [x] Implement quota management
 ```
-**Files:** `apps/edge-mcp/internal/middleware/rate_limit.go` (new)
+**Files:**
+- `apps/edge-mcp/internal/middleware/rate_limit.go` (created)
+- `apps/edge-mcp/internal/middleware/rate_limit_test.go` (created)
+- `apps/edge-mcp/internal/config/config.go` (enhanced)
+- `apps/edge-mcp/internal/mcp/handler.go` (integrated rate limiting)
+
+**✅ COMPLETION NOTES:**
+- Implementation completed: Comprehensive rate limiting middleware for Edge MCP
+- Key features implemented:
+  - **Token Bucket Algorithm**: Implemented using golang.org/x/time/rate.Limiter
+  - **Three-tier Rate Limiting**: Global, per-tenant, and per-tool rate limits
+  - **Per-tenant Limits**: Isolated rate limits for each tenant with configurable RPS and burst
+  - **Per-tool Limits**: Fine-grained rate limiting for individual tool executions
+  - **Quota Management**: Daily/monthly quota tracking with automatic reset
+  - **Rate Limit Metadata**: Complete visibility into rate limit status via GetRateLimitMetadata()
+  - **JSON-RPC Error Responses**: Proper rate limit errors with retry_after and reset_at
+- Configuration support:
+  - **Environment Variables**: All rate limit settings configurable via env vars
+  - **Default Configuration**: Production-ready defaults (1000 global RPS, 100 tenant RPS, 50 tool RPS)
+  - **Custom Quotas**: SetTenantQuota() for tenant-specific quota management
+  - **Dynamic Limits**: Per-resource rate limiters created on-demand
+- Integration:
+  - **Handler Integration**: Rate limiting checks in handleMessage() before processing
+  - **Tool Name Extraction**: Automatic tool name detection from tools/call messages
+  - **Session Tracking**: Uses session.TenantID for per-tenant rate limiting
+  - **Skip System Methods**: initialize, initialized, and ping methods bypass rate limits
+  - **Graceful Shutdown**: Rate limiter cleanup in Handler.Shutdown()
+- Test coverage: Created comprehensive test suite with 18 test functions
+  - TestDefaultRateLimitConfig - Configuration defaults
+  - TestNewRateLimiter - Initialization
+  - TestRateLimiter_CheckRateLimit_GlobalLimit - Global rate limiting
+  - TestRateLimiter_CheckRateLimit_TenantLimit - Per-tenant rate limiting
+  - TestRateLimiter_CheckRateLimit_ToolLimit - Per-tool rate limiting
+  - TestRateLimiter_CheckRateLimit_QuotaLimit - Quota enforcement
+  - TestRateLimiter_QuotaReset - Automatic quota reset
+  - TestRateLimiter_SetTenantQuota - Custom quota setting
+  - TestRateLimiter_GetTenantQuota - Quota tracking
+  - TestRateLimiter_MultiTenant - Tenant isolation
+  - TestRateLimiter_GetRateLimitMetadata - Metadata generation
+  - TestRateLimiter_CreateRateLimitError - Error response creation
+  - TestRateLimiter_GetStats - Statistics collection
+  - TestRateLimiter_Cleanup - Cleanup routine
+  - TestRateLimiter_ConcurrentAccess - Thread safety
+  - TestRateLimiter_WithMetrics - Metrics integration
+  - TestRateLimiter_Close - Graceful shutdown
+  - All 18 tests passing
+- Key capabilities:
+  - **Automatic Cleanup**: Unused rate limiters removed after 1 hour (configurable)
+  - **Concurrent Access**: Thread-safe with RWMutex and atomic operations
+  - **Metrics Recording**: Integration with Edge MCP metrics system
+  - **Memory Efficient**: On-demand limiter creation, automatic cleanup
+  - **Production Ready**: Proper error handling, logging, and graceful degradation
+- Benefits for production:
+  - **DoS Protection**: Prevents resource exhaustion from excessive requests
+  - **Fair Usage**: Ensures equitable resource distribution across tenants
+  - **Tool Protection**: Prevents abuse of expensive tools
+  - **Quota Enforcement**: Monthly/daily limits for cost control
+  - **Visibility**: Complete rate limit status in responses
+  - **Operational Flexibility**: All limits configurable via environment variables
 
 #### Story 4.2.2: Enhance Credential Security
 **Size:** 3 points
