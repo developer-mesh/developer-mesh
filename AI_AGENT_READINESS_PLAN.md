@@ -1111,27 +1111,136 @@ This plan addresses critical technical gaps preventing reliable AI agent integra
   - Memory-efficient chunked transmission
   - Concurrent stream support for multiple operations
 
-#### Story 4.1.2: Add Request Batching
+#### Story 4.1.2: Add Request Batching ✅ COMPLETED
 **Size:** 3 points
 ```
-- [ ] Batch multiple tool calls
-- [ ] Implement parallel execution
-- [ ] Add batch size limits
-- [ ] Handle partial failures
-- [ ] Return batch results
+- [x] Batch multiple tool calls
+- [x] Implement parallel execution
+- [x] Add batch size limits
+- [x] Handle partial failures
+- [x] Return batch results
 ```
-**Files:** `apps/edge-mcp/internal/mcp/batch.go` (new)
+**Files:**
+- `apps/edge-mcp/internal/mcp/batch.go` (created)
+- `apps/edge-mcp/internal/mcp/batch_test.go` (created)
+- `apps/edge-mcp/internal/mcp/handler.go` (enhanced)
 
-#### Story 4.1.3: Optimize Cache Usage
-**Size:** 3 points
+**✅ COMPLETION NOTES:**
+- Implementation completed: Comprehensive request batching system for MCP protocol
+- Key features implemented:
+  - **BatchExecutor**: Core batching engine with configurable execution modes
+  - **Parallel Execution**: Goroutine-based parallel execution with concurrency control (default: 5 concurrent)
+  - **Sequential Execution**: In-order execution for operations requiring sequencing
+  - **Batch Size Limits**: Configurable max batch size (default: 10 tools per batch)
+  - **Partial Failure Handling**: Each tool execution is independent, collects all results
+  - **Structured Results**: BatchToolResult with status, result/error, duration, and index
+  - **Timeout Management**: Batch-level timeout (default: 5 minutes) with context cancellation
+  - **Continue on Error**: Configurable behavior to stop or continue after errors (default: continue)
+- BatchConfig features:
+  - MaxBatchSize: Limit number of tools per batch (prevents resource exhaustion)
+  - EnableParallelExecution: Toggle parallel vs sequential execution
+  - ContinueOnError: Continue executing remaining tools after a failure
+  - Timeout: Maximum time for batch execution
+  - MaxConcurrency: Limit concurrent tool executions in parallel mode
+- Handler integration:
+  - Added BatchExecutor to Handler struct with default configuration
+  - New "tools/batch" endpoint in MCP protocol
+  - Complete integration with tracing, logging, metrics, and passthrough auth
+  - Audit logging for batch execution start/end with success/error counts
+  - Core Platform integration for recording batch execution summaries
+- BatchRequest structure:
+  - Array of BatchToolCall with id, name, and arguments
+  - Optional parallel override to control execution mode per request
+- BatchResponse structure:
+  - Individual results for each tool with status (success/error)
+  - Total batch duration and per-tool duration tracking
+  - Success/error counts for batch summary
+  - Parallel flag indicating execution mode used
+- Test coverage: Created comprehensive test suite with 11 test functions
+  - TestDefaultBatchConfig - Configuration defaults verification
+  - TestBatchExecutor_ValidateBatchRequest - Request validation (5 scenarios)
+  - TestBatchExecutor_Execute_Sequential - Sequential execution verification
+  - TestBatchExecutor_Execute_Parallel - Parallel execution with timing verification
+  - TestBatchExecutor_Execute_PartialFailure - Partial failure handling (2 success, 2 error)
+  - TestBatchExecutor_Execute_MaxBatchSize - Batch size limit enforcement
+  - TestBatchExecutor_Execute_Timeout - Timeout handling with context cancellation
+  - TestBatchExecutor_Execute_ContinueOnError - Stop vs continue on error behavior
+  - TestBatchExecutor_Execute_ToolNotFound - Non-existent tool handling
+  - TestBatchExecutor_Execute_Concurrency - Concurrency limit enforcement (max 3)
+  - TestBatchExecutor_Execute_WithArguments - Argument passing to tools
+  - TestBatchExecutor_Execute_DurationTracking - Per-tool duration tracking
+  - All 11 tests passing (with 5+ sub-tests in validation test)
+- Performance benefits:
+  - Parallel execution reduces latency for independent tool calls
+  - Concurrency control prevents resource exhaustion
+  - Context-aware cancellation for proper timeout handling
+  - Efficient goroutine management with sync.WaitGroup and semaphore
+- Benefits for AI agents:
+  - Execute multiple tools in one request, reducing round trips
+  - Parallel execution for faster completion of independent operations
+  - Partial failure support allows agents to get results even if some tools fail
+  - Detailed per-tool results for error handling and retry logic
+  - Configurable execution modes (parallel/sequential) based on tool dependencies
+  - Batch summary provides quick success/error count without parsing all results
+
+#### Story 4.1.3: Optimize Cache Usage with Dual Deployment Support
+**Size:** 5 points
 ```
-- [ ] Implement two-tier caching (memory + Redis)
-- [ ] Add cache warming on startup
-- [ ] Implement cache invalidation strategy
-- [ ] Add cache compression
-- [ ] Monitor cache performance
+- [ ] Implement two-tier caching (L1 memory + optional L2 Redis)
+- [ ] Make Redis optional with graceful degradation to memory-only mode
+- [ ] Support multiple Redis configurations (local, K8s internal, port-forward)
+- [ ] Add cache warming on startup (L1 always, L2 best-effort)
+- [ ] Implement cache invalidation strategy (TTL-based for L1, pub/sub for L2 when available)
+- [ ] Add cache compression for values >1KB before Redis storage
+- [ ] Monitor cache performance (hit/miss rates, L1 vs L2 usage)
+- [ ] Handle Redis connection failures gracefully without blocking operations
 ```
-**Files:** `apps/edge-mcp/internal/cache/tiered_cache.go` (new)
+**Context:**
+Edge MCP will be deployed in two modes:
+1. **K8s cluster**: Redis accessible via internal service discovery (`redis:6379`)
+2. **Local developer machine**: Redis may not be accessible or may use local Redis instance
+
+**Architecture:**
+- **L1 Memory Cache**: Always enabled, local in-process cache (100MB default, 5min TTL)
+- **L2 Redis Cache**: Optional, distributed cache for K8s deployments
+- **Graceful Degradation**: Edge MCP must function without Redis (memory-only mode)
+- **Connection Timeout**: Short Redis connect timeout (5s) to fail fast on local deployments
+- **Async Redis Operations**: Redis writes are async/best-effort to avoid blocking
+
+**Configuration Options:**
+```yaml
+# K8s deployment (with Redis)
+cache:
+  redis_enabled: true
+  redis_url: redis://redis:6379
+  memory_cache_size: 100MB
+  redis_fallback_mode: true  # Continue without Redis if unavailable
+
+# Local development (without Redis)
+cache:
+  redis_enabled: false
+  memory_cache_size: 100MB
+
+# Local development (with local Redis)
+cache:
+  redis_enabled: true
+  redis_url: redis://localhost:6379
+  redis_connect_timeout: 5s
+  redis_fallback_mode: true
+```
+
+**Implementation Requirements:**
+- Redis connection must be optional in TieredCache initialization
+- Cache operations should never block waiting for Redis
+- Redis failures should log warnings but not cause cache operations to fail
+- Health check should report Redis status without failing overall health
+- Cache warming should be non-blocking and handle Redis unavailability
+
+**Files:**
+- `apps/edge-mcp/internal/cache/tiered_cache.go` (new)
+- `apps/edge-mcp/internal/cache/tiered_cache_test.go` (new)
+- `apps/edge-mcp/internal/config/cache_config.go` (update)
+- `docs/deployment/cache-configuration.md` (new)
 
 ### Epic 4.2: Security Hardening
 

@@ -60,6 +60,7 @@ type Handler struct {
 	metrics        *metrics.Metrics
 	spanHelper     *tracing.SpanHelper
 	streamManager  *StreamManager // Stream manager for response streaming
+	batchExecutor  *BatchExecutor // Batch executor for batching tool calls
 
 	// Request tracking for cancellation
 	activeRequests map[interface{}]context.CancelFunc
@@ -101,6 +102,10 @@ func NewHandler(
 	streamConfig := DefaultStreamConfig()
 	streamManager := NewStreamManager(logger, streamConfig)
 
+	// Create batch executor with default config
+	batchConfig := DefaultBatchConfig()
+	batchExecutor := NewBatchExecutor(toolRegistry, batchConfig, logger)
+
 	h := &Handler{
 		tools:          toolRegistry,
 		cache:          cache,
@@ -111,6 +116,7 @@ func NewHandler(
 		metrics:        metricsCollector,
 		spanHelper:     spanHelper,
 		streamManager:  streamManager,
+		batchExecutor:  batchExecutor,
 		activeRequests: make(map[interface{}]context.CancelFunc),
 	}
 
@@ -601,6 +607,8 @@ func (h *Handler) handleMessage(sessionID string, msg *MCPMessage) (*MCPMessage,
 		return h.handleToolsList(sessionID, msg)
 	case "tools/call":
 		return h.handleToolCall(sessionID, msg)
+	case "tools/batch":
+		return h.handleBatchToolCall(sessionID, msg)
 	case "resources/list":
 		return h.handleResourcesList(sessionID, msg)
 	case "resources/read":
@@ -1128,6 +1136,166 @@ func (h *Handler) handleToolCall(sessionID string, msg *MCPMessage) (*MCPMessage
 		ID:      msg.ID,
 		Result: map[string]interface{}{
 			"content": content,
+		},
+	}, nil
+}
+
+// handleBatchToolCall handles tools/batch requests
+func (h *Handler) handleBatchToolCall(sessionID string, msg *MCPMessage) (*MCPMessage, error) {
+	var batchRequest BatchRequest
+
+	if err := json.Unmarshal(msg.Params, &batchRequest); err != nil {
+		return nil, NewValidationError("params", fmt.Sprintf("Invalid batch tool call parameters: %v", err)).
+			WithOperation("tools/batch").
+			WithRequestID(fmt.Sprintf("%v", msg.ID))
+	}
+
+	// Validate batch request
+	if err := h.batchExecutor.ValidateBatchRequest(&batchRequest); err != nil {
+		return nil, NewValidationError("batch", err.Error()).
+			WithOperation("tools/batch").
+			WithRequestID(fmt.Sprintf("%v", msg.ID))
+	}
+
+	// Create cancellable context for batch execution
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel() // Ensure cancel is always called to prevent context leak
+
+	// Generate request ID for this batch execution and add to context
+	requestID := observability.GenerateRequestID()
+	ctx = observability.WithRequestID(ctx, requestID)
+
+	// Add session tracking to context
+	ctx = observability.WithSessionID(ctx, sessionID)
+	ctx = observability.WithOperation(ctx, "tools/batch")
+
+	// Add passthrough auth to context if available
+	h.sessionsMu.RLock()
+	session := h.sessions[sessionID]
+	var tenantID string
+	if session != nil {
+		tenantID = session.TenantID
+		if tenantID != "" {
+			ctx = observability.WithTenantID(ctx, tenantID)
+		}
+		if session.PassthroughAuth != nil {
+			// Add passthrough auth to context for remote tool execution
+			ctx = context.WithValue(ctx, core.PassthroughAuthKey, session.PassthroughAuth)
+		}
+	}
+	h.sessionsMu.RUnlock()
+
+	// Create request-scoped logger with context fields
+	reqLogger := observability.LoggerFromContext(ctx, h.logger)
+
+	// Start distributed tracing span for batch execution
+	var span trace.Span
+	if h.spanHelper != nil {
+		ctx, span = h.spanHelper.StartToolExecutionSpan(ctx, "batch", sessionID, tenantID)
+		defer span.End()
+	}
+
+	// Track the request for potential cancellation (only if ID is present)
+	if msg.ID != nil {
+		h.trackRequest(msg.ID, cancel)
+		defer h.untrackRequest(msg.ID)
+	}
+
+	// Batch execution audit log - START
+	startTime := time.Now()
+	reqLogger.Info("Batch execution started", map[string]interface{}{
+		"batch_size": len(batchRequest.Tools),
+		"session_id": sessionID,
+		"parallel":   batchRequest.Parallel,
+	})
+
+	// Execute batch
+	batchResponse, err := h.batchExecutor.Execute(ctx, &batchRequest)
+
+	// Batch execution audit log - END
+	duration := time.Since(startTime)
+	if err != nil {
+		// Record error in span
+		if span != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+
+		reqLogger.Error("Batch execution failed", map[string]interface{}{
+			"batch_size":  len(batchRequest.Tools),
+			"session_id":  sessionID,
+			"duration_ms": duration.Milliseconds(),
+			"error":       err.Error(),
+		})
+
+		return nil, errorTemplates.InternalError("tools/batch", err).
+			WithRequestID(fmt.Sprintf("%v", msg.ID)).
+			WithMetadata("batch_size", len(batchRequest.Tools))
+	}
+
+	// Set success status on span
+	if span != nil {
+		span.SetStatus(codes.Ok, "Batch execution completed")
+	}
+
+	reqLogger.Info("Batch execution completed", map[string]interface{}{
+		"batch_size":    len(batchRequest.Tools),
+		"session_id":    sessionID,
+		"duration_ms":   duration.Milliseconds(),
+		"success_count": batchResponse.SuccessCount,
+		"error_count":   batchResponse.ErrorCount,
+		"parallel":      batchResponse.Parallel,
+	})
+
+	// Record execution with Core Platform if connected
+	if h.coreClient != nil {
+		coreSessionID := ""
+		if session != nil {
+			coreSessionID = session.CoreSession
+		}
+
+		if coreSessionID != "" {
+			// Record batch execution summary
+			batchSummary := map[string]interface{}{
+				"type":          "batch",
+				"tools":         batchRequest.Tools,
+				"success_count": batchResponse.SuccessCount,
+				"error_count":   batchResponse.ErrorCount,
+				"duration_ms":   batchResponse.TotalDuration.Milliseconds(),
+			}
+			_ = h.coreClient.RecordToolExecution(
+				context.Background(),
+				coreSessionID,
+				"tools/batch",
+				nil,
+				batchSummary,
+			)
+		}
+	}
+
+	// Format batch response as MCP content
+	// Convert results to a more readable format
+	contentText := fmt.Sprintf("Batch execution completed: %d/%d tools succeeded",
+		batchResponse.SuccessCount, len(batchRequest.Tools))
+
+	content := []map[string]interface{}{
+		{
+			"type": "text",
+			"text": contentText,
+		},
+	}
+
+	// Return structured batch response
+	return &MCPMessage{
+		JSONRPC: "2.0",
+		ID:      msg.ID,
+		Result: map[string]interface{}{
+			"content":        content,
+			"batch_results":  batchResponse.Results,
+			"success_count":  batchResponse.SuccessCount,
+			"error_count":    batchResponse.ErrorCount,
+			"total_duration": batchResponse.TotalDuration.Milliseconds(),
+			"parallel":       batchResponse.Parallel,
 		},
 	}, nil
 }
