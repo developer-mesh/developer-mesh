@@ -410,6 +410,62 @@ func (cb *CircuitBreaker) Reset() {
 	})
 }
 
+// FallbackFunc is a function type for fallback operations
+type FallbackFunc func(error) (interface{}, error)
+
+// ExecuteWithFallback executes a function with circuit breaker protection and a fallback mechanism.
+// If the circuit is open or the execution fails, the fallback function is called with the original error.
+// The fallback function can return a default value or alternative result.
+func (cb *CircuitBreaker) ExecuteWithFallback(ctx context.Context, fn func() (interface{}, error), fallback FallbackFunc) (interface{}, error) {
+	result, err := cb.Execute(ctx, fn)
+
+	// If execution succeeded, return the result
+	if err == nil {
+		return result, nil
+	}
+
+	// If circuit is open or execution failed, try fallback
+	if fallback != nil {
+		cb.logger.Info("Executing fallback for circuit breaker", map[string]interface{}{
+			"name":          cb.name,
+			"original_error": err.Error(),
+		})
+
+		fallbackResult, fallbackErr := fallback(err)
+
+		// Record fallback execution metric
+		if cb.metrics != nil {
+			labels := map[string]string{
+				"name":    cb.name,
+				"state":   cb.getState().String(),
+				"status":  "fallback",
+			}
+			if fallbackErr == nil {
+				cb.metrics.IncrementCounterWithLabels("circuit_breaker_fallback_success_total", 1, labels)
+			} else {
+				cb.metrics.IncrementCounterWithLabels("circuit_breaker_fallback_failure_total", 1, labels)
+			}
+		}
+
+		return fallbackResult, fallbackErr
+	}
+
+	// No fallback provided, return original error
+	return nil, err
+}
+
+// ExecuteWithDefaultValue executes a function with circuit breaker protection and returns a default value on failure.
+// This is a convenience method for simple fallback scenarios where you just want a default value.
+func (cb *CircuitBreaker) ExecuteWithDefaultValue(ctx context.Context, fn func() (interface{}, error), defaultValue interface{}) (interface{}, error) {
+	return cb.ExecuteWithFallback(ctx, fn, func(err error) (interface{}, error) {
+		cb.logger.Debug("Using default value for circuit breaker", map[string]interface{}{
+			"name":          cb.name,
+			"default_value": defaultValue,
+		})
+		return defaultValue, nil
+	})
+}
+
 // CircuitBreakerManager manages multiple circuit breakers
 type CircuitBreakerManager struct {
 	breakers map[string]*CircuitBreaker
@@ -475,6 +531,18 @@ func (m *CircuitBreakerManager) GetCircuitBreaker(name string) *CircuitBreaker {
 func (m *CircuitBreakerManager) Execute(ctx context.Context, name string, fn func() (interface{}, error)) (interface{}, error) {
 	breaker := m.GetCircuitBreaker(name)
 	return breaker.Execute(ctx, fn)
+}
+
+// ExecuteWithFallback executes a function using the named circuit breaker with a fallback mechanism
+func (m *CircuitBreakerManager) ExecuteWithFallback(ctx context.Context, name string, fn func() (interface{}, error), fallback FallbackFunc) (interface{}, error) {
+	breaker := m.GetCircuitBreaker(name)
+	return breaker.ExecuteWithFallback(ctx, fn, fallback)
+}
+
+// ExecuteWithDefaultValue executes a function using the named circuit breaker with a default value fallback
+func (m *CircuitBreakerManager) ExecuteWithDefaultValue(ctx context.Context, name string, fn func() (interface{}, error), defaultValue interface{}) (interface{}, error) {
+	breaker := m.GetCircuitBreaker(name)
+	return breaker.ExecuteWithDefaultValue(ctx, fn, defaultValue)
 }
 
 // GetAllMetrics returns metrics for all circuit breakers

@@ -734,3 +734,251 @@ func TestCircuitBreaker_Timeout_RecordsMetrics(t *testing.T) {
 	assert.True(t, exists)
 	assert.Equal(t, float64(CircuitBreakerClosed), gaugeValue)
 }
+
+// TestCircuitBreaker_ExecuteWithFallback tests the fallback mechanism
+func TestCircuitBreaker_ExecuteWithFallback(t *testing.T) {
+	tests := []struct {
+		name           string
+		setup          func(cb *CircuitBreaker)
+		fn             func() (interface{}, error)
+		fallback       FallbackFunc
+		wantResult     interface{}
+		wantErr        error
+		checkFallback  bool
+	}{
+		{
+			name: "successful execution, fallback not called",
+			fn: func() (interface{}, error) {
+				return "success", nil
+			},
+			fallback: func(err error) (interface{}, error) {
+				return "fallback", nil
+			},
+			wantResult:    "success",
+			wantErr:       nil,
+			checkFallback: false,
+		},
+		{
+			name: "failed execution, fallback returns default value",
+			fn: func() (interface{}, error) {
+				return nil, errors.New("primary failure")
+			},
+			fallback: func(err error) (interface{}, error) {
+				return "fallback-value", nil
+			},
+			wantResult:    "fallback-value",
+			wantErr:       nil,
+			checkFallback: true,
+		},
+		{
+			name: "circuit open, fallback executes",
+			setup: func(cb *CircuitBreaker) {
+				// Trip the circuit
+				for i := 0; i < 5; i++ {
+					_, _ = cb.Execute(context.Background(), func() (interface{}, error) {
+						return nil, errors.New("failure")
+					})
+				}
+			},
+			fn: func() (interface{}, error) {
+				return "should not execute", nil
+			},
+			fallback: func(err error) (interface{}, error) {
+				return "fallback-when-open", nil
+			},
+			wantResult:    "fallback-when-open",
+			wantErr:       nil,
+			checkFallback: true,
+		},
+		{
+			name: "fallback also fails",
+			fn: func() (interface{}, error) {
+				return nil, errors.New("primary failure")
+			},
+			fallback: func(err error) (interface{}, error) {
+				return nil, errors.New("fallback failure")
+			},
+			wantResult:    nil,
+			wantErr:       errors.New("fallback failure"),
+			checkFallback: true,
+		},
+		{
+			name: "nil fallback returns original error",
+			fn: func() (interface{}, error) {
+				return nil, errors.New("primary failure")
+			},
+			fallback:      nil,
+			wantResult:    nil,
+			wantErr:       errors.New("circuit breaker execution failed: primary failure"),
+			checkFallback: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logger := newMockLogger()
+			metrics := newMockMetricsClient()
+
+			config := CircuitBreakerConfig{
+				FailureThreshold: 5,
+			}
+
+			cb := NewCircuitBreaker("test-fallback", config, logger, metrics)
+
+			if tt.setup != nil {
+				tt.setup(cb)
+			}
+
+			result, err := cb.ExecuteWithFallback(context.Background(), tt.fn, tt.fallback)
+
+			if tt.wantErr != nil {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr.Error())
+			} else {
+				require.NoError(t, err)
+			}
+
+			assert.Equal(t, tt.wantResult, result)
+
+			// Check if fallback metrics were recorded
+			if tt.checkFallback && metrics != nil {
+				if tt.wantErr == nil {
+					assert.Greater(t, metrics.counters["circuit_breaker_fallback_success_total"], 0.0)
+				} else {
+					assert.Greater(t, metrics.counters["circuit_breaker_fallback_failure_total"], 0.0)
+				}
+			}
+		})
+	}
+}
+
+// TestCircuitBreaker_ExecuteWithDefaultValue tests the default value fallback
+func TestCircuitBreaker_ExecuteWithDefaultValue(t *testing.T) {
+	logger := newMockLogger()
+	metrics := newMockMetricsClient()
+
+	cb := NewCircuitBreaker("test-default", CircuitBreakerConfig{}, logger, metrics)
+
+	// Test successful execution
+	result, err := cb.ExecuteWithDefaultValue(context.Background(), func() (interface{}, error) {
+		return "primary-result", nil
+	}, "default-value")
+
+	require.NoError(t, err)
+	assert.Equal(t, "primary-result", result)
+
+	// Test failed execution with default value
+	result, err = cb.ExecuteWithDefaultValue(context.Background(), func() (interface{}, error) {
+		return nil, errors.New("failure")
+	}, "default-value")
+
+	require.NoError(t, err)
+	assert.Equal(t, "default-value", result)
+
+	// Verify fallback success metric
+	assert.Greater(t, metrics.counters["circuit_breaker_fallback_success_total"], 0.0)
+}
+
+// TestCircuitBreakerManager_Fallback tests fallback methods on the manager
+func TestCircuitBreakerManager_Fallback(t *testing.T) {
+	logger := newMockLogger()
+	metrics := newMockMetricsClient()
+
+	manager := NewCircuitBreakerManager(logger, metrics, nil)
+
+	// Test ExecuteWithFallback
+	result, err := manager.ExecuteWithFallback(context.Background(), "service1",
+		func() (interface{}, error) {
+			return nil, errors.New("service failure")
+		},
+		func(err error) (interface{}, error) {
+			return "fallback-result", nil
+		},
+	)
+
+	require.NoError(t, err)
+	assert.Equal(t, "fallback-result", result)
+
+	// Test ExecuteWithDefaultValue
+	result, err = manager.ExecuteWithDefaultValue(context.Background(), "service2",
+		func() (interface{}, error) {
+			return nil, errors.New("service failure")
+		},
+		"default-result",
+	)
+
+	require.NoError(t, err)
+	assert.Equal(t, "default-result", result)
+}
+
+// TestCircuitBreaker_FallbackWithCircuitOpen tests fallback when circuit is open
+func TestCircuitBreaker_FallbackWithCircuitOpen(t *testing.T) {
+	logger := newMockLogger()
+	metrics := newMockMetricsClient()
+
+	config := CircuitBreakerConfig{
+		FailureThreshold: 3,
+		ResetTimeout:     100 * time.Millisecond,
+	}
+
+	cb := NewCircuitBreaker("test-fallback-open", config, logger, metrics)
+
+	// Trip the circuit
+	for i := 0; i < 3; i++ {
+		_, _ = cb.Execute(context.Background(), func() (interface{}, error) {
+			return nil, errors.New("failure")
+		})
+	}
+
+	assert.Equal(t, CircuitBreakerOpen, cb.getState())
+
+	// Execute with fallback while circuit is open
+	result, err := cb.ExecuteWithFallback(context.Background(),
+		func() (interface{}, error) {
+			return "should-not-execute", nil
+		},
+		func(err error) (interface{}, error) {
+			// Verify we got the circuit open error
+			assert.Contains(t, err.Error(), "circuit breaker is open")
+			return "fallback-result", nil
+		},
+	)
+
+	require.NoError(t, err)
+	assert.Equal(t, "fallback-result", result)
+
+	// Verify fallback metrics
+	assert.Greater(t, metrics.counters["circuit_breaker_fallback_success_total"], 0.0)
+}
+
+// TestCircuitBreaker_FallbackMetrics tests metric recording for fallback operations
+func TestCircuitBreaker_FallbackMetrics(t *testing.T) {
+	logger := newMockLogger()
+	metrics := newMockMetricsClient()
+
+	cb := NewCircuitBreaker("test-fallback-metrics", CircuitBreakerConfig{}, logger, metrics)
+
+	// Test successful fallback
+	_, _ = cb.ExecuteWithFallback(context.Background(),
+		func() (interface{}, error) {
+			return nil, errors.New("primary failure")
+		},
+		func(err error) (interface{}, error) {
+			return "fallback", nil
+		},
+	)
+
+	assert.Equal(t, 1.0, metrics.counters["circuit_breaker_fallback_success_total"])
+
+	// Test failed fallback
+	_, _ = cb.ExecuteWithFallback(context.Background(),
+		func() (interface{}, error) {
+			return nil, errors.New("primary failure")
+		},
+		func(err error) (interface{}, error) {
+			return nil, errors.New("fallback failure")
+		},
+	)
+
+	assert.Equal(t, 1.0, metrics.counters["circuit_breaker_fallback_failure_total"])
+}
