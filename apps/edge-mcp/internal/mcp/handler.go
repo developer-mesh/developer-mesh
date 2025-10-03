@@ -134,8 +134,9 @@ func (h *Handler) HandleConnection(conn *websocket.Conn, r *http.Request) {
 	h.sessions[sessionID] = session
 	h.sessionsMu.Unlock()
 
-	// Create connection context - properly cancelled on cleanup
+	// Create connection context with session tracking
 	ctx, cancel := context.WithCancel(context.Background())
+	ctx = observability.WithSessionID(ctx, sessionID)
 	defer cancel() // Ensure context is cancelled
 
 	defer func() {
@@ -165,11 +166,24 @@ func (h *Handler) HandleConnection(conn *websocket.Conn, r *http.Request) {
 		if err := wsjson.Read(ctx, conn, &msg); err != nil {
 			if websocket.CloseStatus(err) != websocket.StatusNormalClosure {
 				h.logger.Error("WebSocket error", map[string]interface{}{
-					"error": err.Error(),
+					"error":      err.Error(),
+					"session_id": sessionID,
 				})
 			}
 			break
 		}
+
+		// Generate unique request ID for this message
+		requestID := observability.GenerateRequestID()
+		msgCtx := observability.WithRequestID(ctx, requestID)
+
+		// Add tenant ID to context if available
+		if session.TenantID != "" {
+			msgCtx = observability.WithTenantID(msgCtx, session.TenantID)
+		}
+
+		// Create request-scoped logger with context fields
+		reqLogger := observability.LoggerFromContext(msgCtx, h.logger)
 
 		// Update activity
 		h.sessionsMu.Lock()
@@ -201,8 +215,8 @@ func (h *Handler) HandleConnection(conn *websocket.Conn, r *http.Request) {
 		}
 
 		if response != nil {
-			if err := wsjson.Write(ctx, conn, response); err != nil {
-				h.logger.Error("Failed to write response", map[string]interface{}{
+			if err := wsjson.Write(msgCtx, conn, response); err != nil {
+				reqLogger.Error("Failed to write response", map[string]interface{}{
 					"error": err.Error(),
 				})
 				break
@@ -878,21 +892,34 @@ func (h *Handler) handleToolCall(sessionID string, msg *MCPMessage) (*MCPMessage
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel() // Ensure cancel is always called to prevent context leak
 
+	// Generate request ID for this tool execution and add to context
+	requestID := observability.GenerateRequestID()
+	ctx = observability.WithRequestID(ctx, requestID)
+
+	// Add session tracking to context
+	ctx = observability.WithSessionID(ctx, sessionID)
+	ctx = observability.WithOperation(ctx, fmt.Sprintf("tools/call:%s", params.Name))
+
 	// Add passthrough auth to context if available
 	h.sessionsMu.RLock()
 	session := h.sessions[sessionID]
 	var passthroughAuth *models.PassthroughAuthBundle
-	if session != nil && session.PassthroughAuth != nil {
-		passthroughAuth = session.PassthroughAuth
-		// Add passthrough auth to context for remote tool execution
-		ctx = context.WithValue(ctx, core.PassthroughAuthKey, passthroughAuth)
-		h.logger.Debug("Added passthrough auth to tool execution context", map[string]interface{}{
-			"tool":             params.Name,
-			"has_passthrough":  true,
-			"credential_count": len(passthroughAuth.Credentials),
-		})
+	var tenantID string
+	if session != nil {
+		tenantID = session.TenantID
+		if tenantID != "" {
+			ctx = observability.WithTenantID(ctx, tenantID)
+		}
+		if session.PassthroughAuth != nil {
+			passthroughAuth = session.PassthroughAuth
+			// Add passthrough auth to context for remote tool execution
+			ctx = context.WithValue(ctx, core.PassthroughAuthKey, passthroughAuth)
+		}
 	}
 	h.sessionsMu.RUnlock()
+
+	// Create request-scoped logger with context fields
+	reqLogger := observability.LoggerFromContext(ctx, h.logger)
 
 	// Track the request for potential cancellation (only if ID is present)
 	if msg.ID != nil {
@@ -900,8 +927,32 @@ func (h *Handler) handleToolCall(sessionID string, msg *MCPMessage) (*MCPMessage
 		defer h.untrackRequest(msg.ID)
 	}
 
+	// Tool execution audit log - START
+	startTime := time.Now()
+	reqLogger.Info("Tool execution started", map[string]interface{}{
+		"tool":       params.Name,
+		"session_id": sessionID,
+	})
+
 	// Execute tool with cancellable context (includes passthrough auth if available)
 	result, err := h.tools.Execute(ctx, params.Name, params.Arguments)
+
+	// Tool execution audit log - END
+	duration := time.Since(startTime)
+	if err != nil {
+		reqLogger.Error("Tool execution failed", map[string]interface{}{
+			"tool":        params.Name,
+			"session_id":  sessionID,
+			"duration_ms": duration.Milliseconds(),
+			"error":       err.Error(),
+		})
+	} else {
+		reqLogger.Info("Tool execution completed", map[string]interface{}{
+			"tool":        params.Name,
+			"session_id":  sessionID,
+			"duration_ms": duration.Milliseconds(),
+		})
+	}
 	if err != nil {
 		// Check for special error types and enhance with AI-friendly information
 		var toolNotFoundErr *tools.ToolNotFoundError

@@ -14,9 +14,10 @@ import (
 
 // StandardLogger is a logger implementation that uses the standard log package
 type StandardLogger struct {
-	prefix string
-	level  LogLevel
-	logger *log.Logger
+	prefix        string
+	level         LogLevel
+	logger        *log.Logger
+	contextFields map[string]interface{} // Stored fields for all logs from this logger
 }
 
 // NewStandardLogger creates a new StandardLogger with the given prefix
@@ -33,9 +34,10 @@ func NewStandardLogger(prefix string) Logger {
 // WithLevel returns a new logger with the specified log level
 func (l *StandardLogger) WithLevel(level LogLevel) *StandardLogger {
 	return &StandardLogger{
-		prefix: l.prefix,
-		level:  level,
-		logger: l.logger,
+		prefix:        l.prefix,
+		level:         level,
+		logger:        l.logger,
+		contextFields: l.contextFields,
 	}
 }
 
@@ -73,22 +75,37 @@ func (l *StandardLogger) Fatal(msg string, fields map[string]interface{}) {
 
 // WithPrefix returns a new logger with the given prefix
 func (l *StandardLogger) WithPrefix(prefix string) Logger {
+	// Preserve context fields when creating logger with new prefix
 	return &StandardLogger{
-		prefix: prefix,
-		level:  l.level,
-		logger: l.logger,
+		prefix:        prefix,
+		level:         l.level,
+		logger:        l.logger,
+		contextFields: l.contextFields,
 	}
 }
 
 // With returns a new logger with the given fields
 func (l *StandardLogger) With(fields map[string]interface{}) Logger {
-	// Create a new logger with the same prefix and level
-	// In a more complete implementation, we would store the fields
-	// and merge them with any fields passed to the logging methods
+	// Merge existing context fields with new fields
+	mergedFields := make(map[string]interface{})
+
+	// Copy existing context fields
+	if l.contextFields != nil {
+		for k, v := range l.contextFields {
+			mergedFields[k] = v
+		}
+	}
+
+	// Add new fields (overwrites existing if duplicate keys)
+	for k, v := range fields {
+		mergedFields[k] = v
+	}
+
 	return &StandardLogger{
-		prefix: l.prefix,
-		level:  l.level,
-		logger: l.logger,
+		prefix:        l.prefix,
+		level:         l.level,
+		logger:        l.logger,
+		contextFields: mergedFields,
 	}
 }
 
@@ -129,8 +146,25 @@ func (l *StandardLogger) log(level LogLevel, msg string, fields map[string]inter
 	// Create log prefix with timestamp, level, and logger prefix
 	logPrefix := fmt.Sprintf("%s [%s] [%s]", timestamp, level, l.prefix)
 
+	// Merge context fields with method fields
+	mergedFields := make(map[string]interface{})
+
+	// Add context fields first
+	if l.contextFields != nil {
+		for k, v := range l.contextFields {
+			mergedFields[k] = v
+		}
+	}
+
+	// Add method fields (overwrites context fields if duplicate keys)
+	if fields != nil {
+		for k, v := range fields {
+			mergedFields[k] = v
+		}
+	}
+
 	// Format the fields
-	fieldsStr := l.formatFields(fields)
+	fieldsStr := l.formatFields(mergedFields)
 
 	// Log the message using the logger instance (writes to stderr)
 	l.logger.Printf("%s %s%s", logPrefix, msg, fieldsStr)

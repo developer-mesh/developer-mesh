@@ -30,6 +30,7 @@ func TestNoGoroutineLeaks(t *testing.T) {
 		nil,
 		auth.NewEdgeAuthenticator(""),
 		observability.NewNoopLogger(),
+		nil,
 	)
 
 	// Simulate multiple connections
@@ -100,7 +101,8 @@ func TestNoGoroutineLeaks(t *testing.T) {
 
 func TestPingLoopCleanup(t *testing.T) {
 	handler := &Handler{
-		logger: observability.NewNoopLogger(),
+		logger:  observability.NewNoopLogger(),
+		metrics: nil,
 	}
 
 	// Create mock connection
@@ -150,6 +152,7 @@ func TestConcurrentConnectionHandling(t *testing.T) {
 		nil,
 		auth.NewEdgeAuthenticator(""),
 		observability.NewNoopLogger(),
+		nil,
 	)
 
 	// Track goroutines before
@@ -229,6 +232,7 @@ func TestShutdownCleansUpGoroutines(t *testing.T) {
 		nil,
 		auth.NewEdgeAuthenticator(""),
 		observability.NewNoopLogger(),
+		nil,
 	)
 
 	// Track initial goroutines
@@ -302,6 +306,7 @@ func TestRefreshManagerGoroutineCleanup(t *testing.T) {
 		nil, // No core client for this test
 		auth.NewEdgeAuthenticator(""),
 		observability.NewNoopLogger(),
+		nil,
 	)
 
 	// Track goroutines
