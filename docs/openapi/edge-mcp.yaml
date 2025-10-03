@@ -1,0 +1,1247 @@
+openapi: 3.1.0
+info:
+  title: Edge MCP API
+  version: 1.0.0
+  description: |
+    Edge MCP (Model Context Protocol) server provides a WebSocket-based interface for AI agents
+    to interact with DevMesh tools and services. It implements the MCP 2025-06-18 specification
+    with extensions for tool execution, batching, streaming, and resource management.
+
+    ## Architecture
+
+    Edge MCP can be deployed in two modes:
+    - **Standalone Mode**: Self-contained with built-in tools (agent, workflow, task, context management)
+    - **Connected Mode**: Integrated with Core Platform for dynamic tool discovery and remote execution
+
+    ## Authentication
+
+    All requests require authentication using one of:
+    - **Bearer Token**: `Authorization: Bearer <api-key>`
+    - **API Key Header**: `X-API-Key: <api-key>`
+
+    ## WebSocket Protocol
+
+    The primary interface is a WebSocket endpoint (`/ws`) that implements JSON-RPC 2.0 with MCP protocol extensions.
+    All communication follows the request-response pattern with optional streaming for large payloads.
+
+    ## Features
+
+    - **Tool Execution**: Execute single tools or batch multiple tools in parallel
+    - **Response Streaming**: Automatic streaming for large responses (>32KB)
+    - **Rate Limiting**: Per-tenant and per-tool rate limits with quotas
+    - **Error Handling**: Semantic error taxonomy with recovery suggestions
+    - **Health Monitoring**: Kubernetes-compatible health probes
+    - **Metrics**: Prometheus metrics at `/metrics`
+    - **Distributed Tracing**: OpenTelemetry support (OTLP/Jaeger/Zipkin)
+
+  contact:
+    name: Developer Mesh Team
+    url: https://github.com/developer-mesh/developer-mesh
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8082
+    description: Local development server
+  - url: ws://localhost:8082
+    description: WebSocket endpoint (local)
+
+security:
+  - bearerAuth: []
+  - apiKeyAuth: []
+
+tags:
+  - name: websocket
+    description: WebSocket MCP protocol endpoints
+  - name: health
+    description: Health check and monitoring endpoints
+  - name: metrics
+    description: Prometheus metrics endpoints
+
+paths:
+  /ws:
+    get:
+      summary: MCP WebSocket Connection
+      description: |
+        Establishes a WebSocket connection for MCP protocol communication. The connection implements
+        JSON-RPC 2.0 with MCP-specific methods for tool execution, resource access, and context management.
+
+        ## Connection Flow
+
+        1. Client sends WebSocket upgrade request with authentication
+        2. Server accepts connection and creates session
+        3. Client sends `initialize` message
+        4. Server responds with capabilities
+        5. Client sends `initialized` confirmation
+        6. Connection is ready for tool calls and other operations
+
+        ## Supported Methods
+
+        - `initialize` - Initialize MCP session with protocol version negotiation
+        - `initialized` - Confirm initialization complete
+        - `ping` - Keepalive ping (server sends every 30s)
+        - `shutdown` - Graceful connection shutdown
+        - `tools/list` - List all available tools
+        - `tools/call` - Execute a single tool
+        - `tools/batch` - Execute multiple tools (parallel or sequential)
+        - `resources/list` - List available resources
+        - `resources/read` - Read a specific resource
+        - `prompts/list` - List available prompts
+        - `logging/setLevel` - Adjust log level
+        - `$/cancelRequest` - Cancel an in-flight request
+        - `context.update` - Update session context
+        - `context.get` - Get current context
+        - `context.append` - Append to context
+      tags:
+        - websocket
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: Upgrade
+          in: header
+          required: true
+          schema:
+            type: string
+            enum: [websocket]
+          description: Must be "websocket" for WebSocket upgrade
+        - name: Connection
+          in: header
+          required: true
+          schema:
+            type: string
+            enum: [Upgrade]
+          description: Must be "Upgrade" for WebSocket upgrade
+        - name: Sec-WebSocket-Key
+          in: header
+          required: true
+          schema:
+            type: string
+          description: WebSocket security key
+        - name: Sec-WebSocket-Version
+          in: header
+          required: true
+          schema:
+            type: string
+            enum: ["13"]
+          description: WebSocket protocol version
+        - name: Sec-WebSocket-Protocol
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Optional WebSocket sub-protocol
+        - name: X-GitHub-Token
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Passthrough GitHub personal access token
+        - name: X-Harness-API-Key
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Passthrough Harness API key
+        - name: X-Harness-Account-ID
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Passthrough Harness account ID
+      responses:
+        '101':
+          description: |
+            Switching Protocols - WebSocket connection established.
+
+            After connection, client must send `initialize` message to start MCP session.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InitializeResponse'
+              examples:
+                initializeResponse:
+                  $ref: '#/components/examples/InitializeResponse'
+        '401':
+          description: Unauthorized - Invalid or missing API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                unauthorized:
+                  value:
+                    error: "unauthorized"
+        '400':
+          description: Bad Request - Invalid WebSocket upgrade request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /health:
+    get:
+      summary: Legacy Health Check
+      description: |
+        Simple health check endpoint for backward compatibility. Returns basic health status,
+        version, and Core Platform connection status.
+
+        For production use, prefer `/health/live` and `/health/ready` endpoints which provide
+        more detailed component-level health information.
+      tags:
+        - health
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy]
+                  version:
+                    type: string
+                    example: "1.0.0"
+                  core_connected:
+                    type: boolean
+                    description: Whether Core Platform connection is active
+              examples:
+                healthy:
+                  value:
+                    status: healthy
+                    version: "1.0.0"
+                    core_connected: true
+
+  /health/live:
+    get:
+      summary: Liveness Probe
+      description: |
+        Kubernetes liveness probe endpoint. Returns 200 if the service is alive and running.
+        This is a simple check that verifies the HTTP server is responsive.
+
+        Use this for Kubernetes liveness probes to detect if the container needs to be restarted.
+      tags:
+        - health
+      security: []
+      responses:
+        '200':
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LivenessResponse'
+              examples:
+                alive:
+                  value:
+                    status: healthy
+                    timestamp: "2024-01-15T10:30:00Z"
+                    alive: true
+
+  /health/ready:
+    get:
+      summary: Readiness Probe
+      description: |
+        Kubernetes readiness probe endpoint. Returns 200 if the service is ready to accept traffic,
+        503 if critical components are unhealthy.
+
+        Checks the health of:
+        - Tool Registry (critical)
+        - Cache (critical)
+        - MCP Handler (critical)
+        - Core Platform (optional - degrades if unavailable)
+
+        The service is considered:
+        - **Healthy**: All critical components operational
+        - **Degraded**: Optional components unavailable (still returns 200)
+        - **Unhealthy**: Critical components failing (returns 503)
+      tags:
+        - health
+      security: []
+      responses:
+        '200':
+          description: Service is ready to accept traffic (healthy or degraded)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              examples:
+                healthy:
+                  $ref: '#/components/examples/HealthyResponse'
+                degraded:
+                  $ref: '#/components/examples/DegradedResponse'
+        '503':
+          description: Service is not ready (unhealthy)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              examples:
+                unhealthy:
+                  $ref: '#/components/examples/UnhealthyResponse'
+
+  /health/startup:
+    get:
+      summary: Startup Probe
+      description: |
+        Kubernetes startup probe endpoint. Returns 200 once the service has completed startup,
+        503 while startup is in progress or if startup failed.
+
+        Startup checks:
+        - Tool loading (verify tools are loaded)
+        - Authentication setup (verify authenticator is configured)
+        - Cache initialization (verify cache is operational)
+        - Configuration validation (verify config is loaded and valid)
+
+        Once startup is complete, this endpoint always returns 200 to prevent
+        repeated startup checks from affecting performance.
+      tags:
+        - health
+      security: []
+      responses:
+        '200':
+          description: Startup complete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartupResponse'
+              examples:
+                complete:
+                  $ref: '#/components/examples/StartupComplete'
+        '503':
+          description: Startup in progress or failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartupResponse'
+              examples:
+                inProgress:
+                  $ref: '#/components/examples/StartupInProgress'
+                failed:
+                  $ref: '#/components/examples/StartupFailed'
+
+  /metrics:
+    get:
+      summary: Prometheus Metrics
+      description: |
+        Prometheus-compatible metrics endpoint. Exposes operational metrics for monitoring,
+        alerting, and capacity planning.
+
+        ## Metric Categories
+
+        ### Tool Execution
+        - `edge_mcp_tool_execution_duration_seconds` - Tool execution duration histogram
+        - `edge_mcp_tool_execution_errors_total` - Tool execution errors counter
+        - `edge_mcp_tool_requests_total` - Tool requests counter by tool name
+
+        ### Connections
+        - `edge_mcp_active_connections` - Current active WebSocket connections
+        - `edge_mcp_total_connections` - Total connections counter
+        - `edge_mcp_connection_duration_seconds` - Connection duration histogram
+
+        ### Cache
+        - `edge_mcp_cache_operations_total` - Cache operations counter (get/set/delete)
+        - `edge_mcp_cache_hit_ratio` - Cache hit ratio gauge (0-1)
+
+        ### Errors
+        - `edge_mcp_errors_total` - Errors counter by type and code
+
+        ### Rate Limiting
+        - `edge_mcp_rate_limit_exceeded_total` - Rate limit violations counter
+
+        ### Sessions
+        - `edge_mcp_active_sessions` - Active MCP sessions gauge
+        - `edge_mcp_session_duration_seconds` - Session duration histogram
+      tags:
+        - metrics
+      security: []
+      responses:
+        '200':
+          description: Prometheus metrics in text format
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: |
+                # HELP edge_mcp_tool_execution_duration_seconds Tool execution duration in seconds
+                # TYPE edge_mcp_tool_execution_duration_seconds histogram
+                edge_mcp_tool_execution_duration_seconds_bucket{tool="github_get_repository",le="0.01"} 42
+                edge_mcp_tool_execution_duration_seconds_bucket{tool="github_get_repository",le="0.05"} 87
+                edge_mcp_tool_execution_duration_seconds_sum{tool="github_get_repository"} 12.34
+                edge_mcp_tool_execution_duration_seconds_count{tool="github_get_repository"} 100
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        Bearer token authentication using API key.
+
+        Example: `Authorization: Bearer dev-admin-key-1234567890`
+
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: |
+        API key authentication via custom header.
+
+        Example: `X-API-Key: dev-admin-key-1234567890`
+
+  schemas:
+    # MCP Protocol Schemas
+    MCPMessage:
+      type: object
+      required:
+        - jsonrpc
+      properties:
+        jsonrpc:
+          type: string
+          enum: ["2.0"]
+          description: JSON-RPC protocol version
+        id:
+          oneOf:
+            - type: string
+            - type: number
+            - type: "null"
+          description: Request/response identifier (null for notifications)
+        method:
+          type: string
+          description: MCP method name (required for requests)
+        params:
+          type: object
+          description: Method parameters (optional)
+        result:
+          description: Method result (present in successful responses)
+        error:
+          $ref: '#/components/schemas/MCPError'
+          description: Error details (present in error responses)
+
+    MCPError:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          description: Error code following JSON-RPC 2.0 specification
+          enum:
+            - -32700  # Parse error
+            - -32600  # Invalid request
+            - -32601  # Method not found
+            - -32602  # Invalid params
+            - -32603  # Internal error
+            - -32000  # Server error (custom)
+            - 400     # Bad request
+            - 401     # Unauthorized
+            - 403     # Forbidden
+            - 404     # Not found
+            - 429     # Rate limit exceeded
+            - 500     # Internal server error
+            - 503     # Service unavailable
+        message:
+          type: string
+          description: Human-readable error message
+        data:
+          description: Additional error details
+          oneOf:
+            - $ref: '#/components/schemas/ErrorDetails'
+            - type: object
+
+    ErrorDetails:
+      type: object
+      properties:
+        error_code:
+          type: string
+          description: Semantic error code (e.g., TOOL_NOT_FOUND, RATE_LIMIT_EXCEEDED)
+        recovery_steps:
+          type: array
+          items:
+            type: object
+            properties:
+              step:
+                type: integer
+              action:
+                type: string
+              tool:
+                type: string
+          description: Ordered steps for error recovery
+        next_steps:
+          type: array
+          items:
+            type: string
+          description: Alternative tools or actions to try
+        retry_strategy:
+          type: object
+          properties:
+            retryable:
+              type: boolean
+            max_retries:
+              type: integer
+            initial_delay_ms:
+              type: integer
+            max_delay_ms:
+              type: integer
+            backoff_multiplier:
+              type: number
+        rate_limit_info:
+          type: object
+          properties:
+            retry_after:
+              type: integer
+              description: Seconds until rate limit resets
+            reset_at:
+              type: string
+              format: date-time
+            limit:
+              type: integer
+            remaining:
+              type: integer
+        affected_resource:
+          type: object
+          properties:
+            type:
+              type: string
+            id:
+              type: string
+            name:
+              type: string
+
+    InitializeRequest:
+      type: object
+      required:
+        - jsonrpc
+        - id
+        - method
+        - params
+      properties:
+        jsonrpc:
+          type: string
+          enum: ["2.0"]
+        id:
+          oneOf:
+            - type: string
+            - type: number
+        method:
+          type: string
+          enum: [initialize]
+        params:
+          type: object
+          required:
+            - protocolVersion
+            - clientInfo
+          properties:
+            protocolVersion:
+              type: string
+              enum: ["2024-11-05", "2025-03-26", "2025-06-18"]
+              description: MCP protocol version
+            clientInfo:
+              type: object
+              required:
+                - name
+                - version
+              properties:
+                name:
+                  type: string
+                  example: "claude-code"
+                version:
+                  type: string
+                  example: "1.0.0"
+            capabilities:
+              type: object
+              description: Optional client capabilities
+
+    InitializeResponse:
+      type: object
+      required:
+        - jsonrpc
+        - id
+        - result
+      properties:
+        jsonrpc:
+          type: string
+          enum: ["2.0"]
+        id:
+          oneOf:
+            - type: string
+            - type: number
+        result:
+          type: object
+          required:
+            - protocolVersion
+            - serverInfo
+            - capabilities
+          properties:
+            protocolVersion:
+              type: string
+              example: "2025-06-18"
+            serverInfo:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: "edge-mcp"
+                version:
+                  type: string
+                  example: "1.0.0"
+            capabilities:
+              type: object
+              properties:
+                tools:
+                  type: object
+                  properties:
+                    listChanged:
+                      type: boolean
+                      example: true
+                resources:
+                  type: object
+                  properties:
+                    subscribe:
+                      type: boolean
+                      example: true
+                    listChanged:
+                      type: boolean
+                      example: true
+                prompts:
+                  type: object
+                  properties:
+                    listChanged:
+                      type: boolean
+                      example: false
+                logging:
+                  type: object
+                experimental:
+                  type: object
+                  properties:
+                    streaming:
+                      type: boolean
+                      example: true
+                    batching:
+                      type: boolean
+                      example: true
+
+    ToolDefinition:
+      type: object
+      required:
+        - name
+        - description
+        - inputSchema
+      properties:
+        name:
+          type: string
+          example: "github_get_repository"
+        description:
+          type: string
+          example: "Get information about a GitHub repository"
+        category:
+          type: string
+          example: "repository"
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["read", "github"]
+        inputSchema:
+          type: object
+          description: JSON Schema for tool input parameters
+        examples:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              description:
+                type: string
+              input:
+                type: object
+              expectedOutput:
+                type: object
+              expectedError:
+                type: object
+        prerequisites:
+          type: array
+          items:
+            type: string
+          description: Tools that must be executed first
+        commonlyUsedWith:
+          type: array
+          items:
+            type: string
+
+    ToolsListResponse:
+      type: object
+      required:
+        - jsonrpc
+        - id
+        - result
+      properties:
+        jsonrpc:
+          type: string
+          enum: ["2.0"]
+        id:
+          oneOf:
+            - type: string
+            - type: number
+        result:
+          type: object
+          required:
+            - tools
+          properties:
+            tools:
+              type: array
+              items:
+                $ref: '#/components/schemas/ToolDefinition'
+            _meta:
+              type: object
+              properties:
+                total:
+                  type: integer
+                  example: 150
+
+    ToolCallRequest:
+      type: object
+      required:
+        - jsonrpc
+        - id
+        - method
+        - params
+      properties:
+        jsonrpc:
+          type: string
+          enum: ["2.0"]
+        id:
+          oneOf:
+            - type: string
+            - type: number
+        method:
+          type: string
+          enum: ["tools/call"]
+        params:
+          type: object
+          required:
+            - name
+          properties:
+            name:
+              type: string
+              example: "github_get_repository"
+            arguments:
+              type: object
+              example:
+                owner: "developer-mesh"
+                repo: "developer-mesh"
+
+    ToolCallResponse:
+      type: object
+      required:
+        - jsonrpc
+        - id
+        - result
+      properties:
+        jsonrpc:
+          type: string
+          enum: ["2.0"]
+        id:
+          oneOf:
+            - type: string
+            - type: number
+        result:
+          type: object
+          required:
+            - content
+          properties:
+            content:
+              type: array
+              items:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    enum: [text, image, resource]
+                  text:
+                    type: string
+                  data:
+                    type: string
+                  mimeType:
+                    type: string
+            isError:
+              type: boolean
+
+    BatchToolCallRequest:
+      type: object
+      required:
+        - jsonrpc
+        - id
+        - method
+        - params
+      properties:
+        jsonrpc:
+          type: string
+          enum: ["2.0"]
+        id:
+          oneOf:
+            - type: string
+            - type: number
+        method:
+          type: string
+          enum: ["tools/batch"]
+        params:
+          type: object
+          required:
+            - tools
+          properties:
+            tools:
+              type: array
+              items:
+                type: object
+                required:
+                  - id
+                  - name
+                properties:
+                  id:
+                    type: string
+                    description: Unique identifier for this tool call
+                  name:
+                    type: string
+                  arguments:
+                    type: object
+            parallel:
+              type: boolean
+              default: true
+              description: Execute tools in parallel (true) or sequentially (false)
+
+    BatchToolCallResponse:
+      type: object
+      required:
+        - jsonrpc
+        - id
+        - result
+      properties:
+        jsonrpc:
+          type: string
+          enum: ["2.0"]
+        id:
+          oneOf:
+            - type: string
+            - type: number
+        result:
+          type: object
+          required:
+            - results
+            - duration_ms
+            - parallel
+          properties:
+            results:
+              type: array
+              items:
+                type: object
+                required:
+                  - id
+                  - status
+                properties:
+                  id:
+                    type: string
+                  index:
+                    type: integer
+                  status:
+                    type: string
+                    enum: [success, error]
+                  result:
+                    type: object
+                  error:
+                    $ref: '#/components/schemas/MCPError'
+                  duration_ms:
+                    type: number
+            duration_ms:
+              type: number
+            success_count:
+              type: integer
+            error_count:
+              type: integer
+            parallel:
+              type: boolean
+
+    # Health Check Schemas
+    LivenessResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+        - alive
+      properties:
+        status:
+          type: string
+          enum: [healthy]
+        timestamp:
+          type: string
+          format: date-time
+        alive:
+          type: boolean
+
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+        - version
+        - uptime_seconds
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        version:
+          type: string
+        uptime_seconds:
+          type: number
+        components:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ComponentHealth'
+
+    ComponentHealth:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        message:
+          type: string
+        details:
+          type: object
+
+    StartupResponse:
+      type: object
+      required:
+        - state
+        - timestamp
+      properties:
+        state:
+          type: string
+          enum: [not_started, in_progress, complete, failed]
+        timestamp:
+          type: string
+          format: date-time
+        startup_duration_seconds:
+          type: number
+        components:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ComponentHealth'
+        metrics:
+          type: object
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+
+  examples:
+    InitializeRequest:
+      value:
+        jsonrpc: "2.0"
+        id: 1
+        method: "initialize"
+        params:
+          protocolVersion: "2025-06-18"
+          clientInfo:
+            name: "claude-code"
+            version: "1.0.0"
+
+    InitializeResponse:
+      value:
+        jsonrpc: "2.0"
+        id: 1
+        result:
+          protocolVersion: "2025-06-18"
+          serverInfo:
+            name: "edge-mcp"
+            version: "1.0.0"
+          capabilities:
+            tools:
+              listChanged: true
+            resources:
+              subscribe: true
+              listChanged: true
+            prompts:
+              listChanged: false
+            logging: {}
+            experimental:
+              streaming: true
+              batching: true
+
+    ToolsListRequest:
+      value:
+        jsonrpc: "2.0"
+        id: 2
+        method: "tools/list"
+        params: {}
+
+    ToolsListResponse:
+      value:
+        jsonrpc: "2.0"
+        id: 2
+        result:
+          tools:
+            - name: "github_get_repository"
+              description: "Get information about a GitHub repository"
+              category: "repository"
+              tags: ["read", "github"]
+              inputSchema:
+                type: object
+                required: ["owner", "repo"]
+                properties:
+                  owner:
+                    type: string
+                    description: "Repository owner"
+                  repo:
+                    type: string
+                    description: "Repository name"
+              examples:
+                - name: "simple"
+                  description: "Get repository info"
+                  input:
+                    owner: "developer-mesh"
+                    repo: "developer-mesh"
+                  expectedOutput:
+                    name: "developer-mesh"
+                    full_name: "developer-mesh/developer-mesh"
+          _meta:
+            total: 150
+
+    ToolCallRequest:
+      value:
+        jsonrpc: "2.0"
+        id: 3
+        method: "tools/call"
+        params:
+          name: "github_get_repository"
+          arguments:
+            owner: "developer-mesh"
+            repo: "developer-mesh"
+
+    ToolCallResponse:
+      value:
+        jsonrpc: "2.0"
+        id: 3
+        result:
+          content:
+            - type: "text"
+              text: |
+                {
+                  "name": "developer-mesh",
+                  "full_name": "developer-mesh/developer-mesh",
+                  "description": "AI Agent Orchestration Platform",
+                  "stars": 42,
+                  "language": "Go"
+                }
+
+    BatchToolCallRequest:
+      value:
+        jsonrpc: "2.0"
+        id: 4
+        method: "tools/batch"
+        params:
+          parallel: true
+          tools:
+            - id: "repo-1"
+              name: "github_get_repository"
+              arguments:
+                owner: "developer-mesh"
+                repo: "developer-mesh"
+            - id: "repo-2"
+              name: "github_list_issues"
+              arguments:
+                owner: "developer-mesh"
+                repo: "developer-mesh"
+                state: "open"
+
+    BatchToolCallResponse:
+      value:
+        jsonrpc: "2.0"
+        id: 4
+        result:
+          results:
+            - id: "repo-1"
+              index: 0
+              status: "success"
+              result:
+                content:
+                  - type: "text"
+                    text: '{"name": "developer-mesh"}'
+              duration_ms: 245
+            - id: "repo-2"
+              index: 1
+              status: "success"
+              result:
+                content:
+                  - type: "text"
+                    text: '{"total_count": 5, "items": [...]}'
+              duration_ms: 312
+          duration_ms: 320
+          success_count: 2
+          error_count: 0
+          parallel: true
+
+    ToolNotFoundError:
+      value:
+        jsonrpc: "2.0"
+        id: 5
+        error:
+          code: 404
+          message: "Tool not found: invalid_tool_name"
+          data:
+            error_code: "TOOL_NOT_FOUND"
+            recovery_steps:
+              - step: 1
+                action: "List available tools"
+                tool: "tools/list"
+              - step: 2
+                action: "Search for similar tools"
+                tool: "tools/search"
+            next_steps:
+              - "Check tool name spelling"
+              - "Use tools/list to see available tools"
+            affected_resource:
+              type: "tool"
+              name: "invalid_tool_name"
+
+    RateLimitError:
+      value:
+        jsonrpc: "2.0"
+        id: 6
+        error:
+          code: 429
+          message: "Rate limit exceeded: tenant limit"
+          data:
+            error_code: "RATE_LIMIT_EXCEEDED"
+            rate_limit_info:
+              retry_after: 60
+              reset_at: "2024-01-15T10:31:00Z"
+              limit: 100
+              remaining: 0
+            retry_strategy:
+              retryable: true
+              max_retries: 3
+              initial_delay_ms: 60000
+              max_delay_ms: 300000
+              backoff_multiplier: 2.0
+            recovery_steps:
+              - step: 1
+                action: "Wait for rate limit reset"
+              - step: 2
+                action: "Retry request after retry_after seconds"
+
+    HealthyResponse:
+      value:
+        status: "healthy"
+        timestamp: "2024-01-15T10:30:00Z"
+        version: "1.0.0"
+        uptime_seconds: 3600.5
+        components:
+          tool_registry:
+            status: "healthy"
+            message: "Tool registry operational"
+            details:
+              tools_loaded: 150
+          cache:
+            status: "healthy"
+            message: "Cache operational"
+            details:
+              hit_rate: 0.85
+          mcp_handler:
+            status: "healthy"
+            message: "MCP handler operational"
+          core_platform:
+            status: "healthy"
+            message: "Core Platform connected"
+
+    DegradedResponse:
+      value:
+        status: "degraded"
+        timestamp: "2024-01-15T10:30:00Z"
+        version: "1.0.0"
+        uptime_seconds: 3600.5
+        components:
+          tool_registry:
+            status: "healthy"
+            message: "Tool registry operational"
+          cache:
+            status: "healthy"
+            message: "Cache operational"
+          mcp_handler:
+            status: "healthy"
+            message: "MCP handler operational"
+          core_platform:
+            status: "degraded"
+            message: "Core Platform unavailable, running in standalone mode"
+
+    UnhealthyResponse:
+      value:
+        status: "unhealthy"
+        timestamp: "2024-01-15T10:30:00Z"
+        version: "1.0.0"
+        uptime_seconds: 3600.5
+        components:
+          tool_registry:
+            status: "unhealthy"
+            message: "Tool registry not initialized"
+          cache:
+            status: "healthy"
+            message: "Cache operational"
+          mcp_handler:
+            status: "healthy"
+            message: "MCP handler operational"
+
+    StartupInProgress:
+      value:
+        state: "in_progress"
+        timestamp: "2024-01-15T10:30:00Z"
+        components:
+          tools:
+            status: "healthy"
+            message: "Tools loaded"
+          authentication:
+            status: "healthy"
+            message: "Authentication configured"
+          cache:
+            status: "degraded"
+            message: "Cache initializing"
+          configuration:
+            status: "healthy"
+            message: "Configuration loaded"
+
+    StartupComplete:
+      value:
+        state: "complete"
+        timestamp: "2024-01-15T10:30:05Z"
+        startup_duration_seconds: 5.2
+        metrics:
+          builtin_tools: 25
+          remote_tools: 125
+          total_tools: 150
+          core_connected: true
+          cache_ready: true
+          auth_configured: true
+
+    StartupFailed:
+      value:
+        state: "failed"
+        timestamp: "2024-01-15T10:30:05Z"
+        components:
+          tools:
+            status: "unhealthy"
+            message: "Failed to load tools"
+          authentication:
+            status: "unhealthy"
+            message: "Authentication not configured"
