@@ -65,6 +65,16 @@ func (c *MemoryCache) Get(ctx context.Context, key string, value interface{}) er
 			*v = data
 			return nil
 		}
+	case *map[string]string:
+		if data, ok := item.value.(map[string]string); ok {
+			*v = data
+			return nil
+		}
+	case *map[string]int:
+		if data, ok := item.value.(map[string]int); ok {
+			*v = data
+			return nil
+		}
 	case *string:
 		if data, ok := item.value.(string); ok {
 			*v = data
@@ -77,10 +87,30 @@ func (c *MemoryCache) Get(ctx context.Context, key string, value interface{}) er
 		}
 	}
 
-	// Fallback: direct assignment
+	// Fallback: direct assignment using reflection for maps
 	if ptr, ok := value.(*interface{}); ok {
 		*ptr = item.value
 		return nil
+	}
+
+	// Try to handle as map[string]string to map[string]interface{} conversion
+	if v, ok := value.(*map[string]interface{}); ok {
+		if data, ok := item.value.(map[string]string); ok {
+			result := make(map[string]interface{}, len(data))
+			for k, val := range data {
+				result[k] = val
+			}
+			*v = result
+			return nil
+		}
+		if data, ok := item.value.(map[string]int); ok {
+			result := make(map[string]interface{}, len(data))
+			for k, val := range data {
+				result[k] = val
+			}
+			*v = result
+			return nil
+		}
 	}
 
 	return fmt.Errorf("type mismatch for key: %s", key)
