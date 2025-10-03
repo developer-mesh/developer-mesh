@@ -1,0 +1,27 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: edge-mcp
+
+resources:
+- namespace.yaml
+- rbac.yaml
+- configmap.yaml
+- secret.yaml
+- deployment.yaml
+- service.yaml
+- hpa.yaml
+- pdb.yaml
+- servicemonitor.yaml
+- redis.yaml
+
+# Common labels applied to all resources
+commonLabels:
+  app.kubernetes.io/part-of: developer-mesh
+  app.kubernetes.io/managed-by: kustomize
+
+# Images to use (can be overridden in overlays)
+images:
+- name: edge-mcp
+  newName: edge-mcp
+  newTag: latest

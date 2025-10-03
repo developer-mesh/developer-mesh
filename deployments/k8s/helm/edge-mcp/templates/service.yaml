@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "edge-mcp.fullname" . }}
+  namespace: {{ include "edge-mcp.namespace" . }}
+  labels:
+    {{- include "edge-mcp.labels" . | nindent 4 }}
+  {{- with .Values.edgeMcp.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.edgeMcp.service.type }}
+  ports:
+  - name: http
+    port: {{ .Values.edgeMcp.service.port }}
+    targetPort: http
+    protocol: TCP
+  - name: metrics
+    port: {{ .Values.edgeMcp.service.metricsPort }}
+    targetPort: http
+    protocol: TCP
+  selector:
+    {{- include "edge-mcp.selectorLabels" . | nindent 4 }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "edge-mcp.fullname" . }}-headless
+  namespace: {{ include "edge-mcp.namespace" . }}
+  labels:
+    {{- include "edge-mcp.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+  - name: http
+    port: {{ .Values.edgeMcp.service.port }}
+    targetPort: http
+    protocol: TCP
+  selector:
+    {{- include "edge-mcp.selectorLabels" . | nindent 4 }}
+
+{{- if .Values.edgeMcp.externalService.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "edge-mcp.fullname" . }}-external
+  namespace: {{ include "edge-mcp.namespace" . }}
+  labels:
+    {{- include "edge-mcp.labels" . | nindent 4 }}
+  {{- with .Values.edgeMcp.externalService.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.edgeMcp.externalService.type }}
+  ports:
+  - name: http
+    port: {{ .Values.edgeMcp.externalService.port }}
+    targetPort: http
+    protocol: TCP
+  - name: https
+    port: {{ .Values.edgeMcp.externalService.httpsPort }}
+    targetPort: http
+    protocol: TCP
+  selector:
+    {{- include "edge-mcp.selectorLabels" . | nindent 4 }}
+{{- end }}

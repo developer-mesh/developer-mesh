@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "edge-mcp.fullname" . }}-config
+  namespace: {{ include "edge-mcp.namespace" . }}
+  labels:
+    {{- include "edge-mcp.labels" . | nindent 4 }}
+data:
+  {{- if .Values.edgeMcp.corePlatform.enabled }}
+  core-platform-url: {{ .Values.edgeMcp.corePlatform.url | quote }}
+  {{- end }}
+  redis-enabled: {{ .Values.edgeMcp.cache.redis.enabled | quote }}
+  {{- if .Values.edgeMcp.tracing.enabled }}
+  tracing-enabled: "true"
+  otlp-endpoint: {{ .Values.edgeMcp.tracing.otlpEndpoint | quote }}
+  {{- end }}

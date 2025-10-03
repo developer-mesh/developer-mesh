@@ -1,0 +1,254 @@
+# Default values for edge-mcp Helm chart
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Global settings
+global:
+  # Image pull secrets for private registries
+  imagePullSecrets: []
+
+# Edge MCP configuration
+edgeMcp:
+  # Image settings
+  image:
+    repository: edge-mcp
+    pullPolicy: IfNotPresent
+    tag: "latest"
+
+  # Replica count (overridden by HPA)
+  replicaCount: 3
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 8082
+    metricsPort: 9090
+    annotations: {}
+
+  # External service (LoadBalancer)
+  # Enable if you need external access to Edge MCP
+  externalService:
+    enabled: false
+    type: LoadBalancer
+    port: 80
+    httpsPort: 443
+    annotations: {}
+      # AWS:
+      # service.beta.kubernetes.io/aws-load-balancer-type: nlb
+      # GCP:
+      # cloud.google.com/load-balancer-type: "External"
+
+  # Authentication
+  auth:
+    # API key for client authentication
+    # Generate with: openssl rand -base64 32
+    apiKey: "REPLACE_WITH_ACTUAL_API_KEY"
+
+  # Core Platform connection (optional)
+  corePlatform:
+    enabled: false
+    url: ""
+    apiKey: ""
+
+  # Cache configuration
+  cache:
+    # Enable Redis for L2 distributed cache
+    redis:
+      enabled: true
+
+    # L1 memory cache settings
+    l1:
+      maxItems: 10000
+      ttl: "5m"
+
+    # L2 Redis cache settings
+    l2:
+      ttl: "1h"
+
+    # Compression settings
+    compression:
+      enabled: true
+      threshold: 1024
+
+  # Rate limiting
+  rateLimit:
+    globalRps: 1000
+    globalBurst: 2000
+    tenantRps: 100
+    tenantBurst: 200
+    toolRps: 50
+    toolBurst: 100
+    enableQuotas: true
+
+  # Distributed tracing (optional)
+  tracing:
+    enabled: false
+    otlpEndpoint: "jaeger-collector:4317"
+
+  # Resource limits
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+
+  # Health check configuration
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+  startupProbe:
+    enabled: true
+    initialDelaySeconds: 0
+    periodSeconds: 2
+    timeoutSeconds: 3
+    failureThreshold: 30
+
+  # Security context
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+    readOnlyRootFilesystem: true
+
+  # Pod annotations
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8082"
+    prometheus.io/path: "/metrics"
+
+  # Node selector
+  nodeSelector: {}
+
+  # Tolerations
+  tolerations: []
+
+  # Affinity rules
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+            - key: app
+              operator: In
+              values:
+              - edge-mcp
+          topologyKey: kubernetes.io/hostname
+
+# Horizontal Pod Autoscaler
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+  # Custom metrics (requires Prometheus adapter)
+  customMetrics: []
+    # - type: Pods
+    #   pods:
+    #     metric:
+    #       name: edge_mcp_active_connections
+    #     target:
+    #       type: AverageValue
+    #       averageValue: "100"
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+      - type: Pods
+        value: 1
+        periodSeconds: 60
+      selectPolicy: Min
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+      - type: Pods
+        value: 2
+        periodSeconds: 60
+      selectPolicy: Max
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+  # OR use maxUnavailable:
+  # maxUnavailable: 1
+
+# Service Monitor for Prometheus Operator
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  scrapeTimeout: 10s
+  # Prometheus instance label
+  prometheusLabel: kube-prometheus
+
+# Redis configuration (optional L2 cache)
+redis:
+  enabled: true
+  # Use standalone Redis
+  architecture: standalone
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: true
+      size: 10Gi
+      # storageClass: fast-ssd
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    livenessProbe:
+      enabled: true
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
+    readinessProbe:
+      enabled: true
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 3
+    configuration: |-
+      appendonly yes
+      maxmemory 256mb
+      maxmemory-policy allkeys-lru
+
+# Service Account
+serviceAccount:
+  create: true
+  name: edge-mcp
+  annotations: {}
+
+# RBAC
+rbac:
+  create: true
+
+# Namespace
+namespace:
+  create: true
+  name: edge-mcp

@@ -1,0 +1,162 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "edge-mcp.fullname" . }}
+  namespace: {{ include "edge-mcp.namespace" . }}
+  labels:
+    {{- include "edge-mcp.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.edgeMcp.replicaCount }}
+  {{- end }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      {{- include "edge-mcp.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- with .Values.edgeMcp.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "edge-mcp.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "edge-mcp.serviceAccountName" . }}
+      securityContext:
+        runAsNonRoot: {{ .Values.edgeMcp.securityContext.runAsNonRoot }}
+        runAsUser: {{ .Values.edgeMcp.securityContext.runAsUser }}
+        fsGroup: {{ .Values.edgeMcp.securityContext.fsGroup }}
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: edge-mcp
+        image: "{{ .Values.edgeMcp.image.repository }}:{{ .Values.edgeMcp.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.edgeMcp.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: 8082
+          protocol: TCP
+        env:
+        - name: EDGE_MCP_PORT
+          value: "8082"
+        - name: EDGE_MCP_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "edge-mcp.fullname" . }}-secrets
+              key: api-key
+        {{- if .Values.edgeMcp.corePlatform.enabled }}
+        - name: DEV_MESH_URL
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "edge-mcp.fullname" . }}-config
+              key: core-platform-url
+        - name: DEV_MESH_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "edge-mcp.fullname" . }}-secrets
+              key: core-platform-api-key
+        {{- end }}
+        - name: EDGE_MCP_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: EDGE_MCP_REDIS_ENABLED
+          value: {{ .Values.edgeMcp.cache.redis.enabled | quote }}
+        {{- if .Values.edgeMcp.cache.redis.enabled }}
+        - name: EDGE_MCP_REDIS_URL
+          value: "redis://{{ .Release.Name }}-redis-master:6379/0"
+        {{- end }}
+        - name: EDGE_MCP_REDIS_FALLBACK_MODE
+          value: "true"
+        - name: EDGE_MCP_L1_MAX_ITEMS
+          value: {{ .Values.edgeMcp.cache.l1.maxItems | quote }}
+        - name: EDGE_MCP_L1_TTL
+          value: {{ .Values.edgeMcp.cache.l1.ttl | quote }}
+        - name: EDGE_MCP_L2_TTL
+          value: {{ .Values.edgeMcp.cache.l2.ttl | quote }}
+        - name: EDGE_MCP_ENABLE_COMPRESSION
+          value: {{ .Values.edgeMcp.cache.compression.enabled | quote }}
+        - name: EDGE_MCP_GLOBAL_RPS
+          value: {{ .Values.edgeMcp.rateLimit.globalRps | quote }}
+        - name: EDGE_MCP_TENANT_RPS
+          value: {{ .Values.edgeMcp.rateLimit.tenantRps | quote }}
+        - name: EDGE_MCP_TOOL_RPS
+          value: {{ .Values.edgeMcp.rateLimit.toolRps | quote }}
+        {{- if .Values.edgeMcp.tracing.enabled }}
+        - name: TRACING_ENABLED
+          value: "true"
+        - name: OTLP_ENDPOINT
+          value: {{ .Values.edgeMcp.tracing.otlpEndpoint | quote }}
+        {{- end }}
+        - name: ENVIRONMENT
+          value: "production"
+        resources:
+          {{- toYaml .Values.edgeMcp.resources | nindent 10 }}
+        {{- if .Values.edgeMcp.livenessProbe.enabled }}
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: http
+          initialDelaySeconds: {{ .Values.edgeMcp.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.edgeMcp.livenessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.edgeMcp.livenessProbe.timeoutSeconds }}
+          failureThreshold: {{ .Values.edgeMcp.livenessProbe.failureThreshold }}
+        {{- end }}
+        {{- if .Values.edgeMcp.readinessProbe.enabled }}
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: http
+          initialDelaySeconds: {{ .Values.edgeMcp.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.edgeMcp.readinessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.edgeMcp.readinessProbe.timeoutSeconds }}
+          failureThreshold: {{ .Values.edgeMcp.readinessProbe.failureThreshold }}
+        {{- end }}
+        {{- if .Values.edgeMcp.startupProbe.enabled }}
+        startupProbe:
+          httpGet:
+            path: /health/startup
+            port: http
+          initialDelaySeconds: {{ .Values.edgeMcp.startupProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.edgeMcp.startupProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.edgeMcp.startupProbe.timeoutSeconds }}
+          failureThreshold: {{ .Values.edgeMcp.startupProbe.failureThreshold }}
+        {{- end }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: {{ .Values.edgeMcp.securityContext.readOnlyRootFilesystem }}
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: cache
+          mountPath: /var/cache
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: cache
+        emptyDir: {}
+      {{- with .Values.edgeMcp.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.edgeMcp.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.edgeMcp.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      terminationGracePeriodSeconds: 30

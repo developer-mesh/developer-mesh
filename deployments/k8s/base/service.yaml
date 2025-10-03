@@ -1,0 +1,81 @@
+---
+# ClusterIP Service for internal communication
+apiVersion: v1
+kind: Service
+metadata:
+  name: edge-mcp
+  namespace: edge-mcp
+  labels:
+    app: edge-mcp
+    app.kubernetes.io/name: edge-mcp
+    app.kubernetes.io/component: mcp-server
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 8082
+    targetPort: http
+    protocol: TCP
+  - name: metrics
+    port: 9090
+    targetPort: http
+    protocol: TCP
+  selector:
+    app: edge-mcp
+
+---
+# Headless Service for pod-to-pod communication
+apiVersion: v1
+kind: Service
+metadata:
+  name: edge-mcp-headless
+  namespace: edge-mcp
+  labels:
+    app: edge-mcp
+    app.kubernetes.io/name: edge-mcp
+    app.kubernetes.io/component: mcp-server
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+  - name: http
+    port: 8082
+    targetPort: http
+    protocol: TCP
+  selector:
+    app: edge-mcp
+
+---
+# LoadBalancer Service for external access (optional)
+# Uncomment if you need external access to Edge MCP
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: edge-mcp-external
+#   namespace: edge-mcp
+#   labels:
+#     app: edge-mcp
+#     app.kubernetes.io/name: edge-mcp
+#     app.kubernetes.io/component: mcp-server
+#   annotations:
+#     # Cloud provider specific annotations
+#     # AWS:
+#     # service.beta.kubernetes.io/aws-load-balancer-type: nlb
+#     # service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+#     # GCP:
+#     # cloud.google.com/load-balancer-type: "External"
+#     # Azure:
+#     # service.beta.kubernetes.io/azure-load-balancer-internal: "false"
+# spec:
+#   type: LoadBalancer
+#   ports:
+#   - name: http
+#     port: 80
+#     targetPort: http
+#     protocol: TCP
+#   - name: https
+#     port: 443
+#     targetPort: http
+#     protocol: TCP
+#   selector:
+#     app: edge-mcp

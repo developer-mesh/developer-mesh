@@ -1,0 +1,162 @@
+# Production environment values for Edge MCP
+# Usage: helm install edge-mcp ./helm/edge-mcp -f examples/production.yaml
+
+edgeMcp:
+  image:
+    repository: your-registry.example.com/edge-mcp
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+
+  replicaCount: 5
+
+  auth:
+    # IMPORTANT: Replace with actual key before deploying
+    # Never commit actual secrets to source control
+    apiKey: "${EDGE_MCP_API_KEY}"
+
+  # Core Platform enabled for production
+  corePlatform:
+    enabled: true
+    url: "https://core-platform.production.example.com"
+    apiKey: "${CORE_PLATFORM_API_KEY}"
+
+  # Redis enabled for distributed cache
+  cache:
+    redis:
+      enabled: true
+    l1:
+      maxItems: 10000
+      ttl: "5m"
+    l2:
+      ttl: "1h"
+    compression:
+      enabled: true
+      threshold: 1024
+
+  # Production rate limits
+  rateLimit:
+    globalRps: 1000
+    globalBurst: 2000
+    tenantRps: 100
+    tenantBurst: 200
+    toolRps: 50
+    toolBurst: 100
+    enableQuotas: true
+
+  # Distributed tracing enabled
+  tracing:
+    enabled: true
+    otlpEndpoint: "jaeger-collector.monitoring:4317"
+
+  # Production resource limits
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 1Gi
+
+  # External service for production (LoadBalancer)
+  externalService:
+    enabled: true
+    type: LoadBalancer
+    port: 80
+    httpsPort: 443
+    annotations:
+      # AWS NLB
+      service.beta.kubernetes.io/aws-load-balancer-type: nlb
+      service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+      # SSL certificate
+      service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "arn:aws:acm:region:account-id:certificate/cert-id"
+      service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443"
+
+  # Production pod annotations
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8082"
+    prometheus.io/path: "/metrics"
+
+  # Node affinity for production workloads
+  nodeSelector:
+    workload: production
+
+  # Tolerations for dedicated nodes
+  tolerations:
+  - key: "workload"
+    operator: "Equal"
+    value: "production"
+    effect: "NoSchedule"
+
+# Aggressive autoscaling for production
+autoscaling:
+  enabled: true
+  minReplicas: 5
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 60
+  targetMemoryUtilizationPercentage: 70
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+      - type: Pods
+        value: 1
+        periodSeconds: 60
+      selectPolicy: Min
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 4
+        periodSeconds: 30
+      selectPolicy: Max
+
+# Strict PDB for production
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 3
+
+# Production Redis configuration
+redis:
+  enabled: true
+  master:
+    persistence:
+      enabled: true
+      size: 50Gi
+      storageClass: fast-ssd
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 2000m
+        memory: 2Gi
+    configuration: |-
+      appendonly yes
+      maxmemory 1gb
+      maxmemory-policy allkeys-lru
+      tcp-backlog 511
+      timeout 300
+      tcp-keepalive 300
+
+# ServiceMonitor enabled
+serviceMonitor:
+  enabled: true
+  interval: 15s
+  scrapeTimeout: 10s
+  prometheusLabel: kube-prometheus
+
+# Image pull secrets for private registry
+global:
+  imagePullSecrets:
+  - name: registry-credentials
+
+namespace:
+  create: true
+  name: edge-mcp

@@ -1,0 +1,68 @@
+# Development environment values for Edge MCP
+# Usage: helm install edge-mcp ./helm/edge-mcp -f examples/development.yaml
+
+edgeMcp:
+  image:
+    repository: edge-mcp
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  # Lower replica count for development
+  replicaCount: 1
+
+  auth:
+    # Generate with: openssl rand -base64 32
+    apiKey: "dev-api-key-change-me"
+
+  # Core Platform disabled for local development
+  corePlatform:
+    enabled: false
+
+  # Redis disabled (memory-only cache)
+  cache:
+    redis:
+      enabled: false
+    l1:
+      maxItems: 5000
+      ttl: "2m"
+
+  # Relaxed rate limits for development
+  rateLimit:
+    globalRps: 10000
+    tenantRps: 1000
+    toolRps: 500
+    enableQuotas: false
+
+  # Tracing disabled for development
+  tracing:
+    enabled: false
+
+  # Lower resource requests for development
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+# Autoscaling disabled for development
+autoscaling:
+  enabled: false
+
+# PDB disabled for development
+podDisruptionBudget:
+  enabled: false
+
+# Redis disabled for development
+redis:
+  enabled: false
+
+# ServiceMonitor disabled (Prometheus not required)
+serviceMonitor:
+  enabled: false
+
+# Namespace
+namespace:
+  create: true
+  name: edge-mcp-dev

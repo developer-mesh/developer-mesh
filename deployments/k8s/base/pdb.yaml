@@ -1,0 +1,15 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: edge-mcp
+  namespace: edge-mcp
+  labels:
+    app: edge-mcp
+    app.kubernetes.io/name: edge-mcp
+    app.kubernetes.io/component: mcp-server
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: edge-mcp
+  unhealthyPodEvictionPolicy: AlwaysAllow

@@ -1,0 +1,193 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edge-mcp
+  namespace: edge-mcp
+  labels:
+    app: edge-mcp
+    app.kubernetes.io/name: edge-mcp
+    app.kubernetes.io/component: mcp-server
+    app.kubernetes.io/part-of: developer-mesh
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: edge-mcp
+  template:
+    metadata:
+      labels:
+        app: edge-mcp
+        app.kubernetes.io/name: edge-mcp
+        app.kubernetes.io/component: mcp-server
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8082"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: edge-mcp
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: edge-mcp
+        image: edge-mcp:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8082
+          protocol: TCP
+        env:
+        # Server configuration
+        - name: EDGE_MCP_PORT
+          value: "8082"
+
+        # Authentication
+        - name: EDGE_MCP_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: edge-mcp-secrets
+              key: api-key
+
+        # Core Platform connection (optional)
+        - name: DEV_MESH_URL
+          valueFrom:
+            configMapKeyRef:
+              name: edge-mcp-config
+              key: core-platform-url
+              optional: true
+        - name: DEV_MESH_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: edge-mcp-secrets
+              key: core-platform-api-key
+              optional: true
+        - name: EDGE_MCP_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+
+        # Redis cache configuration
+        - name: EDGE_MCP_REDIS_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: edge-mcp-config
+              key: redis-enabled
+        - name: EDGE_MCP_REDIS_URL
+          value: "redis://redis:6379/0"
+        - name: EDGE_MCP_REDIS_FALLBACK_MODE
+          value: "true"
+        - name: EDGE_MCP_REDIS_CONNECT_TIMEOUT
+          value: "5s"
+
+        # Cache configuration
+        - name: EDGE_MCP_L1_MAX_ITEMS
+          value: "10000"
+        - name: EDGE_MCP_L1_TTL
+          value: "5m"
+        - name: EDGE_MCP_L2_TTL
+          value: "1h"
+        - name: EDGE_MCP_ENABLE_COMPRESSION
+          value: "true"
+
+        # Rate limiting
+        - name: EDGE_MCP_GLOBAL_RPS
+          value: "1000"
+        - name: EDGE_MCP_TENANT_RPS
+          value: "100"
+        - name: EDGE_MCP_TOOL_RPS
+          value: "50"
+        - name: EDGE_MCP_ENABLE_QUOTAS
+          value: "true"
+
+        # Tracing (optional)
+        - name: TRACING_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: edge-mcp-config
+              key: tracing-enabled
+              optional: true
+        - name: OTLP_ENDPOINT
+          valueFrom:
+            configMapKeyRef:
+              name: edge-mcp-config
+              key: otlp-endpoint
+              optional: true
+        - name: ENVIRONMENT
+          value: "production"
+
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+
+        startupProbe:
+          httpGet:
+            path: /health/startup
+            port: http
+          initialDelaySeconds: 0
+          periodSeconds: 2
+          timeoutSeconds: 3
+          failureThreshold: 30
+
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: cache
+          mountPath: /var/cache
+
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: cache
+        emptyDir: {}
+
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - edge-mcp
+              topologyKey: kubernetes.io/hostname
+
+      terminationGracePeriodSeconds: 30

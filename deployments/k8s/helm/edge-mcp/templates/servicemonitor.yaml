@@ -1,0 +1,31 @@
+{{- if .Values.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "edge-mcp.fullname" . }}
+  namespace: {{ include "edge-mcp.namespace" . }}
+  labels:
+    {{- include "edge-mcp.labels" . | nindent 4 }}
+    {{- if .Values.serviceMonitor.prometheusLabel }}
+    prometheus: {{ .Values.serviceMonitor.prometheusLabel }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "edge-mcp.selectorLabels" . | nindent 6 }}
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: {{ .Values.serviceMonitor.interval }}
+    scrapeTimeout: {{ .Values.serviceMonitor.scrapeTimeout }}
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_name]
+      targetLabel: pod
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: node
+    - sourceLabels: [__meta_kubernetes_namespace]
+      targetLabel: namespace
+  namespaceSelector:
+    matchNames:
+    - {{ include "edge-mcp.namespace" . }}
+{{- end }}

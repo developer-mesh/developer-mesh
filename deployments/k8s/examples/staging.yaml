@@ -1,0 +1,82 @@
+# Staging environment values for Edge MCP
+# Usage: helm install edge-mcp ./helm/edge-mcp -f examples/staging.yaml
+
+edgeMcp:
+  image:
+    repository: edge-mcp
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+
+  replicaCount: 2
+
+  auth:
+    # IMPORTANT: Replace with actual key before deploying
+    apiKey: "${EDGE_MCP_API_KEY}"
+
+  # Core Platform enabled for staging
+  corePlatform:
+    enabled: true
+    url: "https://core-platform.staging.example.com"
+    apiKey: "${CORE_PLATFORM_API_KEY}"
+
+  # Redis enabled for distributed cache
+  cache:
+    redis:
+      enabled: true
+
+  # Production-like rate limits
+  rateLimit:
+    globalRps: 500
+    tenantRps: 50
+    toolRps: 25
+    enableQuotas: true
+
+  # Tracing enabled for staging
+  tracing:
+    enabled: true
+    otlpEndpoint: "jaeger-collector.monitoring:4317"
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+
+# Autoscaling enabled
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 75
+  targetMemoryUtilizationPercentage: 80
+
+# PDB enabled
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Redis enabled
+redis:
+  enabled: true
+  master:
+    persistence:
+      enabled: true
+      size: 10Gi
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+# ServiceMonitor enabled
+serviceMonitor:
+  enabled: true
+  prometheusLabel: kube-prometheus
+
+namespace:
+  create: true
+  name: edge-mcp-staging

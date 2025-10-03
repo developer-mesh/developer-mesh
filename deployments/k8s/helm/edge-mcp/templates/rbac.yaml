@@ -1,0 +1,30 @@
+{{- if .Values.rbac.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "edge-mcp.fullname" . }}
+  namespace: {{ include "edge-mcp.namespace" . }}
+  labels:
+    {{- include "edge-mcp.labels" . | nindent 4 }}
+rules:
+- apiGroups: [""]
+  resources: ["configmaps", "secrets"]
+  verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "edge-mcp.fullname" . }}
+  namespace: {{ include "edge-mcp.namespace" . }}
+  labels:
+    {{- include "edge-mcp.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "edge-mcp.fullname" . }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "edge-mcp.serviceAccountName" . }}
+  namespace: {{ include "edge-mcp.namespace" . }}
+{{- end }}
