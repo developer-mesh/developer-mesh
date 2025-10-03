@@ -1532,16 +1532,85 @@ cache:
   - Clean resource cleanup prevents leaks
   - Observable shutdown process with detailed logging
 
-#### Story 4.3.2: Implement Configuration Hot Reload
+#### Story 4.3.2: Implement Configuration Hot Reload ✅ COMPLETED
 **Size:** 3 points
 ```
-- [ ] Watch configuration files
-- [ ] Reload without restart
-- [ ] Validate configuration changes
-- [ ] Apply changes atomically
-- [ ] Log configuration changes
+- [x] Watch configuration files
+- [x] Reload without restart
+- [x] Validate configuration changes
+- [x] Apply changes atomically
+- [x] Log configuration changes
 ```
-**Files:** `apps/edge-mcp/internal/config/watcher.go` (new)
+**Files:**
+- `apps/edge-mcp/internal/config/watcher.go` (created)
+- `apps/edge-mcp/internal/config/watcher_test.go` (created)
+
+**✅ COMPLETION NOTES:**
+- Implementation completed: Comprehensive configuration hot reload system for Edge MCP
+- Key features implemented:
+  - **File Watching**: Uses fsnotify to monitor YAML config files for changes
+  - **Thread-Safe Reloading**: Atomic config updates with RWMutex protection
+  - **Validation**: Comprehensive validation before applying changes (port ranges, URLs, rate limits)
+  - **Change Detection**: Detailed change tracking with before/after values
+  - **Callback System**: Extensible callback mechanism for components to react to config changes
+  - **Debouncing**: 500ms debounce for rapid file changes (configurable)
+  - **Environment Variable Override**: Environment variables take precedence over file values
+  - **Comprehensive Logging**: All config changes logged with field-level details (API keys redacted)
+- ConfigWatcher features:
+  - **GetConfig()**: Thread-safe config retrieval
+  - **RegisterCallback()**: Register handlers for config changes
+  - **Start()**: Begin watching for file changes
+  - **Stop()**: Gracefully stop watching
+  - **ForceReload()**: Manual reload trigger (useful for testing)
+  - **SetDebounceTime()**: Configure debounce duration
+- File monitoring capabilities:
+  - Handles editor behaviors (delete/recreate on save)
+  - Automatic re-registration of watch after file recreation
+  - Proper cleanup on shutdown
+  - Context-based cancellation
+- Validation features:
+  - Port range validation (1-65535)
+  - URL format validation
+  - Rate limit sanity checks (non-negative values)
+  - Extensible validation framework
+- Change detection:
+  - Detects changes in all config sections (Server, Auth, Core, RateLimit)
+  - Redacts sensitive values (API keys) in logs
+  - Returns detailed ConfigChange structs with field names and values
+- Test coverage: Created comprehensive test suite with 14 test functions
+  - TestNewConfigWatcher - Initialization with valid/invalid configs
+  - TestConfigWatcher_GetConfig - Thread-safe config retrieval
+  - TestConfigWatcher_RegisterCallback - Callback registration and invocation
+  - TestConfigWatcher_ValidateConfig - Validation for all config fields (7 scenarios)
+  - TestConfigWatcher_DetectChanges - Change detection verification
+  - TestConfigWatcher_DetectChanges_NoChanges - No-op reload handling
+  - TestConfigWatcher_ReloadConfig - Full reload workflow with callbacks
+  - TestConfigWatcher_ReloadConfig_ValidationError - Invalid config rejection
+  - TestConfigWatcher_CallbackError - Callback error handling
+  - TestConfigWatcher_WatchLoop - Automatic file change detection
+  - TestConfigWatcher_Stop - Graceful shutdown
+  - TestConfigWatcher_ConcurrentAccess - Thread safety verification
+  - TestLoadConfigFile - YAML file loading
+  - TestMergeWithEnv - Environment variable override
+  - TestConfigWatcher_SetDebounceTime - Debounce configuration
+  - All 14 tests passing (2 skipped in short mode for file watching)
+- Integration documentation:
+  - Added comprehensive usage example in ConfigWatcher godoc
+  - Shows callback registration pattern
+  - Demonstrates thread-safe config access
+  - Example includes component update logic
+- Benefits for operations:
+  - Configuration changes without service restart
+  - Immediate application of non-disruptive changes (rate limits, auth keys)
+  - Validation prevents invalid configurations from being applied
+  - Complete audit trail of all configuration changes
+  - Thread-safe design prevents race conditions
+  - Graceful handling of file system edge cases
+- Limitations and design decisions:
+  - Some changes (like server port) require restart - this is by design
+  - Components must register callbacks to react to config changes
+  - YAML file format required (environment variables still work)
+  - Debouncing prevents config thrashing from rapid changes
 
 #### Story 4.3.3: Add Deployment Readiness
 **Size:** 3 points
