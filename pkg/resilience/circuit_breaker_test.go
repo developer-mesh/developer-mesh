@@ -69,6 +69,12 @@ func (m *mockMetricsClient) IncrementCounterWithLabels(name string, value float6
 func (m *mockMetricsClient) RecordDuration(name string, duration time.Duration) {}
 func (m *mockMetricsClient) Close() error                                       { return nil }
 
+func (m *mockMetricsClient) getGauge(name string) float64 {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.gauges[name]
+}
+
 // mockLogger implements a mock logger for testing
 type mockLogger struct {
 	logs []logEntry
