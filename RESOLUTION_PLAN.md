@@ -129,16 +129,31 @@ The `go.work` file references modules that don't exist:
    }
    ```
 
-3. **Use Tagged Switch**
-   ```go
-   // In pkg/utils/retry_test.go:190
-   switch attempts {
-   case 1:
-       // handle case
-   case 2:
-       // handle case
-   }
-   ```
+3. **✅ Use Tagged Switch** - **COMPLETED**
+
+   **What was done:**
+   - Converted if-else chain to tagged switch in `pkg/utils/retry_test.go` at lines 190-195
+   - Changed from:
+     ```go
+     if attempts == 1 {
+         return ErrTimeout
+     } else if attempts == 2 {
+         return ErrRateLimit
+     }
+     ```
+   - To:
+     ```go
+     switch attempts {
+     case 1:
+         return ErrTimeout
+     case 2:
+         return ErrRateLimit
+     }
+     ```
+
+   **Verification:**
+   - Test passes: `go test -v -run TestRetryWithBackoff_WithRetryableErrors ./pkg/utils` ✅
+   - Improves code readability and satisfies linter requirements
 
 4. **Remove Unused Function**
    - Delete `ptrTime` function in `credential_repository_test.go:235`

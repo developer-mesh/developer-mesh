@@ -187,9 +187,10 @@ func TestRetryWithBackoff_WithRetryableErrors(t *testing.T) {
 	attempts := 0
 	fn := func() error {
 		attempts++
-		if attempts == 1 {
+		switch attempts {
+		case 1:
 			return ErrTimeout
-		} else if attempts == 2 {
+		case 2:
 			return ErrRateLimit
 		}
 		return nil // Success on third attempt
