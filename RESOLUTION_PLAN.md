@@ -82,9 +82,24 @@ The `go.work` file references modules that don't exist:
    handler := mcp.NewHandler(registry, cache, nil, nil, logger, nil, nil)
    ```
 
-2. **Fix Test Assertion Errors**
-   - Update error message assertions in `handler_test.go`
-   - Ensure error messages match the actual error templates
+2. **✅ Fix Test Assertion Errors** - **COMPLETED**
+
+   **What was done:**
+   - Updated error message assertions in `apps/edge-mcp/internal/mcp/handler_test.go`
+   - Fixed `TestHandleInitialize_InvalidProtocolVersion` (line 106):
+     - Changed assertion from `"unsupported protocol version: 1999-01-01"` to `"unsupported version '1999-01-01'"`
+     - This matches the actual error message from the validator
+   - Fixed `TestHandleInitialize_MalformedJSON` (line 130):
+     - Changed assertion from `"invalid initialize params"` to `"Invalid initialize params"` (capital I)
+     - This matches the actual error message from NewProtocolError
+
+   **Verification:**
+   - Both tests now pass: `go test -v -run "TestHandleInitialize_InvalidProtocolVersion|TestHandleInitialize_MalformedJSON" ./internal/mcp` ✅
+
+   **Root Cause:**
+   - The tests were checking for error message strings that didn't match the actual error template output
+   - The validator returns structured error messages with prefixes like `"[UNSUPPORTED_PROTOCOL_VERSION] Validation failed:"`
+   - NewProtocolError uses proper capitalization ("Invalid" not "invalid")
 
 ### Phase 2: Linting Fixes (High Priority)
 
@@ -233,7 +248,7 @@ To identify the exact 323 problems:
 Track resolution progress:
 - [x] **Compilation errors fixed (3 locations in health_test.go)** ✅
 - [ ] Linting issues resolved (10 issues)
-- [ ] Test failures fixed (2 tests)
+- [x] **Test failures fixed (2 tests in handler_test.go)** ✅
 - [ ] Module structure cleaned up
 - [ ] IDE problems investigated and documented
 - [x] **Snyk exclusions configured (.snyk file created)** ✅

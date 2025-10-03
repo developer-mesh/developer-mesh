@@ -103,7 +103,7 @@ func TestHandleInitialize_InvalidProtocolVersion(t *testing.T) {
 
 	// Verify error
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "unsupported protocol version: 1999-01-01")
+	assert.Contains(t, err.Error(), "unsupported version '1999-01-01'")
 	assert.Contains(t, err.Error(), "supported:")
 }
 
@@ -127,7 +127,7 @@ func TestHandleInitialize_MalformedJSON(t *testing.T) {
 
 	// Verify error
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid initialize params")
+	assert.Contains(t, err.Error(), "Invalid initialize params")
 }
 
 func TestHandleInitialize_SessionUpdate(t *testing.T) {
