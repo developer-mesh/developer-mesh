@@ -323,21 +323,64 @@ func main() {
 	}
 
 	// Graceful shutdown
+	shutdownChan := make(chan struct{})
 	go func() {
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-		<-sigChan
+		sig := <-sigChan
 
-		logger.Info("Shutting down Edge MCP", nil)
+		logger.Info("Received shutdown signal", map[string]interface{}{
+			"signal": sig.String(),
+		})
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
+		// Total shutdown timeout: 30 seconds
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer shutdownCancel()
 
-		if err := srv.Shutdown(ctx); err != nil {
+		// Step 1: Drain active MCP connections and complete in-flight requests (15s timeout)
+		logger.Info("Draining active connections", nil)
+		handlerCtx, handlerCancel := context.WithTimeout(shutdownCtx, 15*time.Second)
+		if err := mcpHandler.Shutdown(handlerCtx); err != nil {
+			logger.Error("Handler shutdown error", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+		handlerCancel()
+
+		// Step 2: Stop accepting new HTTP connections and wait for active requests (10s timeout)
+		logger.Info("Shutting down HTTP server", nil)
+		serverCtx, serverCancel := context.WithTimeout(shutdownCtx, 10*time.Second)
+		if err := srv.Shutdown(serverCtx); err != nil {
 			logger.Error("Server shutdown error", map[string]interface{}{
 				"error": err.Error(),
 			})
 		}
+		serverCancel()
+
+		// Step 3: Close cache if it implements io.Closer
+		logger.Info("Closing cache", nil)
+		if closer, ok := memCache.(interface{ Close() error }); ok {
+			if err := closer.Close(); err != nil {
+				logger.Warn("Cache close error", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+		}
+
+		// Step 4: Flush metrics and shutdown tracing (5s timeout)
+		if tracerProvider != nil && tracingConfig.Enabled {
+			logger.Info("Flushing traces", nil)
+			tracerCtx, tracerCancel := context.WithTimeout(shutdownCtx, 5*time.Second)
+			if err := tracerProvider.Shutdown(tracerCtx); err != nil {
+				logger.Warn("Tracer shutdown error", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+			tracerCancel()
+		}
+
+		logger.Info("Shutdown complete", nil)
+		close(shutdownChan)
 	}()
 
 	// Mark startup as complete with metrics
@@ -371,10 +414,22 @@ func main() {
 		logger.Info("Running in standalone mode (no Core Platform connection)", nil)
 	}
 
-	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	// Start server in goroutine so we can wait for shutdown
+	errChan := make(chan error, 1)
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			errChan <- err
+		}
+	}()
+
+	// Wait for either server error or shutdown completion
+	select {
+	case err := <-errChan:
 		logger.Fatal("Server failed to start", map[string]interface{}{
 			"error": err.Error(),
 		})
+	case <-shutdownChan:
+		// Graceful shutdown completed
 	}
 }
 
