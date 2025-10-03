@@ -59,6 +59,7 @@ type Handler struct {
 	refreshManager *tools.RefreshManager
 	metrics        *metrics.Metrics
 	spanHelper     *tracing.SpanHelper
+	streamManager  *StreamManager // Stream manager for response streaming
 
 	// Request tracking for cancellation
 	activeRequests map[interface{}]context.CancelFunc
@@ -96,6 +97,10 @@ func NewHandler(
 		spanHelper = tracing.NewSpanHelper(tracerProvider)
 	}
 
+	// Create stream manager with default config
+	streamConfig := DefaultStreamConfig()
+	streamManager := NewStreamManager(logger, streamConfig)
+
 	h := &Handler{
 		tools:          toolRegistry,
 		cache:          cache,
@@ -105,6 +110,7 @@ func NewHandler(
 		logger:         logger,
 		metrics:        metricsCollector,
 		spanHelper:     spanHelper,
+		streamManager:  streamManager,
 		activeRequests: make(map[interface{}]context.CancelFunc),
 	}
 
@@ -226,11 +232,69 @@ func (h *Handler) HandleConnection(conn *websocket.Conn, r *http.Request) {
 		}
 
 		if response != nil {
-			if err := wsjson.Write(msgCtx, conn, response); err != nil {
-				reqLogger.Error("Failed to write response", map[string]interface{}{
-					"error": err.Error(),
+			// Check if response should be streamed based on size
+			shouldStream := false
+			var responseBytes []byte
+
+			// Try to marshal the response to check size
+			if responseBytes, err := json.Marshal(response); err == nil {
+				shouldStream = ShouldStream(responseBytes, StreamThreshold)
+			}
+
+			if shouldStream && msg.ID != nil {
+				// Use streaming for large responses
+				reqLogger.Info("Streaming large response", map[string]interface{}{
+					"request_id":    msg.ID,
+					"response_size": len(responseBytes),
 				})
-				break
+
+				// Create stream for this request
+				stream, err := h.streamManager.CreateStream(msg.ID, conn)
+				if err != nil {
+					reqLogger.Error("Failed to create stream", map[string]interface{}{
+						"error": err.Error(),
+					})
+					// Fallback to non-streaming
+					if err := wsjson.Write(msgCtx, conn, response); err != nil {
+						reqLogger.Error("Failed to write response", map[string]interface{}{
+							"error": err.Error(),
+						})
+						break
+					}
+				} else {
+					// Stream the chunked content
+					if err := stream.SendChunkedContent(msg.ID, responseBytes, "application/json"); err != nil {
+						reqLogger.Error("Failed to stream content", map[string]interface{}{
+							"error": err.Error(),
+						})
+					}
+
+					// Send final response confirmation
+					finalResponse := &MCPMessage{
+						JSONRPC: "2.0",
+						ID:      msg.ID,
+						Result: map[string]interface{}{
+							"streamed": true,
+							"chunks_complete": true,
+						},
+					}
+					if err := stream.SendFinalResponse(msg.ID, finalResponse.Result); err != nil {
+						reqLogger.Error("Failed to send final response", map[string]interface{}{
+							"error": err.Error(),
+						})
+					}
+
+					// Close the stream
+					_ = h.streamManager.CloseStream(msg.ID)
+				}
+			} else {
+				// Regular non-streaming response
+				if err := wsjson.Write(msgCtx, conn, response); err != nil {
+					reqLogger.Error("Failed to write response", map[string]interface{}{
+						"error": err.Error(),
+					})
+					break
+				}
 			}
 		}
 	}
@@ -274,6 +338,11 @@ func (h *Handler) Shutdown(ctx context.Context) error {
 		cancel()
 	}
 	h.requestsMu.Unlock()
+
+	// Close all active streams
+	if h.streamManager != nil {
+		h.streamManager.CloseAll()
+	}
 
 	// Wait for active refreshes with timeout
 	done := make(chan struct{})
