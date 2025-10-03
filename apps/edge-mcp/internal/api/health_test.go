@@ -94,10 +94,11 @@ func TestHealthChecker_Readiness_AllHealthy(t *testing.T) {
 	mcpHandler := mcp.NewHandler(
 		registry,
 		memCache,
-		nil,
-		nil,
+		nil, // coreClient
+		nil, // authenticator
 		logger,
 		nil, // metrics not needed for health tests
+		nil, // tracerProvider not needed for health tests
 	)
 
 	healthChecker := NewHealthChecker(
@@ -154,10 +155,11 @@ func TestHealthChecker_Readiness_NoTools(t *testing.T) {
 	mcpHandler := mcp.NewHandler(
 		registry,
 		memCache,
-		nil,
-		nil,
+		nil, // coreClient
+		nil, // authenticator
 		logger,
 		nil, // metrics not needed for health tests
+		nil, // tracerProvider not needed for health tests
 	)
 
 	healthChecker := NewHealthChecker(
@@ -477,10 +479,11 @@ func TestHealthChecker_RegisterRoutes(t *testing.T) {
 	mcpHandler := mcp.NewHandler(
 		registry,
 		memCache,
-		nil,
-		nil,
+		nil, // coreClient
+		nil, // authenticator
 		logger,
 		nil, // metrics not needed for health tests
+		nil, // tracerProvider not needed for health tests
 	)
 
 	healthChecker := NewHealthChecker(

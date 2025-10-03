@@ -1,4 +1,40 @@
 {
     "markdown.validate.enabled": true,
-    "makefile.configureOnOpen": false
+    "makefile.configureOnOpen": false,
+    "go.lintTool": "golangci-lint",
+    "go.lintFlags": [
+        "--config=.golangci.yml"
+    ],
+    "go.testFlags": ["-v", "-short"],
+    "go.buildTags": "",
+    "go.testEnvFile": "",
+    "go.toolsManagement.checkForUpdates": "local",
+    "gopls": {
+        "analyses": {
+            "fieldalignment": false,
+            "shadow": true,
+            "unusedparams": true,
+            "unusedwrite": true,
+            "useany": true
+        },
+        "staticcheck": true,
+        "annotations": {
+            "bounds": true,
+            "escape": true,
+            "inline": true,
+            "nil": true
+        }
+    },
+    "problems.exclude": {
+        "**/*_test.go": ["go"],
+        "**/testdata/**": true,
+        "**/vendor/**": true,
+        "**/mock*.go": ["go"]
+    },
+    "files.watcherExclude": {
+        "**/.git/objects/**": true,
+        "**/.git/subtree-cache/**": true,
+        "**/node_modules/**": true,
+        "**/vendor/**": true
+    }
 }

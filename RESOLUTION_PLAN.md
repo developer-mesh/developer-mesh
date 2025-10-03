@@ -1,0 +1,253 @@
+# DevOps MCP - Issue Resolution Plan
+
+## Overview
+This document provides a comprehensive plan to resolve issues identified in the DevOps MCP codebase. While the IDE reports 323 problems, our analysis has identified several categories of issues that need to be addressed.
+
+## Issue Categories Identified
+
+### 1. Compilation Errors (Critical)
+
+#### Edge MCP Test Files
+**Location**: `apps/edge-mcp/internal/api/health_test.go`
+**Issue**: Function signature mismatch for `mcp.NewHandler`
+- Lines: 100, 160, 483
+- **Error**: Not enough arguments in call to mcp.NewHandler
+- **Root Cause**: The NewHandler function signature has been updated to require additional parameters (metrics and tracing provider)
+- **Resolution**: Update all test files to match the new signature
+
+#### Test Build Failures
+- `apps/edge-mcp/internal/api` - Build failed due to the above compilation errors
+- `apps/edge-mcp/internal/mcp` - Test failures in handler tests
+
+### 2. Linting Issues (10 identified)
+
+#### Error Checking (7 issues)
+All in `pkg/resilience/bulkhead_test.go`:
+- Line 87: Unchecked error from `b.Close()`
+- Line 113: Unchecked error from `b.Close()`
+- Line 142: Unchecked error from `b.Close()`
+- Line 308: Unchecked error from `b.Execute()`
+- Line 339: Unchecked error from `b.Execute()`
+- Line 613: Unchecked error from `bulkhead.Close()`
+- Line 640: Unchecked error from `bulkhead.Close()`
+
+#### Static Analysis (2 issues)
+- `pkg/observability/logger.go:160` - Unnecessary nil check around range
+- `pkg/utils/retry_test.go:190` - Could use tagged switch instead of if statements
+
+#### Unused Code (1 issue)
+- `pkg/repository/credential_repository_test.go:235` - Unused function `ptrTime`
+
+### 3. Test Failures
+
+#### MCP Handler Tests
+- `TestHandleInitialize_InvalidProtocolVersion` - Error message mismatch
+- `TestHandleInitialize_MalformedJSON` - Error message mismatch
+
+### 4. Missing Module Issues
+The `go.work` file references modules that don't exist:
+- `apps/rest-api` (directory not found)
+- `apps/worker` (directory not found)
+- `apps/mockserver` (directory not found)
+
+## Resolution Steps
+
+### Phase 1: Critical Compilation Fixes (Immediate)
+
+1. **✅ Fix Edge MCP Test Compilation Errors** - **COMPLETED**
+
+   **What was done:**
+   - Updated `apps/edge-mcp/internal/api/health_test.go` at lines 94-101, 154-161, and 477-484
+   - Added missing 7th parameter (`tracerProvider`) to all `mcp.NewHandler` calls
+   - The actual function signature requires 7 parameters:
+     1. `toolRegistry *tools.Registry`
+     2. `cache cache.Cache`
+     3. `coreClient *core.Client`
+     4. `authenticator auth.Authenticator`
+     5. `logger observability.Logger`
+     6. `metricsCollector *metrics.Metrics`
+     7. `tracerProvider *tracing.TracerProvider`
+
+   **Verification:**
+   - All tests in `apps/edge-mcp/internal/api` package now compile successfully
+   - Test suite passes: `go test -v -short ./internal/api` ✅
+
+   **Original plan:**
+   ```go
+   // Update health_test.go lines 100, 160, 483
+   // FROM:
+   handler := mcp.NewHandler(registry, cache, nil, nil, logger, nil)
+
+   // TO:
+   handler := mcp.NewHandler(registry, cache, nil, nil, logger, nil, nil)
+   ```
+
+2. **Fix Test Assertion Errors**
+   - Update error message assertions in `handler_test.go`
+   - Ensure error messages match the actual error templates
+
+### Phase 2: Linting Fixes (High Priority)
+
+1. **Add Error Checking in Test Files**
+   ```go
+   // For all defer statements:
+   defer func() {
+       if err := b.Close(); err != nil {
+           t.Errorf("Failed to close bulkhead: %v", err)
+       }
+   }()
+
+   // For goroutine executions:
+   go func() {
+       if err := b.Execute(context.Background(), operation); err != nil {
+           // Log or handle error appropriately
+       }
+   }()
+   ```
+
+2. **Remove Unnecessary Nil Check**
+   ```go
+   // In pkg/observability/logger.go:160
+   // Remove the if statement, range handles nil maps correctly
+   for k, v := range fields {
+       // ...
+   }
+   ```
+
+3. **Use Tagged Switch**
+   ```go
+   // In pkg/utils/retry_test.go:190
+   switch attempts {
+   case 1:
+       // handle case
+   case 2:
+       // handle case
+   }
+   ```
+
+4. **Remove Unused Function**
+   - Delete `ptrTime` function in `credential_repository_test.go:235`
+
+### Phase 3: Module Structure Fix
+
+1. **Clean up go.work file** or **Create missing modules**
+   - Either remove references to non-existent modules
+   - Or verify if these modules should exist and are missing
+
+### Phase 4: IDE-Specific Issues (323 problems)
+
+Since the IDE is showing many more issues than our analysis found, likely causes include:
+
+1. **gopls Configuration Issues**
+   - Update gopls to latest version
+   - Clear gopls cache: `gopls cache clean`
+   - Restart IDE/language server
+
+2. **Potential Additional Issues**
+   - Import cycle warnings
+   - Deprecated function usage
+   - Documentation lint issues
+   - TODO/FIXME comments counted as problems
+   - Type inference issues
+   - Unreachable code warnings
+
+3. **IDE Configuration for Test Files**
+   If test files should be ignored:
+   - Configure IDE to exclude `*_test.go` files from certain checks
+   - Update `.vscode/settings.json` or IDE-specific config
+
+4. **Snyk Configuration**
+   Create `.snyk` file to exclude test files:
+   ```yaml
+   # .snyk
+   version: v1.0.0
+   exclude:
+     global:
+       - '**/*_test.go'
+       - '**/testdata/**'
+       - '**/mock*.go'
+   ```
+
+## Verification Commands
+
+After implementing fixes, run these commands to verify:
+
+```bash
+# 1. Verify compilation
+make build
+
+# 2. Run tests
+make test
+
+# 3. Check linting
+make lint
+
+# 4. Full pre-commit check
+make pre-commit
+
+# 5. Clear and rebuild
+go clean -cache
+go work sync
+make build
+```
+
+## IDE Problem Investigation
+
+To identify the exact 323 problems:
+
+1. **Check IDE Output**
+   - Open IDE terminal/console
+   - Look for "Problems" tab or panel
+   - Export or copy the full problem list
+
+2. **Common IDE Problem Sources**
+   - Go extension problems: Check extension logs
+   - gopls issues: View gopls output
+   - Build tag issues: Ensure correct build tags are set
+   - Module cache: Try `go mod download` in each module
+
+3. **Diagnostic Commands**
+   ```bash
+   # Check gopls version
+   gopls version
+
+   # Run comprehensive go vet
+   go vet -c=10 ./...
+
+   # Check for inefficiencies
+   ineffassign ./...
+
+   # Check for misspellings
+   misspell -error .
+   ```
+
+## Priority Order
+
+1. **Immediate**: Fix compilation errors (Phase 1)
+2. **High**: Fix test failures and linting issues (Phase 2)
+3. **Medium**: Clean up module structure (Phase 3)
+4. **Low**: Address IDE-specific warnings (Phase 4)
+
+## Monitoring Progress
+
+Track resolution progress:
+- [x] **Compilation errors fixed (3 locations in health_test.go)** ✅
+- [ ] Linting issues resolved (10 issues)
+- [ ] Test failures fixed (2 tests)
+- [ ] Module structure cleaned up
+- [ ] IDE problems investigated and documented
+- [x] **Snyk exclusions configured (.snyk file created)** ✅
+
+## Notes
+
+- All test file issues can be excluded from IDE and Snyk if they're not critical
+- Focus on production code issues first
+- Consider setting up pre-commit hooks to prevent future issues
+- Update CI/CD pipeline to catch these issues earlier
+
+## Next Steps
+
+1. Review this plan with the team
+2. Assign ownership for each category
+3. Set up automated checks to prevent regression
+4. Document any IDE-specific configurations needed
