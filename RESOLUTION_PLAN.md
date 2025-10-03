@@ -155,8 +155,16 @@ The `go.work` file references modules that don't exist:
    - Test passes: `go test -v -run TestRetryWithBackoff_WithRetryableErrors ./pkg/utils` ✅
    - Improves code readability and satisfies linter requirements
 
-4. **Remove Unused Function**
-   - Delete `ptrTime` function in `credential_repository_test.go:235`
+4. **✅ Remove Unused Function** - **COMPLETED**
+
+   **What was done:**
+   - Removed unused `ptrTime` helper function from `pkg/repository/credential_repository_test.go` at lines 234-237
+   - The function was unused because its only usage (line 189) was inside a commented-out test block (lines 149-232)
+   - Note: A separate `ptrTime` function exists in `pkg/security/credential_manager_test.go:575` which IS actively used and was not removed
+
+   **Verification:**
+   - Repository tests pass: `go test -v -short ./pkg/repository/...` ✅
+   - Linter no longer reports unused function warning ✅
 
 ### Phase 3: Module Structure Fix
 
@@ -262,7 +270,11 @@ To identify the exact 323 problems:
 
 Track resolution progress:
 - [x] **Compilation errors fixed (3 locations in health_test.go)** ✅
-- [ ] Linting issues resolved (10 issues)
+- [ ] Linting issues resolved (8 of 10 issues remaining)
+  - [x] Tagged switch conversion (retry_test.go) ✅
+  - [x] Unused function removal (credential_repository_test.go) ✅
+  - [ ] Error checking in bulkhead_test.go (7 issues)
+  - [ ] Unnecessary nil check in logger.go (1 issue)
 - [x] **Test failures fixed (2 tests in handler_test.go)** ✅
 - [ ] Module structure cleaned up
 - [ ] IDE problems investigated and documented

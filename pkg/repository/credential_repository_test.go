@@ -230,8 +230,3 @@ func TestCredentialRepository_FullLifecycle_Integration(t *testing.T) {
 	assert.Error(t, err)
 }
 */
-
-// Helper function for tests
-func ptrTime(t time.Time) *time.Time {
-	return &t
-}
