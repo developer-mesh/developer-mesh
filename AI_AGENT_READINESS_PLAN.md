@@ -1377,16 +1377,72 @@ cache:
   - **Visibility**: Complete rate limit status in responses
   - **Operational Flexibility**: All limits configurable via environment variables
 
-#### Story 4.2.2: Enhance Credential Security
+#### Story 4.2.2: Enhance Credential Security ✅ COMPLETED
 **Size:** 3 points
 ```
-- [ ] Add credential rotation support
-- [ ] Implement secure credential storage
-- [ ] Add credential validation
-- [ ] Audit credential usage
-- [ ] Implement credential expiry
+- [x] Add credential rotation support
+- [x] Implement secure credential storage
+- [x] Add credential validation
+- [x] Audit credential usage
+- [x] Implement credential expiry
 ```
-**Files:** `pkg/security/credential_manager.go` (new)
+**Files:**
+- `pkg/security/credential_manager.go` (created)
+- `pkg/security/credential_manager_test.go` (created)
+- `pkg/repository/credential_repository.go` (created)
+- `pkg/repository/credential_repository_test.go` (created)
+
+**✅ COMPLETION NOTES:**
+- Implementation completed: Comprehensive credential security management system
+- Key features implemented:
+  - **CredentialManager Service**: Central service for credential operations with encryption, validation, and auditing
+  - **Credential Rotation**: RotateCredential() method with validation and encrypted storage of new values
+  - **Secure Storage**: Uses existing EncryptionService with AES-256-GCM encryption and per-tenant key derivation
+  - **Credential Validation**: Type-specific validation for API keys, basic auth, OAuth2 tokens, and custom credentials
+  - **Password Strength**: Enforces 12+ characters with uppercase, lowercase, digits, and special characters
+  - **Audit Logging**: Comprehensive audit trail using existing AuditLogger for all credential operations
+  - **Expiry Management**: CheckExpiring(), EnforceExpiry(), and automatic deactivation of expired credentials
+  - **Inactivity Detection**: CheckInactive() identifies unused credentials for security review
+- Repository layer created:
+  - **CredentialRepository**: Full CRUD operations for tenant_tool_credentials table
+  - Create, Get, GetByTenantAndName, ListByTenant, ListByTool operations
+  - Update, UpdateLastUsed, Deactivate, Delete operations
+  - ListExpiring, ListExpired, ListUnusedSince for expiry management
+  - Proper indexing and query optimization
+- Validation features:
+  - API key: 16-512 characters, alphanumeric + hyphen/underscore only
+  - Basic auth: username:password format with password strength validation
+  - OAuth2: 20-4096 character token validation
+  - Custom: Minimum 8 character validation
+- Test coverage: Created comprehensive test suite with 14 test functions
+  - TestDefaultCredentialConfig - Configuration defaults
+  - TestCreateCredential - Credential creation with validation (5 scenarios)
+  - TestGetCredential - Credential retrieval with expiry/active checks (4 scenarios)
+  - TestRotateCredential - Credential rotation workflow
+  - TestValidateCredential_APIKey - API key validation (4 scenarios)
+  - TestValidateCredential_BasicAuth - Basic auth validation (4 scenarios)
+  - TestValidatePasswordStrength - Password complexity validation (6 scenarios)
+  - TestDeactivateCredential - Credential deactivation
+  - TestCheckExpiring - Expiring credential detection
+  - TestEnforceExpiry - Automatic expiry enforcement
+  - TestCheckInactive - Inactive credential detection
+  - TestValidationError - Error message formatting
+  - All tests passing (100% pass rate)
+- Repository tests created:
+  - TestTenantCredential_Fields - Field validation
+  - TestTenantCredential_OAuthFields - OAuth field handling
+  - TestTenantCredential_TimestampFields - Timestamp management
+  - TestCredentialRepository_NewRepository - Constructor testing
+  - Integration test stubs for database operations (skipped in short mode)
+  - All unit tests passing
+- Benefits for security:
+  - Centralized credential management with encryption at rest
+  - Automatic expiry enforcement prevents use of expired credentials
+  - Strong validation prevents weak credentials from being stored
+  - Complete audit trail for compliance and security monitoring
+  - Credential rotation support enables regular security updates
+  - Inactivity detection helps identify and remove unused credentials
+  - Interface-based design enables easy testing and mocking
 
 #### Story 4.2.3: Add Request Validation
 **Size:** 2 points
