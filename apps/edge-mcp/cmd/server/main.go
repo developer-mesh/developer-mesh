@@ -21,6 +21,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/platform"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tools"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tools/builtin"
+	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tracing"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -111,8 +112,40 @@ func main() {
 		cfg.Server.Port = 8082
 	}
 
+	// Initialize distributed tracing (optional)
+	// Tracing is disabled by default - enable via environment variables
+	tracingConfig := &tracing.Config{
+		Enabled:      os.Getenv("TRACING_ENABLED") == "true",
+		ServiceName:  "edge-mcp",
+		ServiceVersion: version,
+		Environment:  getEnv("ENVIRONMENT", "development"),
+		OTLPEndpoint: getEnv("OTLP_ENDPOINT", "localhost:4317"),
+		OTLPInsecure: getEnv("OTLP_INSECURE", "true") == "true",
+		ZipkinEndpoint: os.Getenv("ZIPKIN_ENDPOINT"),
+		SamplingRate: getSamplingRate(),
+	}
+	tracerProvider, err := tracing.NewTracerProvider(tracingConfig)
+	if err != nil {
+		logger.Warn("Could not initialize tracing", map[string]interface{}{
+			"error": err.Error(),
+		})
+		tracerProvider = nil
+	} else if tracingConfig.Enabled {
+		logger.Info("Initialized distributed tracing", map[string]interface{}{
+			"service": tracingConfig.ServiceName,
+			"version": tracingConfig.ServiceVersion,
+			"sampling_rate": tracingConfig.SamplingRate,
+		})
+	}
+
 	// Initialize in-memory cache (no Redis/DB dependencies)
 	memCache := cache.NewMemoryCache(1000, 5*time.Minute)
+
+	// Wrap cache with tracing if tracer is available
+	if tracerProvider != nil && tracingConfig.Enabled {
+		spanHelper := tracing.NewSpanHelper(tracerProvider)
+		memCache = cache.NewTracedCache(memCache, spanHelper)
+	}
 
 	// Initialize Core Platform client (optional)
 	var coreClient *core.Client
@@ -122,6 +155,7 @@ func main() {
 			cfg.Core.APIKey,
 			cfg.Core.EdgeMCPID,
 			logger,
+			tracerProvider,
 		)
 
 		// Authenticate with Core Platform
@@ -192,6 +226,7 @@ func main() {
 		authenticator,
 		logger,
 		metricsCollector,
+		tracerProvider,
 	)
 
 	// Check if we should run in stdio mode
@@ -341,4 +376,29 @@ func main() {
 			"error": err.Error(),
 		})
 	}
+}
+
+// getEnv returns environment variable value or default
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+// getSamplingRate returns sampling rate from environment or default
+func getSamplingRate() float64 {
+	if rate := os.Getenv("TRACING_SAMPLING_RATE"); rate != "" {
+		if parsed, err := parseFloat(rate); err == nil {
+			return parsed
+		}
+	}
+	return 1.0 // Default to sampling all traces
+}
+
+// parseFloat parses a float64 from string
+func parseFloat(s string) (float64, error) {
+	var f float64
+	_, err := fmt.Sscanf(s, "%f", &f)
+	return f, err
 }

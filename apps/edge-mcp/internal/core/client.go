@@ -13,9 +13,12 @@ import (
 	"time"
 
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tools"
+	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tracing"
 	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/utils"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // contextKey is a type for context keys to avoid collisions
@@ -84,6 +87,7 @@ type Client struct {
 	httpClient  *http.Client
 	logger      observability.Logger
 	retryConfig *utils.RetryConfig // Retry configuration for external calls
+	spanHelper  *tracing.SpanHelper
 
 	// Connection status
 	connected       bool
@@ -102,7 +106,12 @@ type Client struct {
 }
 
 // NewClient creates a new Core Platform client
-func NewClient(baseURL, apiKey, edgeMCPID string, logger observability.Logger) *Client {
+func NewClient(baseURL, apiKey, edgeMCPID string, logger observability.Logger, tracerProvider *tracing.TracerProvider) *Client {
+	var spanHelper *tracing.SpanHelper
+	if tracerProvider != nil {
+		spanHelper = tracing.NewSpanHelper(tracerProvider)
+	}
+
 	// Setup default retry configuration
 	retryConfig := &utils.RetryConfig{
 		MaxAttempts:  3,
@@ -141,6 +150,7 @@ func NewClient(baseURL, apiKey, edgeMCPID string, logger observability.Logger) *
 		},
 		logger:      logger,
 		retryConfig: retryConfig,
+		spanHelper:  spanHelper,
 		maxFailures: 3,
 		backoffTime: 5 * time.Second,
 		toolIDMap:   make(map[string]string),
@@ -729,17 +739,33 @@ func (c *Client) GetStatus() map[string]interface{} {
 
 // doRequest performs an authenticated HTTP request
 func (c *Client) doRequest(ctx context.Context, method, path string, body interface{}) (*http.Response, error) {
+	// Start distributed tracing span for Core Platform call
+	var span trace.Span
+	url := c.baseURL + path
+	if c.spanHelper != nil {
+		ctx, span = c.spanHelper.StartCorePlatformCallSpan(ctx, method, url)
+		defer span.End()
+	}
+
 	var bodyReader io.Reader
 	if body != nil {
 		bodyBytes, err := json.Marshal(body)
 		if err != nil {
+			if span != nil {
+				span.RecordError(err)
+				span.SetStatus(codes.Error, "failed to marshal request body")
+			}
 			return nil, fmt.Errorf("failed to marshal request body: %w", err)
 		}
 		bodyReader = bytes.NewReader(bodyBytes)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, bodyReader)
+	req, err := http.NewRequestWithContext(ctx, method, url, bodyReader)
 	if err != nil {
+		if span != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "failed to create request")
+		}
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
@@ -748,5 +774,19 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body interf
 		req.Header.Set("X-API-Key", c.apiKey)
 	}
 
-	return c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		if span != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "HTTP request failed")
+		}
+		return nil, err
+	}
+
+	// Record HTTP status in span
+	if span != nil && c.spanHelper != nil {
+		c.spanHelper.RecordHTTPStatus(ctx, resp.StatusCode)
+	}
+
+	return resp, nil
 }

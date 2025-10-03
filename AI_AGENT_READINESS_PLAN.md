@@ -821,16 +821,71 @@ This plan addresses critical technical gaps preventing reliable AI agent integra
   - Log volume control with sampling during high traffic
   - All logs now have consistent structured fields for querying
 
-#### Story 3.2.3: Add Distributed Tracing
+#### Story 3.2.3: Add Distributed Tracing ✅ COMPLETED
 **Size:** 5 points
 ```
-- [ ] Integrate OpenTelemetry
-- [ ] Add spans for tool execution
-- [ ] Trace Core Platform calls
-- [ ] Include cache operations
-- [ ] Export to Jaeger/Zipkin
+- [x] Integrate OpenTelemetry
+- [x] Add spans for tool execution
+- [x] Trace Core Platform calls
+- [x] Include cache operations
+- [x] Export to Jaeger/Zipkin
 ```
-**Files:** `apps/edge-mcp/internal/tracing/tracing.go` (new)
+**Files:**
+- `apps/edge-mcp/internal/tracing/tracing.go` (created)
+- `apps/edge-mcp/internal/tracing/tracing_test.go` (created)
+- `apps/edge-mcp/internal/cache/traced_cache.go` (created)
+- `apps/edge-mcp/internal/cache/traced_cache_test.go` (created)
+- `apps/edge-mcp/internal/mcp/handler.go` (enhanced with tracing)
+- `apps/edge-mcp/internal/core/client.go` (enhanced with tracing)
+
+**✅ COMPLETION NOTES:**
+- Implementation completed: Comprehensive distributed tracing system using OpenTelemetry
+- Key features implemented:
+  - Created TracerProvider with configurable exporters (OTLP, Zipkin)
+  - Implemented SpanHelper for convenient span management
+  - Added spans for tool execution in MCP handler with error tracking
+  - Added spans for Core Platform API calls with HTTP status tracking
+  - Created TracedCache wrapper for cache operations tracing
+  - Configurable sampling rates (0.0 to 1.0)
+  - Support for multiple exporters with priority (Zipkin > OTLP)
+  - Graceful shutdown and cleanup
+- Tracing integration points:
+  - Tool execution: Complete span lifecycle with tool name, session ID, tenant ID
+  - Core Platform calls: HTTP method, URL, status code tracking
+  - Cache operations: get, set, delete with cache hit/miss recording
+  - Error recording: Automatic error capture with span status
+- Exporter configuration:
+  - OTLP: gRPC-based exporter for Jaeger (native OTLP support)
+  - Zipkin: HTTP-based exporter for Zipkin
+  - Configurable endpoints, timeouts, and security settings
+  - Batch processing for efficient trace export
+- Test coverage: Created comprehensive test suite with 30+ test functions
+  - tracing_test.go: Tests for TracerProvider, SpanHelper, configuration
+  - traced_cache_test.go: Tests for cache wrapper with tracing
+  - All 30 tests passing with nil-safety checks
+  - Tests for OTLP, Zipkin exporters, sampling rates
+  - Tests for span lifecycle, error recording, attributes
+- Configuration options:
+  - Enabled: Enable/disable tracing
+  - ServiceName: Service identifier in traces
+  - ServiceVersion: Version information
+  - Environment: Environment tag (dev, staging, prod)
+  - OTLPEndpoint: OTLP collector endpoint (default: localhost:4317)
+  - OTLPInsecure: Use insecure connection (for development)
+  - ZipkinEndpoint: Zipkin collector endpoint
+  - SamplingRate: Trace sampling rate (0.0 = none, 1.0 = all)
+  - ExportTimeout: Timeout for trace export
+- Integration requirements:
+  - Handler: Pass TracerProvider to NewHandler()
+  - Core Client: Pass TracerProvider to NewClient()
+  - Cache: Wrap cache with NewTracedCache() if tracing enabled
+- Benefits for operations:
+  - End-to-end request tracing across tool execution
+  - Performance monitoring with span durations
+  - Error debugging with automatic error capture
+  - Cache performance analysis with hit/miss tracking
+  - Distributed tracing across services
+  - Jaeger/Zipkin compatibility for visualization
 
 ### Epic 3.3: Circuit Breakers
 

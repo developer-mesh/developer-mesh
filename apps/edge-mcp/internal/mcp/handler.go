@@ -20,11 +20,14 @@ import (
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/metrics"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/platform"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tools"
+	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tracing"
 	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/tools/providers/harness"
 	"github.com/developer-mesh/developer-mesh/pkg/utils"
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // MCPMessage represents a JSON-RPC message in the MCP protocol
@@ -55,6 +58,7 @@ type Handler struct {
 	logger         observability.Logger
 	refreshManager *tools.RefreshManager
 	metrics        *metrics.Metrics
+	spanHelper     *tracing.SpanHelper
 
 	// Request tracking for cancellation
 	activeRequests map[interface{}]context.CancelFunc
@@ -85,7 +89,13 @@ func NewHandler(
 	authenticator auth.Authenticator,
 	logger observability.Logger,
 	metricsCollector *metrics.Metrics,
+	tracerProvider *tracing.TracerProvider,
 ) *Handler {
+	var spanHelper *tracing.SpanHelper
+	if tracerProvider != nil {
+		spanHelper = tracing.NewSpanHelper(tracerProvider)
+	}
+
 	h := &Handler{
 		tools:          toolRegistry,
 		cache:          cache,
@@ -94,6 +104,7 @@ func NewHandler(
 		sessions:       make(map[string]*Session),
 		logger:         logger,
 		metrics:        metricsCollector,
+		spanHelper:     spanHelper,
 		activeRequests: make(map[interface{}]context.CancelFunc),
 	}
 
@@ -921,6 +932,13 @@ func (h *Handler) handleToolCall(sessionID string, msg *MCPMessage) (*MCPMessage
 	// Create request-scoped logger with context fields
 	reqLogger := observability.LoggerFromContext(ctx, h.logger)
 
+	// Start distributed tracing span for tool execution
+	var span trace.Span
+	if h.spanHelper != nil {
+		ctx, span = h.spanHelper.StartToolExecutionSpan(ctx, params.Name, sessionID, tenantID)
+		defer span.End()
+	}
+
 	// Track the request for potential cancellation (only if ID is present)
 	if msg.ID != nil {
 		h.trackRequest(msg.ID, cancel)
@@ -940,6 +958,12 @@ func (h *Handler) handleToolCall(sessionID string, msg *MCPMessage) (*MCPMessage
 	// Tool execution audit log - END
 	duration := time.Since(startTime)
 	if err != nil {
+		// Record error in span
+		if span != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+
 		reqLogger.Error("Tool execution failed", map[string]interface{}{
 			"tool":        params.Name,
 			"session_id":  sessionID,
@@ -947,6 +971,11 @@ func (h *Handler) handleToolCall(sessionID string, msg *MCPMessage) (*MCPMessage
 			"error":       err.Error(),
 		})
 	} else {
+		// Set success status on span
+		if span != nil {
+			span.SetStatus(codes.Ok, "Tool execution completed successfully")
+		}
+
 		reqLogger.Info("Tool execution completed", map[string]interface{}{
 			"tool":        params.Name,
 			"session_id":  sessionID,
