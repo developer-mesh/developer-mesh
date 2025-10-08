@@ -170,3 +170,60 @@ func TestHandleInitialize_SessionUpdate(t *testing.T) {
 	session := handler.sessions[sessionID]
 	assert.True(t, session.Initialized, "Session should be marked as initialized")
 }
+
+func TestHandleInitialize_CredentialStorage(t *testing.T) {
+	// Setup
+	logger := observability.NewNoopLogger()
+	handler := NewHandler(tools.NewRegistry(), cache.NewMemoryCache(100, 5*time.Minute), nil,
+		auth.NewEdgeAuthenticator(""), logger, nil, nil)
+	sessionID := "test-session-creds"
+
+	// Pre-create session
+	handler.sessions[sessionID] = &Session{
+		ID:          sessionID,
+		Initialized: false,
+	}
+
+	// Create initialize message with credentials
+	params := map[string]interface{}{
+		"protocolVersion": "2025-06-18",
+		"clientInfo": map[string]interface{}{
+			"name":    "test-client",
+			"version": "1.0.0",
+		},
+		"credentials": map[string]interface{}{
+			"credentials": map[string]interface{}{
+				"github": map[string]interface{}{
+					"type":  "bearer",
+					"token": "test-github-token-123",
+				},
+			},
+		},
+	}
+	paramsJSON, _ := json.Marshal(params)
+	msg := &MCPMessage{
+		JSONRPC: "2.0",
+		ID:      5,
+		Method:  "initialize",
+		Params:  paramsJSON,
+	}
+
+	// Execute
+	response, err := handler.handleInitialize(sessionID, msg)
+
+	// Verify
+	assert.NoError(t, err)
+	assert.NotNil(t, response)
+
+	// Check session credentials were stored
+	session := handler.sessions[sessionID]
+	assert.True(t, session.Initialized, "Session should be marked as initialized")
+	assert.NotNil(t, session.PassthroughAuth, "Session should have passthrough auth")
+	assert.NotNil(t, session.PassthroughAuth.Credentials, "Session should have credentials")
+
+	// Verify GitHub credential
+	githubCred, exists := session.PassthroughAuth.Credentials["github"]
+	assert.True(t, exists, "GitHub credential should exist")
+	assert.Equal(t, "bearer", githubCred.Type, "Credential type should be bearer")
+	assert.Equal(t, "test-github-token-123", githubCred.Token, "Token should match")
+}

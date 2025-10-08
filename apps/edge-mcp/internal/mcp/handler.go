@@ -692,6 +692,7 @@ func (h *Handler) handleInitialize(sessionID string, msg *MCPMessage) (*MCPMessa
 			Version string `json:"version"`
 			Type    string `json:"type,omitempty"`
 		} `json:"clientInfo"`
+		Credentials *models.PassthroughAuthBundle `json:"credentials,omitempty"`
 	}
 
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
@@ -733,6 +734,15 @@ func (h *Handler) handleInitialize(sessionID string, msg *MCPMessage) (*MCPMessa
 	h.sessionsMu.Lock()
 	if session, exists := h.sessions[sessionID]; exists {
 		session.Initialized = true
+
+		// Store credentials in session if provided
+		if params.Credentials != nil {
+			session.PassthroughAuth = params.Credentials
+			h.logger.Debug("Stored passthrough credentials in session", map[string]interface{}{
+				"session_id": sessionID,
+				"num_credentials": len(params.Credentials.Credentials),
+			})
+		}
 
 		// If connected to Core Platform, create a linked session
 		if h.coreClient != nil {
