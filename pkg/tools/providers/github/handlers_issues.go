@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/developer-mesh/developer-mesh/pkg/utils"
 	"github.com/google/go-github/v74/github"
 	"github.com/shurcooL/githubv4"
 )
@@ -341,9 +342,9 @@ func (h *ListIssuesHandler) GetDefinition() ToolDefinition {
 }
 
 func (h *ListIssuesHandler) Execute(ctx context.Context, params map[string]interface{}) (*ToolResult, error) {
-	// Log incoming parameters for debugging
+	// Log incoming parameters for debugging (with sensitive data redacted)
 	h.provider.logger.Info("ListIssuesHandler.Execute called", map[string]interface{}{
-		"params":    params,
+		"params":    utils.RedactSensitiveData(params),
 		"has_owner": params["owner"] != nil,
 		"has_repo":  params["repo"] != nil,
 	})
@@ -410,11 +411,11 @@ func (h *ListIssuesHandler) executeGraphQL(ctx context.Context, client *githubv4
 	owner := extractString(params, "owner")
 	repo := extractString(params, "repo")
 	if owner == "" || repo == "" {
-		// Info logging to understand what parameters we received
+		// Info logging to understand what parameters we received (with sensitive data redacted)
 		h.provider.logger.Info("Missing owner or repo in executeGraphQL", map[string]interface{}{
 			"owner":  owner,
 			"repo":   repo,
-			"params": params,
+			"params": utils.RedactSensitiveData(params),
 		})
 		return NewToolError("owner and repo parameters are required"), nil
 	}

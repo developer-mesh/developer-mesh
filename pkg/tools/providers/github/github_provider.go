@@ -743,7 +743,7 @@ func (p *GitHubProvider) normalizeParameters(params map[string]interface{}) map[
 	if nestedParams, ok := params["parameters"].(map[string]interface{}); ok {
 		p.logger.Info("Normalizing nested parameters", map[string]interface{}{
 			"nested_count":    len(nestedParams),
-			"nested_params":   nestedParams,
+			"nested_params":   utils.RedactSensitiveData(nestedParams),
 			"top_level_count": len(params),
 			"has_owner":       normalized["owner"] != nil,
 			"has_repo":        normalized["repo"] != nil,
@@ -756,7 +756,7 @@ func (p *GitHubProvider) normalizeParameters(params map[string]interface{}) map[
 				normalized[k] = v
 				p.logger.Info("Added nested param to normalized", map[string]interface{}{
 					"key":   k,
-					"value": v,
+					"value": utils.SanitizeLogValue(k, v),
 				})
 			}
 		}

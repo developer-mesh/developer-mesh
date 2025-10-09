@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -42,6 +44,46 @@ func NewHarnessPermissionDiscoverer(logger observability.Logger) *HarnessPermiss
 			Timeout: 10 * time.Second,
 		},
 	}
+}
+
+// validateAccountID validates that the account ID contains only safe characters
+// to prevent SSRF and URL injection attacks
+func validateAccountID(accountID string) bool {
+	// Account IDs should only contain alphanumeric characters, hyphens, and underscores
+	validPattern := regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+	return validPattern.MatchString(accountID)
+}
+
+// buildSafeHarnessURL constructs a safe Harness API URL with validated parameters
+func buildSafeHarnessURL(endpoint, accountID string) (string, error) {
+	// Base URL is always hardcoded to prevent SSRF
+	baseURL := "https://app.harness.io"
+
+	// Validate accountID to prevent URL injection
+	if accountID != "" && !validateAccountID(accountID) {
+		return "", fmt.Errorf("invalid account ID format: must contain only alphanumeric characters, hyphens, and underscores")
+	}
+
+	// Parse and construct URL safely
+	fullURL := baseURL + endpoint
+	parsedURL, err := url.Parse(fullURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid endpoint URL: %w", err)
+	}
+
+	// Verify the host hasn't been tampered with
+	if parsedURL.Host != "app.harness.io" {
+		return "", fmt.Errorf("invalid URL host: expected app.harness.io, got %s", parsedURL.Host)
+	}
+
+	// Add account ID as query parameter using URL-safe encoding
+	if accountID != "" && !strings.Contains(parsedURL.RawQuery, "accountIdentifier") {
+		q := parsedURL.Query()
+		q.Set("accountIdentifier", accountID)
+		parsedURL.RawQuery = q.Encode()
+	}
+
+	return parsedURL.String(), nil
 }
 
 // DiscoverPermissions discovers what permissions a Harness API key has
@@ -87,12 +129,13 @@ func (d *HarnessPermissionDiscoverer) DiscoverPermissions(ctx context.Context, a
 
 // getUserInfo retrieves user information from the API key
 func (d *HarnessPermissionDiscoverer) getUserInfo(ctx context.Context, apiKey string, perms *HarnessPermissions) error {
-	url := "https://app.harness.io/gateway/ng/api/user/currentUser"
-	if perms.AccountID != "" {
-		url = fmt.Sprintf("%s?accountIdentifier=%s", url, perms.AccountID)
+	// Build URL safely to prevent SSRF
+	safeURL, err := buildSafeHarnessURL("/gateway/ng/api/user/currentUser", perms.AccountID)
+	if err != nil {
+		return fmt.Errorf("failed to build safe URL: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", safeURL, nil)
 	if err != nil {
 		return err
 	}
@@ -175,15 +218,14 @@ func (d *HarnessPermissionDiscoverer) probeModuleAccess(ctx context.Context, api
 
 // probeEndpoint checks if an endpoint is accessible
 func (d *HarnessPermissionDiscoverer) probeEndpoint(ctx context.Context, endpoint, method, apiKey, accountID string) bool {
-	url := "https://app.harness.io" + endpoint
-
-	// Add account ID to query params if needed
-	if accountID != "" && !strings.Contains(url, "accountIdentifier") {
-		if strings.Contains(url, "?") {
-			url += "&accountIdentifier=" + accountID
-		} else {
-			url += "?accountIdentifier=" + accountID
-		}
+	// Build URL safely to prevent SSRF
+	safeURL, err := buildSafeHarnessURL(endpoint, accountID)
+	if err != nil {
+		d.logger.Warn("Failed to build safe URL", map[string]interface{}{
+			"error":    err.Error(),
+			"endpoint": endpoint,
+		})
+		return false
 	}
 
 	var body io.Reader
@@ -196,7 +238,7 @@ func (d *HarnessPermissionDiscoverer) probeEndpoint(ctx context.Context, endpoin
 		body = strings.NewReader(bodyStr)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, url, body)
+	req, err := http.NewRequestWithContext(ctx, method, safeURL, body)
 	if err != nil {
 		return false
 	}
@@ -270,10 +312,31 @@ func (d *HarnessPermissionDiscoverer) checkResourcePermissions(ctx context.Conte
 
 // discoverAccessibleResources lists accessible projects and organizations
 func (d *HarnessPermissionDiscoverer) discoverAccessibleResources(ctx context.Context, apiKey string, perms *HarnessPermissions) {
-	// Try to list organizations
-	orgsURL := "https://app.harness.io/v1/orgs"
+	// Build URL safely - note: using "account" parameter instead of "accountIdentifier" for v1 API
+	baseURL := "https://app.harness.io/v1/orgs"
+	var orgsURL string
+	var err error
+
 	if perms.AccountID != "" {
-		orgsURL += "?account=" + perms.AccountID
+		// Validate account ID before using
+		if !validateAccountID(perms.AccountID) {
+			d.logger.Warn("Invalid account ID for organization discovery", nil)
+			return
+		}
+
+		parsedURL, parseErr := url.Parse(baseURL)
+		if parseErr != nil {
+			d.logger.Warn("Failed to parse organizations URL", map[string]interface{}{
+				"error": parseErr.Error(),
+			})
+			return
+		}
+		q := parsedURL.Query()
+		q.Set("account", perms.AccountID)
+		parsedURL.RawQuery = q.Encode()
+		orgsURL = parsedURL.String()
+	} else {
+		orgsURL = baseURL
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", orgsURL, nil)
@@ -311,9 +374,37 @@ func (d *HarnessPermissionDiscoverer) discoverAccessibleResources(ctx context.Co
 
 // discoverProjectsInOrg lists accessible projects in an organization
 func (d *HarnessPermissionDiscoverer) discoverProjectsInOrg(ctx context.Context, apiKey, orgID string, perms *HarnessPermissions) {
-	projectsURL := fmt.Sprintf("https://app.harness.io/v1/orgs/%s/projects", orgID)
+	// Validate orgID to prevent path traversal
+	if !validateAccountID(orgID) {
+		d.logger.Warn("Invalid organization ID", map[string]interface{}{
+			"org_id": orgID,
+		})
+		return
+	}
+
+	baseURL := fmt.Sprintf("https://app.harness.io/v1/orgs/%s/projects", orgID)
+	var projectsURL string
+
 	if perms.AccountID != "" {
-		projectsURL += "?account=" + perms.AccountID
+		// Validate account ID before using
+		if !validateAccountID(perms.AccountID) {
+			d.logger.Warn("Invalid account ID for project discovery", nil)
+			return
+		}
+
+		parsedURL, err := url.Parse(baseURL)
+		if err != nil {
+			d.logger.Warn("Failed to parse projects URL", map[string]interface{}{
+				"error": err.Error(),
+			})
+			return
+		}
+		q := parsedURL.Query()
+		q.Set("account", perms.AccountID)
+		parsedURL.RawQuery = q.Encode()
+		projectsURL = parsedURL.String()
+	} else {
+		projectsURL = baseURL
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", projectsURL, nil)

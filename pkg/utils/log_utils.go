@@ -13,6 +13,8 @@ var SensitiveKeys = []string{
 	"authorization", "auth", "credentials", "creds",
 	"private_key", "private-key", "privatekey",
 	"client_secret", "client-secret", "clientsecret",
+	"encrypted_token", "github_token", "personal_access_token",
+	"__passthrough_auth", "pat",
 }
 
 // RedactSensitiveData creates a safe copy of data with sensitive values redacted
@@ -74,4 +76,21 @@ func RedactString(value string) string {
 		return fmt.Sprintf("%s...[REDACTED]", value[:3])
 	}
 	return "[REDACTED]"
+}
+
+// SanitizeLogValue sanitizes a single value based on its key for safe logging
+func SanitizeLogValue(key string, value interface{}) interface{} {
+	if isSensitiveKey(key) {
+		return "[REDACTED]"
+	}
+
+	// Recursively handle nested structures
+	switch v := value.(type) {
+	case map[string]interface{}:
+		return RedactSensitiveData(v)
+	case []interface{}:
+		return redactSlice(v)
+	default:
+		return value
+	}
 }
