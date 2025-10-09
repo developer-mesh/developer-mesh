@@ -255,6 +255,7 @@ func (s *OrganizationService) RegisterOrganization(ctx context.Context, req *Org
 	tokenHash := hashToken(verificationToken)
 	expiresAt := time.Now().Add(24 * time.Hour)
 
+	// #nosec G101 -- This is a SQL query, not a hardcoded credential
 	insertTokenQuery := `
 		INSERT INTO mcp.email_verification_tokens (
 			user_id, token_hash, expires_at, created_at

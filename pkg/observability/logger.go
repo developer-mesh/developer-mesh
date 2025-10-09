@@ -157,10 +157,8 @@ func (l *StandardLogger) log(level LogLevel, msg string, fields map[string]inter
 	}
 
 	// Add method fields (overwrites context fields if duplicate keys)
-	if fields != nil {
-		for k, v := range fields {
-			mergedFields[k] = v
-		}
+	for k, v := range fields {
+		mergedFields[k] = v
 	}
 
 	// Format the fields

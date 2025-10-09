@@ -744,13 +744,13 @@ func TestCircuitBreaker_Timeout_RecordsMetrics(t *testing.T) {
 // TestCircuitBreaker_ExecuteWithFallback tests the fallback mechanism
 func TestCircuitBreaker_ExecuteWithFallback(t *testing.T) {
 	tests := []struct {
-		name           string
-		setup          func(cb *CircuitBreaker)
-		fn             func() (interface{}, error)
-		fallback       FallbackFunc
-		wantResult     interface{}
-		wantErr        error
-		checkFallback  bool
+		name          string
+		setup         func(cb *CircuitBreaker)
+		fn            func() (interface{}, error)
+		fallback      FallbackFunc
+		wantResult    interface{}
+		wantErr       error
+		checkFallback bool
 	}{
 		{
 			name: "successful execution, fallback not called",

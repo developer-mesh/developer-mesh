@@ -44,15 +44,15 @@ type SearchResult struct {
 
 // MatchDetails provides information about why a tool matched
 type MatchDetails struct {
-	NameMatch        bool    `json:"name_match"`         // Matched on name
-	DescriptionMatch bool    `json:"description_match"`  // Matched on description
-	CategoryMatch    bool    `json:"category_match"`     // Matched on category
-	TagsMatch        bool    `json:"tags_match"`         // Matched on tags
-	IOMatch          bool    `json:"io_match"`           // Matched on I/O types
-	FuzzyMatch       bool    `json:"fuzzy_match"`        // Matched via fuzzy matching
-	FuzzyDistance    int     `json:"fuzzy_distance"`     // Levenshtein distance (if fuzzy)
-	KeywordPositions []int   `json:"keyword_positions"`  // Positions where keyword was found
-	Explanation      string  `json:"explanation"`        // Human-readable explanation
+	NameMatch        bool   `json:"name_match"`        // Matched on name
+	DescriptionMatch bool   `json:"description_match"` // Matched on description
+	CategoryMatch    bool   `json:"category_match"`    // Matched on category
+	TagsMatch        bool   `json:"tags_match"`        // Matched on tags
+	IOMatch          bool   `json:"io_match"`          // Matched on I/O types
+	FuzzyMatch       bool   `json:"fuzzy_match"`       // Matched via fuzzy matching
+	FuzzyDistance    int    `json:"fuzzy_distance"`    // Levenshtein distance (if fuzzy)
+	KeywordPositions []int  `json:"keyword_positions"` // Positions where keyword was found
+	Explanation      string `json:"explanation"`       // Human-readable explanation
 }
 
 // Search performs a comprehensive search across all registered tools

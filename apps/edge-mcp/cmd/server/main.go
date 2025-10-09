@@ -115,14 +115,14 @@ func main() {
 	// Initialize distributed tracing (optional)
 	// Tracing is disabled by default - enable via environment variables
 	tracingConfig := &tracing.Config{
-		Enabled:      os.Getenv("TRACING_ENABLED") == "true",
-		ServiceName:  "edge-mcp",
+		Enabled:        os.Getenv("TRACING_ENABLED") == "true",
+		ServiceName:    "edge-mcp",
 		ServiceVersion: version,
-		Environment:  getEnv("ENVIRONMENT", "development"),
-		OTLPEndpoint: getEnv("OTLP_ENDPOINT", "localhost:4317"),
-		OTLPInsecure: getEnv("OTLP_INSECURE", "true") == "true",
+		Environment:    getEnv("ENVIRONMENT", "development"),
+		OTLPEndpoint:   getEnv("OTLP_ENDPOINT", "localhost:4317"),
+		OTLPInsecure:   getEnv("OTLP_INSECURE", "true") == "true",
 		ZipkinEndpoint: os.Getenv("ZIPKIN_ENDPOINT"),
-		SamplingRate: getSamplingRate(),
+		SamplingRate:   getSamplingRate(),
 	}
 	tracerProvider, err := tracing.NewTracerProvider(tracingConfig)
 	if err != nil {
@@ -132,8 +132,8 @@ func main() {
 		tracerProvider = nil
 	} else if tracingConfig.Enabled {
 		logger.Info("Initialized distributed tracing", map[string]interface{}{
-			"service": tracingConfig.ServiceName,
-			"version": tracingConfig.ServiceVersion,
+			"service":       tracingConfig.ServiceName,
+			"version":       tracingConfig.ServiceVersion,
 			"sampling_rate": tracingConfig.SamplingRate,
 		})
 	}
@@ -318,8 +318,12 @@ func main() {
 
 	// Start server
 	srv := &http.Server{
-		Addr:    fmt.Sprintf(":%d", cfg.Server.Port),
-		Handler: router,
+		Addr:              fmt.Sprintf(":%d", cfg.Server.Port),
+		Handler:           router,
+		ReadHeaderTimeout: 10 * time.Second, // Prevent Slowloris attacks
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	// Graceful shutdown

@@ -294,7 +294,7 @@ func (h *Handler) HandleConnection(conn *websocket.Conn, r *http.Request) {
 						JSONRPC: "2.0",
 						ID:      msg.ID,
 						Result: map[string]interface{}{
-							"streamed": true,
+							"streamed":        true,
 							"chunks_complete": true,
 						},
 					}
@@ -739,7 +739,7 @@ func (h *Handler) handleInitialize(sessionID string, msg *MCPMessage) (*MCPMessa
 		if params.Credentials != nil {
 			session.PassthroughAuth = params.Credentials
 			h.logger.Debug("Stored passthrough credentials in session", map[string]interface{}{
-				"session_id": sessionID,
+				"session_id":      sessionID,
 				"num_credentials": len(params.Credentials.Credentials),
 			})
 		}
@@ -1053,9 +1053,9 @@ func (h *Handler) handleToolCall(sessionID string, msg *MCPMessage) (*MCPMessage
 	if err := h.validator.ValidateToolName(params.Name); err != nil {
 		// Log validation failure
 		h.validator.LogValidationFailure(context.Background(), err, map[string]interface{}{
-			"method":   "tools/call",
-			"tool":     params.Name,
-			"session":  sessionID,
+			"method":     "tools/call",
+			"tool":       params.Name,
+			"session":    sessionID,
 			"message_id": msg.ID,
 		})
 		// Convert to error response

@@ -49,8 +49,8 @@ type TieredCacheConfig struct {
 	L2TTL               time.Duration
 
 	// Compression
-	EnableCompression      bool
-	CompressionThreshold   int
+	EnableCompression    bool
+	CompressionThreshold int
 
 	// Logger
 	Logger observability.Logger
@@ -151,16 +151,16 @@ func NewTieredCache(config *TieredCacheConfig) (*TieredCache, error) {
 // DefaultTieredCacheConfig returns default configuration
 func DefaultTieredCacheConfig() *TieredCacheConfig {
 	return &TieredCacheConfig{
-		L1MaxItems:             DefaultL1MaxItems,
-		L1TTL:                  DefaultL1TTL,
-		RedisEnabled:           false,
-		RedisURL:               "",
-		RedisConnectTimeout:    RedisConnectTimeout,
-		RedisFallbackMode:      true,
-		L2TTL:                  DefaultL2TTL,
-		EnableCompression:      true,
-		CompressionThreshold:   CompressionThreshold,
-		Logger:                 observability.NewNoopLogger(),
+		L1MaxItems:           DefaultL1MaxItems,
+		L1TTL:                DefaultL1TTL,
+		RedisEnabled:         false,
+		RedisURL:             "",
+		RedisConnectTimeout:  RedisConnectTimeout,
+		RedisFallbackMode:    true,
+		L2TTL:                DefaultL2TTL,
+		EnableCompression:    true,
+		CompressionThreshold: CompressionThreshold,
+		Logger:               observability.NewNoopLogger(),
 	}
 }
 
@@ -184,7 +184,7 @@ func (tc *TieredCache) initRedis() error {
 	defer cancel()
 
 	if err := tc.redis.Ping(ctx).Err(); err != nil {
-		tc.redis.Close()
+		_ = tc.redis.Close()
 		tc.redis = nil
 		return fmt.Errorf("redis ping failed: %w", err)
 	}
@@ -542,7 +542,7 @@ func (tc *TieredCache) decompress(data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer gz.Close()
+	defer func() { _ = gz.Close() }()
 
 	return io.ReadAll(gz)
 }

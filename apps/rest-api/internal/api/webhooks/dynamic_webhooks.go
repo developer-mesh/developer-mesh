@@ -278,6 +278,8 @@ func (h *DynamicWebhookHandler) validateHMACSignature(r *http.Request, body []by
 	var mac hash.Hash
 	switch config.SignatureAlgorithm {
 	case "hmac-sha1":
+		// #nosec G505 -- SHA1 is acceptable for HMAC webhook signatures (e.g., GitHub webhooks)
+		// This is not used for password hashing or other security-critical operations
 		mac = hmac.New(sha1.New, []byte(secret))
 	case "hmac-sha256", "":
 		mac = hmac.New(sha256.New, []byte(secret))

@@ -27,10 +27,10 @@ const (
 type StartupState string
 
 const (
-	StartupStateNotStarted  StartupState = "not_started"
-	StartupStateInProgress  StartupState = "in_progress"
-	StartupStateComplete    StartupState = "complete"
-	StartupStateFailed      StartupState = "failed"
+	StartupStateNotStarted StartupState = "not_started"
+	StartupStateInProgress StartupState = "in_progress"
+	StartupStateComplete   StartupState = "complete"
+	StartupStateFailed     StartupState = "failed"
 )
 
 // ComponentHealth represents the health of a single component
@@ -42,10 +42,10 @@ type ComponentHealth struct {
 
 // HealthResponse represents the full health check response
 type HealthResponse struct {
-	Status     HealthStatus                `json:"status"`
-	Timestamp  time.Time                   `json:"timestamp"`
-	Version    string                      `json:"version"`
-	Uptime     float64                     `json:"uptime_seconds"`
+	Status     HealthStatus               `json:"status"`
+	Timestamp  time.Time                  `json:"timestamp"`
+	Version    string                     `json:"version"`
+	Uptime     float64                    `json:"uptime_seconds"`
 	Components map[string]ComponentHealth `json:"components,omitempty"`
 }
 
@@ -67,22 +67,22 @@ type StartupResponse struct {
 
 // HealthChecker manages health checks for Edge MCP
 type HealthChecker struct {
-	toolRegistry      *tools.Registry
-	cache             cache.Cache
-	coreClient        *core.Client
-	mcpHandler        *mcp.Handler
-	logger            observability.Logger
-	version           string
-	config            interface{} // Store config for validation
-	authenticator     interface{} // Store authenticator for validation
-	startTime         time.Time
-	mu                sync.RWMutex
-	lastReadiness     *HealthResponse
-	lastCheck         time.Time
-	cacheTTL          time.Duration
-	startupState      StartupState
-	startupComplete   time.Time
-	startupMetrics    map[string]interface{}
+	toolRegistry    *tools.Registry
+	cache           cache.Cache
+	coreClient      *core.Client
+	mcpHandler      *mcp.Handler
+	logger          observability.Logger
+	version         string
+	config          interface{} // Store config for validation
+	authenticator   interface{} // Store authenticator for validation
+	startTime       time.Time
+	mu              sync.RWMutex
+	lastReadiness   *HealthResponse
+	lastCheck       time.Time
+	cacheTTL        time.Duration
+	startupState    StartupState
+	startupComplete time.Time
+	startupMetrics  map[string]interface{}
 }
 
 // NewHealthChecker creates a new health checker
@@ -144,9 +144,10 @@ func (h *HealthChecker) Readiness(c *gin.Context) {
 		h.mu.RUnlock()
 
 		status := http.StatusOK
-		if cached.Status == HealthStatusUnhealthy {
+		switch cached.Status {
+		case HealthStatusUnhealthy:
 			status = http.StatusServiceUnavailable
-		} else if cached.Status == HealthStatusDegraded {
+		case HealthStatusDegraded:
 			status = http.StatusOK // Still serve traffic when degraded
 		}
 
@@ -166,9 +167,10 @@ func (h *HealthChecker) Readiness(c *gin.Context) {
 
 	// Determine HTTP status code
 	status := http.StatusOK
-	if response.Status == HealthStatusUnhealthy {
+	switch response.Status {
+	case HealthStatusUnhealthy:
 		status = http.StatusServiceUnavailable
-	} else if response.Status == HealthStatusDegraded {
+	case HealthStatusDegraded:
 		status = http.StatusOK // Still serve traffic when degraded
 	}
 
@@ -398,9 +400,8 @@ func (h *HealthChecker) Startup(c *gin.Context) {
 
 	// Determine HTTP status code
 	status := http.StatusOK
-	if response.State == StartupStateFailed {
-		status = http.StatusServiceUnavailable
-	} else if response.State == StartupStateInProgress {
+	switch response.State {
+	case StartupStateFailed, StartupStateInProgress:
 		status = http.StatusServiceUnavailable
 	}
 

@@ -76,11 +76,11 @@ type BatchToolResult struct {
 
 // Config holds the MCP client configuration
 type Config struct {
-	URL              string
-	APIKey           string
-	ConnectTimeout   time.Duration
-	RequestTimeout   time.Duration
-	PassthroughAuth  map[string]string // Additional auth headers for passthrough
+	URL             string
+	APIKey          string
+	ConnectTimeout  time.Duration
+	RequestTimeout  time.Duration
+	PassthroughAuth map[string]string // Additional auth headers for passthrough
 }
 
 // DefaultConfig returns the default configuration from environment variables

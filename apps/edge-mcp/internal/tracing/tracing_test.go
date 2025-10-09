@@ -48,7 +48,7 @@ func TestNewTracerProvider_Enabled_NoExporter(t *testing.T) {
 
 	// Should still work without exporter (noop)
 	ctx := context.Background()
-	ctx, span := tp.StartSpan(ctx, "test-span")
+	_, span := tp.StartSpan(ctx, "test-span")
 	defer span.End()
 
 	assert.NotNil(t, span)
@@ -177,7 +177,7 @@ func TestSpanHelper_StartCorePlatformCallSpan(t *testing.T) {
 	sh := NewSpanHelper(tp)
 	ctx := context.Background()
 
-	ctx, span := sh.StartCorePlatformCallSpan(ctx, "POST", "http://core-platform/api/v1/tools")
+	_, span := sh.StartCorePlatformCallSpan(ctx, "POST", "http://core-platform/api/v1/tools")
 	defer span.End()
 
 	assert.NotNil(t, span)
@@ -196,7 +196,7 @@ func TestSpanHelper_StartCacheOperationSpan(t *testing.T) {
 	sh := NewSpanHelper(tp)
 	ctx := context.Background()
 
-	ctx, span := sh.StartCacheOperationSpan(ctx, "get", "cache-key-123")
+	_, span := sh.StartCacheOperationSpan(ctx, "get", "cache-key-123")
 	defer span.End()
 
 	assert.NotNil(t, span)
@@ -345,11 +345,11 @@ func TestSpanHelper_NilTracerProvider(t *testing.T) {
 	assert.NotNil(t, span)
 	span.End()
 
-	ctx, span = sh.StartCorePlatformCallSpan(ctx, "GET", "/test")
+	_, span = sh.StartCorePlatformCallSpan(ctx, "GET", "/test")
 	assert.NotNil(t, span)
 	span.End()
 
-	ctx, span = sh.StartCacheOperationSpan(ctx, "get", "key")
+	_, span = sh.StartCacheOperationSpan(ctx, "get", "key")
 	assert.NotNil(t, span)
 	span.End()
 }

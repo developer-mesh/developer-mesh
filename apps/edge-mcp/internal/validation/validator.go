@@ -413,7 +413,7 @@ func (v *Validator) ValidateToolArguments(
 	}
 
 	// If no schema provided, just validate it's valid JSON
-	if schema == nil || len(schema) == 0 {
+	if len(schema) == 0 {
 		var temp interface{}
 		if err := json.Unmarshal(arguments, &temp); err != nil {
 			return &ValidationError{

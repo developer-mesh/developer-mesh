@@ -60,8 +60,13 @@ func (r *RetryHandler) ExecuteWithRetry(ctx context.Context, event queue.Event, 
 	b.Multiplier = r.config.Multiplier
 	b.MaxElapsedTime = r.config.MaxElapsedTime
 
-	// Wrap with max retries
-	backoffWithRetries := backoff.WithMaxRetries(b, uint64(r.config.MaxRetries))
+	// Wrap with max retries (ensure positive value)
+	maxRetries := r.config.MaxRetries
+	if maxRetries < 0 {
+		maxRetries = 0
+	}
+	// #nosec G115 -- maxRetries is validated to be non-negative above, safe for uint64 conversion
+	backoffWithRetries := backoff.WithMaxRetries(b, uint64(maxRetries))
 
 	// Track retry attempts
 	attempt := 0

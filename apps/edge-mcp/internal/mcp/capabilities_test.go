@@ -228,30 +228,30 @@ func TestCapabilityManager_GetServiceCapability(t *testing.T) {
 	manager := NewCapabilityManager(registry)
 
 	tests := []struct {
-		name           string
-		serviceName    string
-		wantExists     bool
+		name            string
+		serviceName     string
+		wantExists      bool
 		checkOperations bool
 		minOperations   int
 	}{
 		{
-			name:           "get agent service",
-			serviceName:    "agent",
-			wantExists:     true,
+			name:            "get agent service",
+			serviceName:     "agent",
+			wantExists:      true,
 			checkOperations: true,
 			minOperations:   2,
 		},
 		{
-			name:           "get workflow service",
-			serviceName:    "workflow",
-			wantExists:     true,
+			name:            "get workflow service",
+			serviceName:     "workflow",
+			wantExists:      true,
 			checkOperations: true,
 			minOperations:   2,
 		},
 		{
-			name:           "get github service",
-			serviceName:    "github",
-			wantExists:     true,
+			name:            "get github service",
+			serviceName:     "github",
+			wantExists:      true,
 			checkOperations: true,
 			minOperations:   3,
 		},

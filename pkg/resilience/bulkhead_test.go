@@ -18,14 +18,14 @@ func TestNewBulkhead(t *testing.T) {
 	metrics := newMockMetricsClient()
 
 	tests := []struct {
-		name           string
-		config         BulkheadConfig
-		expectedCalls  int
-		expectedQueue  int
+		name          string
+		config        BulkheadConfig
+		expectedCalls int
+		expectedQueue int
 	}{
 		{
-			name: "with defaults",
-			config: BulkheadConfig{},
+			name:          "with defaults",
+			config:        BulkheadConfig{},
 			expectedCalls: 10,
 			expectedQueue: 0,
 		},
@@ -84,7 +84,7 @@ func TestBulkhead_Execute_Success(t *testing.T) {
 	}
 
 	b := NewBulkhead("test", config, logger, metrics)
-	defer b.Close()
+	defer func() { _ = b.Close() }()
 
 	ctx := context.Background()
 	operation := func(ctx context.Context) (interface{}, error) {
@@ -110,7 +110,7 @@ func TestBulkhead_Execute_Error(t *testing.T) {
 	}
 
 	b := NewBulkhead("test", config, logger, metrics)
-	defer b.Close()
+	defer func() { _ = b.Close() }()
 
 	ctx := context.Background()
 	expectedErr := errors.New("operation failed")
@@ -139,7 +139,7 @@ func TestBulkhead_ConcurrentLimit(t *testing.T) {
 	}
 
 	b := NewBulkhead("test", config, logger, metrics)
-	defer b.Close()
+	defer func() { _ = b.Close() }()
 
 	var activeCount atomic.Int32
 	var maxActive atomic.Int32
@@ -204,7 +204,7 @@ func TestBulkhead_Queueing(t *testing.T) {
 	}
 
 	b := NewBulkhead("test", config, logger, metrics)
-	defer b.Close()
+	defer func() { _ = b.Close() }()
 
 	operation := func(ctx context.Context) (interface{}, error) {
 		time.Sleep(100 * time.Millisecond)
@@ -249,7 +249,7 @@ func TestBulkhead_QueueBackpressure(t *testing.T) {
 	}
 
 	b := NewBulkhead("test", config, logger, metrics)
-	defer b.Close()
+	defer func() { _ = b.Close() }()
 
 	operation := func(ctx context.Context) (interface{}, error) {
 		time.Sleep(200 * time.Millisecond)
@@ -296,7 +296,7 @@ func TestBulkhead_QueueTimeout(t *testing.T) {
 	}
 
 	b := NewBulkhead("test", config, logger, metrics)
-	defer b.Close()
+	defer func() { _ = b.Close() }()
 
 	// Long-running operation
 	operation := func(ctx context.Context) (interface{}, error) {
@@ -305,7 +305,7 @@ func TestBulkhead_QueueTimeout(t *testing.T) {
 	}
 
 	// Start operation that will block
-	go b.Execute(context.Background(), operation)
+	go func() { _, _ = b.Execute(context.Background(), operation) }()
 	time.Sleep(50 * time.Millisecond)
 
 	// This should timeout waiting in queue
@@ -328,7 +328,7 @@ func TestBulkhead_ContextCancellation(t *testing.T) {
 	}
 
 	b := NewBulkhead("test", config, logger, metrics)
-	defer b.Close()
+	defer func() { _ = b.Close() }()
 
 	// Block the bulkhead
 	blocker := func(ctx context.Context) (interface{}, error) {
@@ -336,7 +336,7 @@ func TestBulkhead_ContextCancellation(t *testing.T) {
 		return "success", nil
 	}
 
-	go b.Execute(context.Background(), blocker)
+	go func() { _, _ = b.Execute(context.Background(), blocker) }()
 	time.Sleep(50 * time.Millisecond)
 
 	// Create context that we'll cancel
@@ -376,7 +376,7 @@ func TestBulkhead_RateLimiting(t *testing.T) {
 	}
 
 	b := NewBulkhead("test", config, logger, metrics)
-	defer b.Close()
+	defer func() { _ = b.Close() }()
 
 	operation := func(ctx context.Context) (interface{}, error) {
 		return "success", nil
@@ -411,7 +411,7 @@ func TestBulkhead_Metrics(t *testing.T) {
 	}
 
 	b := NewBulkhead("test", config, logger, metrics)
-	defer b.Close()
+	defer func() { _ = b.Close() }()
 
 	operation := func(ctx context.Context) (interface{}, error) {
 		time.Sleep(10 * time.Millisecond)
@@ -550,7 +550,7 @@ func TestBulkheadStats(t *testing.T) {
 	}
 
 	b := NewBulkhead("test", config, logger, metrics)
-	defer b.Close()
+	defer func() { _ = b.Close() }()
 
 	// Execute some operations
 	ctx := context.Background()
@@ -610,7 +610,7 @@ func BenchmarkBulkhead_Execute(b *testing.B) {
 	}
 
 	bulkhead := NewBulkhead("bench", config, logger, metrics)
-	defer bulkhead.Close()
+	defer func() { _ = bulkhead.Close() }()
 
 	operation := func(ctx context.Context) (interface{}, error) {
 		return "success", nil
@@ -637,7 +637,7 @@ func BenchmarkBulkhead_ExecuteWithQueue(b *testing.B) {
 	}
 
 	bulkhead := NewBulkhead("bench", config, logger, metrics)
-	defer bulkhead.Close()
+	defer func() { _ = bulkhead.Close() }()
 
 	operation := func(ctx context.Context) (interface{}, error) {
 		time.Sleep(time.Microsecond)

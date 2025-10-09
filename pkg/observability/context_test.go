@@ -446,4 +446,3 @@ func TestPerformanceLogger(t *testing.T) {
 		}
 	})
 }
-

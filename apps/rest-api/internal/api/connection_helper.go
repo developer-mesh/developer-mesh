@@ -33,8 +33,8 @@ func (h *ConnectionHelper) ConnectToDatabase(ctx context.Context, config databas
 
 	for attempt := range maxRetries {
 		if attempt > 0 {
-			// Safe conversion: attempt is bounded by maxRetries (3)
-			// Convert to int64 first to avoid gosec G115 warning
+			// Safe conversion: attempt is bounded by maxRetries (5)
+			// Clamp shiftAmount to safe range [0, 31] before uint conversion
 			shiftAmount := int64(attempt - 1)
 			if shiftAmount < 0 {
 				shiftAmount = 0
@@ -42,6 +42,7 @@ func (h *ConnectionHelper) ConnectToDatabase(ctx context.Context, config databas
 			if shiftAmount > 31 {
 				shiftAmount = 31
 			}
+			// #nosec G115 -- shiftAmount is explicitly clamped to [0, 31] above, safe for uint conversion
 			calculatedDelay := baseDelay * time.Duration(1<<uint(shiftAmount))
 			delay := calculatedDelay
 			if calculatedDelay > maxDelay {
@@ -101,7 +102,7 @@ func (h *ConnectionHelper) ConnectToCache(ctx context.Context, cfg cache.RedisCo
 	for attempt := range maxRetries {
 		if attempt > 0 {
 			// Safe conversion: attempt is bounded by maxRetries (3)
-			// Convert to int64 first to avoid gosec G115 warning
+			// Clamp shiftAmount to safe range [0, 31] before uint conversion
 			shiftAmount := int64(attempt - 1)
 			if shiftAmount < 0 {
 				shiftAmount = 0
@@ -109,6 +110,7 @@ func (h *ConnectionHelper) ConnectToCache(ctx context.Context, cfg cache.RedisCo
 			if shiftAmount > 31 {
 				shiftAmount = 31
 			}
+			// #nosec G115 -- shiftAmount is explicitly clamped to [0, 31] above, safe for uint conversion
 			delay := baseDelay * time.Duration(1<<uint(shiftAmount))
 			h.logger.Info("Retrying cache connection", map[string]any{
 				"attempt": attempt + 1,

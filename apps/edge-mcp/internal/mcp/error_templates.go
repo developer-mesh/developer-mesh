@@ -207,8 +207,8 @@ func (et *ErrorTemplates) ToolNotFound(toolName string, availableCategories []st
 
 	// Add alternative tools suggestion if categories are provided
 	if len(availableCategories) > 0 {
-		err.WithMetadata("available_categories", availableCategories)
-		err.WithSuggestion(fmt.Sprintf("Tool '%s' not found. Browse tools in categories: %v", toolName, availableCategories))
+		_ = err.WithMetadata("available_categories", availableCategories)
+		_ = err.WithSuggestion(fmt.Sprintf("Tool '%s' not found. Browse tools in categories: %v", toolName, availableCategories))
 	}
 
 	return err

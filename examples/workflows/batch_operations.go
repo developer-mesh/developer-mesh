@@ -202,8 +202,8 @@ func partialFailureBatch(ctx context.Context, client *common.MCPClient) error {
 			},
 		},
 		{
-			ID:   "valid-2",
-			Name: "agent_list",
+			ID:        "valid-2",
+			Name:      "agent_list",
 			Arguments: map[string]interface{}{},
 		},
 	}

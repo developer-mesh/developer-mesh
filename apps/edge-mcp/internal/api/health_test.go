@@ -309,15 +309,15 @@ func TestHealthChecker_CheckToolRegistry(t *testing.T) {
 		wantMessage   string
 	}{
 		{
-			name:       "nil registry",
-			registry:   nil,
-			wantStatus: HealthStatusUnhealthy,
+			name:        "nil registry",
+			registry:    nil,
+			wantStatus:  HealthStatusUnhealthy,
 			wantMessage: "not initialized",
 		},
 		{
-			name:       "empty registry",
-			registry:   tools.NewRegistry(),
-			wantStatus: HealthStatusDegraded,
+			name:        "empty registry",
+			registry:    tools.NewRegistry(),
+			wantStatus:  HealthStatusDegraded,
 			wantMessage: "No tools registered",
 		},
 		{

@@ -55,12 +55,12 @@ func TestExtractPassthroughAuthFromEnv(t *testing.T) {
 	oldGitHub := os.Getenv("GITHUB_TOKEN")
 	oldHarness := os.Getenv("HARNESS_TOKEN")
 	defer func() {
-		os.Setenv("GITHUB_TOKEN", oldGitHub)
-		os.Setenv("HARNESS_TOKEN", oldHarness)
+		_ = os.Setenv("GITHUB_TOKEN", oldGitHub)
+		_ = os.Setenv("HARNESS_TOKEN", oldHarness)
 	}()
 
-	os.Setenv("GITHUB_TOKEN", "ghp_env_token")
-	os.Setenv("HARNESS_TOKEN", "pat.harness.token")
+	_ = os.Setenv("GITHUB_TOKEN", "ghp_env_token")
+	_ = os.Setenv("HARNESS_TOKEN", "pat.harness.token")
 
 	bundle := handler.extractPassthroughAuthFromEnv()
 

@@ -18,12 +18,12 @@ func TestNewConfigWatcher(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		// Create temporary config file
 		tmpFile := createTempConfigFile(t, getValidConfigYAML())
-		defer os.Remove(tmpFile)
+		defer func() { _ = os.Remove(tmpFile) }()
 
 		watcher, err := NewConfigWatcher(tmpFile, logger)
 		require.NoError(t, err)
 		require.NotNil(t, watcher)
-		defer watcher.Stop()
+		defer func() { _ = watcher.Stop() }()
 
 		assert.Equal(t, tmpFile, watcher.configFile)
 		assert.NotNil(t, watcher.config)
@@ -38,7 +38,7 @@ func TestNewConfigWatcher(t *testing.T) {
 
 	t.Run("InvalidYAML", func(t *testing.T) {
 		tmpFile := createTempConfigFile(t, "invalid: yaml: content:")
-		defer os.Remove(tmpFile)
+		defer func() { _ = os.Remove(tmpFile) }()
 
 		watcher, err := NewConfigWatcher(tmpFile, logger)
 		assert.Error(t, err)
@@ -49,11 +49,11 @@ func TestNewConfigWatcher(t *testing.T) {
 func TestConfigWatcher_GetConfig(t *testing.T) {
 	logger := observability.NewStandardLogger("test")
 	tmpFile := createTempConfigFile(t, getValidConfigYAML())
-	defer os.Remove(tmpFile)
+	defer func() { _ = os.Remove(tmpFile) }()
 
 	watcher, err := NewConfigWatcher(tmpFile, logger)
 	require.NoError(t, err)
-	defer watcher.Stop()
+	defer func() { _ = watcher.Stop() }()
 
 	cfg := watcher.GetConfig()
 	assert.NotNil(t, cfg)
@@ -63,11 +63,11 @@ func TestConfigWatcher_GetConfig(t *testing.T) {
 func TestConfigWatcher_RegisterCallback(t *testing.T) {
 	logger := observability.NewStandardLogger("test")
 	tmpFile := createTempConfigFile(t, getValidConfigYAML())
-	defer os.Remove(tmpFile)
+	defer func() { _ = os.Remove(tmpFile) }()
 
 	watcher, err := NewConfigWatcher(tmpFile, logger)
 	require.NoError(t, err)
-	defer watcher.Stop()
+	defer func() { _ = watcher.Stop() }()
 
 	callbackCalled := false
 	watcher.RegisterCallback(func(oldConfig, newConfig *Config) error {
@@ -92,11 +92,11 @@ server:
 func TestConfigWatcher_ValidateConfig(t *testing.T) {
 	logger := observability.NewStandardLogger("test")
 	tmpFile := createTempConfigFile(t, getValidConfigYAML())
-	defer os.Remove(tmpFile)
+	defer func() { _ = os.Remove(tmpFile) }()
 
 	watcher, err := NewConfigWatcher(tmpFile, logger)
 	require.NoError(t, err)
-	defer watcher.Stop()
+	defer func() { _ = watcher.Stop() }()
 
 	tests := []struct {
 		name    string
@@ -171,11 +171,11 @@ func TestConfigWatcher_ValidateConfig(t *testing.T) {
 func TestConfigWatcher_DetectChanges(t *testing.T) {
 	logger := observability.NewStandardLogger("test")
 	tmpFile := createTempConfigFile(t, getValidConfigYAML())
-	defer os.Remove(tmpFile)
+	defer func() { _ = os.Remove(tmpFile) }()
 
 	watcher, err := NewConfigWatcher(tmpFile, logger)
 	require.NoError(t, err)
-	defer watcher.Stop()
+	defer func() { _ = watcher.Stop() }()
 
 	oldConfig := &Config{
 		Server: ServerConfig{Port: 8082},
@@ -231,11 +231,11 @@ func TestConfigWatcher_DetectChanges(t *testing.T) {
 func TestConfigWatcher_DetectChanges_NoChanges(t *testing.T) {
 	logger := observability.NewStandardLogger("test")
 	tmpFile := createTempConfigFile(t, getValidConfigYAML())
-	defer os.Remove(tmpFile)
+	defer func() { _ = os.Remove(tmpFile) }()
 
 	watcher, err := NewConfigWatcher(tmpFile, logger)
 	require.NoError(t, err)
-	defer watcher.Stop()
+	defer func() { _ = watcher.Stop() }()
 
 	config := Default()
 	changes := watcher.detectChanges(config, config)
@@ -250,11 +250,11 @@ func TestConfigWatcher_ReloadConfig(t *testing.T) {
 
 	logger := observability.NewStandardLogger("test")
 	tmpFile := createTempConfigFile(t, getValidConfigYAML())
-	defer os.Remove(tmpFile)
+	defer func() { _ = os.Remove(tmpFile) }()
 
 	watcher, err := NewConfigWatcher(tmpFile, logger)
 	require.NoError(t, err)
-	defer watcher.Stop()
+	defer func() { _ = watcher.Stop() }()
 
 	// Track callback invocations
 	var mu sync.Mutex
@@ -309,11 +309,11 @@ rate_limit:
 func TestConfigWatcher_ReloadConfig_ValidationError(t *testing.T) {
 	logger := observability.NewStandardLogger("test")
 	tmpFile := createTempConfigFile(t, getValidConfigYAML())
-	defer os.Remove(tmpFile)
+	defer func() { _ = os.Remove(tmpFile) }()
 
 	watcher, err := NewConfigWatcher(tmpFile, logger)
 	require.NoError(t, err)
-	defer watcher.Stop()
+	defer func() { _ = watcher.Stop() }()
 
 	// Update with invalid config
 	invalidYAML := `
@@ -336,11 +336,11 @@ server:
 func TestConfigWatcher_CallbackError(t *testing.T) {
 	logger := observability.NewStandardLogger("test")
 	tmpFile := createTempConfigFile(t, getValidConfigYAML())
-	defer os.Remove(tmpFile)
+	defer func() { _ = os.Remove(tmpFile) }()
 
 	watcher, err := NewConfigWatcher(tmpFile, logger)
 	require.NoError(t, err)
-	defer watcher.Stop()
+	defer func() { _ = watcher.Stop() }()
 
 	// Register callback that returns error
 	watcher.RegisterCallback(func(oldConfig, newConfig *Config) error {
@@ -368,11 +368,11 @@ func TestConfigWatcher_WatchLoop(t *testing.T) {
 
 	logger := observability.NewStandardLogger("test")
 	tmpFile := createTempConfigFile(t, getValidConfigYAML())
-	defer os.Remove(tmpFile)
+	defer func() { _ = os.Remove(tmpFile) }()
 
 	watcher, err := NewConfigWatcher(tmpFile, logger)
 	require.NoError(t, err)
-	defer watcher.Stop()
+	defer func() { _ = watcher.Stop() }()
 
 	// Set short debounce time for testing
 	watcher.SetDebounceTime(100 * time.Millisecond)
@@ -418,7 +418,7 @@ server:
 func TestConfigWatcher_Stop(t *testing.T) {
 	logger := observability.NewStandardLogger("test")
 	tmpFile := createTempConfigFile(t, getValidConfigYAML())
-	defer os.Remove(tmpFile)
+	defer func() { _ = os.Remove(tmpFile) }()
 
 	watcher, err := NewConfigWatcher(tmpFile, logger)
 	require.NoError(t, err)
@@ -432,11 +432,11 @@ func TestConfigWatcher_Stop(t *testing.T) {
 func TestConfigWatcher_ConcurrentAccess(t *testing.T) {
 	logger := observability.NewStandardLogger("test")
 	tmpFile := createTempConfigFile(t, getValidConfigYAML())
-	defer os.Remove(tmpFile)
+	defer func() { _ = os.Remove(tmpFile) }()
 
 	watcher, err := NewConfigWatcher(tmpFile, logger)
 	require.NoError(t, err)
-	defer watcher.Stop()
+	defer func() { _ = watcher.Stop() }()
 
 	// Concurrent readers
 	var wg sync.WaitGroup
@@ -455,7 +455,7 @@ func TestConfigWatcher_ConcurrentAccess(t *testing.T) {
 func TestLoadConfigFile(t *testing.T) {
 	t.Run("ValidYAML", func(t *testing.T) {
 		tmpFile := createTempConfigFile(t, getValidConfigYAML())
-		defer os.Remove(tmpFile)
+		defer func() { _ = os.Remove(tmpFile) }()
 
 		cfg, err := loadConfigFile(tmpFile)
 		require.NoError(t, err)
@@ -471,7 +471,7 @@ func TestLoadConfigFile(t *testing.T) {
 
 	t.Run("InvalidYAML", func(t *testing.T) {
 		tmpFile := createTempConfigFile(t, "invalid: yaml: content:")
-		defer os.Remove(tmpFile)
+		defer func() { _ = os.Remove(tmpFile) }()
 
 		cfg, err := loadConfigFile(tmpFile)
 		assert.Error(t, err)
@@ -481,13 +481,13 @@ func TestLoadConfigFile(t *testing.T) {
 
 func TestMergeWithEnv(t *testing.T) {
 	// Set environment variables
-	os.Setenv("EDGE_MCP_API_KEY", "env-api-key")
-	os.Setenv("DEV_MESH_URL", "http://env-url")
-	os.Setenv("EDGE_MCP_GLOBAL_RPS", "5000")
+	_ = os.Setenv("EDGE_MCP_API_KEY", "env-api-key")
+	_ = os.Setenv("DEV_MESH_URL", "http://env-url")
+	_ = os.Setenv("EDGE_MCP_GLOBAL_RPS", "5000")
 	defer func() {
-		os.Unsetenv("EDGE_MCP_API_KEY")
-		os.Unsetenv("DEV_MESH_URL")
-		os.Unsetenv("EDGE_MCP_GLOBAL_RPS")
+		_ = os.Unsetenv("EDGE_MCP_API_KEY")
+		_ = os.Unsetenv("DEV_MESH_URL")
+		_ = os.Unsetenv("EDGE_MCP_GLOBAL_RPS")
 	}()
 
 	cfg := &Config{
@@ -509,11 +509,11 @@ func TestMergeWithEnv(t *testing.T) {
 func TestConfigWatcher_SetDebounceTime(t *testing.T) {
 	logger := observability.NewStandardLogger("test")
 	tmpFile := createTempConfigFile(t, getValidConfigYAML())
-	defer os.Remove(tmpFile)
+	defer func() { _ = os.Remove(tmpFile) }()
 
 	watcher, err := NewConfigWatcher(tmpFile, logger)
 	require.NoError(t, err)
-	defer watcher.Stop()
+	defer func() { _ = watcher.Stop() }()
 
 	watcher.SetDebounceTime(1 * time.Second)
 	assert.Equal(t, 1*time.Second, watcher.debounceTime)

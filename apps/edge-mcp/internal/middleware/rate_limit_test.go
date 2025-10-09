@@ -100,8 +100,8 @@ func TestRateLimiter_CheckRateLimit_TenantLimit(t *testing.T) {
 func TestRateLimiter_CheckRateLimit_ToolLimit(t *testing.T) {
 	logger := observability.NewNoopLogger()
 	config := DefaultRateLimitConfig()
-	config.GlobalRPS = 1000  // High global limit
-	config.TenantRPS = 1000  // High tenant limit
+	config.GlobalRPS = 1000 // High global limit
+	config.TenantRPS = 1000 // High tenant limit
 	config.ToolRPS = 2
 	config.ToolBurst = 2
 	config.EnableQuotas = false // Disable quotas for this test
@@ -130,9 +130,9 @@ func TestRateLimiter_CheckRateLimit_ToolLimit(t *testing.T) {
 func TestRateLimiter_CheckRateLimit_QuotaLimit(t *testing.T) {
 	logger := observability.NewNoopLogger()
 	config := DefaultRateLimitConfig()
-	config.GlobalRPS = 1000  // High global limit
-	config.TenantRPS = 1000  // High tenant limit
-	config.ToolRPS = 1000    // High tool limit
+	config.GlobalRPS = 1000 // High global limit
+	config.TenantRPS = 1000 // High tenant limit
+	config.ToolRPS = 1000   // High tool limit
 	config.EnableQuotas = true
 	config.DefaultQuota = 5 // Only 5 requests per quota period
 
@@ -160,9 +160,9 @@ func TestRateLimiter_CheckRateLimit_QuotaLimit(t *testing.T) {
 func TestRateLimiter_QuotaReset(t *testing.T) {
 	logger := observability.NewNoopLogger()
 	config := DefaultRateLimitConfig()
-	config.GlobalRPS = 1000  // High global limit
-	config.TenantRPS = 1000  // High tenant limit
-	config.ToolRPS = 1000    // High tool limit
+	config.GlobalRPS = 1000 // High global limit
+	config.TenantRPS = 1000 // High tenant limit
+	config.ToolRPS = 1000   // High tool limit
 	config.EnableQuotas = true
 	config.DefaultQuota = 2
 	config.QuotaResetInterval = 100 * time.Millisecond // Short interval for testing
@@ -217,9 +217,9 @@ func TestRateLimiter_SetTenantQuota(t *testing.T) {
 func TestRateLimiter_GetTenantQuota(t *testing.T) {
 	logger := observability.NewNoopLogger()
 	config := DefaultRateLimitConfig()
-	config.GlobalRPS = 1000  // High global limit
-	config.TenantRPS = 1000  // High tenant limit
-	config.ToolRPS = 1000    // High tool limit
+	config.GlobalRPS = 1000 // High global limit
+	config.TenantRPS = 1000 // High tenant limit
+	config.ToolRPS = 1000   // High tool limit
 	config.EnableQuotas = true
 	config.DefaultQuota = 100
 
@@ -251,7 +251,7 @@ func TestRateLimiter_GetTenantQuota(t *testing.T) {
 func TestRateLimiter_MultiTenant(t *testing.T) {
 	logger := observability.NewNoopLogger()
 	config := DefaultRateLimitConfig()
-	config.GlobalRPS = 1000  // High global limit
+	config.GlobalRPS = 1000 // High global limit
 	config.TenantRPS = 2
 	config.TenantBurst = 2
 	config.EnableQuotas = false

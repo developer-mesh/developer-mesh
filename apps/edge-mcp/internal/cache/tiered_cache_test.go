@@ -48,7 +48,7 @@ func TestNewTieredCache_WithRedis(t *testing.T) {
 	cache, err := NewTieredCache(config)
 	require.NoError(t, err)
 	require.NotNil(t, cache)
-	defer cache.Close()
+	defer func() { _ = cache.Close() }()
 
 	// Redis might not be available in local dev
 	// Cache should still work in memory-only mode
@@ -518,7 +518,7 @@ func TestTieredCache_WithRedis_Integration(t *testing.T) {
 	if err := client.Ping(ctx).Err(); err != nil {
 		t.Skip("Redis not available, skipping integration test")
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	// Clear test database
 	client.FlushDB(ctx)
@@ -535,7 +535,7 @@ func TestTieredCache_WithRedis_Integration(t *testing.T) {
 		Logger:              observability.NewNoopLogger(),
 	})
 	require.NoError(t, err)
-	defer cache.Close()
+	defer func() { _ = cache.Close() }()
 
 	// Verify Redis is enabled and healthy
 	assert.True(t, cache.redisEnabled)

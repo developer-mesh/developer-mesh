@@ -43,12 +43,12 @@ type CommonError struct {
 
 // UsageExample provides concrete examples of how to use the tool
 type UsageExample struct {
-	Name         string                 `json:"name"`        // Short name for the example (e.g., "simple", "complex", "error_case")
-	Description  string                 `json:"description"` // What this example demonstrates
-	Input        map[string]interface{} `json:"input"`       // Example input parameters
-	ExpectedOutput interface{}          `json:"expectedOutput,omitempty"` // Expected successful output (simplified)
-	ExpectedError  *CommonError         `json:"expectedError,omitempty"`  // Expected error for error case examples
-	Notes        string                 `json:"notes,omitempty"`          // Additional context or tips
+	Name           string                 `json:"name"`                     // Short name for the example (e.g., "simple", "complex", "error_case")
+	Description    string                 `json:"description"`              // What this example demonstrates
+	Input          map[string]interface{} `json:"input"`                    // Example input parameters
+	ExpectedOutput interface{}            `json:"expectedOutput,omitempty"` // Expected successful output (simplified)
+	ExpectedError  *CommonError           `json:"expectedError,omitempty"`  // Expected error for error case examples
+	Notes          string                 `json:"notes,omitempty"`          // Additional context or tips
 }
 
 // Enhanced parameter patterns and validation
@@ -505,11 +505,11 @@ func GetEnhancedIssueToolDefinitions() []EnhancedToolDefinition {
 					Name:        "complex",
 					Description: "Create issue with labels, assignees, and milestone",
 					Input: map[string]interface{}{
-						"owner": "kubernetes",
-						"repo":  "kubernetes",
-						"title": "Feature: Add support for custom resource validation",
-						"body":  "## Description\nWe need to add validation for custom resources...\n\n## Acceptance Criteria\n- [ ] Schema validation\n- [ ] Webhook validation\n- [ ] Documentation",
-						"labels": []interface{}{"enhancement", "priority/P1", "sig/api-machinery"},
+						"owner":     "kubernetes",
+						"repo":      "kubernetes",
+						"title":     "Feature: Add support for custom resource validation",
+						"body":      "## Description\nWe need to add validation for custom resources...\n\n## Acceptance Criteria\n- [ ] Schema validation\n- [ ] Webhook validation\n- [ ] Documentation",
+						"labels":    []interface{}{"enhancement", "priority/P1", "sig/api-machinery"},
 						"assignees": []interface{}{"developer1", "developer2"},
 						"milestone": 42,
 					},

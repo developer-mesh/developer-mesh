@@ -10,47 +10,47 @@ import (
 
 // ServiceCapability represents the capabilities of a service or tool provider
 type ServiceCapability struct {
-	ServiceName  string                        `json:"service_name"`
-	DisplayName  string                        `json:"display_name"`
-	Description  string                        `json:"description"`
-	Provider     string                        `json:"provider,omitempty"`      // e.g., "github", "harness", "builtin"
-	APIVersion   string                        `json:"api_version,omitempty"`   // API version supported
-	Category     string                        `json:"category,omitempty"`      // Primary category
-	Operations   []OperationCapability         `json:"operations"`              // Available operations/tools
-	Features     []string                      `json:"features,omitempty"`      // Service-level features
-	AuthRequired bool                          `json:"auth_required"`           // Whether authentication is required
-	AuthTypes    []string                      `json:"auth_types,omitempty"`    // Supported authentication types
-	Limitations  map[string]interface{}        `json:"limitations,omitempty"`   // Service limitations (rate limits, etc.)
-	Metadata     map[string]interface{}        `json:"metadata,omitempty"`      // Additional metadata
+	ServiceName  string                 `json:"service_name"`
+	DisplayName  string                 `json:"display_name"`
+	Description  string                 `json:"description"`
+	Provider     string                 `json:"provider,omitempty"`    // e.g., "github", "harness", "builtin"
+	APIVersion   string                 `json:"api_version,omitempty"` // API version supported
+	Category     string                 `json:"category,omitempty"`    // Primary category
+	Operations   []OperationCapability  `json:"operations"`            // Available operations/tools
+	Features     []string               `json:"features,omitempty"`    // Service-level features
+	AuthRequired bool                   `json:"auth_required"`         // Whether authentication is required
+	AuthTypes    []string               `json:"auth_types,omitempty"`  // Supported authentication types
+	Limitations  map[string]interface{} `json:"limitations,omitempty"` // Service limitations (rate limits, etc.)
+	Metadata     map[string]interface{} `json:"metadata,omitempty"`    // Additional metadata
 }
 
 // OperationCapability represents the capabilities of a specific operation/tool
 type OperationCapability struct {
-	Name            string                 `json:"name"`
-	DisplayName     string                 `json:"display_name,omitempty"`
-	Description     string                 `json:"description"`
-	Method          string                 `json:"method,omitempty"`           // HTTP method (GET, POST, etc.) if applicable
-	Path            string                 `json:"path,omitempty"`             // API path if applicable
-	Category        string                 `json:"category,omitempty"`         // Tool category
-	Tags            []string               `json:"tags,omitempty"`             // Capability tags (read, write, etc.)
-	Permissions     []Permission           `json:"permissions,omitempty"`      // Required permissions
-	Features        []string               `json:"features,omitempty"`         // Operation-specific features
-	InputSchema     map[string]interface{} `json:"input_schema,omitempty"`     // JSON schema for inputs
-	RequiredParams  []string               `json:"required_params,omitempty"`  // Required parameters
-	OptionalParams  []string               `json:"optional_params,omitempty"`  // Optional parameters
-	Relationships   ToolRelationships      `json:"relationships,omitempty"`    // Tool relationships
-	Limitations     map[string]interface{} `json:"limitations,omitempty"`      // Operation limitations
-	Examples        []OperationExample     `json:"examples,omitempty"`         // Usage examples
+	Name           string                 `json:"name"`
+	DisplayName    string                 `json:"display_name,omitempty"`
+	Description    string                 `json:"description"`
+	Method         string                 `json:"method,omitempty"`          // HTTP method (GET, POST, etc.) if applicable
+	Path           string                 `json:"path,omitempty"`            // API path if applicable
+	Category       string                 `json:"category,omitempty"`        // Tool category
+	Tags           []string               `json:"tags,omitempty"`            // Capability tags (read, write, etc.)
+	Permissions    []Permission           `json:"permissions,omitempty"`     // Required permissions
+	Features       []string               `json:"features,omitempty"`        // Operation-specific features
+	InputSchema    map[string]interface{} `json:"input_schema,omitempty"`    // JSON schema for inputs
+	RequiredParams []string               `json:"required_params,omitempty"` // Required parameters
+	OptionalParams []string               `json:"optional_params,omitempty"` // Optional parameters
+	Relationships  ToolRelationships      `json:"relationships,omitempty"`   // Tool relationships
+	Limitations    map[string]interface{} `json:"limitations,omitempty"`     // Operation limitations
+	Examples       []OperationExample     `json:"examples,omitempty"`        // Usage examples
 }
 
 // Permission represents a required permission for an operation
 type Permission struct {
-	Type        string   `json:"type"`                   // e.g., "oauth_scope", "api_key", "role"
-	Name        string   `json:"name"`                   // Permission identifier
-	Description string   `json:"description"`            // Human-readable description
-	Required    bool     `json:"required"`               // Whether this permission is required
-	Scopes      []string `json:"scopes,omitempty"`       // OAuth scopes if applicable
-	Roles       []string `json:"roles,omitempty"`        // Required roles if applicable
+	Type        string   `json:"type"`             // e.g., "oauth_scope", "api_key", "role"
+	Name        string   `json:"name"`             // Permission identifier
+	Description string   `json:"description"`      // Human-readable description
+	Required    bool     `json:"required"`         // Whether this permission is required
+	Scopes      []string `json:"scopes,omitempty"` // OAuth scopes if applicable
+	Roles       []string `json:"roles,omitempty"`  // Required roles if applicable
 }
 
 // ToolRelationships represents relationships between tools
@@ -440,12 +440,12 @@ func (cm *CapabilityManager) extractFeatures(tool tools.ToolDefinition) []string
 
 	// Map tags to features
 	tagFeatureMap := map[string]string{
-		"async":     "supports_async",
-		"batch":     "supports_batching",
-		"streaming": "supports_streaming",
-		"webhook":   "supports_webhooks",
-		"cache":     "supports_caching",
-		"retry":     "supports_retry",
+		"async":      "supports_async",
+		"batch":      "supports_batching",
+		"streaming":  "supports_streaming",
+		"webhook":    "supports_webhooks",
+		"cache":      "supports_caching",
+		"retry":      "supports_retry",
 		"idempotent": "is_idempotent",
 	}
 

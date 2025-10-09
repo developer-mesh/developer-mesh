@@ -95,8 +95,8 @@ func testBatchOperations(t *testing.T, ctx context.Context, client *common.MCPCl
 				},
 			},
 			{
-				ID:   "agents",
-				Name: "agent_list",
+				ID:        "agents",
+				Name:      "agent_list",
 				Arguments: map[string]interface{}{},
 			},
 		}
@@ -122,13 +122,13 @@ func testBatchOperations(t *testing.T, ctx context.Context, client *common.MCPCl
 	t.Run("SequentialBatch", func(t *testing.T) {
 		tools := []common.BatchToolCall{
 			{
-				ID:   "task1",
-				Name: "task_list",
+				ID:        "task1",
+				Name:      "task_list",
 				Arguments: map[string]interface{}{},
 			},
 			{
-				ID:   "agent1",
-				Name: "agent_list",
+				ID:        "agent1",
+				Name:      "agent_list",
 				Arguments: map[string]interface{}{},
 			},
 		}
@@ -149,13 +149,13 @@ func testBatchOperations(t *testing.T, ctx context.Context, client *common.MCPCl
 	t.Run("PartialFailure", func(t *testing.T) {
 		tools := []common.BatchToolCall{
 			{
-				ID:   "valid",
-				Name: "agent_list",
+				ID:        "valid",
+				Name:      "agent_list",
 				Arguments: map[string]interface{}{},
 			},
 			{
-				ID:   "invalid",
-				Name: "nonexistent_tool",
+				ID:        "invalid",
+				Name:      "nonexistent_tool",
 				Arguments: map[string]interface{}{},
 			},
 		}
@@ -245,9 +245,9 @@ func testContextManagement(t *testing.T, ctx context.Context, client *common.MCP
 	// Test update context
 	t.Run("UpdateContext", func(t *testing.T) {
 		contextData := map[string]interface{}{
-			"test_key":   "test_value",
+			"test_key":    "test_value",
 			"test_number": 123,
-			"test_bool":  true,
+			"test_bool":   true,
 		}
 
 		err := client.UpdateContext(ctx, contextData, false)

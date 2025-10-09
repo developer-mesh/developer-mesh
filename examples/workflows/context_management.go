@@ -54,13 +54,13 @@ func createInitialContext(ctx context.Context, client *common.MCPClient) error {
 	common.PrintSubsection("Creating Initial Session Context")
 
 	contextData := map[string]interface{}{
-		"user_id":         "user-123",
-		"session_type":    "development",
-		"repository":      "developer-mesh/developer-mesh",
-		"current_branch":  "main",
-		"workflow_stage":  "initial",
+		"user_id":        "user-123",
+		"session_type":   "development",
+		"repository":     "developer-mesh/developer-mesh",
+		"current_branch": "main",
+		"workflow_stage": "initial",
 		"preferences": map[string]interface{}{
-			"auto_commit": false,
+			"auto_commit":  false,
 			"lint_on_save": true,
 		},
 	}
@@ -81,9 +81,9 @@ func updateContextMerge(ctx context.Context, client *common.MCPClient) error {
 
 	// Add new fields while keeping existing ones
 	updates := map[string]interface{}{
-		"workflow_stage":    "code_review",
-		"last_action":       "opened_pr",
-		"pr_number":         123,
+		"workflow_stage":   "code_review",
+		"last_action":      "opened_pr",
+		"pr_number":        123,
 		"review_checklist": []string{"tests", "docs", "security"},
 	}
 
@@ -183,9 +183,9 @@ func contextAwareOperations(ctx context.Context, client *common.MCPClient) error
 
 		// Example: List recent commits for deployment
 		result, err := client.CallTool(ctx, "github_list_commits", map[string]interface{}{
-			"owner": owner,
-			"repo":  repoName,
-			"sha":   currentContext["current_branch"],
+			"owner":    owner,
+			"repo":     repoName,
+			"sha":      currentContext["current_branch"],
 			"per_page": 5,
 		})
 		if err != nil {

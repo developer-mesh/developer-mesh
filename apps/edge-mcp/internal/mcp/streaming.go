@@ -36,11 +36,11 @@ func DefaultStreamConfig() StreamConfig {
 
 // ProgressNotification represents a progress update notification
 type ProgressNotification struct {
-	Token      string  `json:"token"`       // Unique token for this operation
-	Percentage float64 `json:"percentage"`  // Progress percentage (0-100)
-	Message    string  `json:"message"`     // Human-readable progress message
-	Current    int64   `json:"current"`     // Current progress value
-	Total      int64   `json:"total"`       // Total value (for percentage calculation)
+	Token      string  `json:"token"`      // Unique token for this operation
+	Percentage float64 `json:"percentage"` // Progress percentage (0-100)
+	Message    string  `json:"message"`    // Human-readable progress message
+	Current    int64   `json:"current"`    // Current progress value
+	Total      int64   `json:"total"`      // Total value (for percentage calculation)
 }
 
 // LogNotification represents a log message notification

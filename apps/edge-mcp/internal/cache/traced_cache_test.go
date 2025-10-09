@@ -30,7 +30,7 @@ func TestNewTracedCache_WithSpanHelper(t *testing.T) {
 	}
 	tp, err := tracing.NewTracerProvider(config)
 	require.NoError(t, err)
-	defer tp.Shutdown(context.Background())
+	defer func() { _ = tp.Shutdown(context.Background()) }()
 
 	sh := tracing.NewSpanHelper(tp)
 	tracedCache := NewTracedCache(baseCache, sh)
@@ -53,7 +53,7 @@ func TestTracedCache_Get_Hit(t *testing.T) {
 	}
 	tp, err := tracing.NewTracerProvider(config)
 	require.NoError(t, err)
-	defer tp.Shutdown(context.Background())
+	defer func() { _ = tp.Shutdown(context.Background()) }()
 
 	sh := tracing.NewSpanHelper(tp)
 	tracedCache := NewTracedCache(baseCache, sh)
@@ -82,7 +82,7 @@ func TestTracedCache_Get_Miss(t *testing.T) {
 	}
 	tp, err := tracing.NewTracerProvider(config)
 	require.NoError(t, err)
-	defer tp.Shutdown(context.Background())
+	defer func() { _ = tp.Shutdown(context.Background()) }()
 
 	sh := tracing.NewSpanHelper(tp)
 	tracedCache := NewTracedCache(baseCache, sh)
@@ -107,7 +107,7 @@ func TestTracedCache_Get_Expired(t *testing.T) {
 	}
 	tp, err := tracing.NewTracerProvider(config)
 	require.NoError(t, err)
-	defer tp.Shutdown(context.Background())
+	defer func() { _ = tp.Shutdown(context.Background()) }()
 
 	sh := tracing.NewSpanHelper(tp)
 	tracedCache := NewTracedCache(baseCache, sh)
@@ -139,7 +139,7 @@ func TestTracedCache_Set(t *testing.T) {
 	}
 	tp, err := tracing.NewTracerProvider(config)
 	require.NoError(t, err)
-	defer tp.Shutdown(context.Background())
+	defer func() { _ = tp.Shutdown(context.Background()) }()
 
 	sh := tracing.NewSpanHelper(tp)
 	tracedCache := NewTracedCache(baseCache, sh)
@@ -177,7 +177,7 @@ func TestTracedCache_Delete(t *testing.T) {
 	}
 	tp, err := tracing.NewTracerProvider(config)
 	require.NoError(t, err)
-	defer tp.Shutdown(context.Background())
+	defer func() { _ = tp.Shutdown(context.Background()) }()
 
 	sh := tracing.NewSpanHelper(tp)
 	tracedCache := NewTracedCache(baseCache, sh)
@@ -209,7 +209,7 @@ func TestTracedCache_Size(t *testing.T) {
 	}
 	tp, err := tracing.NewTracerProvider(config)
 	require.NoError(t, err)
-	defer tp.Shutdown(context.Background())
+	defer func() { _ = tp.Shutdown(context.Background()) }()
 
 	sh := tracing.NewSpanHelper(tp)
 	tracedCache := NewTracedCache(baseCache, sh)
@@ -246,7 +246,7 @@ func TestTracedCache_ErrorRecording(t *testing.T) {
 	}
 	tp, err := tracing.NewTracerProvider(config)
 	require.NoError(t, err)
-	defer tp.Shutdown(context.Background())
+	defer func() { _ = tp.Shutdown(context.Background()) }()
 
 	sh := tracing.NewSpanHelper(tp)
 	tracedCache := NewTracedCache(mockCache, sh)

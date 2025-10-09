@@ -112,9 +112,9 @@ func IsRetryableError(err error) bool {
 	// Retryable error codes
 	switch code {
 	case -32000: // Server error (may be transient)
-	case 429:    // Rate limit exceeded
-	case 503:    // Service unavailable
-	case 504:    // Gateway timeout
+	case 429: // Rate limit exceeded
+	case 503: // Service unavailable
+	case 504: // Gateway timeout
 		return true
 	}
 

@@ -183,9 +183,9 @@ func getCommit(ctx context.Context, client *common.MCPClient, owner, repo, ref s
 
 	// First, get the branch to get the latest commit SHA
 	result, err := client.CallTool(ctx, "github_list_commits", map[string]interface{}{
-		"owner": owner,
-		"repo":  repo,
-		"sha":   ref,
+		"owner":    owner,
+		"repo":     repo,
+		"sha":      ref,
 		"per_page": 1,
 	})
 	if err != nil {

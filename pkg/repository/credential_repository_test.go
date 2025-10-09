@@ -14,13 +14,13 @@ import (
 func TestTenantCredential_Fields(t *testing.T) {
 	// Test that all required fields exist and are properly tagged
 	cred := &TenantCredential{
-		ID:             uuid.New(),
-		TenantID:       uuid.New(),
-		CredentialName: "test-cred",
-		CredentialType: "api_key",
-		EncryptedValue: "encrypted-value",
-		IsActive:       true,
-		Tags:           []string{"production", "ci/cd"},
+		ID:              uuid.New(),
+		TenantID:        uuid.New(),
+		CredentialName:  "test-cred",
+		CredentialType:  "api_key",
+		EncryptedValue:  "encrypted-value",
+		IsActive:        true,
+		Tags:            []string{"production", "ci/cd"},
 		AllowedEdgeMcps: []string{"edge-1", "edge-2"},
 	}
 

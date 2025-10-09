@@ -133,11 +133,7 @@ func NewClient(baseURL, apiKey, edgeMCPID string, logger observability.Logger, t
 
 			// Retry on temporary network errors
 			var netErr utils.NetworkError
-			if errors.As(err, &netErr) {
-				return true
-			}
-
-			return false
+			return errors.As(err, &netErr)
 		},
 	}
 

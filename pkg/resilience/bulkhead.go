@@ -13,9 +13,9 @@ import (
 
 // Bulkhead errors
 var (
-	ErrBulkheadFull          = errors.New("bulkhead is full, cannot acquire resource")
-	ErrBulkheadQueueFull     = errors.New("bulkhead queue is full, request rejected")
-	ErrBulkheadTimeout       = errors.New("timeout waiting for bulkhead resource")
+	ErrBulkheadFull            = errors.New("bulkhead is full, cannot acquire resource")
+	ErrBulkheadQueueFull       = errors.New("bulkhead queue is full, request rejected")
+	ErrBulkheadTimeout         = errors.New("timeout waiting for bulkhead resource")
 	ErrBulkheadContextCanceled = errors.New("context canceled while waiting for bulkhead resource")
 )
 
@@ -56,12 +56,12 @@ type Bulkhead struct {
 	rateLimiter *RateLimiter
 
 	// Metrics
-	activeRequests   atomic.Int64
-	queuedRequests   atomic.Int64
-	totalRequests    atomic.Int64
-	rejectedRequests atomic.Int64
+	activeRequests    atomic.Int64
+	queuedRequests    atomic.Int64
+	totalRequests     atomic.Int64
+	rejectedRequests  atomic.Int64
 	completedRequests atomic.Int64
-	timedOutRequests atomic.Int64
+	timedOutRequests  atomic.Int64
 
 	// Observability
 	logger  observability.Logger

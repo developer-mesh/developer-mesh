@@ -12,6 +12,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// contextKey is a custom type for context keys to avoid collisions
+type contextKey string
+
+const (
+	requestIDKey contextKey = "request_id"
+	tenantIDKey  contextKey = "tenant_id"
+	sessionIDKey contextKey = "session_id"
+)
+
 func TestDefaultConfig(t *testing.T) {
 	config := DefaultConfig()
 	assert.Equal(t, 1024*1024, config.MaxParamsSize)
@@ -586,9 +595,9 @@ func TestLogValidationFailure(t *testing.T) {
 	validator := NewValidator(DefaultConfig(), logger)
 
 	ctx := context.Background()
-	ctx = context.WithValue(ctx, "request_id", "test-request-123")
-	ctx = context.WithValue(ctx, "tenant_id", "tenant-456")
-	ctx = context.WithValue(ctx, "session_id", "session-789")
+	ctx = context.WithValue(ctx, requestIDKey, "test-request-123")
+	ctx = context.WithValue(ctx, tenantIDKey, "tenant-456")
+	ctx = context.WithValue(ctx, sessionIDKey, "session-789")
 
 	err := &ValidationError{
 		Field:   "test_field",

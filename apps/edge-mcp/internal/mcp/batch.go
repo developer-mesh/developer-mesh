@@ -46,22 +46,22 @@ type BatchRequest struct {
 
 // BatchToolResult represents the result of a single tool execution
 type BatchToolResult struct {
-	ID       string        `json:"id,omitempty"`       // Matches the tool call ID if provided
-	Name     string        `json:"name"`               // Tool name
-	Status   string        `json:"status"`             // "success" or "error"
-	Result   interface{}   `json:"result,omitempty"`   // Tool result (on success)
-	Error    string        `json:"error,omitempty"`    // Error message (on failure)
-	Duration time.Duration `json:"duration_ms"`        // Execution duration in milliseconds
-	Index    int           `json:"index"`              // Position in batch
+	ID       string        `json:"id,omitempty"`     // Matches the tool call ID if provided
+	Name     string        `json:"name"`             // Tool name
+	Status   string        `json:"status"`           // "success" or "error"
+	Result   interface{}   `json:"result,omitempty"` // Tool result (on success)
+	Error    string        `json:"error,omitempty"`  // Error message (on failure)
+	Duration time.Duration `json:"duration_ms"`      // Execution duration in milliseconds
+	Index    int           `json:"index"`            // Position in batch
 }
 
 // BatchResponse represents the response for a batch execution
 type BatchResponse struct {
-	Results       []BatchToolResult `json:"results"`         // Results for each tool
-	TotalDuration time.Duration     `json:"total_duration"`  // Total batch execution time
-	SuccessCount  int               `json:"success_count"`   // Number of successful executions
-	ErrorCount    int               `json:"error_count"`     // Number of failed executions
-	Parallel      bool              `json:"parallel"`        // Whether execution was parallel
+	Results       []BatchToolResult `json:"results"`        // Results for each tool
+	TotalDuration time.Duration     `json:"total_duration"` // Total batch execution time
+	SuccessCount  int               `json:"success_count"`  // Number of successful executions
+	ErrorCount    int               `json:"error_count"`    // Number of failed executions
+	Parallel      bool              `json:"parallel"`       // Whether execution was parallel
 }
 
 // BatchExecutor executes batches of tool calls
@@ -135,11 +135,11 @@ func (b *BatchExecutor) Execute(ctx context.Context, request *BatchRequest) (*Ba
 	}
 
 	b.logger.Info("Batch execution completed", map[string]interface{}{
-		"total_tools":    len(request.Tools),
-		"success_count":  successCount,
-		"error_count":    errorCount,
-		"duration_ms":    response.TotalDuration.Milliseconds(),
-		"parallel":       parallel,
+		"total_tools":   len(request.Tools),
+		"success_count": successCount,
+		"error_count":   errorCount,
+		"duration_ms":   response.TotalDuration.Milliseconds(),
+		"parallel":      parallel,
 	})
 
 	return response, nil

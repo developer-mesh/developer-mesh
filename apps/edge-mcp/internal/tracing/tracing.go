@@ -41,16 +41,16 @@ const (
 
 // Config holds tracing configuration
 type Config struct {
-	Enabled         bool
-	ServiceName     string
-	ServiceVersion  string
-	Environment     string
-	OTLPEndpoint    string        // OTLP endpoint (e.g., "localhost:4317" for gRPC)
-	OTLPInsecure    bool          // Whether to use insecure connection
-	SamplingRate    float64       // Sampling rate (0.0 to 1.0)
-	ExportTimeout   time.Duration // Timeout for exporting traces
-	JaegerEndpoint  string        // Optional Jaeger endpoint (deprecated, use OTLP)
-	ZipkinEndpoint  string        // Optional Zipkin endpoint
+	Enabled        bool
+	ServiceName    string
+	ServiceVersion string
+	Environment    string
+	OTLPEndpoint   string        // OTLP endpoint (e.g., "localhost:4317" for gRPC)
+	OTLPInsecure   bool          // Whether to use insecure connection
+	SamplingRate   float64       // Sampling rate (0.0 to 1.0)
+	ExportTimeout  time.Duration // Timeout for exporting traces
+	JaegerEndpoint string        // Optional Jaeger endpoint (deprecated, use OTLP)
+	ZipkinEndpoint string        // Optional Zipkin endpoint
 }
 
 // DefaultConfig returns default tracing configuration

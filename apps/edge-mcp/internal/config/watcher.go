@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -85,7 +86,7 @@ func NewConfigWatcher(configFile string, logger observability.Logger) (*ConfigWa
 	// Add config file to watcher
 	err = watcher.Add(configFile)
 	if err != nil {
-		watcher.Close()
+		_ = watcher.Close()
 		return nil, fmt.Errorf("failed to watch config file: %w", err)
 	}
 
@@ -381,13 +382,16 @@ func (cw *ConfigWatcher) logConfigChanges(changes []ConfigChange) {
 
 // loadConfigFile loads configuration from a YAML file
 func loadConfigFile(configFile string) (*Config, error) {
+	// Sanitize file path to prevent directory traversal
+	cleanPath := filepath.Clean(configFile)
+
 	// Check if file exists
-	if _, err := os.Stat(configFile); os.IsNotExist(err) {
-		return nil, fmt.Errorf("config file does not exist: %s", configFile)
+	if _, err := os.Stat(cleanPath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("config file does not exist: %s", cleanPath)
 	}
 
 	// Read file
-	data, err := os.ReadFile(configFile)
+	data, err := os.ReadFile(cleanPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}

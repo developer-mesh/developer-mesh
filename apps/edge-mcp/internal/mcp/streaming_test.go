@@ -33,7 +33,7 @@ func TestStreamWriter_SendProgress(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
 		require.NoError(t, err)
-		defer conn.Close(websocket.StatusNormalClosure, "")
+		defer func() { _ = conn.Close(websocket.StatusNormalClosure, "") }()
 
 		// Read messages
 		for {
@@ -50,7 +50,7 @@ func TestStreamWriter_SendProgress(t *testing.T) {
 	ctx := context.Background()
 	conn, _, err := websocket.Dial(ctx, wsURL, nil)
 	require.NoError(t, err)
-	defer conn.Close(websocket.StatusNormalClosure, "")
+	defer func() { _ = conn.Close(websocket.StatusNormalClosure, "") }()
 
 	// Create stream writer
 	logger := observability.NewStandardLogger("[test]")
@@ -71,22 +71,22 @@ func TestStreamWriter_SendProgress(t *testing.T) {
 // TestStreamWriter_SendLog tests sending log notifications
 func TestStreamWriter_SendLog(t *testing.T) {
 	tests := []struct {
-		name                string
-		enableLogStreaming  bool
-		expectedError       bool
-		shouldReceiveLog    bool
+		name               string
+		enableLogStreaming bool
+		expectedError      bool
+		shouldReceiveLog   bool
 	}{
 		{
-			name:                "logs when streaming enabled",
-			enableLogStreaming:  true,
-			expectedError:       false,
-			shouldReceiveLog:    true,
+			name:               "logs when streaming enabled",
+			enableLogStreaming: true,
+			expectedError:      false,
+			shouldReceiveLog:   true,
 		},
 		{
-			name:                "no logs when streaming disabled",
-			enableLogStreaming:  false,
-			expectedError:       false,
-			shouldReceiveLog:    false,
+			name:               "no logs when streaming disabled",
+			enableLogStreaming: false,
+			expectedError:      false,
+			shouldReceiveLog:   false,
 		},
 	}
 
@@ -96,7 +96,7 @@ func TestStreamWriter_SendLog(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				conn, err := websocket.Accept(w, r, nil)
 				require.NoError(t, err)
-				defer conn.Close(websocket.StatusNormalClosure, "")
+				defer func() { _ = conn.Close(websocket.StatusNormalClosure, "") }()
 
 				// Just keep connection open
 				<-context.Background().Done()
@@ -107,7 +107,7 @@ func TestStreamWriter_SendLog(t *testing.T) {
 			ctx := context.Background()
 			conn, _, err := websocket.Dial(ctx, wsURL, nil)
 			require.NoError(t, err)
-			defer conn.Close(websocket.StatusNormalClosure, "")
+			defer func() { _ = conn.Close(websocket.StatusNormalClosure, "") }()
 
 			logger := observability.NewStandardLogger("[test]")
 			config := DefaultStreamConfig()
@@ -131,27 +131,27 @@ func TestStreamWriter_SendLog(t *testing.T) {
 // TestStreamWriter_SendChunkedContent tests chunked content streaming
 func TestStreamWriter_SendChunkedContent(t *testing.T) {
 	tests := []struct {
-		name          string
-		contentSize   int
-		chunkSize     int
+		name           string
+		contentSize    int
+		chunkSize      int
 		expectedChunks int
 	}{
 		{
-			name:          "small content - single chunk",
-			contentSize:   1000,
-			chunkSize:     2000,
+			name:           "small content - single chunk",
+			contentSize:    1000,
+			chunkSize:      2000,
 			expectedChunks: 1,
 		},
 		{
-			name:          "exact multiple chunks",
-			contentSize:   4000,
-			chunkSize:     1000,
+			name:           "exact multiple chunks",
+			contentSize:    4000,
+			chunkSize:      1000,
 			expectedChunks: 4,
 		},
 		{
-			name:          "uneven chunks",
-			contentSize:   5500,
-			chunkSize:     2000,
+			name:           "uneven chunks",
+			contentSize:    5500,
+			chunkSize:      2000,
 			expectedChunks: 3,
 		},
 	}
@@ -168,7 +168,7 @@ func TestStreamWriter_SendChunkedContent(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				conn, err := websocket.Accept(w, r, nil)
 				require.NoError(t, err)
-				defer conn.Close(websocket.StatusNormalClosure, "")
+				defer func() { _ = conn.Close(websocket.StatusNormalClosure, "") }()
 
 				// Keep connection open
 				<-time.After(2 * time.Second)
@@ -179,7 +179,7 @@ func TestStreamWriter_SendChunkedContent(t *testing.T) {
 			ctx := context.Background()
 			conn, _, err := websocket.Dial(ctx, wsURL, nil)
 			require.NoError(t, err)
-			defer conn.Close(websocket.StatusNormalClosure, "")
+			defer func() { _ = conn.Close(websocket.StatusNormalClosure, "") }()
 
 			logger := observability.NewStandardLogger("[test]")
 			config := DefaultStreamConfig()
@@ -199,7 +199,7 @@ func TestStreamWriter_Cancel(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
 		require.NoError(t, err)
-		defer conn.Close(websocket.StatusNormalClosure, "")
+		defer func() { _ = conn.Close(websocket.StatusNormalClosure, "") }()
 
 		<-time.After(5 * time.Second)
 	}))
@@ -209,7 +209,7 @@ func TestStreamWriter_Cancel(t *testing.T) {
 	ctx := context.Background()
 	conn, _, err := websocket.Dial(ctx, wsURL, nil)
 	require.NoError(t, err)
-	defer conn.Close(websocket.StatusNormalClosure, "")
+	defer func() { _ = conn.Close(websocket.StatusNormalClosure, "") }()
 
 	logger := observability.NewStandardLogger("[test]")
 	config := DefaultStreamConfig()
@@ -242,7 +242,7 @@ func TestStreamManager_CreateStream(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
 		require.NoError(t, err)
-		defer conn.Close(websocket.StatusNormalClosure, "")
+		defer func() { _ = conn.Close(websocket.StatusNormalClosure, "") }()
 		<-time.After(5 * time.Second)
 	}))
 	defer server.Close()
@@ -251,7 +251,7 @@ func TestStreamManager_CreateStream(t *testing.T) {
 	ctx := context.Background()
 	conn, _, err := websocket.Dial(ctx, wsURL, nil)
 	require.NoError(t, err)
-	defer conn.Close(websocket.StatusNormalClosure, "")
+	defer func() { _ = conn.Close(websocket.StatusNormalClosure, "") }()
 
 	// Create first stream
 	stream1, err := sm.CreateStream("request-1", conn)
@@ -288,7 +288,7 @@ func TestStreamManager_GetStream(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
 		require.NoError(t, err)
-		defer conn.Close(websocket.StatusNormalClosure, "")
+		defer func() { _ = conn.Close(websocket.StatusNormalClosure, "") }()
 		<-time.After(5 * time.Second)
 	}))
 	defer server.Close()
@@ -297,7 +297,7 @@ func TestStreamManager_GetStream(t *testing.T) {
 	ctx := context.Background()
 	conn, _, err := websocket.Dial(ctx, wsURL, nil)
 	require.NoError(t, err)
-	defer conn.Close(websocket.StatusNormalClosure, "")
+	defer func() { _ = conn.Close(websocket.StatusNormalClosure, "") }()
 
 	// Create stream
 	created, err := sm.CreateStream("request-1", conn)
@@ -323,7 +323,7 @@ func TestStreamManager_CloseStream(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
 		require.NoError(t, err)
-		defer conn.Close(websocket.StatusNormalClosure, "")
+		defer func() { _ = conn.Close(websocket.StatusNormalClosure, "") }()
 		<-time.After(5 * time.Second)
 	}))
 	defer server.Close()
@@ -332,7 +332,7 @@ func TestStreamManager_CloseStream(t *testing.T) {
 	ctx := context.Background()
 	conn, _, err := websocket.Dial(ctx, wsURL, nil)
 	require.NoError(t, err)
-	defer conn.Close(websocket.StatusNormalClosure, "")
+	defer func() { _ = conn.Close(websocket.StatusNormalClosure, "") }()
 
 	// Create stream
 	_, err = sm.CreateStream("request-1", conn)
@@ -360,7 +360,7 @@ func TestStreamManager_CloseAll(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
 		require.NoError(t, err)
-		defer conn.Close(websocket.StatusNormalClosure, "")
+		defer func() { _ = conn.Close(websocket.StatusNormalClosure, "") }()
 		<-time.After(5 * time.Second)
 	}))
 	defer server.Close()
@@ -369,7 +369,7 @@ func TestStreamManager_CloseAll(t *testing.T) {
 	ctx := context.Background()
 	conn, _, err := websocket.Dial(ctx, wsURL, nil)
 	require.NoError(t, err)
-	defer conn.Close(websocket.StatusNormalClosure, "")
+	defer func() { _ = conn.Close(websocket.StatusNormalClosure, "") }()
 
 	// Create multiple streams
 	for i := 0; i < 5; i++ {
@@ -389,7 +389,7 @@ func TestStreamingLogger(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
 		require.NoError(t, err)
-		defer conn.Close(websocket.StatusNormalClosure, "")
+		defer func() { _ = conn.Close(websocket.StatusNormalClosure, "") }()
 		<-time.After(5 * time.Second)
 	}))
 	defer server.Close()
@@ -398,7 +398,7 @@ func TestStreamingLogger(t *testing.T) {
 	ctx := context.Background()
 	conn, _, err := websocket.Dial(ctx, wsURL, nil)
 	require.NoError(t, err)
-	defer conn.Close(websocket.StatusNormalClosure, "")
+	defer func() { _ = conn.Close(websocket.StatusNormalClosure, "") }()
 
 	baseLogger := observability.NewStandardLogger("[test]")
 	config := DefaultStreamConfig()
@@ -516,7 +516,7 @@ func TestStreamWriter_ConcurrentAccess(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
 		require.NoError(t, err)
-		defer conn.Close(websocket.StatusNormalClosure, "")
+		defer func() { _ = conn.Close(websocket.StatusNormalClosure, "") }()
 		<-time.After(5 * time.Second)
 	}))
 	defer server.Close()
@@ -525,7 +525,7 @@ func TestStreamWriter_ConcurrentAccess(t *testing.T) {
 	ctx := context.Background()
 	conn, _, err := websocket.Dial(ctx, wsURL, nil)
 	require.NoError(t, err)
-	defer conn.Close(websocket.StatusNormalClosure, "")
+	defer func() { _ = conn.Close(websocket.StatusNormalClosure, "") }()
 
 	logger := observability.NewStandardLogger("[test]")
 	config := DefaultStreamConfig()
@@ -554,7 +554,7 @@ func BenchmarkStreamWriter_SendProgress(b *testing.B) {
 		if err != nil {
 			return
 		}
-		defer conn.Close(websocket.StatusNormalClosure, "")
+		defer func() { _ = conn.Close(websocket.StatusNormalClosure, "") }()
 		<-time.After(30 * time.Second)
 	}))
 	defer server.Close()
@@ -565,7 +565,7 @@ func BenchmarkStreamWriter_SendProgress(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer conn.Close(websocket.StatusNormalClosure, "")
+	defer func() { _ = conn.Close(websocket.StatusNormalClosure, "") }()
 
 	logger := observability.NewStandardLogger("[bench]")
 	config := DefaultStreamConfig()
@@ -585,7 +585,7 @@ func BenchmarkStreamWriter_SendLog(b *testing.B) {
 		if err != nil {
 			return
 		}
-		defer conn.Close(websocket.StatusNormalClosure, "")
+		defer func() { _ = conn.Close(websocket.StatusNormalClosure, "") }()
 		<-time.After(30 * time.Second)
 	}))
 	defer server.Close()
@@ -596,7 +596,7 @@ func BenchmarkStreamWriter_SendLog(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer conn.Close(websocket.StatusNormalClosure, "")
+	defer func() { _ = conn.Close(websocket.StatusNormalClosure, "") }()
 
 	logger := observability.NewStandardLogger("[bench]")
 	config := DefaultStreamConfig()

@@ -64,10 +64,10 @@ func TestRecordToolExecution(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		toolName string
-		duration time.Duration
-		err      error
+		name       string
+		toolName   string
+		duration   time.Duration
+		err        error
 		wantStatus string
 	}{
 		{

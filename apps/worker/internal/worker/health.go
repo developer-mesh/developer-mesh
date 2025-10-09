@@ -319,5 +319,15 @@ func (h *HealthChecker) StartHealthEndpoint(addr string) error {
 		"address": addr,
 	})
 
-	return http.ListenAndServe(addr, mux)
+	// Create server with timeouts to prevent Slowloris attacks
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+
+	return srv.ListenAndServe()
 }

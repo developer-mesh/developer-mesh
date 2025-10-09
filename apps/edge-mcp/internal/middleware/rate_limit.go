@@ -60,10 +60,10 @@ type rateLimiterEntry struct {
 
 // quotaEntry tracks quota usage for a tenant
 type quotaEntry struct {
-	used      int64
-	limit     int64
-	resetAt   time.Time
-	mu        sync.Mutex
+	used    int64
+	limit   int64
+	resetAt time.Time
+	mu      sync.Mutex
 }
 
 // RateLimiter manages rate limiting for Edge MCP WebSocket connections
@@ -83,15 +83,15 @@ type RateLimiter struct {
 
 // RateLimitResult contains the result of a rate limit check
 type RateLimitResult struct {
-	Allowed       bool
-	LimitType     string // "global", "tenant", "tool", "quota"
-	Limit         int
-	Remaining     int
-	ResetAt       time.Time
-	RetryAfter    time.Duration
-	QuotaUsed     int64
-	QuotaLimit    int64
-	QuotaResetAt  time.Time
+	Allowed      bool
+	LimitType    string // "global", "tenant", "tool", "quota"
+	Limit        int
+	Remaining    int
+	ResetAt      time.Time
+	RetryAfter   time.Duration
+	QuotaUsed    int64
+	QuotaLimit   int64
+	QuotaResetAt time.Time
 }
 
 // NewRateLimiter creates a new rate limiter for Edge MCP
@@ -352,12 +352,12 @@ func (rl *RateLimiter) GetStats() map[string]interface{} {
 	}
 
 	return map[string]interface{}{
-		"total_limiters":  len(rl.limiters),
-		"tenant_limiters": tenantCount,
-		"tool_limiters":   toolCount,
-		"total_quotas":    len(rl.quotas),
+		"total_limiters":   len(rl.limiters),
+		"tenant_limiters":  tenantCount,
+		"tool_limiters":    toolCount,
+		"total_quotas":     len(rl.quotas),
 		"total_quota_used": totalQuotaUsed,
-		"config":          rl.config,
+		"config":           rl.config,
 	}
 }
 

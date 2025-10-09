@@ -12,11 +12,11 @@ func TestSearch_KeywordMatching(t *testing.T) {
 	registry := setupTestRegistryForSearch()
 
 	tests := []struct {
-		name           string
-		keyword        string
-		expectedCount  int
-		expectedFirst  string
-		minScore       float64
+		name          string
+		keyword       string
+		expectedCount int
+		expectedFirst string
+		minScore      float64
 	}{
 		{
 			name:          "exact name match",
@@ -134,9 +134,9 @@ func TestSearch_TagFiltering(t *testing.T) {
 			expectedCount: 1,
 		},
 		{
-			name:          "multiple tags (read + list)",
-			tags:          []string{"read", "list"},
-			minCount:      1,
+			name:     "multiple tags (read + list)",
+			tags:     []string{"read", "list"},
+			minCount: 1,
 		},
 		{
 			name:          "nonexistent tag",

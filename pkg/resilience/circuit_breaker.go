@@ -427,7 +427,7 @@ func (cb *CircuitBreaker) ExecuteWithFallback(ctx context.Context, fn func() (in
 	// If circuit is open or execution failed, try fallback
 	if fallback != nil {
 		cb.logger.Info("Executing fallback for circuit breaker", map[string]interface{}{
-			"name":          cb.name,
+			"name":           cb.name,
 			"original_error": err.Error(),
 		})
 
@@ -436,9 +436,9 @@ func (cb *CircuitBreaker) ExecuteWithFallback(ctx context.Context, fn func() (in
 		// Record fallback execution metric
 		if cb.metrics != nil {
 			labels := map[string]string{
-				"name":    cb.name,
-				"state":   cb.getState().String(),
-				"status":  "fallback",
+				"name":   cb.name,
+				"state":  cb.getState().String(),
+				"status": "fallback",
 			}
 			if fallbackErr == nil {
 				cb.metrics.IncrementCounterWithLabels("circuit_breaker_fallback_success_total", 1, labels)

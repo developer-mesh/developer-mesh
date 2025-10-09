@@ -28,14 +28,14 @@ func TestGetRelationship(t *testing.T) {
 	rm := NewRelationshipManager()
 
 	tests := []struct {
-		name       string
-		toolName   string
+		name        string
+		toolName    string
 		expectExist bool
 		checkFields func(t *testing.T, rel *ToolRelationship)
 	}{
 		{
-			name:       "github_create_issue relationships",
-			toolName:   "github_create_issue",
+			name:        "github_create_issue relationships",
+			toolName:    "github_create_issue",
 			expectExist: true,
 			checkFields: func(t *testing.T, rel *ToolRelationship) {
 				assert.Contains(t, rel.Prerequisites, "github_get_repository")
@@ -44,8 +44,8 @@ func TestGetRelationship(t *testing.T) {
 			},
 		},
 		{
-			name:       "github_merge_pull_request relationships",
-			toolName:   "github_merge_pull_request",
+			name:        "github_merge_pull_request relationships",
+			toolName:    "github_merge_pull_request",
 			expectExist: true,
 			checkFields: func(t *testing.T, rel *ToolRelationship) {
 				assert.Contains(t, rel.Prerequisites, "github_get_pull_request")
@@ -54,8 +54,8 @@ func TestGetRelationship(t *testing.T) {
 			},
 		},
 		{
-			name:       "non-existent tool",
-			toolName:   "non_existent_tool",
+			name:        "non-existent tool",
+			toolName:    "non_existent_tool",
 			expectExist: false,
 		},
 	}
@@ -75,14 +75,14 @@ func TestGetIOCompatibility(t *testing.T) {
 	rm := NewRelationshipManager()
 
 	tests := []struct {
-		name       string
-		toolName   string
+		name        string
+		toolName    string
 		expectExist bool
-		checkIO    func(t *testing.T, io *IOCompatibility)
+		checkIO     func(t *testing.T, io *IOCompatibility)
 	}{
 		{
-			name:       "github_get_issue IO",
-			toolName:   "github_get_issue",
+			name:        "github_get_issue IO",
+			toolName:    "github_get_issue",
 			expectExist: true,
 			checkIO: func(t *testing.T, io *IOCompatibility) {
 				assert.Equal(t, "json", io.InputType.Format)
@@ -92,8 +92,8 @@ func TestGetIOCompatibility(t *testing.T) {
 			},
 		},
 		{
-			name:       "workflow_create IO",
-			toolName:   "workflow_create",
+			name:        "workflow_create IO",
+			toolName:    "workflow_create",
 			expectExist: true,
 			checkIO: func(t *testing.T, io *IOCompatibility) {
 				assert.Equal(t, "workflow_definition", io.InputType.Schema)
@@ -101,8 +101,8 @@ func TestGetIOCompatibility(t *testing.T) {
 			},
 		},
 		{
-			name:       "non-existent tool",
-			toolName:   "non_existent_tool",
+			name:        "non-existent tool",
+			toolName:    "non_existent_tool",
 			expectExist: false,
 		},
 	}
@@ -309,33 +309,33 @@ func TestCheckConflicts(t *testing.T) {
 	rm := NewRelationshipManager()
 
 	tests := []struct {
-		name          string
-		tool1         string
-		tool2         string
+		name           string
+		tool1          string
+		tool2          string
 		expectConflict bool
 	}{
 		{
-			name:          "conflicting tools",
-			tool1:         "github_merge_pull_request",
-			tool2:         "github_update_pull_request",
+			name:           "conflicting tools",
+			tool1:          "github_merge_pull_request",
+			tool2:          "github_update_pull_request",
 			expectConflict: true,
 		},
 		{
-			name:          "reverse order conflicting tools",
-			tool1:         "github_update_pull_request",
-			tool2:         "github_merge_pull_request",
+			name:           "reverse order conflicting tools",
+			tool1:          "github_update_pull_request",
+			tool2:          "github_merge_pull_request",
 			expectConflict: true,
 		},
 		{
-			name:          "non-conflicting tools",
-			tool1:         "github_get_issue",
-			tool2:         "github_update_issue",
+			name:           "non-conflicting tools",
+			tool1:          "github_get_issue",
+			tool2:          "github_update_issue",
 			expectConflict: false,
 		},
 		{
-			name:          "non-existent tools",
-			tool1:         "non_existent1",
-			tool2:         "non_existent2",
+			name:           "non-existent tools",
+			tool1:          "non_existent1",
+			tool2:          "non_existent2",
 			expectConflict: false,
 		},
 	}
@@ -352,9 +352,9 @@ func TestGetWorkflowsForCategory(t *testing.T) {
 	rm := NewRelationshipManager()
 
 	tests := []struct {
-		name         string
-		category     string
-		expectCount  int
+		name          string
+		category      string
+		expectCount   int
 		checkWorkflow func(t *testing.T, workflows []WorkflowTemplate)
 	}{
 		{
@@ -395,10 +395,10 @@ func TestGetWorkflowsWithTool(t *testing.T) {
 	rm := NewRelationshipManager()
 
 	tests := []struct {
-		name             string
-		toolName         string
-		minExpectCount   int
-		expectWorkflows  []string
+		name            string
+		toolName        string
+		minExpectCount  int
+		expectWorkflows []string
 	}{
 		{
 			name:            "github_create_pull_request",
@@ -478,28 +478,28 @@ func TestGetAlternatives(t *testing.T) {
 	rm := NewRelationshipManager()
 
 	tests := []struct {
-		name             string
-		toolName         string
+		name                 string
+		toolName             string
 		expectedAlternatives []string
 	}{
 		{
-			name:             "github_get_issue alternatives",
-			toolName:         "github_get_issue",
+			name:                 "github_get_issue alternatives",
+			toolName:             "github_get_issue",
 			expectedAlternatives: []string{"github_search_issues"},
 		},
 		{
-			name:             "workflow_create alternatives",
-			toolName:         "workflow_create",
+			name:                 "workflow_create alternatives",
+			toolName:             "workflow_create",
 			expectedAlternatives: []string{"template_instantiate"},
 		},
 		{
-			name:             "tool with no alternatives",
-			toolName:         "github_create_issue",
+			name:                 "tool with no alternatives",
+			toolName:             "github_create_issue",
 			expectedAlternatives: []string{},
 		},
 		{
-			name:             "non-existent tool",
-			toolName:         "non_existent",
+			name:                 "non-existent tool",
+			toolName:             "non_existent",
 			expectedAlternatives: []string{},
 		},
 	}

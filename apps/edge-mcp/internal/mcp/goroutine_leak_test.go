@@ -112,7 +112,7 @@ func TestPingLoopCleanup(t *testing.T) {
 		if err != nil {
 			return
 		}
-		defer conn.Close(websocket.StatusNormalClosure, "")
+		defer func() { _ = conn.Close(websocket.StatusNormalClosure, "") }()
 		// Keep connection open for test
 		time.Sleep(2 * time.Second)
 	}))
@@ -123,7 +123,7 @@ func TestPingLoopCleanup(t *testing.T) {
 
 	conn, _, err := websocket.Dial(ctx, server.URL, nil)
 	require.NoError(t, err)
-	defer conn.Close(websocket.StatusNormalClosure, "")
+	defer func() { _ = conn.Close(websocket.StatusNormalClosure, "") }()
 
 	// Start ping loop
 	pingCtx, pingCancel := context.WithCancel(context.Background())
@@ -194,7 +194,7 @@ func TestConcurrentConnectionHandling(t *testing.T) {
 				"params": {}
 			}`))
 
-			conn.Close(websocket.StatusNormalClosure, "")
+			_ = conn.Close(websocket.StatusNormalClosure, "")
 			done <- true
 		}(i)
 	}
@@ -279,7 +279,7 @@ func TestShutdownCleansUpGoroutines(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 
 	// Close connection
-	conn.Close(websocket.StatusNormalClosure, "")
+	_ = conn.Close(websocket.StatusNormalClosure, "")
 
 	// Shutdown the handler
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 2*time.Second)

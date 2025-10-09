@@ -52,12 +52,12 @@ type CredentialConfig struct {
 // DefaultCredentialConfig returns sensible defaults
 func DefaultCredentialConfig() *CredentialConfig {
 	return &CredentialConfig{
-		DefaultExpiry:          90 * 24 * time.Hour,  // 90 days
-		RotationInterval:       30 * 24 * time.Hour,  // 30 days
-		ExpiryWarningThreshold: 7 * 24 * time.Hour,   // 7 days
+		DefaultExpiry:          90 * 24 * time.Hour, // 90 days
+		RotationInterval:       30 * 24 * time.Hour, // 30 days
+		ExpiryWarningThreshold: 7 * 24 * time.Hour,  // 7 days
 		MinPasswordLength:      12,
 		RequireStrongPasswords: true,
-		InactivityThreshold:    30 * 24 * time.Hour,  // 30 days
+		InactivityThreshold:    30 * 24 * time.Hour, // 30 days
 	}
 }
 

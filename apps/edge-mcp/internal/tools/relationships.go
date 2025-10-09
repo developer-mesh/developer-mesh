@@ -31,9 +31,9 @@ type IOCompatibility struct {
 
 // DataType represents the type of data a tool accepts or produces
 type DataType struct {
-	Format      string                 `json:"format"`      // e.g., "json", "text", "binary"
-	Schema      string                 `json:"schema"`      // e.g., "issue", "pull_request", "workflow"
-	ContentType string                 `json:"content_type"` // MIME type
+	Format      string                 `json:"format"`               // e.g., "json", "text", "binary"
+	Schema      string                 `json:"schema"`               // e.g., "issue", "pull_request", "workflow"
+	ContentType string                 `json:"content_type"`         // MIME type
 	Properties  map[string]interface{} `json:"properties,omitempty"` // Additional schema properties
 }
 
@@ -48,12 +48,12 @@ type WorkflowTemplate struct {
 
 // WorkflowStep represents a single step in a workflow
 type WorkflowStep struct {
-	Order       int               `json:"order"`
-	ToolName    string            `json:"tool_name"`
-	Description string            `json:"description"`
-	Required    bool              `json:"required"`
-	Condition   string            `json:"condition,omitempty"` // Condition for executing this step
-	InputFrom   string            `json:"input_from,omitempty"` // Previous step to get input from
+	Order       int                    `json:"order"`
+	ToolName    string                 `json:"tool_name"`
+	Description string                 `json:"description"`
+	Required    bool                   `json:"required"`
+	Condition   string                 `json:"condition,omitempty"`  // Condition for executing this step
+	InputFrom   string                 `json:"input_from,omitempty"` // Previous step to get input from
 	Parameters  map[string]interface{} `json:"parameters,omitempty"` // Default parameters
 }
 
@@ -84,125 +84,125 @@ func NewRelationshipManager() *RelationshipManager {
 func (rm *RelationshipManager) initializeDefaultRelationships() {
 	// GitHub Issue relationships
 	rm.relationships["github_get_issue"] = &ToolRelationship{
-		Prerequisites: []string{},
+		Prerequisites:    []string{},
 		CommonlyUsedWith: []string{"github_update_issue", "github_add_issue_comment", "github_list_issue_comments"},
-		NextSteps: []string{"github_update_issue", "github_add_issue_comment", "github_create_pull_request"},
-		Alternatives: []string{"github_search_issues"},
+		NextSteps:        []string{"github_update_issue", "github_add_issue_comment", "github_create_pull_request"},
+		Alternatives:     []string{"github_search_issues"},
 	}
 
 	rm.relationships["github_create_issue"] = &ToolRelationship{
-		Prerequisites: []string{"github_get_repository"},
+		Prerequisites:    []string{"github_get_repository"},
 		CommonlyUsedWith: []string{"github_add_issue_comment", "github_update_issue"},
-		NextSteps: []string{"github_add_issue_comment", "github_assign_issue", "github_add_labels"},
-		Alternatives: []string{},
+		NextSteps:        []string{"github_add_issue_comment", "github_assign_issue", "github_add_labels"},
+		Alternatives:     []string{},
 	}
 
 	rm.relationships["github_list_issues"] = &ToolRelationship{
-		Prerequisites: []string{},
+		Prerequisites:    []string{},
 		CommonlyUsedWith: []string{"github_get_issue", "github_search_issues"},
-		NextSteps: []string{"github_get_issue", "github_update_issue", "github_create_issue"},
-		Alternatives: []string{"github_search_issues"},
+		NextSteps:        []string{"github_get_issue", "github_update_issue", "github_create_issue"},
+		Alternatives:     []string{"github_search_issues"},
 	}
 
 	// GitHub Pull Request relationships
 	rm.relationships["github_create_pull_request"] = &ToolRelationship{
-		Prerequisites: []string{"github_create_branch", "github_push_files"},
+		Prerequisites:    []string{"github_create_branch", "github_push_files"},
 		CommonlyUsedWith: []string{"github_add_pull_request_review_comment", "github_request_reviewers"},
-		NextSteps: []string{"github_request_reviewers", "github_add_pull_request_review_comment", "github_merge_pull_request"},
-		Alternatives: []string{},
+		NextSteps:        []string{"github_request_reviewers", "github_add_pull_request_review_comment", "github_merge_pull_request"},
+		Alternatives:     []string{},
 	}
 
 	rm.relationships["github_merge_pull_request"] = &ToolRelationship{
-		Prerequisites: []string{"github_get_pull_request", "github_get_pull_request_reviews"},
+		Prerequisites:    []string{"github_get_pull_request", "github_get_pull_request_reviews"},
 		CommonlyUsedWith: []string{"github_delete_branch"},
-		NextSteps: []string{"github_delete_branch", "github_create_release"},
-		Alternatives: []string{},
-		ConflictsWith: []string{"github_update_pull_request"}, // Can't update after merge
+		NextSteps:        []string{"github_delete_branch", "github_create_release"},
+		Alternatives:     []string{},
+		ConflictsWith:    []string{"github_update_pull_request"}, // Can't update after merge
 	}
 
 	// GitHub Actions/Workflow relationships
 	rm.relationships["github_run_workflow"] = &ToolRelationship{
-		Prerequisites: []string{"github_list_workflows"},
+		Prerequisites:    []string{"github_list_workflows"},
 		CommonlyUsedWith: []string{"github_get_workflow_run", "github_list_workflow_jobs"},
-		NextSteps: []string{"github_get_workflow_run", "github_get_workflow_run_logs", "github_list_artifacts"},
-		Alternatives: []string{"github_rerun_workflow_run"},
+		NextSteps:        []string{"github_get_workflow_run", "github_get_workflow_run_logs", "github_list_artifacts"},
+		Alternatives:     []string{"github_rerun_workflow_run"},
 	}
 
 	rm.relationships["github_cancel_workflow_run"] = &ToolRelationship{
-		Prerequisites: []string{"github_get_workflow_run"},
+		Prerequisites:    []string{"github_get_workflow_run"},
 		CommonlyUsedWith: []string{"github_rerun_workflow_run"},
-		NextSteps: []string{"github_rerun_workflow_run", "github_run_workflow"},
-		Alternatives: []string{},
-		ConflictsWith: []string{"github_get_workflow_run_logs"}, // Can't get logs while canceling
+		NextSteps:        []string{"github_rerun_workflow_run", "github_run_workflow"},
+		Alternatives:     []string{},
+		ConflictsWith:    []string{"github_get_workflow_run_logs"}, // Can't get logs while canceling
 	}
 
 	// Agent management relationships
 	rm.relationships["agent_heartbeat"] = &ToolRelationship{
-		Prerequisites: []string{},
+		Prerequisites:    []string{},
 		CommonlyUsedWith: []string{"agent_status", "agent_list"},
-		NextSteps: []string{"task_assign", "task_get"},
-		Alternatives: []string{},
+		NextSteps:        []string{"task_assign", "task_get"},
+		Alternatives:     []string{},
 	}
 
 	rm.relationships["task_assign"] = &ToolRelationship{
-		Prerequisites: []string{"task_create", "agent_list"},
+		Prerequisites:    []string{"task_create", "agent_list"},
 		CommonlyUsedWith: []string{"task_get", "agent_status"},
-		NextSteps: []string{"task_get", "task_complete"},
-		Alternatives: []string{},
+		NextSteps:        []string{"task_get", "task_complete"},
+		Alternatives:     []string{},
 	}
 
 	rm.relationships["task_complete"] = &ToolRelationship{
-		Prerequisites: []string{"task_assign", "task_get"},
+		Prerequisites:    []string{"task_assign", "task_get"},
 		CommonlyUsedWith: []string{"context_update"},
-		NextSteps: []string{"task_create", "workflow_execute"},
-		Alternatives: []string{},
-		ConflictsWith: []string{"task_assign"}, // Can't reassign completed task
+		NextSteps:        []string{"task_create", "workflow_execute"},
+		Alternatives:     []string{},
+		ConflictsWith:    []string{"task_assign"}, // Can't reassign completed task
 	}
 
 	// Workflow relationships
 	rm.relationships["workflow_create"] = &ToolRelationship{
-		Prerequisites: []string{},
+		Prerequisites:    []string{},
 		CommonlyUsedWith: []string{"workflow_list", "template_get"},
-		NextSteps: []string{"workflow_execute", "workflow_get"},
-		Alternatives: []string{"template_instantiate"},
+		NextSteps:        []string{"workflow_execute", "workflow_get"},
+		Alternatives:     []string{"template_instantiate"},
 	}
 
 	rm.relationships["workflow_execute"] = &ToolRelationship{
-		Prerequisites: []string{"workflow_create"},
+		Prerequisites:    []string{"workflow_create"},
 		CommonlyUsedWith: []string{"workflow_execution_get", "context_update"},
-		NextSteps: []string{"workflow_execution_get", "task_list"},
-		Alternatives: []string{},
+		NextSteps:        []string{"workflow_execution_get", "task_list"},
+		Alternatives:     []string{},
 	}
 
 	rm.relationships["workflow_cancel"] = &ToolRelationship{
-		Prerequisites: []string{"workflow_execution_get"},
+		Prerequisites:    []string{"workflow_execution_get"},
 		CommonlyUsedWith: []string{},
-		NextSteps: []string{"workflow_execute"},
-		Alternatives: []string{},
-		ConflictsWith: []string{"workflow_execution_get"}, // Can't get status while canceling
+		NextSteps:        []string{"workflow_execute"},
+		Alternatives:     []string{},
+		ConflictsWith:    []string{"workflow_execution_get"}, // Can't get status while canceling
 	}
 
 	// Context management relationships
 	rm.relationships["context_update"] = &ToolRelationship{
-		Prerequisites: []string{},
+		Prerequisites:    []string{},
 		CommonlyUsedWith: []string{"context_get", "context_append"},
-		NextSteps: []string{"workflow_execute", "task_create"},
-		Alternatives: []string{"context_append"},
+		NextSteps:        []string{"workflow_execute", "task_create"},
+		Alternatives:     []string{"context_append"},
 	}
 
 	rm.relationships["context_get"] = &ToolRelationship{
-		Prerequisites: []string{},
+		Prerequisites:    []string{},
 		CommonlyUsedWith: []string{"context_update", "context_append"},
-		NextSteps: []string{"context_update"},
-		Alternatives: []string{},
+		NextSteps:        []string{"context_update"},
+		Alternatives:     []string{},
 	}
 
 	// Template relationships
 	rm.relationships["template_instantiate"] = &ToolRelationship{
-		Prerequisites: []string{"template_list", "template_get"},
+		Prerequisites:    []string{"template_list", "template_get"},
 		CommonlyUsedWith: []string{"workflow_execute"},
-		NextSteps: []string{"workflow_execute", "workflow_get"},
-		Alternatives: []string{"workflow_create"},
+		NextSteps:        []string{"workflow_execute", "workflow_get"},
+		Alternatives:     []string{"workflow_create"},
 	}
 }
 
@@ -293,8 +293,8 @@ func (rm *RelationshipManager) initializeIOCompatibility() {
 			},
 		},
 		OutputType: DataType{
-			Format: "json",
-			Schema: "issue",
+			Format:      "json",
+			Schema:      "issue",
 			ContentType: "application/json",
 			Properties: map[string]interface{}{
 				"id":     "integer",
@@ -318,8 +318,8 @@ func (rm *RelationshipManager) initializeIOCompatibility() {
 			},
 		},
 		OutputType: DataType{
-			Format: "json",
-			Schema: "issue",
+			Format:      "json",
+			Schema:      "issue",
 			ContentType: "application/json",
 		},
 	}
@@ -337,8 +337,8 @@ func (rm *RelationshipManager) initializeIOCompatibility() {
 			},
 		},
 		OutputType: DataType{
-			Format: "json",
-			Schema: "issue_list",
+			Format:      "json",
+			Schema:      "issue_list",
 			ContentType: "application/json",
 			Properties: map[string]interface{}{
 				"issues": "array[issue]",
@@ -360,8 +360,8 @@ func (rm *RelationshipManager) initializeIOCompatibility() {
 			},
 		},
 		OutputType: DataType{
-			Format: "json",
-			Schema: "pull_request",
+			Format:      "json",
+			Schema:      "pull_request",
 			ContentType: "application/json",
 		},
 	}
@@ -378,13 +378,13 @@ func (rm *RelationshipManager) initializeIOCompatibility() {
 			},
 		},
 		OutputType: DataType{
-			Format: "json",
-			Schema: "workflow",
+			Format:      "json",
+			Schema:      "workflow",
 			ContentType: "application/json",
 			Properties: map[string]interface{}{
-				"id":          "string",
-				"name":        "string",
-				"created_at":  "timestamp",
+				"id":         "string",
+				"name":       "string",
+				"created_at": "timestamp",
 			},
 		},
 	}
@@ -399,8 +399,8 @@ func (rm *RelationshipManager) initializeIOCompatibility() {
 			},
 		},
 		OutputType: DataType{
-			Format: "json",
-			Schema: "workflow_execution",
+			Format:      "json",
+			Schema:      "workflow_execution",
 			ContentType: "application/json",
 			Properties: map[string]interface{}{
 				"execution_id": "string",
@@ -422,8 +422,8 @@ func (rm *RelationshipManager) initializeIOCompatibility() {
 			},
 		},
 		OutputType: DataType{
-			Format: "json",
-			Schema: "task",
+			Format:      "json",
+			Schema:      "task",
 			ContentType: "application/json",
 			Properties: map[string]interface{}{
 				"id":         "string",
@@ -445,8 +445,8 @@ func (rm *RelationshipManager) initializeIOCompatibility() {
 			},
 		},
 		OutputType: DataType{
-			Format: "json",
-			Schema: "context",
+			Format:      "json",
+			Schema:      "context",
 			ContentType: "application/json",
 			Properties: map[string]interface{}{
 				"version":    "integer",
