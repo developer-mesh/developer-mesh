@@ -10,6 +10,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/utils"
 )
 
 // StreamConfig defines configuration for streaming responses
@@ -390,31 +391,41 @@ func NewStreamingLogger(baseLogger observability.Logger, stream *StreamWriter) *
 // Debug logs a debug message and sends it to the stream
 func (sl *StreamingLogger) Debug(msg string, fields map[string]interface{}) {
 	sl.baseLogger.Debug(msg, fields)
-	_ = sl.stream.SendLog("debug", msg, fields)
+	// Redact sensitive data before sending to client stream
+	redactedFields := utils.RedactSensitiveData(fields)
+	_ = sl.stream.SendLog("debug", msg, redactedFields)
 }
 
 // Info logs an info message and sends it to the stream
 func (sl *StreamingLogger) Info(msg string, fields map[string]interface{}) {
 	sl.baseLogger.Info(msg, fields)
-	_ = sl.stream.SendLog("info", msg, fields)
+	// Redact sensitive data before sending to client stream
+	redactedFields := utils.RedactSensitiveData(fields)
+	_ = sl.stream.SendLog("info", msg, redactedFields)
 }
 
 // Warn logs a warning message and sends it to the stream
 func (sl *StreamingLogger) Warn(msg string, fields map[string]interface{}) {
 	sl.baseLogger.Warn(msg, fields)
-	_ = sl.stream.SendLog("warn", msg, fields)
+	// Redact sensitive data before sending to client stream
+	redactedFields := utils.RedactSensitiveData(fields)
+	_ = sl.stream.SendLog("warn", msg, redactedFields)
 }
 
 // Error logs an error message and sends it to the stream
 func (sl *StreamingLogger) Error(msg string, fields map[string]interface{}) {
 	sl.baseLogger.Error(msg, fields)
-	_ = sl.stream.SendLog("error", msg, fields)
+	// Redact sensitive data before sending to client stream
+	redactedFields := utils.RedactSensitiveData(fields)
+	_ = sl.stream.SendLog("error", msg, redactedFields)
 }
 
 // Fatal logs a fatal message and sends it to the stream
 func (sl *StreamingLogger) Fatal(msg string, fields map[string]interface{}) {
 	sl.baseLogger.Fatal(msg, fields)
-	_ = sl.stream.SendLog("fatal", msg, fields)
+	// Redact sensitive data before sending to client stream
+	redactedFields := utils.RedactSensitiveData(fields)
+	_ = sl.stream.SendLog("fatal", msg, redactedFields)
 }
 
 // Debugf logs a formatted debug message
