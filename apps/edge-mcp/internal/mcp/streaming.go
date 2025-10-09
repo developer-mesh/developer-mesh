@@ -390,41 +390,41 @@ func NewStreamingLogger(baseLogger observability.Logger, stream *StreamWriter) *
 
 // Debug logs a debug message and sends it to the stream
 func (sl *StreamingLogger) Debug(msg string, fields map[string]interface{}) {
-	sl.baseLogger.Debug(msg, fields)
-	// Redact sensitive data before sending to client stream
+	// Redact sensitive data before logging anywhere (server or client)
 	redactedFields := utils.RedactSensitiveData(fields)
+	sl.baseLogger.Debug(msg, redactedFields)
 	_ = sl.stream.SendLog("debug", msg, redactedFields)
 }
 
 // Info logs an info message and sends it to the stream
 func (sl *StreamingLogger) Info(msg string, fields map[string]interface{}) {
-	sl.baseLogger.Info(msg, fields)
-	// Redact sensitive data before sending to client stream
+	// Redact sensitive data before logging anywhere (server or client)
 	redactedFields := utils.RedactSensitiveData(fields)
+	sl.baseLogger.Info(msg, redactedFields)
 	_ = sl.stream.SendLog("info", msg, redactedFields)
 }
 
 // Warn logs a warning message and sends it to the stream
 func (sl *StreamingLogger) Warn(msg string, fields map[string]interface{}) {
-	sl.baseLogger.Warn(msg, fields)
-	// Redact sensitive data before sending to client stream
+	// Redact sensitive data before logging anywhere (server or client)
 	redactedFields := utils.RedactSensitiveData(fields)
+	sl.baseLogger.Warn(msg, redactedFields)
 	_ = sl.stream.SendLog("warn", msg, redactedFields)
 }
 
 // Error logs an error message and sends it to the stream
 func (sl *StreamingLogger) Error(msg string, fields map[string]interface{}) {
-	sl.baseLogger.Error(msg, fields)
-	// Redact sensitive data before sending to client stream
+	// Redact sensitive data before logging anywhere (server or client)
 	redactedFields := utils.RedactSensitiveData(fields)
+	sl.baseLogger.Error(msg, redactedFields)
 	_ = sl.stream.SendLog("error", msg, redactedFields)
 }
 
 // Fatal logs a fatal message and sends it to the stream
 func (sl *StreamingLogger) Fatal(msg string, fields map[string]interface{}) {
-	sl.baseLogger.Fatal(msg, fields)
-	// Redact sensitive data before sending to client stream
+	// Redact sensitive data before logging anywhere (server or client)
 	redactedFields := utils.RedactSensitiveData(fields)
+	sl.baseLogger.Fatal(msg, redactedFields)
 	_ = sl.stream.SendLog("fatal", msg, redactedFields)
 }
 
