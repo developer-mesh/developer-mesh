@@ -1,0 +1,377 @@
+[
+  {
+    "name": "Check Tool Health",
+    "event": [
+      {
+        "listen": "test",
+        "script": {
+          "exec": [
+            "pm.test(\"Status code is 200 OK\", function () {",
+            "    pm.response.to.have.status(200);",
+            "});",
+            "",
+            "pm.test(\"Response has health status structure\", function () {",
+            "    const jsonData = pm.response.json();",
+            "    pm.expect(jsonData).to.have.property('tool_id');",
+            "    pm.expect(jsonData).to.have.property('status');",
+            "    pm.expect(jsonData).to.have.property('last_checked');",
+            "});",
+            "",
+            "pm.test(\"Health status is valid\", function () {",
+            "    const jsonData = pm.response.json();",
+            "    const validStatuses = ['healthy', 'unhealthy', 'unknown', 'degraded'];",
+            "    pm.expect(validStatuses).to.include(jsonData.status);",
+            "});",
+            "",
+            "pm.test(\"Response time is less than 2000ms\", function () {",
+            "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+            "});"
+          ],
+          "type": "text/javascript"
+        }
+      }
+    ],
+    "request": {
+      "method": "GET",
+      "header": [
+        {
+          "key": "Authorization",
+          "value": "Bearer {{auth_token}}",
+          "type": "text"
+        }
+      ],
+      "url": {
+        "raw": "{{base_url}}/api/v1/tools/{{tool_id}}/health",
+        "host": [
+          "{{base_url}}"
+        ],
+        "path": [
+          "api",
+          "v1",
+          "tools",
+          "{{tool_id}}",
+          "health"
+        ]
+      },
+      "description": "Checks the health status of a dynamic tool. Returns current health information including:\n- Connection status to the tool's API\n- Last successful health check timestamp\n- Any error messages or warnings\n- Latency metrics if available\n\n**Response Format:**\n```json\n{\n  \"tool_id\": \"abc123-def456\",\n  \"status\": \"healthy\",\n  \"last_checked\": \"2024-01-15T10:30:00Z\",\n  \"response_time_ms\": 145,\n  \"error_message\": null,\n  \"next_check\": \"2024-01-15T10:35:00Z\"\n}\n```\n\n**Health Statuses:**\n- `healthy`: Tool is responding normally\n- `degraded`: Tool is responding but with errors or slow performance\n- `unhealthy`: Tool is not accessible or returning errors\n- `unknown`: Health status has not been checked yet\n\n**Use Cases:**\n- Pre-execution health verification\n- Monitoring dashboard integration\n- Automated alerting on tool failures"
+    },
+    "response": []
+  },
+  {
+    "name": "Refresh Tool Health",
+    "event": [
+      {
+        "listen": "test",
+        "script": {
+          "exec": [
+            "pm.test(\"Status code is 200 OK\", function () {",
+            "    pm.response.to.have.status(200);",
+            "});",
+            "",
+            "pm.test(\"Response has updated health status\", function () {",
+            "    const jsonData = pm.response.json();",
+            "    pm.expect(jsonData).to.have.property('tool_id');",
+            "    pm.expect(jsonData).to.have.property('status');",
+            "    pm.expect(jsonData).to.have.property('last_checked');",
+            "});",
+            "",
+            "pm.test(\"Last checked timestamp is recent\", function () {",
+            "    const jsonData = pm.response.json();",
+            "    const lastChecked = new Date(jsonData.last_checked);",
+            "    const now = new Date();",
+            "    const diffSeconds = (now - lastChecked) / 1000;",
+            "    // Should be checked within last 10 seconds",
+            "    pm.expect(diffSeconds).to.be.below(10);",
+            "});",
+            "",
+            "pm.test(\"Response time is less than 5000ms for refresh\", function () {",
+            "    // Health refresh may take longer as it actually pings the tool",
+            "    pm.expect(pm.response.responseTime).to.be.below(5000);",
+            "});"
+          ],
+          "type": "text/javascript"
+        }
+      }
+    ],
+    "request": {
+      "method": "POST",
+      "header": [
+        {
+          "key": "Authorization",
+          "value": "Bearer {{auth_token}}",
+          "type": "text"
+        },
+        {
+          "key": "Content-Type",
+          "value": "application/json",
+          "type": "text"
+        }
+      ],
+      "body": {
+        "mode": "raw",
+        "raw": "{\n  \"force\": true\n}"
+      },
+      "url": {
+        "raw": "{{base_url}}/api/v1/tools/{{tool_id}}/health/refresh",
+        "host": [
+          "{{base_url}}"
+        ],
+        "path": [
+          "api",
+          "v1",
+          "tools",
+          "{{tool_id}}",
+          "health",
+          "refresh"
+        ]
+      },
+      "description": "Manually triggers a health check refresh for a tool. This forces an immediate health verification, bypassing any caching.\n\n**Request Body (optional):**\n```json\n{\n  \"force\": true  // Force refresh even if recently checked\n}\n```\n\n**Response Format:**\nSame as GET /health, but with guaranteed fresh data\n\n**Use Cases:**\n- Manual verification after tool configuration changes\n- Debugging connectivity issues\n- Immediate validation after credential updates\n- On-demand health monitoring\n\n**Rate Limiting:**\nThis endpoint may be rate-limited to prevent excessive health checks. Typical limit: 10 requests per minute per tool."
+    },
+    "response": []
+  },
+  {
+    "name": "Update Tool Credentials",
+    "event": [
+      {
+        "listen": "test",
+        "script": {
+          "exec": [
+            "pm.test(\"Status code is 200 OK\", function () {",
+            "    pm.response.to.have.status(200);",
+            "});",
+            "",
+            "pm.test(\"Response confirms credential update\", function () {",
+            "    const jsonData = pm.response.json();",
+            "    pm.expect(jsonData).to.have.property('message');",
+            "    pm.expect(jsonData).to.have.property('tool_id');",
+            "    pm.expect(jsonData.message).to.include('updated');",
+            "});",
+            "",
+            "pm.test(\"Tool ID matches request\", function () {",
+            "    const jsonData = pm.response.json();",
+            "    const expectedId = pm.collectionVariables.get(\"tool_id\");",
+            "    pm.expect(jsonData.tool_id).to.equal(expectedId);",
+            "});",
+            "",
+            "pm.test(\"Response time is reasonable\", function () {",
+            "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+            "});"
+          ],
+          "type": "text/javascript"
+        }
+      }
+    ],
+    "request": {
+      "method": "PUT",
+      "header": [
+        {
+          "key": "Authorization",
+          "value": "Bearer {{auth_token}}",
+          "type": "text"
+        },
+        {
+          "key": "Content-Type",
+          "value": "application/json",
+          "type": "text"
+        }
+      ],
+      "body": {
+        "mode": "raw",
+        "raw": "{\n  \"type\": \"bearer\",\n  \"token\": \"ghp_newtoken123456789\",\n  \"expires_at\": \"2025-12-31T23:59:59Z\"\n}",
+        "options": {
+          "raw": {
+            "language": "json"
+          }
+        }
+      },
+      "url": {
+        "raw": "{{base_url}}/api/v1/tools/{{tool_id}}/credentials",
+        "host": [
+          "{{base_url}}"
+        ],
+        "path": [
+          "api",
+          "v1",
+          "tools",
+          "{{tool_id}}",
+          "credentials"
+        ]
+      },
+      "description": "Updates the authentication credentials for a tool. Credentials are encrypted at rest using the tenant's encryption key.\n\n**Request Body:**\n```json\n{\n  \"type\": \"bearer\",        // or \"basic\", \"api_key\", \"oauth2\"\n  \"token\": \"string\",       // For bearer/api_key types\n  \"username\": \"string\",    // For basic auth\n  \"password\": \"string\",    // For basic auth\n  \"client_id\": \"string\",   // For OAuth2\n  \"client_secret\": \"string\", // For OAuth2\n  \"refresh_token\": \"string\", // For OAuth2 (optional)\n  \"expires_at\": \"ISO8601\"   // Token expiration (optional)\n}\n```\n\n**Authentication Types:**\n\n1. **Bearer Token:**\n   ```json\n   {\n     \"type\": \"bearer\",\n     \"token\": \"ghp_abc123...\"\n   }\n   ```\n\n2. **API Key:**\n   ```json\n   {\n     \"type\": \"api_key\",\n     \"token\": \"sk-abc123...\",\n     \"header\": \"X-API-Key\"  // Optional custom header\n   }\n   ```\n\n3. **Basic Auth:**\n   ```json\n   {\n     \"type\": \"basic\",\n     \"username\": \"user@example.com\",\n     \"password\": \"secretpass\"\n   }\n   ```\n\n4. **OAuth2:**\n   ```json\n   {\n     \"type\": \"oauth2\",\n     \"access_token\": \"ya29.abc...\",\n     \"refresh_token\": \"1//abc...\",\n     \"expires_at\": \"2024-12-31T23:59:59Z\"\n   }\n   ```\n\n**Security Features:**\n- All credentials are encrypted using AES-256-GCM\n- Credentials are never returned in API responses\n- Audit logging of all credential updates\n- Automatic credential rotation support (for OAuth2)\n\n**Response:**\n```json\n{\n  \"message\": \"Credentials updated successfully\",\n  \"tool_id\": \"abc123-def456\",\n  \"encrypted\": true,\n  \"updated_at\": \"2024-01-15T10:30:00Z\"\n}\n```\n\n**Best Practices:**\n1. Rotate credentials regularly\n2. Use the most specific auth type (prefer OAuth2 over static tokens)\n3. Set expiration dates when possible\n4. Test credentials after updating using /health/refresh\n5. Monitor audit logs for unauthorized updates"
+    },
+    "response": []
+  },
+  {
+    "name": "Get Webhook Configuration",
+    "event": [
+      {
+        "listen": "test",
+        "script": {
+          "exec": [
+            "pm.test(\"Status code is 200 OK\", function () {",
+            "    pm.response.to.have.status(200);",
+            "});",
+            "",
+            "pm.test(\"Response has webhook configuration\", function () {",
+            "    const jsonData = pm.response.json();",
+            "    pm.expect(jsonData).to.have.property('tool_id');",
+            "    pm.expect(jsonData).to.have.property('tool_name');",
+            "    pm.expect(jsonData).to.have.property('webhook_url');",
+            "    pm.expect(jsonData).to.have.property('enabled');",
+            "});",
+            "",
+            "pm.test(\"Webhook URL is properly formatted\", function () {",
+            "    const jsonData = pm.response.json();",
+            "    pm.expect(jsonData.webhook_url).to.match(/^\\/api\\/webhooks\\/tools\\//);",
+            "});",
+            "",
+            "pm.test(\"Response includes setup instructions if enabled\", function () {",
+            "    const jsonData = pm.response.json();",
+            "    if (jsonData.enabled) {",
+            "        pm.expect(jsonData).to.have.property('setup_instructions');",
+            "        pm.expect(jsonData.setup_instructions).to.be.an('array');",
+            "    }",
+            "});",
+            "",
+            "pm.test(\"Response time is less than 1000ms\", function () {",
+            "    pm.expect(pm.response.responseTime).to.be.below(1000);",
+            "});"
+          ],
+          "type": "text/javascript"
+        }
+      }
+    ],
+    "request": {
+      "method": "GET",
+      "header": [
+        {
+          "key": "Authorization",
+          "value": "Bearer {{auth_token}}",
+          "type": "text"
+        }
+      ],
+      "url": {
+        "raw": "{{base_url}}/api/v1/tools/{{tool_id}}/webhook",
+        "host": [
+          "{{base_url}}"
+        ],
+        "path": [
+          "api",
+          "v1",
+          "tools",
+          "{{tool_id}}",
+          "webhook"
+        ]
+      },
+      "description": "Retrieves webhook configuration for a tool, including the webhook URL and authentication details needed to configure webhooks in the external service.\n\n**Response Format:**\n```json\n{\n  \"tool_id\": \"abc123-def456\",\n  \"tool_name\": \"GitHub Enterprise\",\n  \"webhook_url\": \"/api/webhooks/tools/abc123-def456\",\n  \"enabled\": true,\n  \"auth_type\": \"hmac\",\n  \"signature_header\": \"X-Hub-Signature-256\",\n  \"signature_algorithm\": \"sha256\",\n  \"supported_events\": [\n    \"push\",\n    \"pull_request\",\n    \"issues\",\n    \"release\"\n  ],\n  \"setup_instructions\": [\n    \"1. Configure your GitHub Enterprise to send webhooks to: https://api.devmesh.io/api/webhooks/tools/abc123-def456\",\n    \"2. Set up HMAC signing with the provided secret\",\n    \"3. Include the signature in the 'X-Hub-Signature-256' header\"\n  ]\n}\n```\n\n**Authentication Types:**\n\n1. **HMAC Signature:**\n   - Most secure option\n   - Uses shared secret to sign webhook payload\n   - Signature verification on receipt\n   - Example: GitHub, Stripe webhooks\n\n2. **Bearer Token:**\n   - Simple token-based authentication\n   - Include in Authorization header\n   - Example: Custom webhooks\n\n3. **Basic Auth:**\n   - Username/password authentication\n   - Less common for webhooks\n\n**Configuration Steps:**\n\n1. **Get webhook URL from this endpoint**\n2. **Configure in external service:**\n   - Go to webhook settings in the tool (e.g., GitHub Settings → Webhooks)\n   - Add new webhook with the URL from this response\n   - Select events to trigger webhooks\n   - Configure authentication based on auth_type\n\n3. **Test the webhook:**\n   - Most services have a \"Test\" button\n   - Check DevMesh logs for received webhook\n   - Verify signature/authentication is working\n\n**Event Handling:**\n\nWebhooks are processed asynchronously:\n1. Received at webhook endpoint\n2. Signature verified (if applicable)\n3. Queued in Redis for processing\n4. Worker processes webhook\n5. Triggers configured actions/workflows\n\n**Supported Events by Provider:**\n\n**GitHub:**\n- push, pull_request, issues, release, deployment, workflow_run\n\n**GitLab:**\n- push, merge_request, issue, pipeline, deployment\n\n**Harness:**\n- pipeline_start, pipeline_end, deployment, approval_needed\n\n**Jira:**\n- issue_created, issue_updated, comment_added, status_changed\n\n**Use Cases:**\n- Trigger CI/CD pipelines on code push\n- Auto-create tasks on issue creation\n- Send notifications on deployment\n- Update dashboards on status changes\n- Sync data between tools\n\n**Troubleshooting:**\n\nIf webhooks aren't working:\n1. Check webhook is enabled in external service\n2. Verify webhook URL is correct and accessible\n3. Check signature algorithm matches\n4. Review DevMesh webhook logs\n5. Test with a manual webhook trigger\n6. Verify firewall/network allows incoming webhooks"
+    },
+    "response": []
+  },
+  {
+    "name": "Test - Update Credentials with Invalid Tool ID",
+    "event": [
+      {
+        "listen": "test",
+        "script": {
+          "exec": [
+            "pm.test(\"Status code is 404 Not Found\", function () {",
+            "    pm.response.to.have.status(404);",
+            "});",
+            "",
+            "pm.test(\"Error message indicates tool not found\", function () {",
+            "    const jsonData = pm.response.json();",
+            "    pm.expect(jsonData).to.have.property('error');",
+            "    pm.expect(jsonData.error.toLowerCase()).to.include('not found');",
+            "});"
+          ],
+          "type": "text/javascript"
+        }
+      }
+    ],
+    "request": {
+      "method": "PUT",
+      "header": [
+        {
+          "key": "Authorization",
+          "value": "Bearer {{auth_token}}",
+          "type": "text"
+        },
+        {
+          "key": "Content-Type",
+          "value": "application/json",
+          "type": "text"
+        }
+      ],
+      "body": {
+        "mode": "raw",
+        "raw": "{\n  \"type\": \"bearer\",\n  \"token\": \"test_token_123\"\n}",
+        "options": {
+          "raw": {
+            "language": "json"
+          }
+        }
+      },
+      "url": {
+        "raw": "{{base_url}}/api/v1/tools/invalid-tool-id-12345/credentials",
+        "host": [
+          "{{base_url}}"
+        ],
+        "path": [
+          "api",
+          "v1",
+          "tools",
+          "invalid-tool-id-12345",
+          "credentials"
+        ]
+      },
+      "description": "Tests error handling when attempting to update credentials for a non-existent tool. Should return 404 Not Found."
+    },
+    "response": []
+  },
+  {
+    "name": "Test - Health Check with Invalid Tool ID",
+    "event": [
+      {
+        "listen": "test",
+        "script": {
+          "exec": [
+            "pm.test(\"Status code is 404 Not Found\", function () {",
+            "    pm.response.to.have.status(404);",
+            "});",
+            "",
+            "pm.test(\"Error message is returned\", function () {",
+            "    const jsonData = pm.response.json();",
+            "    pm.expect(jsonData).to.have.property('error');",
+            "});"
+          ],
+          "type": "text/javascript"
+        }
+      }
+    ],
+    "request": {
+      "method": "GET",
+      "header": [
+        {
+          "key": "Authorization",
+          "value": "Bearer {{auth_token}}",
+          "type": "text"
+        }
+      ],
+      "url": {
+        "raw": "{{base_url}}/api/v1/tools/invalid-tool-id-12345/health",
+        "host": [
+          "{{base_url}}"
+        ],
+        "path": [
+          "api",
+          "v1",
+          "tools",
+          "invalid-tool-id-12345",
+          "health"
+        ]
+      },
+      "description": "Tests error handling when checking health of a non-existent tool. Should return 404 Not Found."
+    },
+    "response": []
+  }
+]
