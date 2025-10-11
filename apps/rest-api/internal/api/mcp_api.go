@@ -2,9 +2,11 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/developer-mesh/developer-mesh/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/repository"
 	"github.com/gin-gonic/gin"
 )
 
@@ -21,14 +23,21 @@ type ContextManagerInterface interface {
 
 // MCPAPI handles the MCP-specific API endpoints
 type MCPAPI struct {
-	contextManager ContextManagerInterface
+	contextManager        ContextManagerInterface
+	semanticContextMgr    repository.SemanticContextManager // Optional semantic context manager
 }
 
 // NewMCPAPI creates a new MCP API handler
 func NewMCPAPI(contextManager any) *MCPAPI {
 	return &MCPAPI{
-		contextManager: contextManager.(ContextManagerInterface),
+		contextManager:     contextManager.(ContextManagerInterface),
+		semanticContextMgr: nil, // Will be set via SetSemanticContextManager if available
 	}
+}
+
+// SetSemanticContextManager sets the optional semantic context manager
+func (api *MCPAPI) SetSemanticContextManager(mgr repository.SemanticContextManager) {
+	api.semanticContextMgr = mgr
 }
 
 // RegisterRoutes registers all MCP API routes
@@ -42,6 +51,8 @@ func (api *MCPAPI) RegisterRoutes(router *gin.RouterGroup) {
 		mcpRoutes.GET("/contexts", api.listContexts)
 		mcpRoutes.POST("/context/:id/search", api.searchContext)
 		mcpRoutes.GET("/context/:id/summary", api.summarizeContext)
+		// Semantic context management endpoints
+		mcpRoutes.POST("/context/:id/compact", api.compactContext)
 	}
 }
 
@@ -62,7 +73,7 @@ func (api *MCPAPI) createContext(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "context created", "id": request.ID})
 }
 
-// getContext retrieves a context by ID
+// getContext retrieves a context by ID with optional semantic retrieval
 func (api *MCPAPI) getContext(c *gin.Context) {
 	contextID := c.Param("id")
 	if contextID == "" {
@@ -70,13 +81,50 @@ func (api *MCPAPI) getContext(c *gin.Context) {
 		return
 	}
 
-	_, err := api.contextManager.GetContext(c.Request.Context(), contextID)
+	// Check for semantic retrieval parameters
+	relevanceQuery := c.Query("relevant_to")
+	maxTokensStr := c.Query("max_tokens")
+
+	// If semantic context manager is available and semantic retrieval is requested
+	if api.semanticContextMgr != nil && relevanceQuery != "" {
+		maxTokens := 4000 // Default
+		if maxTokensStr != "" {
+			if mt, err := parseIntParam(maxTokensStr); err == nil {
+				maxTokens = mt
+			}
+		}
+
+		contextData, err := api.semanticContextMgr.GetRelevantContext(
+			c.Request.Context(),
+			contextID,
+			relevanceQuery,
+			maxTokens,
+		)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"context":  contextData,
+			"semantic": true,
+			"mode":     "semantic_retrieval",
+		})
+		return
+	}
+
+	// Fall back to regular retrieval
+	contextData, err := api.contextManager.GetContext(c.Request.Context(), contextID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"id": contextID, "message": "context retrieved"})
+	c.JSON(http.StatusOK, gin.H{
+		"context":  contextData,
+		"semantic": false,
+	})
 }
 
 // updateContext updates an existing context
@@ -165,7 +213,7 @@ func (api *MCPAPI) listContexts(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"contexts": contexts})
 }
 
-// searchContext searches for text within a context
+// searchContext searches for text within a context with optional semantic search
 func (api *MCPAPI) searchContext(c *gin.Context) {
 	contextID := c.Param("id")
 	if contextID == "" {
@@ -174,7 +222,9 @@ func (api *MCPAPI) searchContext(c *gin.Context) {
 	}
 
 	var request struct {
-		Query string `json:"query" binding:"required"`
+		Query     string `json:"query" binding:"required"`
+		Limit     int    `json:"limit,omitempty"`
+		Semantic  bool   `json:"semantic,omitempty"`
 	}
 
 	if err := c.ShouldBindJSON(&request); err != nil {
@@ -182,13 +232,44 @@ func (api *MCPAPI) searchContext(c *gin.Context) {
 		return
 	}
 
+	// Set default limit
+	if request.Limit == 0 {
+		request.Limit = 10
+	}
+
+	// If semantic search is requested and manager is available
+	if request.Semantic && api.semanticContextMgr != nil {
+		results, err := api.semanticContextMgr.SearchContext(
+			c.Request.Context(),
+			request.Query,
+			contextID,
+			request.Limit,
+		)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"results":  results,
+			"count":    len(results),
+			"semantic": true,
+		})
+		return
+	}
+
+	// Fall back to regular text search
 	results, err := api.contextManager.SearchInContext(c.Request.Context(), contextID, request.Query)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"results": results})
+	c.JSON(http.StatusOK, gin.H{
+		"results":  results,
+		"count":    len(results),
+		"semantic": false,
+	})
 }
 
 // summarizeContext generates a summary of a context
@@ -206,4 +287,64 @@ func (api *MCPAPI) summarizeContext(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"summary": summary})
+}
+
+// compactContext applies compaction strategy to a context
+func (api *MCPAPI) compactContext(c *gin.Context) {
+	contextID := c.Param("id")
+	if contextID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "context ID is required"})
+		return
+	}
+
+	var req struct {
+		Strategy string `json:"strategy" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body: " + err.Error()})
+		return
+	}
+
+	// Check if semantic context manager is available
+	if api.semanticContextMgr == nil {
+		c.JSON(http.StatusNotImplemented, gin.H{"error": "semantic context management not available"})
+		return
+	}
+
+	// Validate strategy
+	strategy := repository.CompactionStrategy(req.Strategy)
+	validStrategies := map[repository.CompactionStrategy]bool{
+		repository.CompactionSummarize:  true,
+		repository.CompactionPrune:      true,
+		repository.CompactionSemantic:   true,
+		repository.CompactionSliding:    true,
+		repository.CompactionToolClear:  true,
+	}
+
+	if !validStrategies[strategy] {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid strategy, must be one of: summarize, prune, semantic, sliding, tool_clear",
+		})
+		return
+	}
+
+	// Execute compaction
+	if err := api.semanticContextMgr.CompactContext(c.Request.Context(), contextID, strategy); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":     "compacted",
+		"context_id": contextID,
+		"strategy":   req.Strategy,
+	})
+}
+
+// parseIntParam safely parses an integer parameter
+func parseIntParam(value string) (int, error) {
+	var result int
+	_, err := fmt.Sscanf(value, "%d", &result)
+	return result, err
 }
