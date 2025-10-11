@@ -157,6 +157,30 @@ func (a *PkgVectorAPIAdapter) Delete(ctx context.Context, id string) error {
 	return fmt.Errorf("Delete operation not supported")
 }
 
+// Story 2.1: Context-Specific Embedding Methods
+// These methods are not implemented in the internal interface yet
+
+// StoreContextEmbedding stores an embedding and links it to a context with metadata
+func (a *PkgVectorAPIAdapter) StoreContextEmbedding(ctx context.Context, contextID string, embedding *pkgRepo.Embedding, sequence int, importance float64) (string, error) {
+	// This method is not implemented in the internal interface
+	// Return an error indicating this operation is not supported
+	return "", fmt.Errorf("StoreContextEmbedding operation not supported")
+}
+
+// GetContextEmbeddingsBySequence retrieves embeddings for a context within a sequence range
+func (a *PkgVectorAPIAdapter) GetContextEmbeddingsBySequence(ctx context.Context, contextID string, startSeq int, endSeq int) ([]*pkgRepo.Embedding, error) {
+	// This method is not implemented in the internal interface
+	// Return an error indicating this operation is not supported
+	return nil, fmt.Errorf("GetContextEmbeddingsBySequence operation not supported")
+}
+
+// UpdateEmbeddingImportance updates the importance score for an embedding
+func (a *PkgVectorAPIAdapter) UpdateEmbeddingImportance(ctx context.Context, embeddingID string, importance float64) error {
+	// This method is not implemented in the internal interface
+	// Return an error indicating this operation is not supported
+	return fmt.Errorf("UpdateEmbeddingImportance operation not supported")
+}
+
 // Make sure the type compatibility is verified at compile time
 func init() {
 	// Verify that the adapters implement the pkg repository interfaces
