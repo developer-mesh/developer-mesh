@@ -291,3 +291,110 @@ func (r *RepositoryImpl) DeleteModelEmbeddings(ctx context.Context, contextID st
 
 	return nil
 }
+
+// Story 2.1: Context-Specific Embedding Methods
+
+// StoreContextEmbedding stores an embedding and links it to a context with metadata
+func (r *RepositoryImpl) StoreContextEmbedding(
+	ctx context.Context,
+	contextID string,
+	embedding *Embedding,
+	sequence int,
+	importance float64,
+) (string, error) {
+	if embedding == nil {
+		return "", errors.New("embedding cannot be nil")
+	}
+
+	if contextID == "" {
+		return "", errors.New("context ID cannot be empty")
+	}
+
+	// First store the embedding using existing method
+	if err := r.StoreEmbedding(ctx, embedding); err != nil {
+		return "", fmt.Errorf("failed to store embedding: %w", err)
+	}
+
+	// Then create the link in context_embeddings table
+	linkQuery := `
+		INSERT INTO mcp.context_embeddings
+		(context_id, embedding_id, chunk_sequence, importance_score, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, NOW(), NOW())
+		ON CONFLICT (context_id, chunk_sequence) DO UPDATE SET
+		embedding_id = $2, importance_score = $4, updated_at = NOW()
+	`
+
+	_, err := r.db.ExecContext(ctx, linkQuery, contextID, embedding.ID, sequence, importance)
+	if err != nil {
+		return "", fmt.Errorf("failed to link embedding to context: %w", err)
+	}
+
+	return embedding.ID, nil
+}
+
+// GetContextEmbeddingsBySequence retrieves embeddings for a context within a sequence range
+func (r *RepositoryImpl) GetContextEmbeddingsBySequence(
+	ctx context.Context,
+	contextID string,
+	startSeq int,
+	endSeq int,
+) ([]*Embedding, error) {
+	if contextID == "" {
+		return nil, errors.New("context ID cannot be empty")
+	}
+
+	query := `
+		SELECT e.id, e.context_id, e.content_index, e.text, e.embedding, e.model_id, e.created_at, e.metadata
+		FROM embeddings e
+		JOIN mcp.context_embeddings ce ON e.id = ce.embedding_id
+		WHERE ce.context_id = $1
+		AND ce.chunk_sequence BETWEEN $2 AND $3
+		ORDER BY ce.chunk_sequence
+	`
+
+	var embeddings []*Embedding
+	err := r.db.SelectContext(ctx, &embeddings, query, contextID, startSeq, endSeq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get context embeddings by sequence: %w", err)
+	}
+
+	return embeddings, nil
+}
+
+// UpdateEmbeddingImportance updates the importance score for an embedding
+func (r *RepositoryImpl) UpdateEmbeddingImportance(
+	ctx context.Context,
+	embeddingID string,
+	importance float64,
+) error {
+	if embeddingID == "" {
+		return errors.New("embedding ID cannot be empty")
+	}
+
+	if importance < 0 || importance > 1 {
+		return errors.New("importance must be between 0 and 1")
+	}
+
+	query := `
+		UPDATE mcp.context_embeddings
+		SET importance_score = $1, updated_at = NOW()
+		WHERE embedding_id = $2
+	`
+
+	result, err := r.db.ExecContext(ctx, query, importance, embeddingID)
+	if err != nil {
+		return fmt.Errorf("failed to update importance: %w", err)
+	}
+
+	// Check if any rows were affected
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("no context embedding found with embedding_id: %s", embeddingID)
+	}
+
+	return nil
+}

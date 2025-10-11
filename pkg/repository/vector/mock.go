@@ -192,3 +192,70 @@ func (m *MockRepository) DeleteModelEmbeddings(ctx context.Context, contextID st
 
 	return nil
 }
+
+// Story 2.1: Context-Specific Embedding Methods (Mock implementation)
+
+// StoreContextEmbedding implements Repository.StoreContextEmbedding
+func (m *MockRepository) StoreContextEmbedding(
+	ctx context.Context,
+	contextID string,
+	embedding *Embedding,
+	sequence int,
+	importance float64,
+) (string, error) {
+	// Store the embedding
+	if err := m.StoreEmbedding(ctx, embedding); err != nil {
+		return "", err
+	}
+
+	// In a real implementation, this would store the link in context_embeddings table
+	// For the mock, we just track the metadata in the embedding itself
+	if embedding.Metadata == nil {
+		embedding.Metadata = make(map[string]any)
+	}
+	embedding.Metadata["chunk_sequence"] = sequence
+	embedding.Metadata["importance_score"] = importance
+
+	return embedding.ID, nil
+}
+
+// GetContextEmbeddingsBySequence implements Repository.GetContextEmbeddingsBySequence
+func (m *MockRepository) GetContextEmbeddingsBySequence(
+	ctx context.Context,
+	contextID string,
+	startSeq int,
+	endSeq int,
+) ([]*Embedding, error) {
+	var results []*Embedding
+
+	for _, e := range m.embeddings {
+		if e.ContextID == contextID && e.Metadata != nil {
+			if seq, ok := e.Metadata["chunk_sequence"].(int); ok {
+				if seq >= startSeq && seq <= endSeq {
+					results = append(results, e)
+				}
+			}
+		}
+	}
+
+	return results, nil
+}
+
+// UpdateEmbeddingImportance implements Repository.UpdateEmbeddingImportance
+func (m *MockRepository) UpdateEmbeddingImportance(
+	ctx context.Context,
+	embeddingID string,
+	importance float64,
+) error {
+	embedding, exists := m.embeddings[embeddingID]
+	if !exists {
+		return nil // No error for mock, just doesn't exist
+	}
+
+	if embedding.Metadata == nil {
+		embedding.Metadata = make(map[string]any)
+	}
+	embedding.Metadata["importance_score"] = importance
+
+	return nil
+}

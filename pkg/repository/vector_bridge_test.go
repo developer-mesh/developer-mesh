@@ -84,6 +84,38 @@ func (m *mockVectorRepository) Delete(ctx context.Context, id string) error {
 	return args.Error(0)
 }
 
+// Story 2.1: Context-Specific Embedding Methods (Test mock implementation)
+
+func (m *mockVectorRepository) StoreContextEmbedding(
+	ctx context.Context,
+	contextID string,
+	embedding *vector.Embedding,
+	sequence int,
+	importance float64,
+) (string, error) {
+	args := m.Called(ctx, contextID, embedding, sequence, importance)
+	return args.String(0), args.Error(1)
+}
+
+func (m *mockVectorRepository) GetContextEmbeddingsBySequence(
+	ctx context.Context,
+	contextID string,
+	startSeq int,
+	endSeq int,
+) ([]*vector.Embedding, error) {
+	args := m.Called(ctx, contextID, startSeq, endSeq)
+	return args.Get(0).([]*vector.Embedding), args.Error(1)
+}
+
+func (m *mockVectorRepository) UpdateEmbeddingImportance(
+	ctx context.Context,
+	embeddingID string,
+	importance float64,
+) error {
+	args := m.Called(ctx, embeddingID, importance)
+	return args.Error(0)
+}
+
 // TestNewEmbeddingRepository tests the NewEmbeddingRepository function
 func TestNewEmbeddingRepository(t *testing.T) {
 	t.Run("with sqlx.DB", func(t *testing.T) {

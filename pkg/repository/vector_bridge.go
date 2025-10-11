@@ -181,6 +181,53 @@ func (r *embeddingRepositoryAdapter) Delete(ctx context.Context, id string) erro
 	return errors.New("vector repository not initialized")
 }
 
+// Story 2.1: Context-Specific Embedding Methods (Adapter implementation)
+
+// StoreContextEmbedding implements VectorAPIRepository.StoreContextEmbedding
+func (r *embeddingRepositoryAdapter) StoreContextEmbedding(
+	ctx context.Context,
+	contextID string,
+	embedding *Embedding,
+	sequence int,
+	importance float64,
+) (string, error) {
+	if r.vectorRepo != nil {
+		return r.vectorRepo.StoreContextEmbedding(ctx, contextID, embedding, sequence, importance)
+	}
+
+	// Fallback implementation
+	return "", errors.New("vector repository not initialized")
+}
+
+// GetContextEmbeddingsBySequence implements VectorAPIRepository.GetContextEmbeddingsBySequence
+func (r *embeddingRepositoryAdapter) GetContextEmbeddingsBySequence(
+	ctx context.Context,
+	contextID string,
+	startSeq int,
+	endSeq int,
+) ([]*Embedding, error) {
+	if r.vectorRepo != nil {
+		return r.vectorRepo.GetContextEmbeddingsBySequence(ctx, contextID, startSeq, endSeq)
+	}
+
+	// Fallback implementation
+	return []*Embedding{}, errors.New("vector repository not initialized")
+}
+
+// UpdateEmbeddingImportance implements VectorAPIRepository.UpdateEmbeddingImportance
+func (r *embeddingRepositoryAdapter) UpdateEmbeddingImportance(
+	ctx context.Context,
+	embeddingID string,
+	importance float64,
+) error {
+	if r.vectorRepo != nil {
+		return r.vectorRepo.UpdateEmbeddingImportance(ctx, embeddingID, importance)
+	}
+
+	// Fallback implementation
+	return errors.New("vector repository not initialized")
+}
+
 // newMockEmbeddingAdapter creates a mock adapter for testing
 func newMockEmbeddingAdapter() VectorAPIRepository {
 	return &embeddingRepositoryAdapter{

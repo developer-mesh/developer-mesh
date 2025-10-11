@@ -90,4 +90,12 @@ type Repository interface {
 
 	// DeleteModelEmbeddings deletes all embeddings for a specific model in a context
 	DeleteModelEmbeddings(ctx context.Context, contextID string, modelID string) error
+
+	// Context-specific embedding operations (Story 2.1)
+	// StoreContextEmbedding stores an embedding and links it to a context with metadata
+	StoreContextEmbedding(ctx context.Context, contextID string, embedding *Embedding, sequence int, importance float64) (string, error)
+	// GetContextEmbeddingsBySequence retrieves embeddings for a context within a sequence range
+	GetContextEmbeddingsBySequence(ctx context.Context, contextID string, startSeq int, endSeq int) ([]*Embedding, error)
+	// UpdateEmbeddingImportance updates the importance score for an embedding
+	UpdateEmbeddingImportance(ctx context.Context, embeddingID string, importance float64) error
 }
