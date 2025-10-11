@@ -457,9 +457,9 @@ func TestSemanticContextManager_ValidateContextIntegrity(t *testing.T) {
 	assert := assert.New(t)
 
 	existingContext := &repository.Context{
-		ID:        "ctx-123",
-		Name:      "test-context",
-		Status:    "active",
+		ID:     "ctx-123",
+		Name:   "test-context",
+		Status: "active",
 	}
 
 	mockRepo := new(MockContextRepository)

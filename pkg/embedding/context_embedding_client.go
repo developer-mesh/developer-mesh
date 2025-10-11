@@ -49,7 +49,7 @@ func (c *ContextEmbeddingClient) SelectModel(content string) string {
 
 	// Default models in priority order (2025 standards)
 	preferredModels := []string{
-		"text-embedding-3-small",      // OpenAI (1536 dimensions, $0.02/1M tokens)
+		"text-embedding-3-small",       // OpenAI (1536 dimensions, $0.02/1M tokens)
 		"voyage-3",                     // Voyage AI (1024 dimensions, Anthropic partner)
 		"amazon.titan-embed-text-v2:0", // AWS Bedrock (1024 dimensions)
 		"cohere.embed-english-v3",      // Cohere on Bedrock (1024 dimensions)

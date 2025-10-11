@@ -160,38 +160,38 @@ func (m *SemanticContextManagerImpl) UpdateContext(
 				})
 			}
 		} else {
-		// Step 4: Store embedding with link to context
-		embeddingObj := &repository.Embedding{
-			ID:        uuid.New().String(),
-			ContextID: contextID,
-			Text:      update.Content,
-			Embedding: embeddings,
-			ModelID:   modelUsed,
-			CreatedAt: time.Now(),
-		}
-
-		// Get current item count for sequence number
-		items, _ := m.contextRepo.GetContextItems(ctx, contextID)
-		sequence := len(items)
-
-		// Determine importance score
-		importanceScore := 0.5 // Default
-		if update.Metadata != nil {
-			if score, ok := update.Metadata["importance_score"].(float64); ok {
-				importanceScore = score
+			// Step 4: Store embedding with link to context
+			embeddingObj := &repository.Embedding{
+				ID:        uuid.New().String(),
+				ContextID: contextID,
+				Text:      update.Content,
+				Embedding: embeddings,
+				ModelID:   modelUsed,
+				CreatedAt: time.Now(),
 			}
-		}
 
-		// Store with importance
-		_, err = m.embeddingRepo.StoreContextEmbedding(ctx, contextID, embeddingObj, sequence, importanceScore)
-		if err != nil {
-			if m.auditLogger != nil {
-				m.auditLogger.Warn("Failed to store embedding", map[string]interface{}{
-					"error":      err.Error(),
-					"context_id": contextID,
-				})
+			// Get current item count for sequence number
+			items, _ := m.contextRepo.GetContextItems(ctx, contextID)
+			sequence := len(items)
+
+			// Determine importance score
+			importanceScore := 0.5 // Default
+			if update.Metadata != nil {
+				if score, ok := update.Metadata["importance_score"].(float64); ok {
+					importanceScore = score
+				}
 			}
-		}
+
+			// Store with importance
+			_, err = m.embeddingRepo.StoreContextEmbedding(ctx, contextID, embeddingObj, sequence, importanceScore)
+			if err != nil {
+				if m.auditLogger != nil {
+					m.auditLogger.Warn("Failed to store embedding", map[string]interface{}{
+						"error":      err.Error(),
+						"context_id": contextID,
+					})
+				}
+			}
 		}
 	}
 
@@ -353,12 +353,12 @@ func (m *SemanticContextManagerImpl) GetRelevantContext(
 	// Step 5: Audit the retrieval
 	if m.auditLogger != nil {
 		m.auditLogger.Info("Semantic context retrieval", map[string]interface{}{
-			"context_id":    contextID,
-			"query":         query,
-			"items_found":   len(embeddings),
-			"operation":     "semantic_retrieval",
-			"model_used":    modelUsed,
-			"max_tokens":    maxTokens,
+			"context_id":  contextID,
+			"query":       query,
+			"items_found": len(embeddings),
+			"operation":   "semantic_retrieval",
+			"model_used":  modelUsed,
+			"max_tokens":  maxTokens,
 		})
 	}
 
