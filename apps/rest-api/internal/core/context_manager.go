@@ -11,6 +11,7 @@ import (
 
 	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -100,25 +101,35 @@ func (cm *ContextManager) CreateContext(ctx context.Context, context *models.Con
 			metadataJSON = []byte("{}")
 		}
 
-		// Create insert query for context
-		q := `INSERT INTO mcp.contexts (id, tenant_id, name, description, agent_id, model_id, session_id, current_tokens, max_tokens, metadata, created_at, updated_at, expires_at) 
-		      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`
+		// Create insert query for context (match actual schema: no name/description/session_id)
+		q := `INSERT INTO mcp.contexts (id, tenant_id, type, agent_id, model_id, token_count, max_tokens, metadata, created_at, updated_at, expires_at)
+		      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
+
+		// Convert empty strings to nil for UUID fields
+		var agentID, modelID, expiresAt interface{}
+		if context.AgentID != "" {
+			agentID = context.AgentID
+		}
+		if context.ModelID != "" {
+			modelID = context.ModelID
+		}
+		if !context.ExpiresAt.IsZero() {
+			expiresAt = context.ExpiresAt
+		}
 
 		// Use standard Exec with explicit parameters
 		_, err := cm.db.ExecContext(ctx, q,
 			context.ID,
 			context.TenantID,
-			context.Name,
-			context.Description,
-			context.AgentID,
-			context.ModelID,
-			context.SessionID,
-			context.CurrentTokens,
+			context.Type,
+			agentID,
+			modelID,
+			context.CurrentTokens, // Maps to token_count in schema
 			context.MaxTokens,
 			metadataJSON,
 			context.CreatedAt,
 			context.UpdatedAt,
-			context.ExpiresAt)
+			expiresAt)
 		if err != nil {
 			cm.logger.Error("Failed to store context in database", map[string]any{
 				"error":      err.Error(),
@@ -162,23 +173,22 @@ func (cm *ContextManager) GetContext(ctx context.Context, contextID string) (*mo
 
 	// Not in cache, try database
 	if cm.db != nil {
-		// Create a temporary struct to handle JSON metadata
+		// Create a temporary struct to handle JSON metadata (match actual schema)
 		var dbContext struct {
 			ID            string          `db:"id"`
-			Name          string          `db:"name"`
-			Description   string          `db:"description"`
-			AgentID       string          `db:"agent_id"`
-			ModelID       string          `db:"model_id"`
-			SessionID     string          `db:"session_id"`
-			CurrentTokens int             `db:"current_tokens"`
+			Type          string          `db:"type"`
+			TenantID      string          `db:"tenant_id"`
+			AgentID       *string         `db:"agent_id"`      // Nullable
+			ModelID       *string         `db:"model_id"`      // Nullable
+			TokenCount    int             `db:"token_count"`
 			MaxTokens     int             `db:"max_tokens"`
 			Metadata      json.RawMessage `db:"metadata"`
 			CreatedAt     time.Time       `db:"created_at"`
 			UpdatedAt     time.Time       `db:"updated_at"`
-			ExpiresAt     time.Time       `db:"expires_at"`
+			ExpiresAt     *time.Time      `db:"expires_at"`    // Nullable
 		}
 
-		q := `SELECT id, name, description, agent_id, model_id, session_id, current_tokens, max_tokens, metadata, created_at, updated_at, expires_at FROM mcp.contexts WHERE id = $1 LIMIT 1`
+		q := `SELECT id, type, tenant_id, agent_id, model_id, token_count, max_tokens, metadata, created_at, updated_at, expires_at FROM mcp.contexts WHERE id = $1 LIMIT 1`
 
 		// Use QueryRowxContext to fetch a single row
 		err := cm.db.QueryRowxContext(ctx, q, contextID).StructScan(&dbContext)
@@ -194,16 +204,23 @@ func (cm *ContextManager) GetContext(ctx context.Context, contextID string) (*mo
 		// Convert to models.Context
 		context := models.Context{
 			ID:            dbContext.ID,
-			Name:          dbContext.Name,
-			Description:   dbContext.Description,
-			AgentID:       dbContext.AgentID,
-			ModelID:       dbContext.ModelID,
-			SessionID:     dbContext.SessionID,
-			CurrentTokens: dbContext.CurrentTokens,
+			Type:          dbContext.Type,
+			TenantID:      dbContext.TenantID,
+			CurrentTokens: dbContext.TokenCount,
 			MaxTokens:     dbContext.MaxTokens,
 			CreatedAt:     dbContext.CreatedAt,
 			UpdatedAt:     dbContext.UpdatedAt,
-			ExpiresAt:     dbContext.ExpiresAt,
+		}
+
+		// Handle nullable fields
+		if dbContext.AgentID != nil {
+			context.AgentID = *dbContext.AgentID
+		}
+		if dbContext.ModelID != nil {
+			context.ModelID = *dbContext.ModelID
+		}
+		if dbContext.ExpiresAt != nil {
+			context.ExpiresAt = *dbContext.ExpiresAt
 		}
 
 		// Unmarshal metadata if present
@@ -218,7 +235,7 @@ func (cm *ContextManager) GetContext(ctx context.Context, contextID string) (*mo
 		}
 
 		// Load context items
-		itemsQuery := `SELECT id, context_id, role, content, tokens, timestamp, metadata FROM mcp.context_items WHERE context_id = $1 ORDER BY timestamp`
+		itemsQuery := `SELECT id, context_id, type, role, content, token_count, sequence_number, metadata, created_at FROM mcp.context_items WHERE context_id = $1 ORDER BY sequence_number`
 		rows, err := cm.db.QueryxContext(ctx, itemsQuery, contextID)
 		if err != nil {
 			cm.logger.Warn("Failed to load context items", map[string]any{
@@ -234,15 +251,17 @@ func (cm *ContextManager) GetContext(ctx context.Context, contextID string) (*mo
 			}()
 			var items []models.ContextItem
 			for rows.Next() {
-				// Create a temporary struct to handle JSON metadata
+				// Create a temporary struct to handle JSON metadata (match actual schema)
 				var dbItem struct {
-					ID        string          `db:"id"`
-					ContextID string          `db:"context_id"`
-					Role      string          `db:"role"`
-					Content   string          `db:"content"`
-					Tokens    int             `db:"tokens"`
-					Timestamp time.Time       `db:"timestamp"`
-					Metadata  json.RawMessage `db:"metadata"`
+					ID             string          `db:"id"`
+					ContextID      string          `db:"context_id"`
+					Type           string          `db:"type"`
+					Role           string          `db:"role"`
+					Content        string          `db:"content"`
+					TokenCount     int             `db:"token_count"`
+					SequenceNumber int             `db:"sequence_number"`
+					Metadata       json.RawMessage `db:"metadata"`
+					CreatedAt      time.Time       `db:"created_at"`
 				}
 
 				if err := rows.StructScan(&dbItem); err != nil {
@@ -258,8 +277,8 @@ func (cm *ContextManager) GetContext(ctx context.Context, contextID string) (*mo
 					ContextID: dbItem.ContextID,
 					Role:      dbItem.Role,
 					Content:   dbItem.Content,
-					Tokens:    dbItem.Tokens,
-					Timestamp: dbItem.Timestamp,
+					Tokens:    dbItem.TokenCount,
+					Timestamp: dbItem.CreatedAt,
 				}
 
 				// Unmarshal metadata if present
@@ -359,14 +378,12 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 			return nil, fmt.Errorf("failed to start transaction: %w", err)
 		}
 
-		// Update context metadata
-		q := `UPDATE mcp.contexts SET 
-		       name = :name,
-		       description = :description,
-		       updated_at = :updated_at 
-		     WHERE id = :id`
+		// Update context metadata (only updated_at since name/description don't exist in schema)
+		q := `UPDATE mcp.contexts SET
+		       updated_at = $1
+		     WHERE id = $2`
 
-		_, err = tx.NamedExecContext(ctx, q, result)
+		_, err = tx.ExecContext(ctx, q, result.UpdatedAt, result.ID)
 		if err != nil {
 			_ = tx.Rollback()
 			cm.logger.Error("Failed to update context in database", map[string]any{
@@ -390,8 +407,8 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 
 		// Insert new context items if any
 		if len(result.Content) > 0 {
-			itemsQuery := `INSERT INTO mcp.context_items (id, context_id, role, content, tokens, timestamp, metadata) 
-			              VALUES ($1, $2, $3, $4, $5, $6, $7)`
+			itemsQuery := `INSERT INTO mcp.context_items (id, context_id, type, role, content, token_count, sequence_number, metadata, created_at)
+			              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 
 			for i, item := range result.Content {
 				// Ensure each item has an ID and context ID
@@ -421,14 +438,18 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 					itemMetadataJSON = []byte("{}")
 				}
 
+				// Use "message" as default type, sequence_number is the index
+				itemType := "message"
 				_, err = tx.ExecContext(ctx, itemsQuery,
 					item.ID,
 					item.ContextID,
+					itemType,
 					item.Role,
 					item.Content,
 					item.Tokens,
-					item.Timestamp,
-					itemMetadataJSON)
+					i, // sequence_number
+					itemMetadataJSON,
+					item.Timestamp)
 				if err != nil {
 					_ = tx.Rollback()
 					cm.logger.Error("Failed to insert context item", map[string]any{
@@ -723,5 +744,5 @@ func (cm *ContextManager) SummarizeContext(ctx context.Context, contextID string
 
 // Helper function to generate a unique ID
 func generateUniqueID() string {
-	return fmt.Sprintf("ctx_%d", time.Now().UnixNano())
+	return uuid.New().String()
 }

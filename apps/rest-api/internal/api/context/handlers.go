@@ -1,6 +1,7 @@
 package context
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -90,24 +91,31 @@ func (api *API) CreateContext(c *gin.Context) {
 		return
 	}
 
-	// Extract tenant ID from the request context
-	userInfo, exists := c.Get("user")
+	// Extract tenant ID directly from context (set by auth middleware)
+	tenantIDRaw, exists := c.Get("tenant_id")
 	if !exists {
-		api.logger.Warn("No user info in context", nil)
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		api.logger.Warn("No tenant ID in context", nil)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing tenant id"})
 		return
 	}
 
-	userMap, ok := userInfo.(map[string]any)
-	if !ok {
-		api.logger.Warn("Invalid user info format", nil)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+	// Handle both string and uuid.UUID types
+	var tenantID string
+	switch v := tenantIDRaw.(type) {
+	case string:
+		tenantID = v
+	case interface{ String() string }:
+		tenantID = v.String()
+	default:
+		api.logger.Warn("Invalid tenant_id type", map[string]interface{}{
+			"type": fmt.Sprintf("%T", v),
+		})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid tenant id format"})
 		return
 	}
 
-	tenantID, ok := userMap["tenant_id"].(string)
-	if !ok || tenantID == "" {
-		api.logger.Warn("No tenant ID in user info", nil)
+	if tenantID == "" {
+		api.logger.Warn("Empty tenant ID", nil)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing tenant id"})
 		return
 	}

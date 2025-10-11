@@ -55,26 +55,29 @@ type Context struct {
 	// ID is the unique identifier for this context
 	ID string `json:"id" db:"id"`
 
+	// Type is the type of context (e.g., conversation, task, etc.)
+	Type string `json:"type" db:"type"`
+
 	// Name is the display name of this context
-	Name string `json:"name" db:"name"`
+	Name string `json:"name,omitempty" db:"name"`
 
 	// Description is a human-readable description of the context
 	Description string `json:"description,omitempty" db:"description"`
 
 	// AgentID is the identifier for the AI agent that owns this context
-	AgentID string `json:"agent_id" db:"agent_id"`
+	AgentID string `json:"agent_id,omitempty" db:"agent_id"`
 
 	// TenantID is the tenant this context belongs to
 	TenantID string `json:"tenant_id" db:"tenant_id"`
 
 	// ModelID identifies which AI model this context is for
-	ModelID string `json:"model_id" db:"model_id"`
+	ModelID string `json:"model_id,omitempty" db:"model_id"`
 
 	// SessionID is the identifier for the user session
 	SessionID string `json:"session_id,omitempty" db:"session_id"`
 
 	// Content contains the actual context data
-	Content []ContextItem `json:"content" db:"-"`
+	Content []ContextItem `json:"content,omitempty" db:"-"`
 
 	// Metadata contains additional information about the context
 	Metadata map[string]any `json:"metadata,omitempty" db:"metadata"`
@@ -86,13 +89,13 @@ type Context struct {
 	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 
 	// ExpiresAt is when this context expires (if applicable)
-	ExpiresAt time.Time `json:"expires_at" db:"expires_at"`
+	ExpiresAt time.Time `json:"expires_at,omitempty" db:"expires_at"`
 
 	// MaxTokens is the maximum number of tokens this context can contain
 	MaxTokens int `json:"max_tokens,omitempty" db:"max_tokens"`
 
-	// CurrentTokens is the current token count for this context
-	CurrentTokens int `json:"current_tokens,omitempty" db:"current_tokens"`
+	// CurrentTokens is the current token count for this context (maps to token_count in DB)
+	CurrentTokens int `json:"current_tokens,omitempty" db:"token_count"`
 }
 
 // ContextUpdateOptions provides options for updating a context
