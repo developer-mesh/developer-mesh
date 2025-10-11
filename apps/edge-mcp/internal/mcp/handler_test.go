@@ -20,7 +20,7 @@ func TestHandleInitialize_ValidProtocolVersions(t *testing.T) {
 	memCache := cache.NewMemoryCache(100, 5*time.Minute)
 	authenticator := auth.NewEdgeAuthenticator("")
 
-	handler := NewHandler(toolRegistry, memCache, nil, authenticator, logger, nil, nil)
+	handler := NewHandler(toolRegistry, memCache, nil, authenticator, logger, nil, nil, nil)
 	sessionID := "test-session-123"
 
 	// Test each valid protocol version
@@ -78,7 +78,7 @@ func TestHandleInitialize_InvalidProtocolVersion(t *testing.T) {
 	// Setup
 	logger := observability.NewNoopLogger()
 	handler := NewHandler(tools.NewRegistry(), cache.NewMemoryCache(100, 5*time.Minute), nil,
-		auth.NewEdgeAuthenticator(""), logger, nil, nil)
+		auth.NewEdgeAuthenticator(""), logger, nil, nil, nil)
 	sessionID := "test-session-456"
 
 	// Test with unsupported version
@@ -111,7 +111,7 @@ func TestHandleInitialize_MalformedJSON(t *testing.T) {
 	// Setup
 	logger := observability.NewNoopLogger()
 	handler := NewHandler(tools.NewRegistry(), cache.NewMemoryCache(100, 5*time.Minute), nil,
-		auth.NewEdgeAuthenticator(""), logger, nil, nil)
+		auth.NewEdgeAuthenticator(""), logger, nil, nil, nil)
 	sessionID := "test-session-789"
 
 	// Test with malformed JSON
@@ -134,7 +134,7 @@ func TestHandleInitialize_SessionUpdate(t *testing.T) {
 	// Setup
 	logger := observability.NewNoopLogger()
 	handler := NewHandler(tools.NewRegistry(), cache.NewMemoryCache(100, 5*time.Minute), nil,
-		auth.NewEdgeAuthenticator(""), logger, nil, nil)
+		auth.NewEdgeAuthenticator(""), logger, nil, nil, nil)
 	sessionID := "test-session-update"
 
 	// Pre-create session
@@ -175,7 +175,7 @@ func TestHandleInitialize_CredentialStorage(t *testing.T) {
 	// Setup
 	logger := observability.NewNoopLogger()
 	handler := NewHandler(tools.NewRegistry(), cache.NewMemoryCache(100, 5*time.Minute), nil,
-		auth.NewEdgeAuthenticator(""), logger, nil, nil)
+		auth.NewEdgeAuthenticator(""), logger, nil, nil, nil)
 	sessionID := "test-session-creds"
 
 	// Pre-create session

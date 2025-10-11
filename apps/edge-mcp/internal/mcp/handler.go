@@ -49,6 +49,17 @@ type MCPError struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
+// SemanticContextManager defines the interface for semantic context operations
+// This interface matches the repository.SemanticContextManager but uses interface{} for flexibility
+type SemanticContextManager interface {
+	CreateContext(ctx context.Context, req interface{}) (interface{}, error)
+	GetContext(ctx context.Context, contextID string, opts interface{}) (interface{}, error)
+	UpdateContext(ctx context.Context, contextID string, update interface{}) error
+	GetRelevantContext(ctx context.Context, contextID string, query string, maxTokens int) (interface{}, error)
+	CompactContext(ctx context.Context, contextID string, strategy string) error
+	SearchContext(ctx context.Context, query string, contextID string, limit int) (interface{}, error)
+}
+
 // Handler manages MCP protocol connections
 type Handler struct {
 	tools          *tools.Registry
@@ -65,6 +76,10 @@ type Handler struct {
 	batchExecutor  *BatchExecutor          // Batch executor for batching tool calls
 	rateLimiter    *middleware.RateLimiter // Rate limiter for request throttling
 	validator      *validation.Validator   // Input validator for security and validation
+
+	// Semantic context manager for enhanced context operations (optional)
+	// This is interface{} to support dynamic typing - will be type asserted when used
+	semanticContextMgr interface{}
 
 	// Request tracking for cancellation
 	activeRequests map[interface{}]context.CancelFunc
@@ -96,6 +111,7 @@ func NewHandler(
 	logger observability.Logger,
 	metricsCollector *metrics.Metrics,
 	tracerProvider *tracing.TracerProvider,
+	semanticContextMgr interface{}, // Optional semantic context manager for enhanced context operations
 ) *Handler {
 	var spanHelper *tracing.SpanHelper
 	if tracerProvider != nil {
@@ -119,19 +135,20 @@ func NewHandler(
 	validator := validation.NewValidator(validatorConfig, logger)
 
 	h := &Handler{
-		tools:          toolRegistry,
-		cache:          cache,
-		coreClient:     coreClient,
-		authenticator:  authenticator,
-		sessions:       make(map[string]*Session),
-		logger:         logger,
-		metrics:        metricsCollector,
-		spanHelper:     spanHelper,
-		streamManager:  streamManager,
-		batchExecutor:  batchExecutor,
-		rateLimiter:    rateLimiter,
-		validator:      validator,
-		activeRequests: make(map[interface{}]context.CancelFunc),
+		tools:              toolRegistry,
+		cache:              cache,
+		coreClient:         coreClient,
+		authenticator:      authenticator,
+		sessions:           make(map[string]*Session),
+		logger:             logger,
+		metrics:            metricsCollector,
+		spanHelper:         spanHelper,
+		streamManager:      streamManager,
+		batchExecutor:      batchExecutor,
+		rateLimiter:        rateLimiter,
+		validator:          validator,
+		semanticContextMgr: semanticContextMgr,
+		activeRequests:     make(map[interface{}]context.CancelFunc),
 	}
 
 	// Setup refresh manager if core client is available
@@ -1063,8 +1080,9 @@ func (h *Handler) handleToolCall(sessionID string, msg *MCPMessage) (*MCPMessage
 		return nil, errResp
 	}
 
-	// CRITICAL: Handle context operations specially for sync with Core Platform
-	if params.Name == "context.update" || params.Name == "context.append" || params.Name == "context.get" {
+	// CRITICAL: Handle context operations specially for sync with Core Platform and semantic operations
+	if params.Name == "context.update" || params.Name == "context.append" || params.Name == "context.get" ||
+		params.Name == "context.compact" || params.Name == "context.search" {
 		return h.handleContextOperation(sessionID, msg.ID, params.Name, params.Arguments)
 	}
 
@@ -1392,14 +1410,9 @@ func (h *Handler) handleBatchToolCall(sessionID string, msg *MCPMessage) (*MCPMe
 	}, nil
 }
 
-// handleContextOperation handles context sync with Core Platform
+// handleContextOperation handles context operations with semantic awareness
+// Story 6.1: Integrates semantic context manager for enhanced context operations
 func (h *Handler) handleContextOperation(sessionID string, msgID interface{}, operation string, args json.RawMessage) (*MCPMessage, error) {
-	// If not connected to Core Platform, return error
-	if h.coreClient == nil {
-		return nil, NewProtocolError(operation, "Core Platform required",
-			"Context operations require connection to Core Platform")
-	}
-
 	h.sessionsMu.RLock()
 	session := h.sessions[sessionID]
 	coreContextID := ""
@@ -1408,59 +1421,264 @@ func (h *Handler) handleContextOperation(sessionID string, msgID interface{}, op
 	}
 	h.sessionsMu.RUnlock()
 
-	if coreContextID == "" {
-		return nil, errorTemplates.UninitializedSession().
-			WithDetails("Core Platform session must be established before context operations")
-	}
-
 	var result interface{}
 	var err error
 
-	switch operation {
-	case "context.update":
-		var contextUpdate map[string]interface{}
-		if err := json.Unmarshal(args, &contextUpdate); err != nil {
-			return nil, NewValidationError("arguments", fmt.Sprintf("Invalid context update data: %v", err)).
-				WithOperation("context.update")
-		}
+	// Use semantic context manager if available (preferred)
+	if semanticMgr, ok := h.semanticContextMgr.(SemanticContextManager); ok && semanticMgr != nil {
+		h.logger.Debug("Using semantic context manager", map[string]interface{}{
+			"operation":  operation,
+			"session_id": sessionID,
+		})
 
-		err = h.coreClient.UpdateContext(context.Background(), coreContextID, contextUpdate)
-		if err == nil {
-			// Cache locally for performance
-			_ = h.cache.Set(context.Background(), fmt.Sprintf("context:%s", sessionID), contextUpdate, 5*time.Minute)
-			result = map[string]interface{}{"success": true}
-		}
-
-	case "context.get":
-		// Try cache first
-		var cached map[string]interface{}
-		if err := h.cache.Get(context.Background(), fmt.Sprintf("context:%s", sessionID), &cached); err == nil {
-			result = cached
-		} else {
-			// Fetch from Core Platform
-			result, err = h.coreClient.GetContext(context.Background(), coreContextID)
-			if err == nil {
-				// Cache the result
-				_ = h.cache.Set(context.Background(), fmt.Sprintf("context:%s", sessionID), result, 5*time.Minute)
+		switch operation {
+		case "context.update":
+			var updateParams struct {
+				Content          string                 `json:"content"`
+				Role             string                 `json:"role,omitempty"`
+				ImportanceScore  float64                `json:"importance_score,omitempty"`
+				Metadata         map[string]interface{} `json:"metadata,omitempty"`
 			}
+			if err := json.Unmarshal(args, &updateParams); err != nil {
+				return nil, NewValidationError("arguments", fmt.Sprintf("Invalid context update data: %v", err)).
+					WithOperation("context.update")
+			}
+
+			// Set default role if not provided
+			if updateParams.Role == "" {
+				updateParams.Role = "user"
+			}
+
+			// Add importance score to metadata if provided
+			if updateParams.Metadata == nil {
+				updateParams.Metadata = make(map[string]interface{})
+			}
+			if updateParams.ImportanceScore > 0 {
+				updateParams.Metadata["importance_score"] = updateParams.ImportanceScore
+			}
+
+			// Create update request - using map for interface compatibility
+			update := map[string]interface{}{
+				"role":     updateParams.Role,
+				"content":  updateParams.Content,
+				"metadata": updateParams.Metadata,
+			}
+
+			err = semanticMgr.UpdateContext(context.Background(), coreContextID, update)
+			if err == nil {
+				result = map[string]interface{}{
+					"success":           true,
+					"embedding_enabled": true,
+					"context_id":        coreContextID,
+				}
+			}
+
+		case "context.get":
+			var getParams struct {
+				RelevanceQuery string `json:"relevance_query,omitempty"`
+				MaxTokens      int    `json:"max_tokens,omitempty"`
+			}
+			if err := json.Unmarshal(args, &getParams); err != nil {
+				// If no params, just retrieve normally
+				getParams = struct {
+					RelevanceQuery string `json:"relevance_query,omitempty"`
+					MaxTokens      int    `json:"max_tokens,omitempty"`
+				}{}
+			}
+
+			// Use semantic retrieval if query provided
+			if getParams.RelevanceQuery != "" {
+				h.logger.Info("Semantic context retrieval requested", map[string]interface{}{
+					"query":      getParams.RelevanceQuery,
+					"max_tokens": getParams.MaxTokens,
+				})
+				result, err = semanticMgr.GetRelevantContext(
+					context.Background(),
+					coreContextID,
+					getParams.RelevanceQuery,
+					getParams.MaxTokens,
+				)
+			} else {
+				// Standard retrieval with optional options
+				opts := map[string]interface{}{}
+				if getParams.MaxTokens > 0 {
+					opts["max_tokens"] = getParams.MaxTokens
+				}
+				result, err = semanticMgr.GetContext(context.Background(), coreContextID, opts)
+			}
+
+		case "context.compact":
+			var compactParams struct {
+				Strategy string `json:"strategy"` // summarize, prune, semantic, sliding, tool_clear
+			}
+			if err := json.Unmarshal(args, &compactParams); err != nil {
+				return nil, NewValidationError("arguments", fmt.Sprintf("Invalid compact parameters: %v", err)).
+					WithOperation("context.compact")
+			}
+
+			// Default to summarize strategy
+			if compactParams.Strategy == "" {
+				compactParams.Strategy = "summarize"
+			}
+
+			h.logger.Info("Context compaction requested", map[string]interface{}{
+				"strategy":   compactParams.Strategy,
+				"context_id": coreContextID,
+			})
+
+			err = semanticMgr.CompactContext(context.Background(), coreContextID, compactParams.Strategy)
+			if err == nil {
+				result = map[string]interface{}{
+					"success":  true,
+					"strategy": compactParams.Strategy,
+				}
+			}
+
+		case "context.search":
+			var searchParams struct {
+				Query string `json:"query"`
+				Limit int    `json:"limit,omitempty"`
+			}
+			if err := json.Unmarshal(args, &searchParams); err != nil {
+				return nil, NewValidationError("arguments", fmt.Sprintf("Invalid search parameters: %v", err)).
+					WithOperation("context.search")
+			}
+
+			// Default limit
+			if searchParams.Limit == 0 {
+				searchParams.Limit = 10
+			}
+
+			h.logger.Info("Semantic context search requested", map[string]interface{}{
+				"query": searchParams.Query,
+				"limit": searchParams.Limit,
+			})
+
+			result, err = semanticMgr.SearchContext(
+				context.Background(),
+				searchParams.Query,
+				coreContextID,
+				searchParams.Limit,
+			)
+
+		case "context.append":
+			// Append is similar to update but maintains separate items
+			var appendParams struct {
+				Content         string                 `json:"content"`
+				Role            string                 `json:"role,omitempty"`
+				ImportanceScore float64                `json:"importance_score,omitempty"`
+				Metadata        map[string]interface{} `json:"metadata,omitempty"`
+			}
+			if err := json.Unmarshal(args, &appendParams); err != nil {
+				return nil, NewValidationError("arguments", fmt.Sprintf("Invalid append data: %v", err)).
+					WithOperation("context.append")
+			}
+
+			// Set default role
+			if appendParams.Role == "" {
+				appendParams.Role = "assistant"
+			}
+
+			// Add importance score to metadata
+			if appendParams.Metadata == nil {
+				appendParams.Metadata = make(map[string]interface{})
+			}
+			if appendParams.ImportanceScore > 0 {
+				appendParams.Metadata["importance_score"] = appendParams.ImportanceScore
+			}
+
+			// Use update with append flag in metadata
+			appendParams.Metadata["append"] = true
+
+			update := map[string]interface{}{
+				"role":     appendParams.Role,
+				"content":  appendParams.Content,
+				"metadata": appendParams.Metadata,
+			}
+
+			err = semanticMgr.UpdateContext(context.Background(), coreContextID, update)
+			if err == nil {
+				result = map[string]interface{}{
+					"success": true,
+					"appended": true,
+				}
+			}
+
+		default:
+			return nil, NewProtocolError(operation, "Unsupported operation",
+				fmt.Sprintf("Operation '%s' is not supported", operation))
 		}
 
-	case "context.append":
-		var appendData map[string]interface{}
-		if err := json.Unmarshal(args, &appendData); err != nil {
-			return nil, NewValidationError("arguments", fmt.Sprintf("Invalid append data: %v", err)).
-				WithOperation("context.append")
+	} else if h.coreClient != nil {
+		// Fall back to legacy Core Platform client
+		h.logger.Debug("Using legacy Core Platform client", map[string]interface{}{
+			"operation":  operation,
+			"session_id": sessionID,
+		})
+
+		if coreContextID == "" {
+			return nil, errorTemplates.UninitializedSession().
+				WithDetails("Core Platform session must be established before context operations")
 		}
 
-		err = h.coreClient.AppendContext(context.Background(), coreContextID, appendData)
-		if err == nil {
-			result = map[string]interface{}{"success": true}
+		switch operation {
+		case "context.update":
+			var contextUpdate map[string]interface{}
+			if err := json.Unmarshal(args, &contextUpdate); err != nil {
+				return nil, NewValidationError("arguments", fmt.Sprintf("Invalid context update data: %v", err)).
+					WithOperation("context.update")
+			}
+
+			err = h.coreClient.UpdateContext(context.Background(), coreContextID, contextUpdate)
+			if err == nil {
+				// Cache locally for performance
+				_ = h.cache.Set(context.Background(), fmt.Sprintf("context:%s", sessionID), contextUpdate, 5*time.Minute)
+				result = map[string]interface{}{"success": true}
+			}
+
+		case "context.get":
+			// Try cache first
+			var cached map[string]interface{}
+			if err := h.cache.Get(context.Background(), fmt.Sprintf("context:%s", sessionID), &cached); err == nil {
+				result = cached
+			} else {
+				// Fetch from Core Platform
+				result, err = h.coreClient.GetContext(context.Background(), coreContextID)
+				if err == nil {
+					// Cache the result
+					_ = h.cache.Set(context.Background(), fmt.Sprintf("context:%s", sessionID), result, 5*time.Minute)
+				}
+			}
+
+		case "context.append":
+			var appendData map[string]interface{}
+			if err := json.Unmarshal(args, &appendData); err != nil {
+				return nil, NewValidationError("arguments", fmt.Sprintf("Invalid append data: %v", err)).
+					WithOperation("context.append")
+			}
+
+			err = h.coreClient.AppendContext(context.Background(), coreContextID, appendData)
+			if err == nil {
+				result = map[string]interface{}{"success": true}
+			}
+
+		case "context.compact", "context.search":
+			return nil, NewProtocolError(operation, "Operation not supported",
+				fmt.Sprintf("Operation '%s' requires semantic context manager", operation))
+
+		default:
+			return nil, NewProtocolError(operation, "Unsupported operation",
+				fmt.Sprintf("Operation '%s' is not supported", operation))
 		}
+	} else {
+		// Neither semantic manager nor core client available
+		return nil, NewProtocolError(operation, "Context backend not available",
+			"Context operations require either semantic context manager or Core Platform connection")
 	}
 
 	if err != nil {
 		return nil, errorTemplates.InternalError(operation, err).
-			WithSuggestion("Retry the operation or check Core Platform connectivity")
+			WithSuggestion("Retry the operation or check connectivity")
 	}
 
 	return &MCPMessage{

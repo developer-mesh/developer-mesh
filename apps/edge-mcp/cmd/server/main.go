@@ -219,6 +219,7 @@ func main() {
 	}
 
 	// Initialize MCP handler
+	// Note: Semantic context manager will be wired up when available (Story 6.3)
 	mcpHandler := mcp.NewHandler(
 		toolRegistry,
 		memCache,
@@ -227,6 +228,7 @@ func main() {
 		logger,
 		metricsCollector,
 		tracerProvider,
+		nil, // semanticContextMgr - not yet wired up
 	)
 
 	// Check if we should run in stdio mode

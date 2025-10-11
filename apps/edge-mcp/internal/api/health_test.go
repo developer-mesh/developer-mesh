@@ -99,6 +99,7 @@ func TestHealthChecker_Readiness_AllHealthy(t *testing.T) {
 		logger,
 		nil, // metrics not needed for health tests
 		nil, // tracerProvider not needed for health tests
+		nil, // semanticContextMgr not needed for health tests
 	)
 
 	healthChecker := NewHealthChecker(
@@ -160,6 +161,7 @@ func TestHealthChecker_Readiness_NoTools(t *testing.T) {
 		logger,
 		nil, // metrics not needed for health tests
 		nil, // tracerProvider not needed for health tests
+		nil, // semanticContextMgr not needed for health tests
 	)
 
 	healthChecker := NewHealthChecker(
@@ -484,6 +486,7 @@ func TestHealthChecker_RegisterRoutes(t *testing.T) {
 		logger,
 		nil, // metrics not needed for health tests
 		nil, // tracerProvider not needed for health tests
+		nil, // semanticContextMgr not needed for health tests
 	)
 
 	healthChecker := NewHealthChecker(
