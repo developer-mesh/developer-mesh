@@ -573,27 +573,26 @@ func (s *ServiceV2) BatchGenerateEmbeddings(ctx context.Context, reqs []Generate
 		go func(bk batchKey, reqIndices []int) {
 			defer wg.Done()
 
-			// Get agent configuration
-			agentConfig, err := s.agentService.GetConfig(ctx, bk.agentID)
-			if err != nil {
-				errCh <- fmt.Errorf("failed to get config for agent %s: %w", bk.agentID, err)
-				return
+			// Try to get agent configuration, but don't fail if not found (like single embedding)
+			// This allows string agent IDs or missing configs to use default model selection
+			agentConfig, _ := s.agentService.GetConfig(ctx, bk.agentID)
+
+			// Determine model to use
+			var modelName string
+
+			// Try to get models for this agent if config exists
+			if agentConfig != nil {
+				primaryModels, _, err := s.agentService.GetModelsForAgent(ctx, bk.agentID, bk.taskType)
+				if err == nil && len(primaryModels) > 0 {
+					modelName = primaryModels[0]
+				}
 			}
 
-			// Get models for this agent and task type
-			primaryModels, _, err := s.agentService.GetModelsForAgent(ctx, bk.agentID, bk.taskType)
-			if err != nil {
-				errCh <- fmt.Errorf("failed to get models for agent %s: %w", bk.agentID, err)
-				return
+			// Fall back to default model if agent config doesn't provide one
+			if modelName == "" {
+				// Use default Titan V2 model
+				modelName = "amazon.titan-embed-text-v2:0"
 			}
-
-			if len(primaryModels) == 0 {
-				errCh <- fmt.Errorf("no models configured for agent %s task %s", bk.agentID, bk.taskType)
-				return
-			}
-
-			// Find a provider that supports the model
-			modelName := primaryModels[0]
 			var provider providers.Provider
 			var providerName string
 
@@ -622,11 +621,17 @@ func (s *ServiceV2) BatchGenerateEmbeddings(ctx context.Context, reqs []Generate
 				texts[i] = reqs[idx].Text
 			}
 
+			// Prepare metadata from agent config if available
+			var metadata map[string]interface{}
+			if agentConfig != nil {
+				metadata = agentConfig.Metadata
+			}
+
 			// Create batch request
 			batchReq := providers.BatchGenerateEmbeddingRequest{
 				Texts:     texts,
 				Model:     modelName,
-				Metadata:  agentConfig.Metadata,
+				Metadata:  metadata,
 				RequestID: uuid.New().String(),
 			}
 
