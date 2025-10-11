@@ -8,15 +8,17 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/developer-mesh/developer-mesh/pkg/metrics"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/repository"
 )
 
 // CompactionExecutor handles different compaction strategies
 type CompactionExecutor struct {
-	contextRepo   repository.ContextRepository
-	embeddingRepo repository.VectorAPIRepository
-	logger        observability.Logger
+	contextRepo    repository.ContextRepository
+	embeddingRepo  repository.VectorAPIRepository
+	logger         observability.Logger
+	contextMetrics *metrics.ContextMetrics
 }
 
 // NewCompactionExecutor creates a new compaction executor
@@ -26,9 +28,10 @@ func NewCompactionExecutor(
 	logger observability.Logger,
 ) *CompactionExecutor {
 	return &CompactionExecutor{
-		contextRepo:   contextRepo,
-		embeddingRepo: embeddingRepo,
-		logger:        logger,
+		contextRepo:    contextRepo,
+		embeddingRepo:  embeddingRepo,
+		logger:         logger,
+		contextMetrics: metrics.NewContextMetrics(),
 	}
 }
 
@@ -38,18 +41,32 @@ func (e *CompactionExecutor) ExecuteCompaction(
 	contextID string,
 	strategy repository.CompactionStrategy,
 ) error {
+	startTime := time.Now()
+	var err error
+
+	// Execute the strategy
 	switch strategy {
 	case repository.CompactionToolClear:
-		return e.compactToolClear(ctx, contextID)
+		err = e.compactToolClear(ctx, contextID)
 	case repository.CompactionPrune:
-		return e.compactPrune(ctx, contextID)
+		err = e.compactPrune(ctx, contextID)
 	case repository.CompactionSliding:
-		return e.compactSliding(ctx, contextID)
+		err = e.compactSliding(ctx, contextID)
 	case repository.CompactionSummarize:
-		return e.compactSummarize(ctx, contextID)
+		err = e.compactSummarize(ctx, contextID)
 	default:
-		return fmt.Errorf("unknown compaction strategy: %s", strategy)
+		err = fmt.Errorf("unknown compaction strategy: %s", strategy)
 	}
+
+	// Record compaction metrics
+	duration := time.Since(startTime).Seconds()
+	// Note: tokensSaved will be calculated in individual compaction methods
+	// For now, we record 0 as placeholder
+	if e.contextMetrics != nil {
+		e.contextMetrics.RecordCompaction(string(strategy), duration, 0, err == nil)
+	}
+
+	return err
 }
 
 // compactToolClear removes tool execution results
@@ -60,24 +77,32 @@ func (e *CompactionExecutor) compactToolClear(ctx context.Context, contextID str
 	}
 
 	compactedCount := 0
+	tokensSaved := 0
+
 	for _, item := range items {
 		// Check if this is a tool result
 		if item.Type == "tool_result" || item.Type == "function_result" {
 			// Check if it's old enough to clear (> 10 messages ago)
 			if isOldToolResult(item, items) {
+				originalLength := len(item.Content)
+
 				// Mark as compacted
 				if item.Metadata == nil {
 					item.Metadata = make(map[string]interface{})
 				}
 				item.Metadata["compacted"] = true
-				item.Metadata["original_content_length"] = len(item.Content)
+				item.Metadata["original_content_length"] = originalLength
 
 				// Clear the content but keep metadata
 				toolName := "unknown"
 				if name, ok := item.Metadata["tool_name"].(string); ok {
 					toolName = name
 				}
-				item.Content = fmt.Sprintf("[Tool result cleared: %s]", toolName)
+				newContent := fmt.Sprintf("[Tool result cleared: %s]", toolName)
+				item.Content = newContent
+
+				// Approximate tokens saved (1 token ≈ 4 characters)
+				tokensSaved += (originalLength - len(newContent)) / 4
 
 				if err := e.contextRepo.UpdateContextItem(ctx, item); err != nil {
 					e.logger.Warn("Failed to compact tool result", map[string]interface{}{
@@ -96,9 +121,15 @@ func (e *CompactionExecutor) compactToolClear(ctx context.Context, contextID str
 		return fmt.Errorf("failed to update compaction metadata: %w", err)
 	}
 
+	// Record tokens saved metric
+	if e.contextMetrics != nil && tokensSaved > 0 {
+		e.contextMetrics.TokensSaved.Add(float64(tokensSaved))
+	}
+
 	e.logger.Info("Tool clear compaction completed", map[string]interface{}{
 		"context_id":      contextID,
 		"items_compacted": compactedCount,
+		"tokens_saved":    tokensSaved,
 	})
 
 	return nil

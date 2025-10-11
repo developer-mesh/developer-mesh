@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/developer-mesh/developer-mesh/pkg/metrics"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/repository"
 	"github.com/developer-mesh/developer-mesh/pkg/security"
@@ -36,6 +37,7 @@ type SemanticContextManagerImpl struct {
 	lifecycleManager *webhook.ContextLifecycleManager
 	auditLogger      observability.Logger
 	encryptionSvc    *security.EncryptionService
+	contextMetrics   *metrics.ContextMetrics
 
 	// Configuration
 	compactionThreshold int
@@ -60,6 +62,7 @@ func NewSemanticContextManager(
 		lifecycleManager:    lifecycleManager,
 		auditLogger:         logger,
 		encryptionSvc:       encryptionSvc,
+		contextMetrics:      metrics.NewContextMetrics(),
 		compactionThreshold: 100,  // Default threshold for automatic compaction
 		defaultMaxTokens:    4000, // Default max tokens for context window
 	}
@@ -111,10 +114,17 @@ func (m *SemanticContextManagerImpl) GetContext(
 		return m.GetRelevantContext(ctx, contextID, opts.RelevanceQuery, opts.MaxTokens)
 	}
 
-	// Standard retrieval
+	// Standard retrieval with metrics
+	startTime := time.Now()
 	contextData, err := m.contextRepo.Get(ctx, contextID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get context: %w", err)
+	}
+
+	// Record metrics for standard retrieval
+	if m.contextMetrics != nil {
+		duration := time.Since(startTime).Seconds()
+		m.contextMetrics.RecordRetrieval("full", duration)
 	}
 
 	return contextData, nil
@@ -150,7 +160,15 @@ func (m *SemanticContextManagerImpl) UpdateContext(
 
 	// Step 3: Generate embedding (if embedding client is available)
 	if m.embeddingClient != nil {
+		startTime := time.Now()
 		embeddings, modelUsed, err := m.embeddingClient.EmbedContent(ctx, update.Content, "")
+		duration := time.Since(startTime).Seconds()
+
+		// Record embedding generation metrics
+		if m.contextMetrics != nil {
+			m.contextMetrics.RecordEmbeddingGeneration(duration, err == nil)
+		}
+
 		if err != nil {
 			// Log warning but don't fail - embeddings are enhancement
 			if m.auditLogger != nil {
@@ -315,6 +333,15 @@ func (m *SemanticContextManagerImpl) GetRelevantContext(
 	query string,
 	maxTokens int,
 ) (*repository.Context, error) {
+	startTime := time.Now()
+	defer func() {
+		// Record retrieval metrics
+		if m.contextMetrics != nil {
+			duration := time.Since(startTime).Seconds()
+			m.contextMetrics.RecordRetrieval("semantic", duration)
+		}
+	}()
+
 	// Check if embedding client is available
 	if m.embeddingClient == nil || m.embeddingRepo == nil {
 		// Fall back to standard retrieval if embedding features not available
@@ -409,6 +436,18 @@ func (m *SemanticContextManagerImpl) AuditContextAccess(ctx context.Context, con
 			"operation":  operation,
 			"timestamp":  time.Now().Unix(),
 		})
+	}
+
+	// Record audit metrics
+	if m.contextMetrics != nil {
+		// Extract tenant ID from context if available, otherwise use "unknown"
+		tenantID := "unknown"
+		if tenantIDValue := ctx.Value("tenant_id"); tenantIDValue != nil {
+			if tid, ok := tenantIDValue.(string); ok {
+				tenantID = tid
+			}
+		}
+		m.contextMetrics.RecordAuditEvent(operation, tenantID)
 	}
 
 	return nil
