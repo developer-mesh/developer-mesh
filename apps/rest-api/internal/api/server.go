@@ -17,6 +17,9 @@ import (
 	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/storage"
 
 	pkgrepository "github.com/developer-mesh/developer-mesh/pkg/repository"
+	"github.com/developer-mesh/developer-mesh/pkg/repository/embedding_usage"
+	"github.com/developer-mesh/developer-mesh/pkg/repository/model_catalog"
+	"github.com/developer-mesh/developer-mesh/pkg/repository/tenant_models"
 	pkgservices "github.com/developer-mesh/developer-mesh/pkg/services"
 
 	"github.com/developer-mesh/developer-mesh/pkg/agents"
@@ -651,6 +654,41 @@ func (s *Server) setupRoutes(ctx context.Context) {
 		embeddingAPI.RegisterRoutes(v1)
 
 		s.logger.Info("Embedding API v2 initialized successfully", nil)
+	}
+
+	// Model Catalog API - Multi-tenant embedding model management
+	// Create repositories for model catalog, tenant models, and usage tracking
+	catalogRepo := model_catalog.NewModelCatalogRepository(s.db)
+	tenantModelsRepo := tenant_models.NewTenantModelsRepository(s.db)
+	usageRepo := embedding_usage.NewEmbeddingUsageRepository(s.db)
+
+	// Create model management service
+	modelManagementService, modelErr := services.NewModelManagementService(
+		s.db,
+		redisClient,
+		catalogRepo,
+		tenantModelsRepo,
+		usageRepo,
+	)
+	if modelErr != nil {
+		s.logger.Error("Failed to create model management service", map[string]any{
+			"error": modelErr.Error(),
+		})
+		s.logger.Warn("Model Catalog API initialization failed, model management endpoints will not be available", nil)
+	} else {
+		// Get auth service from middleware
+		authService := s.authMiddleware.GetAuthService()
+
+		// Create and register Model Catalog API
+		modelCatalogAPI := NewModelCatalogAPI(modelManagementService, authService, s.metrics)
+		modelCatalogAPI.RegisterRoutes(v1)
+
+		s.logger.Info("Model Catalog API initialized successfully", map[string]any{
+			"endpoints": []string{
+				"/api/v1/embedding-models/catalog",
+				"/api/v1/tenant-models",
+			},
+		})
 	}
 }
 
