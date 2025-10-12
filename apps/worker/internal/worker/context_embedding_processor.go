@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/developer-mesh/developer-mesh/pkg/embedding"
 	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/queue"
 	"github.com/developer-mesh/developer-mesh/pkg/repository"
+	"github.com/google/uuid"
 )
 
 // ContextEmbeddingProcessor processes context items and generates embeddings

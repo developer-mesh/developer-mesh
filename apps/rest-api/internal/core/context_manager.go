@@ -513,10 +513,10 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 				}
 
 				cm.logger.Info("Extracting agent_id for event", map[string]interface{}{
-					"result.AgentID":         result.AgentID,
-					"metadata_exists":        result.Metadata != nil,
-					"metadata_keys":          metadataKeys,
-					"virtual_agent_id_raw":   result.Metadata["virtual_agent_id"],
+					"result.AgentID":       result.AgentID,
+					"metadata_exists":      result.Metadata != nil,
+					"metadata_keys":        metadataKeys,
+					"virtual_agent_id_raw": result.Metadata["virtual_agent_id"],
 				})
 
 				if agentID == "" && result.Metadata != nil {

@@ -97,24 +97,24 @@ func (o *sessionContextOrchestrator) CreateSessionWithContext(
 	attribution := models.ResolveAttribution(session)
 
 	virtualAgent := &models.Agent{
-		ID:       virtualAgentID,
-		TenantID: session.TenantID,
-		Name:     o.generateVirtualAgentName(req, session),
-		Type:     "virtual_session_agent",
-		Status:   "available",
+		ID:           virtualAgentID,
+		TenantID:     session.TenantID,
+		Name:         o.generateVirtualAgentName(req, session),
+		Type:         "virtual_session_agent",
+		Status:       "available",
 		Capabilities: []string{"embedding", "context_management"},
 		Metadata: map[string]interface{}{
-			"session_id":         session.SessionID,
-			"session_uuid":       session.ID.String(),
-			"edge_mcp_id":        session.EdgeMCPID,
-			"client_type":        string(req.ClientType),
-			"client_name":        req.ClientName,
-			"ephemeral":          true,
-			"auto_created":       true,
-			"created_by":         "session_orchestrator",
-			"attribution_level":  string(attribution.Level),
-			"cost_center":        attribution.CostCenter,
-			"billable_unit":      attribution.BillableUnit,
+			"session_id":        session.SessionID,
+			"session_uuid":      session.ID.String(),
+			"edge_mcp_id":       session.EdgeMCPID,
+			"client_type":       string(req.ClientType),
+			"client_name":       req.ClientName,
+			"ephemeral":         true,
+			"auto_created":      true,
+			"created_by":        "session_orchestrator",
+			"attribution_level": string(attribution.Level),
+			"cost_center":       attribution.CostCenter,
+			"billable_unit":     attribution.BillableUnit,
 		},
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
@@ -133,10 +133,10 @@ func (o *sessionContextOrchestrator) CreateSessionWithContext(
 	}
 
 	o.logger.Info("Virtual agent created for session", map[string]interface{}{
-		"agent_id":         virtualAgent.ID,
-		"session_id":       session.SessionID,
+		"agent_id":          virtualAgent.ID,
+		"session_id":        session.SessionID,
 		"attribution_level": string(attribution.Level),
-		"cost_center":      attribution.CostCenter,
+		"cost_center":       attribution.CostCenter,
 	})
 
 	// Step 2: Create the context via ContextManager
@@ -145,10 +145,10 @@ func (o *sessionContextOrchestrator) CreateSessionWithContext(
 	contextToCreate := &models.Context{
 		Type:          "conversation", // Default type for session contexts
 		TenantID:      session.TenantID.String(),
-		SessionID:     session.SessionID,  // Link via session_id string
-		AgentID:       "",                  // Leave empty - virtual agent stored in metadata
-		ModelID:       "",                  // Will be set when model is selected
-		MaxTokens:     100000,              // Default max tokens
+		SessionID:     session.SessionID, // Link via session_id string
+		AgentID:       "",                // Leave empty - virtual agent stored in metadata
+		ModelID:       "",                // Will be set when model is selected
+		MaxTokens:     100000,            // Default max tokens
 		CurrentTokens: 0,
 		Metadata: map[string]any{
 			"session_uuid":       session.ID.String(),
@@ -303,9 +303,9 @@ func (o *sessionContextOrchestrator) cleanupVirtualAgent(ctx context.Context, se
 	virtualAgentID := "virtual-agent-" + sessionID
 
 	o.logger.Info("Virtual agent lifecycle complete", map[string]interface{}{
-		"agent_id":    virtualAgentID,
-		"session_id":  sessionID,
-		"reason":      "session_terminated",
+		"agent_id":   virtualAgentID,
+		"session_id": sessionID,
+		"reason":     "session_terminated",
 	})
 
 	o.recordMetric("virtual_agent.cleanup", 1, map[string]string{

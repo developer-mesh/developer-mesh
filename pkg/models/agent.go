@@ -10,22 +10,22 @@ import (
 type AttributionLevel string
 
 const (
-	AttributionLevelUser     AttributionLevel = "user"      // User-level attribution (strongest)
-	AttributionLevelEdgeMCP  AttributionLevel = "edge_mcp"  // Machine identity attribution
-	AttributionLevelTenant   AttributionLevel = "tenant"    // Tenant-level attribution (weakest)
-	AttributionLevelSystem   AttributionLevel = "system"    // System-level (rare)
+	AttributionLevelUser    AttributionLevel = "user"     // User-level attribution (strongest)
+	AttributionLevelEdgeMCP AttributionLevel = "edge_mcp" // Machine identity attribution
+	AttributionLevelTenant  AttributionLevel = "tenant"   // Tenant-level attribution (weakest)
+	AttributionLevelSystem  AttributionLevel = "system"   // System-level (rare)
 )
 
 // AgentAttribution provides hierarchical cost and audit attribution
 type AgentAttribution struct {
-	Level        AttributionLevel `json:"level"`                    // Attribution level
-	PrimaryID    string           `json:"primary_id"`               // Primary identifier for attribution
-	SecondaryID  *string          `json:"secondary_id,omitempty"`   // Secondary identifier (e.g., edge_mcp_id when user is primary)
-	CostCenter   string           `json:"cost_center"`              // Who accumulates the costs
-	BillableUnit string           `json:"billable_unit"`            // Who gets charged (usually tenant_id)
-	UserID       *uuid.UUID       `json:"user_id,omitempty"`        // User ID if available
-	EdgeMCPID    *string          `json:"edge_mcp_id,omitempty"`    // Edge MCP machine identity
-	SessionID    *string          `json:"session_id,omitempty"`     // Session identifier
+	Level        AttributionLevel `json:"level"`                  // Attribution level
+	PrimaryID    string           `json:"primary_id"`             // Primary identifier for attribution
+	SecondaryID  *string          `json:"secondary_id,omitempty"` // Secondary identifier (e.g., edge_mcp_id when user is primary)
+	CostCenter   string           `json:"cost_center"`            // Who accumulates the costs
+	BillableUnit string           `json:"billable_unit"`          // Who gets charged (usually tenant_id)
+	UserID       *uuid.UUID       `json:"user_id,omitempty"`      // User ID if available
+	EdgeMCPID    *string          `json:"edge_mcp_id,omitempty"`  // Edge MCP machine identity
+	SessionID    *string          `json:"session_id,omitempty"`   // Session identifier
 }
 
 // Agent represents an AI agent in the system
@@ -43,7 +43,7 @@ type Agent struct {
 	LastSeenAt   *time.Time             `json:"last_seen_at" db:"last_seen_at"`
 
 	// Attribution for virtual/session agents (not stored in DB, computed)
-	Attribution  *AgentAttribution      `json:"attribution,omitempty" db:"-"`
+	Attribution *AgentAttribution `json:"attribution,omitempty" db:"-"`
 }
 
 // ResolveAttribution creates attribution metadata from session information
