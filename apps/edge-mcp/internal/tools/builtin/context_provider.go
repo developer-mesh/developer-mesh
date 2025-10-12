@@ -311,10 +311,19 @@ func (p *ContextProvider) handleCreate(ctx context.Context, args json.RawMessage
 			return nil, fmt.Errorf("failed to create context via Core Platform: %w", err)
 		}
 
+		// Get the actual context_id that was linked to this session
+		// The Core Platform client stores this after session creation
+		contextID := sessionID // Default to session_id if not available
+		if coreClient, ok := p.coreClient.(interface{ GetCurrentContextID() string }); ok {
+			if ctxID := coreClient.GetCurrentContextID(); ctxID != "" {
+				contextID = ctxID
+			}
+		}
+
 		return map[string]interface{}{
 			"success":     true,
 			"session_id":  sessionID,
-			"context_id":  sessionID,
+			"context_id":  contextID,
 			"client_name": params.ClientName,
 			"client_type": params.ClientType,
 			"backend":     "core_platform",

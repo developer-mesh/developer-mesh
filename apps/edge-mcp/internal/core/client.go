@@ -585,8 +585,8 @@ func (c *Client) CreateSession(ctx context.Context, clientName, clientType strin
 	// Parse response to extract context_id
 	if resp.StatusCode == http.StatusCreated || resp.StatusCode == http.StatusOK {
 		var sessionResp struct {
-			SessionID string `json:"session_id"`
-			ContextID string `json:"context_id"`
+			SessionID string  `json:"session_id"`
+			ContextID *string `json:"context_id"` // UUID from server, can be null
 		}
 
 		if err := json.NewDecoder(resp.Body).Decode(&sessionResp); err != nil {
@@ -599,13 +599,20 @@ func (c *Client) CreateSession(ctx context.Context, clientName, clientType strin
 		// Store session and context IDs
 		c.mu.Lock()
 		c.currentSessionID = sessionResp.SessionID
-		c.currentContextID = sessionResp.ContextID
+		if sessionResp.ContextID != nil {
+			c.currentContextID = *sessionResp.ContextID
+		}
 		c.mu.Unlock()
+
+		contextID := ""
+		if sessionResp.ContextID != nil {
+			contextID = *sessionResp.ContextID
+		}
 
 		c.logger.Info("Session registered with Core Platform", map[string]interface{}{
 			"session_id": sessionResp.SessionID,
-			"context_id": sessionResp.ContextID,
-			"linked":     sessionResp.ContextID != "",
+			"context_id": contextID,
+			"linked":     contextID != "",
 		})
 
 		// Return the session_id from server (should match what we generated)
@@ -674,16 +681,38 @@ func (c *Client) RecordToolExecution(ctx context.Context, sessionID, toolName st
 }
 
 // UpdateContext updates context on Core Platform
-func (c *Client) UpdateContext(ctx context.Context, sessionID string, contextData map[string]interface{}) error {
+func (c *Client) UpdateContext(ctx context.Context, contextID string, contextData map[string]interface{}) error {
 	if !c.connected {
 		return nil // Skip in offline mode
 	}
 
-	payload := map[string]interface{}{
-		"context": contextData,
+	// Transform contextData to match REST API expected format
+	// API expects: {"content": [{"role": "...", "content": "...", "type": "text"}]}
+	var payload map[string]interface{}
+
+	// Check if contextData has "content" and "role" fields (from context_provider)
+	if content, hasContent := contextData["content"].(string); hasContent {
+		role := "user" // Default role
+		if r, hasRole := contextData["role"].(string); hasRole {
+			role = r
+		}
+
+		// Build proper ContextItem structure
+		contextItem := map[string]interface{}{
+			"role":    role,
+			"content": content,
+			"type":    "text",
+		}
+
+		payload = map[string]interface{}{
+			"content": []interface{}{contextItem},
+		}
+	} else {
+		// If not in expected format, wrap as-is
+		payload = contextData
 	}
 
-	resp, err := c.doRequest(ctx, "PUT", fmt.Sprintf("/api/v1/context/%s", sessionID), payload)
+	resp, err := c.doRequest(ctx, "PUT", fmt.Sprintf("/api/v1/contexts/%s", contextID), payload)
 	if err != nil {
 		return fmt.Errorf("failed to update context: %w", err)
 	}
@@ -694,6 +723,11 @@ func (c *Client) UpdateContext(ctx context.Context, sessionID string, contextDat
 			})
 		}
 	}()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("context update failed, status %d: %s", resp.StatusCode, string(body))
+	}
 
 	return nil
 }
