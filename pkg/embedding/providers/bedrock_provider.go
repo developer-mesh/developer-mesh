@@ -229,18 +229,50 @@ func (p *BedrockProvider) GetModel(modelName string) (ModelInfo, error) {
 
 // HealthCheck verifies the provider is accessible
 func (p *BedrockProvider) HealthCheck(ctx context.Context) error {
-	// Use ListFoundationModels to check connectivity
-	_, err := p.client.InvokeModel(ctx, &bedrockruntime.InvokeModelInput{
-		ModelId:     aws.String("amazon.titan-embed-text-v1"),
+	// Perform a lightweight health check by attempting to invoke with minimal payload
+	// Use Titan V2 model which is our primary model
+	titanReq := titanEmbeddingRequest{
+		InputText: "health",
+	}
+
+	requestBody, err := json.Marshal(titanReq)
+	if err != nil {
+		return fmt.Errorf("failed to marshal health check request: %w", err)
+	}
+
+	_, err = p.client.InvokeModel(ctx, &bedrockruntime.InvokeModelInput{
+		ModelId:     aws.String("amazon.titan-embed-text-v2:0"),
 		ContentType: aws.String("application/json"),
-		Body:        []byte(`{"inputText":"health check"}`),
+		Body:        requestBody,
 	})
 
 	if err != nil {
-		// Check if it's a real error or just model invocation issue
-		if contains(err.Error(), "AccessDenied") || contains(err.Error(), "UnauthorizedClient") {
-			return fmt.Errorf("bedrock access denied: check AWS credentials and permissions")
+		errStr := err.Error()
+
+		// Only fail for actual connectivity/authentication issues
+		// Success scenarios that shouldn't fail health check:
+		// - Model invocation succeeded (no error)
+		// - Model-specific errors (model not found, validation errors, etc.)
+
+		// Fail scenarios (real health issues):
+		if contains(errStr, "AccessDeniedException") ||
+		   contains(errStr, "UnauthorizedClient") ||
+		   contains(errStr, "ExpiredToken") ||
+		   contains(errStr, "InvalidSignature") ||
+		   contains(errStr, "no valid credentials") {
+			return fmt.Errorf("bedrock authentication failed: %s", errStr)
 		}
+
+		// Network/connectivity issues
+		if contains(errStr, "connection") ||
+		   contains(errStr, "timeout") ||
+		   contains(errStr, "network") {
+			return fmt.Errorf("bedrock connectivity issue: %s", errStr)
+		}
+
+		// For other errors (like model-specific issues), log but consider healthy
+		// This prevents false negatives where credentials are valid but request format has issues
+		// The actual embedding generation will surface real problems
 	}
 
 	return nil
