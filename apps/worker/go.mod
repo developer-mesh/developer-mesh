@@ -133,3 +133,9 @@ require (
 )
 
 replace golang.org/x/oauth2 => golang.org/x/oauth2 v0.30.0
+
+// CVE-2023-46129: Force nkeys to patched version (v0.4.6+)
+// Vulnerability: xkeys encryption used fixed all-zeros key
+// Impact: Total loss of confidentiality for encrypted resources
+// Remediation: Upgrade to v0.4.6 or later
+replace github.com/nats-io/nkeys => github.com/nats-io/nkeys v0.4.11
