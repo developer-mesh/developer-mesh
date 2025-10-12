@@ -12,9 +12,12 @@ import (
 	"time"
 
 	"github.com/developer-mesh/developer-mesh/apps/worker/internal/worker"
+	"github.com/developer-mesh/developer-mesh/pkg/common/config"
 	"github.com/developer-mesh/developer-mesh/pkg/database"
+	"github.com/developer-mesh/developer-mesh/pkg/embedding"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/queue"
+	"github.com/developer-mesh/developer-mesh/pkg/repository"
 	pkgworker "github.com/developer-mesh/developer-mesh/pkg/worker"
 	redis "github.com/redis/go-redis/v9"
 )
@@ -250,10 +253,61 @@ func runWorker(ctx context.Context) error {
 		}
 	}()
 
+	// Initialize embedding service for context processing (optional)
+	var contextEmbeddingProcessor *worker.ContextEmbeddingProcessor
+
+	// Only initialize if AWS region is configured
+	if awsRegion := os.Getenv("AWS_REGION"); awsRegion != "" {
+		logger.Info("Initializing embedding service", map[string]interface{}{
+			"aws_region": awsRegion,
+		})
+
+		// Create minimal config for embedding service
+		embeddingConfig := &config.Config{
+			Embedding: config.EmbeddingConfig{
+				Providers: config.ProvidersConfig{
+					Bedrock: config.BedrockConfig{
+						Enabled: true,
+						Region:  awsRegion,
+					},
+				},
+			},
+		}
+
+		// Create embedding service using the factory (now in pkg)
+		embeddingService, err := embedding.CreateEmbeddingServiceV2(embeddingConfig, *db, nil)
+		if err != nil {
+			logger.Warn("Failed to create embedding service, context embeddings disabled", map[string]interface{}{
+				"error": err.Error(),
+			})
+		} else {
+			// Create context repository
+			contextRepo := repository.NewPostgresContextRepository(db.GetDB())
+
+			// Create context embedding processor
+			contextEmbeddingProcessor = worker.NewContextEmbeddingProcessor(
+				embeddingService,
+				contextRepo,
+				logger,
+				nil,
+			)
+
+			logger.Info("Context embedding processor initialized", nil)
+		}
+	} else {
+		logger.Info("AWS_REGION not set, context embedding processor disabled", nil)
+	}
+
 	// Create event processor with retry and DLQ support
 	eventProcessor, err := worker.NewEventProcessor(logger, nil, db.GetDB(), queueClient)
 	if err != nil {
 		return fmt.Errorf("failed to create event processor: %w", err)
+	}
+
+	// Add context embedding processor if available
+	if contextEmbeddingProcessor != nil {
+		eventProcessor.SetContextEmbeddingProcessor(contextEmbeddingProcessor)
+		logger.Info("Context embedding processor attached to event processor", nil)
 	}
 
 	// Create processor function that uses the new event processor

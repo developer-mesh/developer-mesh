@@ -12,9 +12,10 @@ import (
 
 // EventProcessor handles webhook events using the generic processor
 type EventProcessor struct {
-	genericProcessor WebhookEventProcessor
-	logger           observability.Logger
-	metrics          observability.MetricsClient
+	genericProcessor          WebhookEventProcessor
+	contextEmbeddingProcessor *ContextEmbeddingProcessor
+	logger                    observability.Logger
+	metrics                   observability.MetricsClient
 }
 
 // NewEventProcessor creates a new processor for webhook events
@@ -60,9 +61,28 @@ func (p *EventProcessor) ProcessSQSEvent(ctx context.Context, event queue.SQSEve
 
 // ProcessEvent processes a webhook event
 func (p *EventProcessor) ProcessEvent(ctx context.Context, event queue.Event) error {
+	// Route based on event type
+	switch event.EventType {
+	case "context.items.created":
+		if p.contextEmbeddingProcessor != nil {
+			return p.contextEmbeddingProcessor.ProcessEvent(ctx, event)
+		}
+		// Fall through to generic processor if context processor not configured
+		p.logger.Debug("Context embedding processor not configured, skipping event", map[string]interface{}{
+			"event_type": event.EventType,
+		})
+		return nil
+	}
+
+	// Default to generic processor for all other events
 	if p.genericProcessor == nil {
 		return fmt.Errorf("processor not initialized")
 	}
 
 	return p.genericProcessor.ProcessEvent(ctx, event)
+}
+
+// SetContextEmbeddingProcessor sets the context embedding processor
+func (p *EventProcessor) SetContextEmbeddingProcessor(processor *ContextEmbeddingProcessor) {
+	p.contextEmbeddingProcessor = processor
 }
