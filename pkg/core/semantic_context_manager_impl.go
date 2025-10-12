@@ -21,7 +21,8 @@ import (
 // to avoid import cycles with pkg/embedding
 type EmbeddingClient interface {
 	// EmbedContent generates embedding for content with optional model override
-	EmbedContent(ctx context.Context, content string, modelOverride string) ([]float32, string, error)
+	// agentID parameter specifies the agent requesting the embedding
+	EmbedContent(ctx context.Context, content string, modelOverride string, agentID string) ([]float32, string, error)
 
 	// ChunkContent splits content into chunks for embedding
 	ChunkContent(content string, maxChunkSize int) []string
@@ -161,54 +162,66 @@ func (m *SemanticContextManagerImpl) UpdateContext(
 
 	// Step 3: Generate embedding (if embedding client is available)
 	if m.embeddingClient != nil {
-		startTime := time.Now()
-		embeddings, modelUsed, err := m.embeddingClient.EmbedContent(ctx, update.Content, "")
-		duration := time.Since(startTime).Seconds()
-
-		// Record embedding generation metrics
-		if m.contextMetrics != nil {
-			m.contextMetrics.RecordEmbeddingGeneration(duration, err == nil)
-		}
-
+		// Get the context to retrieve the agent_id
+		contextData, err := m.contextRepo.Get(ctx, contextID)
 		if err != nil {
-			// Log warning but don't fail - embeddings are enhancement
 			if m.auditLogger != nil {
-				m.auditLogger.Warn("Failed to generate embedding", map[string]interface{}{
+				m.auditLogger.Warn("Failed to get context for embedding", map[string]interface{}{
 					"error":      err.Error(),
 					"context_id": contextID,
 				})
 			}
 		} else {
-			// Step 4: Store embedding with link to context
-			embeddingObj := &repository.Embedding{
-				ID:        uuid.New().String(),
-				ContextID: contextID,
-				Text:      update.Content,
-				Embedding: embeddings,
-				ModelID:   modelUsed,
-				CreatedAt: time.Now(),
+			startTime := time.Now()
+			// Use the context's agent_id for embedding generation
+			embeddings, modelUsed, err := m.embeddingClient.EmbedContent(ctx, update.Content, "", contextData.AgentID)
+			duration := time.Since(startTime).Seconds()
+
+			// Record embedding generation metrics
+			if m.contextMetrics != nil {
+				m.contextMetrics.RecordEmbeddingGeneration(duration, err == nil)
 			}
 
-			// Get current item count for sequence number
-			items, _ := m.contextRepo.GetContextItems(ctx, contextID)
-			sequence := len(items)
-
-			// Determine importance score
-			importanceScore := 0.5 // Default
-			if update.Metadata != nil {
-				if score, ok := update.Metadata["importance_score"].(float64); ok {
-					importanceScore = score
-				}
-			}
-
-			// Store with importance
-			_, err = m.embeddingRepo.StoreContextEmbedding(ctx, contextID, embeddingObj, sequence, importanceScore)
 			if err != nil {
+				// Log warning but don't fail - embeddings are enhancement
 				if m.auditLogger != nil {
-					m.auditLogger.Warn("Failed to store embedding", map[string]interface{}{
+					m.auditLogger.Warn("Failed to generate embedding", map[string]interface{}{
 						"error":      err.Error(),
 						"context_id": contextID,
 					})
+				}
+			} else {
+				// Step 4: Store embedding with link to context
+				embeddingObj := &repository.Embedding{
+					ID:        uuid.New().String(),
+					ContextID: contextID,
+					Text:      update.Content,
+					Embedding: embeddings,
+					ModelID:   modelUsed,
+					CreatedAt: time.Now(),
+				}
+
+				// Get current item count for sequence number
+				items, _ := m.contextRepo.GetContextItems(ctx, contextID)
+				sequence := len(items)
+
+				// Determine importance score
+				importanceScore := 0.5 // Default
+				if update.Metadata != nil {
+					if score, ok := update.Metadata["importance_score"].(float64); ok {
+						importanceScore = score
+					}
+				}
+
+				// Store with importance
+				_, err = m.embeddingRepo.StoreContextEmbedding(ctx, contextID, embeddingObj, sequence, importanceScore)
+				if err != nil {
+					if m.auditLogger != nil {
+						m.auditLogger.Warn("Failed to store embedding", map[string]interface{}{
+							"error":      err.Error(),
+							"context_id": contextID,
+						})
+					}
 				}
 			}
 		}
@@ -349,13 +362,19 @@ func (m *SemanticContextManagerImpl) GetRelevantContext(
 		return m.contextRepo.Get(ctx, contextID)
 	}
 
-	// Step 1: Generate query embedding
-	queryVector, modelUsed, err := m.embeddingClient.EmbedContent(ctx, query, "")
+	// Step 1: Load full context to get agent_id
+	contextData, err := m.contextRepo.Get(ctx, contextID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get context: %w", err)
+	}
+
+	// Step 2: Generate query embedding using the context's agent_id
+	queryVector, modelUsed, err := m.embeddingClient.EmbedContent(ctx, query, "", contextData.AgentID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to embed query: %w", err)
 	}
 
-	// Step 2: Search for similar embeddings
+	// Step 3: Search for similar embeddings
 	embeddings, err := m.embeddingRepo.SearchEmbeddings(
 		ctx,
 		queryVector,
@@ -366,12 +385,6 @@ func (m *SemanticContextManagerImpl) GetRelevantContext(
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search embeddings: %w", err)
-	}
-
-	// Step 3: Load full context
-	contextData, err := m.contextRepo.Get(ctx, contextID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get context: %w", err)
 	}
 
 	// Step 4: Pack relevant items within token budget

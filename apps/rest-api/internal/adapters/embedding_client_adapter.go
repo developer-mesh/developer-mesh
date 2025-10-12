@@ -13,7 +13,8 @@ import (
 // EmbeddingClient defines the interface needed by semantic context manager
 type EmbeddingClient interface {
 	// EmbedContent generates embedding for content with optional model override
-	EmbedContent(ctx context.Context, content string, modelOverride string) ([]float32, string, error)
+	// agentID parameter specifies the agent requesting the embedding
+	EmbedContent(ctx context.Context, content string, modelOverride string, agentID string) ([]float32, string, error)
 
 	// ChunkContent splits content into chunks for embedding
 	ChunkContent(content string, maxChunkSize int) []string
@@ -32,10 +33,13 @@ func NewEmbeddingServiceAdapter(service *embedding.ServiceV2) EmbeddingClient {
 }
 
 // EmbedContent generates embedding for content with optional model override
+// The agentID parameter specifies which agent is requesting the embedding
 // Returns: embedding vector, model used, error
-func (a *EmbeddingServiceAdapter) EmbedContent(ctx context.Context, content string, modelOverride string) ([]float32, string, error) {
-	// Generate a reasonable agent ID for semantic context operations
-	agentID := "semantic-context-agent"
+func (a *EmbeddingServiceAdapter) EmbedContent(ctx context.Context, content string, modelOverride string, agentID string) ([]float32, string, error) {
+	// If no agent ID provided, use a system UUID for semantic context operations
+	if agentID == "" {
+		agentID = uuid.Nil.String() // Use nil UUID to indicate system operation
+	}
 
 	// Create embedding request
 	req := embedding.GenerateEmbeddingRequest{
