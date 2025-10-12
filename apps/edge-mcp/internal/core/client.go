@@ -832,12 +832,12 @@ func (c *Client) GetStatus() map[string]interface{} {
 	defer c.mu.RUnlock()
 
 	return map[string]interface{}{
-		"connected":    c.connected,
-		"base_url":     c.baseURL,
-		"tenant_id":    c.tenantID,
-		"edge_mcp_id":  c.edgeMCPID,
-		"session_id":   c.currentSessionID,
-		"context_id":   c.currentContextID,
+		"connected":   c.connected,
+		"base_url":    c.baseURL,
+		"tenant_id":   c.tenantID,
+		"edge_mcp_id": c.edgeMCPID,
+		"session_id":  c.currentSessionID,
+		"context_id":  c.currentContextID,
 		"last_error": func() string {
 			if c.lastError != nil {
 				return c.lastError.Error()

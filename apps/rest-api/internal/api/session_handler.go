@@ -17,12 +17,12 @@ import (
 
 // SessionHandler handles edge MCP session management endpoints
 type SessionHandler struct {
-	sessionService     pkgservices.SessionService
-	orchestrator       services.SessionContextOrchestrator
-	logger             observability.Logger
-	metricsClient      observability.MetricsClient
-	auditLogger        *auth.AuditLogger
-	useOrchestrator    bool // Feature flag to enable orchestration
+	sessionService  pkgservices.SessionService
+	orchestrator    services.SessionContextOrchestrator
+	logger          observability.Logger
+	metricsClient   observability.MetricsClient
+	auditLogger     *auth.AuditLogger
+	useOrchestrator bool // Feature flag to enable orchestration
 }
 
 // NewSessionHandler creates a new session handler
@@ -166,8 +166,8 @@ func (h *SessionHandler) CreateSession(c *gin.Context) {
 	// Audit log
 	if h.auditLogger != nil {
 		auditMetadata := map[string]interface{}{
-			"session_id":       session.SessionID,
-			"edge_mcp_id":      session.EdgeMCPID,
+			"session_id":        session.SessionID,
+			"edge_mcp_id":       session.EdgeMCPID,
 			"orchestrator_used": h.useOrchestrator,
 		}
 		if context != nil {

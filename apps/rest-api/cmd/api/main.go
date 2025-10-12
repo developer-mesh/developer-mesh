@@ -282,7 +282,8 @@ func main() {
 		logger.Info("Using production context manager", nil)
 		// Create metrics client for context manager
 		ctxMetrics := observability.NewMetricsClient()
-		engine.SetContextManager(core.NewContextManager(db.GetDB(), logger, ctxMetrics))
+		// Note: Passing nil for queue client here - it will be properly initialized in server.Initialize()
+		engine.SetContextManager(core.NewContextManager(db.GetDB(), logger, ctxMetrics, nil))
 	}
 
 	// Convert configuration to api.Config

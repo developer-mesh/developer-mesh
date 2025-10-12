@@ -11,6 +11,7 @@ import (
 
 	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/queue"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
@@ -35,25 +36,31 @@ type ContextManagerInterface interface {
 // ContextManager provides a production-ready implementation of ContextManagerInterface
 // It handles persistence, caching, and error handling for context operations
 type ContextManager struct {
-	db      *sqlx.DB
-	cache   map[string]*models.Context
-	mutex   sync.RWMutex
-	logger  observability.Logger
-	metrics observability.MetricsClient
+	db          *sqlx.DB
+	cache       map[string]*models.Context
+	mutex       sync.RWMutex
+	logger      observability.Logger
+	metrics     observability.MetricsClient
+	queueClient *queue.Client
 }
 
 // NewContextManager creates a new context manager with database persistence
-func NewContextManager(db *sqlx.DB, logger observability.Logger, metrics observability.MetricsClient) ContextManagerInterface {
+func NewContextManager(db *sqlx.DB, logger observability.Logger, metrics observability.MetricsClient, queueClient *queue.Client) ContextManagerInterface {
 	if db == nil {
 		logger.Warn("Database connection is nil, context manager will operate in memory-only mode", nil)
 	}
 
+	if queueClient == nil {
+		logger.Warn("Queue client is nil, context embedding events will be disabled", nil)
+	}
+
 	return &ContextManager{
-		db:      db,
-		logger:  logger,
-		cache:   make(map[string]*models.Context),
-		mutex:   sync.RWMutex{},
-		metrics: metrics,
+		db:          db,
+		logger:      logger,
+		cache:       make(map[string]*models.Context),
+		mutex:       sync.RWMutex{},
+		metrics:     metrics,
+		queueClient: queueClient,
 	}
 }
 
@@ -470,6 +477,59 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 			})
 			cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "update", "status": "error"})
 			return nil, fmt.Errorf("failed to commit transaction: %w", err)
+		}
+
+		// Publish event for async embedding generation (after successful commit)
+		if cm.queueClient != nil && len(result.Content) > 0 {
+			// Filter items to only include user and assistant messages
+			var embeddableItems []models.ContextItem
+			for _, item := range result.Content {
+				if item.Role == "user" || item.Role == "assistant" {
+					embeddableItems = append(embeddableItems, item)
+				}
+			}
+
+			if len(embeddableItems) > 0 {
+				eventPayload := map[string]interface{}{
+					"context_id": contextID,
+					"tenant_id":  result.TenantID,
+					"agent_id":   result.AgentID,
+					"items":      embeddableItems,
+				}
+
+				payloadJSON, err := json.Marshal(eventPayload)
+				if err != nil {
+					cm.logger.Warn("Failed to marshal context event payload", map[string]interface{}{
+						"error":      err.Error(),
+						"context_id": contextID,
+					})
+				} else {
+					event := queue.Event{
+						EventID:   uuid.New().String(),
+						EventType: "context.items.created",
+						Payload:   json.RawMessage(payloadJSON),
+						Timestamp: time.Now(),
+						Metadata: map[string]interface{}{
+							"source":     "context_manager",
+							"action":     "update_context",
+							"item_count": len(embeddableItems),
+						},
+					}
+
+					if err := cm.queueClient.EnqueueEvent(ctx, event); err != nil {
+						cm.logger.Warn("Failed to publish context event", map[string]interface{}{
+							"error":      err.Error(),
+							"context_id": contextID,
+						})
+						// Don't fail the operation if event publishing fails
+					} else {
+						cm.logger.Info("Published context embedding event", map[string]interface{}{
+							"context_id": contextID,
+							"item_count": len(embeddableItems),
+						})
+					}
+				}
+			}
 		}
 	} else {
 		cm.logger.Warn("Database not available, updating context in memory only", map[string]any{

@@ -22,6 +22,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/repository/model_catalog"
 	"github.com/developer-mesh/developer-mesh/pkg/repository/tenant_models"
 	pkgservices "github.com/developer-mesh/developer-mesh/pkg/services"
+	"github.com/developer-mesh/developer-mesh/pkg/queue"
 	"github.com/developer-mesh/developer-mesh/pkg/webhook"
 
 	"github.com/developer-mesh/developer-mesh/pkg/agents"
@@ -76,6 +77,7 @@ type Server struct {
 	healthChecker  *HealthChecker
 	cache          cache.Cache
 	webhookRepo    pkgrepository.WebhookConfigRepository
+	queueClient    *queue.Client // Queue client for event publishing (will be initialized in Initialize)
 }
 
 // NewServer creates a new API server
@@ -257,6 +259,22 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 // Initialize initializes all components and routes
 func (s *Server) Initialize(ctx context.Context) error {
 
+	// Initialize queue client for event publishing
+	s.logger.Info("Initializing queue client for context events", nil)
+	queueClient, err := queue.NewClient(ctx, &queue.Config{
+		Logger: s.logger,
+	})
+	if err != nil {
+		s.logger.Warn("Failed to create queue client, context embedding events will be disabled", map[string]interface{}{
+			"error": err.Error(),
+		})
+		// Graceful degradation - continue without queue client
+		s.queueClient = nil
+	} else {
+		s.queueClient = queueClient
+		s.logger.Info("Queue client initialized successfully", nil)
+	}
+
 	// Ensure we have a valid context manager
 	if s.engine != nil {
 		// Always create a context manager as follows:
@@ -290,7 +308,7 @@ func (s *Server) Initialize(ctx context.Context) error {
 
 				// Create the production context manager with available components
 				// We're using an updated version of NewContextManager that accepts *sqlx.DB directly
-				ctxManager = core.NewContextManager(s.db, s.logger, s.metrics)
+				ctxManager = core.NewContextManager(s.db, s.logger, s.metrics, s.queueClient)
 				s.logger.Info("Production context manager initialized", nil)
 			}
 
@@ -628,9 +646,9 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	)
 	sessionHandler.RegisterRoutes(v1)
 	s.logger.Info("Session Management API initialized", map[string]interface{}{
-		"default_ttl":       "24h",
-		"max_sessions":      100,
-		"idle_timeout":      "30m",
+		"default_ttl":          "24h",
+		"max_sessions":         100,
+		"idle_timeout":         "30m",
 		"orchestrator_enabled": true,
 	})
 
