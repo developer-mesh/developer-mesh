@@ -16,11 +16,13 @@ import (
 	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/services"
 	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/storage"
 
+	pkgcore "github.com/developer-mesh/developer-mesh/pkg/core"
 	pkgrepository "github.com/developer-mesh/developer-mesh/pkg/repository"
 	"github.com/developer-mesh/developer-mesh/pkg/repository/embedding_usage"
 	"github.com/developer-mesh/developer-mesh/pkg/repository/model_catalog"
 	"github.com/developer-mesh/developer-mesh/pkg/repository/tenant_models"
 	pkgservices "github.com/developer-mesh/developer-mesh/pkg/services"
+	"github.com/developer-mesh/developer-mesh/pkg/webhook"
 
 	"github.com/developer-mesh/developer-mesh/pkg/agents"
 	"github.com/developer-mesh/developer-mesh/pkg/auth"
@@ -654,6 +656,49 @@ func (s *Server) setupRoutes(ctx context.Context) {
 		embeddingAPI.RegisterRoutes(v1)
 
 		s.logger.Info("Embedding API v2 initialized successfully", nil)
+
+		// Story 6.3: Initialize Semantic Context Manager
+		// This enables automatic embedding generation and semantic context operations
+		s.logger.Info("Initializing Semantic Context Manager", nil)
+
+		// Create repositories required for semantic context manager
+		contextRepo := pkgrepository.NewPostgresContextRepository(s.db)
+		embeddingRepo := pkgrepository.NewEmbeddingRepository(s.db)
+
+		// Create embedding client adapter that wraps ServiceV2
+		embeddingClient := adapters.NewEmbeddingServiceAdapter(embeddingService)
+
+		// Create lifecycle manager (can be nil for now - will be added when needed)
+		var lifecycleManager *webhook.ContextLifecycleManager = nil
+
+		// Create semantic context manager
+		semanticContextMgr := pkgcore.NewSemanticContextManager(
+			contextRepo,
+			embeddingRepo,
+			embeddingClient,
+			lifecycleManager,
+			s.logger,
+			encryptionService,
+		)
+
+		// Create and register MCP API with semantic context manager
+		mcpAPI := NewMCPAPI(s.engine.GetContextManager())
+		mcpAPI.SetSemanticContextManager(semanticContextMgr)
+		mcpAPI.RegisterRoutes(v1)
+
+		s.logger.Info("Semantic Context Manager initialized successfully", map[string]any{
+			"features": []string{
+				"automatic embedding generation",
+				"semantic search",
+				"context compaction",
+				"intelligent retrieval",
+			},
+			"endpoints": []string{
+				"/api/v1/mcp/context",
+				"/api/v1/mcp/context/:id/compact",
+				"/api/v1/mcp/context/:id/search",
+			},
+		})
 	}
 
 	// Model Catalog API - Multi-tenant embedding model management

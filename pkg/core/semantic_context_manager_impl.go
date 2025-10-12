@@ -17,7 +17,8 @@ import (
 )
 
 // EmbeddingClient defines the interface for generating embeddings
-// This interface breaks the import cycle with pkg/embedding
+// NOTE: The actual implementation is provided via adapters in the application layer
+// to avoid import cycles with pkg/embedding
 type EmbeddingClient interface {
 	// EmbedContent generates embedding for content with optional model override
 	EmbedContent(ctx context.Context, content string, modelOverride string) ([]float32, string, error)

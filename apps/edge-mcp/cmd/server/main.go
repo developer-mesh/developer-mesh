@@ -219,7 +219,9 @@ func main() {
 	}
 
 	// Initialize MCP handler
-	// Note: Semantic context manager will be wired up when available (Story 6.3)
+	// Story 6.3: Edge-MCP delegates semantic context operations to Core Platform (REST API)
+	// which has the full semantic context manager with database and embedding services.
+	// This keeps Edge-MCP lightweight without database dependencies.
 	mcpHandler := mcp.NewHandler(
 		toolRegistry,
 		memCache,
@@ -228,7 +230,7 @@ func main() {
 		logger,
 		metricsCollector,
 		tracerProvider,
-		nil, // semanticContextMgr - not yet wired up
+		nil, // semanticContextMgr - Edge-MCP delegates to Core Platform instead
 	)
 
 	// Check if we should run in stdio mode
