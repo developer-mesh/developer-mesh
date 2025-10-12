@@ -175,17 +175,17 @@ func (cm *ContextManager) GetContext(ctx context.Context, contextID string) (*mo
 	if cm.db != nil {
 		// Create a temporary struct to handle JSON metadata (match actual schema)
 		var dbContext struct {
-			ID            string          `db:"id"`
-			Type          string          `db:"type"`
-			TenantID      string          `db:"tenant_id"`
-			AgentID       *string         `db:"agent_id"`      // Nullable
-			ModelID       *string         `db:"model_id"`      // Nullable
-			TokenCount    int             `db:"token_count"`
-			MaxTokens     int             `db:"max_tokens"`
-			Metadata      json.RawMessage `db:"metadata"`
-			CreatedAt     time.Time       `db:"created_at"`
-			UpdatedAt     time.Time       `db:"updated_at"`
-			ExpiresAt     *time.Time      `db:"expires_at"`    // Nullable
+			ID         string          `db:"id"`
+			Type       string          `db:"type"`
+			TenantID   string          `db:"tenant_id"`
+			AgentID    *string         `db:"agent_id"` // Nullable
+			ModelID    *string         `db:"model_id"` // Nullable
+			TokenCount int             `db:"token_count"`
+			MaxTokens  int             `db:"max_tokens"`
+			Metadata   json.RawMessage `db:"metadata"`
+			CreatedAt  time.Time       `db:"created_at"`
+			UpdatedAt  time.Time       `db:"updated_at"`
+			ExpiresAt  *time.Time      `db:"expires_at"` // Nullable
 		}
 
 		q := `SELECT id, type, tenant_id, agent_id, model_id, token_count, max_tokens, metadata, created_at, updated_at, expires_at FROM mcp.contexts WHERE id = $1 LIMIT 1`

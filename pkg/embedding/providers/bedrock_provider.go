@@ -256,17 +256,17 @@ func (p *BedrockProvider) HealthCheck(ctx context.Context) error {
 
 		// Fail scenarios (real health issues):
 		if contains(errStr, "AccessDeniedException") ||
-		   contains(errStr, "UnauthorizedClient") ||
-		   contains(errStr, "ExpiredToken") ||
-		   contains(errStr, "InvalidSignature") ||
-		   contains(errStr, "no valid credentials") {
+			contains(errStr, "UnauthorizedClient") ||
+			contains(errStr, "ExpiredToken") ||
+			contains(errStr, "InvalidSignature") ||
+			contains(errStr, "no valid credentials") {
 			return fmt.Errorf("bedrock authentication failed: %s", errStr)
 		}
 
 		// Network/connectivity issues
 		if contains(errStr, "connection") ||
-		   contains(errStr, "timeout") ||
-		   contains(errStr, "network") {
+			contains(errStr, "timeout") ||
+			contains(errStr, "network") {
 			return fmt.Errorf("bedrock connectivity issue: %s", errStr)
 		}
 

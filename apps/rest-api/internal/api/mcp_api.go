@@ -23,8 +23,8 @@ type ContextManagerInterface interface {
 
 // MCPAPI handles the MCP-specific API endpoints
 type MCPAPI struct {
-	contextManager        ContextManagerInterface
-	semanticContextMgr    repository.SemanticContextManager // Optional semantic context manager
+	contextManager     ContextManagerInterface
+	semanticContextMgr repository.SemanticContextManager // Optional semantic context manager
 }
 
 // NewMCPAPI creates a new MCP API handler
@@ -222,9 +222,9 @@ func (api *MCPAPI) searchContext(c *gin.Context) {
 	}
 
 	var request struct {
-		Query     string `json:"query" binding:"required"`
-		Limit     int    `json:"limit,omitempty"`
-		Semantic  bool   `json:"semantic,omitempty"`
+		Query    string `json:"query" binding:"required"`
+		Limit    int    `json:"limit,omitempty"`
+		Semantic bool   `json:"semantic,omitempty"`
 	}
 
 	if err := c.ShouldBindJSON(&request); err != nil {
@@ -315,11 +315,11 @@ func (api *MCPAPI) compactContext(c *gin.Context) {
 	// Validate strategy
 	strategy := repository.CompactionStrategy(req.Strategy)
 	validStrategies := map[repository.CompactionStrategy]bool{
-		repository.CompactionSummarize:  true,
-		repository.CompactionPrune:      true,
-		repository.CompactionSemantic:   true,
-		repository.CompactionSliding:    true,
-		repository.CompactionToolClear:  true,
+		repository.CompactionSummarize: true,
+		repository.CompactionPrune:     true,
+		repository.CompactionSemantic:  true,
+		repository.CompactionSliding:   true,
+		repository.CompactionToolClear: true,
 	}
 
 	if !validStrategies[strategy] {

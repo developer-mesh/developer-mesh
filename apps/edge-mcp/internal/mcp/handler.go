@@ -1434,10 +1434,10 @@ func (h *Handler) handleContextOperation(sessionID string, msgID interface{}, op
 		switch operation {
 		case "context.update":
 			var updateParams struct {
-				Content          string                 `json:"content"`
-				Role             string                 `json:"role,omitempty"`
-				ImportanceScore  float64                `json:"importance_score,omitempty"`
-				Metadata         map[string]interface{} `json:"metadata,omitempty"`
+				Content         string                 `json:"content"`
+				Role            string                 `json:"role,omitempty"`
+				ImportanceScore float64                `json:"importance_score,omitempty"`
+				Metadata        map[string]interface{} `json:"metadata,omitempty"`
 			}
 			if err := json.Unmarshal(args, &updateParams); err != nil {
 				return nil, NewValidationError("arguments", fmt.Sprintf("Invalid context update data: %v", err)).
@@ -1599,7 +1599,7 @@ func (h *Handler) handleContextOperation(sessionID string, msgID interface{}, op
 			err = semanticMgr.UpdateContext(context.Background(), coreContextID, update)
 			if err == nil {
 				result = map[string]interface{}{
-					"success": true,
+					"success":  true,
 					"appended": true,
 				}
 			}
