@@ -18,11 +18,17 @@ DevMesh uses a multi-tenant embedding model management system with three main co
 
 ## Quick Setup for AWS Bedrock Titan
 
-You can configure AWS Bedrock models using **either REST API** (recommended) or direct database access.
+You can configure AWS Bedrock models using **either REST API or direct database access**.
 
-### Option 1: Database Configuration Script (Recommended)
+### Option 1: REST API Configuration (Recommended)
 
-⚠️ **Note**: The REST API endpoints for model catalog management (`/api/v1/embedding-models/catalog`, `/api/v1/tenant-models`) are currently not registered in the server, so database configuration is the recommended approach.
+✅ **Model Catalog API** endpoints are now available and fully functional:
+- `GET /api/v1/embedding-models/catalog` - List all available embedding models
+- `GET /api/v1/tenant-models` - List tenant-specific model configurations
+
+You can query these endpoints to verify model availability before using direct database configuration.
+
+### Option 2: Database Configuration Script
 
 Run the provided SQL configuration script:
 
@@ -248,16 +254,26 @@ curl -X PUT http://localhost:8081/api/v1/contexts/{CONTEXT_ID} \
 After creating context content, generate embeddings using the embedding API:
 
 ```bash
-# Single embedding generation (recommended)
+# Single embedding generation
 curl -X POST http://localhost:8081/api/v1/embeddings \
   -H "Authorization: Bearer dev-admin-key-1234567890" \
   -H "Content-Type: application/json" \
   -d '{
-    "text": "What is AWS Bedrock and how does it work with embeddings?"
+    "text": "What is AWS Bedrock and how does it work with embeddings?",
+    "agent_id": "test-agent-001"
   }'
+
+# Batch embedding generation (now supports string agent IDs)
+curl -X POST http://localhost:8081/api/v1/embeddings/batch \
+  -H "Authorization: Bearer dev-admin-key-1234567890" \
+  -H "Content-Type: application/json" \
+  -d '[
+    {"text": "First text to embed", "agent_id": "test-agent-001"},
+    {"text": "Second text to embed", "agent_id": "test-agent-001"}
+  ]'
 ```
 
-⚠️ **Note**: The batch endpoint (`/api/v1/embeddings/batch`) currently requires valid UUID `agent_id` values and may fail with string agent IDs. Use the single embedding endpoint for testing.
+✅ **Note**: Both single and batch endpoints now support string agent IDs (e.g., "test-agent-001") as well as UUIDs. If no agent configuration exists in the database, the system gracefully falls back to default model selection.
 
 ### 4. Verify Embeddings (For Future Automatic Integration)
 
@@ -356,18 +372,31 @@ environment:
    FROM mcp.embeddings;
    ```
 
-### Provider shows unhealthy but embeddings work
+### Checking Provider Health
 
-The Bedrock provider health check may show "unhealthy" even when embedding generation works correctly. This is a known issue with the health check logic. Test actual embedding generation to verify functionality:
+✅ The Bedrock provider health check has been improved and should now accurately reflect the provider status:
 
 ```bash
-curl -X POST http://localhost:8081/api/v1/embeddings \
-  -H "Authorization: Bearer dev-admin-key-1234567890" \
-  -H "Content-Type: application/json" \
-  -d '{"text": "Test embedding generation"}'
+# Check provider health
+curl -X GET http://localhost:8081/api/v1/embeddings/providers/health \
+  -H "Authorization: Bearer dev-admin-key-1234567890"
 ```
 
-If this returns a successful response with `provider: "bedrock"`, the integration is working correctly regardless of the health check status.
+Expected response:
+```json
+{
+  "providers": {
+    "bedrock": {
+      "name": "bedrock",
+      "status": "healthy",
+      "circuit_breaker_state": "closed"
+    }
+  },
+  "timestamp": "2025-10-12T00:00:00.000Z"
+}
+```
+
+The health check now only fails for actual authentication or connectivity issues, not for model-specific errors. If you see "unhealthy" status, verify your AWS credentials and network connectivity.
 
 ### Quota limits exceeded
 
