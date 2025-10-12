@@ -31,7 +31,7 @@ func (r *RepositoryImpl) Get(ctx context.Context, id string) (*Embedding, error)
 		return nil, errors.New("id cannot be empty")
 	}
 
-	query := `SELECT id, context_id, content_index, text, embedding, model_id, created_at, metadata
+	query := `SELECT id, context_id, content_index, content, embedding, model_id, created_at, metadata
               FROM embeddings WHERE id = $1`
 
 	var embedding Embedding
@@ -45,7 +45,7 @@ func (r *RepositoryImpl) Get(ctx context.Context, id string) (*Embedding, error)
 
 // List retrieves embeddings matching the provided filter (standardized Repository method)
 func (r *RepositoryImpl) List(ctx context.Context, filter Filter) ([]*Embedding, error) {
-	query := `SELECT id, context_id, content_index, text, embedding, model_id, created_at, metadata FROM embeddings`
+	query := `SELECT id, context_id, content_index, content, embedding, model_id, created_at, metadata FROM embeddings`
 
 	// Apply filters
 	var whereClause string
@@ -106,10 +106,10 @@ func (r *RepositoryImpl) StoreEmbedding(ctx context.Context, embedding *Embeddin
 		embedding.CreatedAt = time.Now()
 	}
 
-	query := `INSERT INTO embeddings (id, context_id, content_index, text, embedding, model_id, created_at, metadata)
+	query := `INSERT INTO embeddings (id, context_id, content_index, content, embedding, model_id, created_at, metadata)
               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
               ON CONFLICT (id) DO UPDATE SET
-              context_id = $2, content_index = $3, text = $4, embedding = $5, model_id = $6, metadata = $8`
+              context_id = $2, content_index = $3, content = $4, embedding = $5, model_id = $6, metadata = $8`
 
 	_, err := r.db.ExecContext(ctx, query,
 		embedding.ID,
@@ -147,7 +147,7 @@ func (r *RepositoryImpl) SearchEmbeddings(
 	}
 
 	// Build query based on parameters
-	query := `SELECT id, context_id, content_index, text, embedding, model_id, created_at, metadata FROM embeddings`
+	query := `SELECT id, context_id, content_index, content, embedding, model_id, created_at, metadata FROM embeddings`
 
 	whereClause := ""
 	var args []any
@@ -344,7 +344,7 @@ func (r *RepositoryImpl) GetContextEmbeddingsBySequence(
 	}
 
 	query := `
-		SELECT e.id, e.context_id, e.content_index, e.text, e.embedding, e.model_id, e.created_at, e.metadata
+		SELECT e.id, e.context_id, e.content_index, e.content, e.embedding, e.model_id, e.created_at, e.metadata
 		FROM embeddings e
 		JOIN mcp.context_embeddings ce ON e.id = ce.embedding_id
 		WHERE ce.context_id = $1

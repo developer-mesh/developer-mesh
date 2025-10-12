@@ -8,13 +8,26 @@ import (
 	"sync"
 	"time"
 
+	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/core"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tools"
 )
+
+// CorePlatformClient defines the interface for Core Platform operations
+// This avoids circular imports while allowing context provider to delegate
+// Note: Matches the actual core.Client implementation
+type CorePlatformClient interface {
+	CreateSession(ctx context.Context, clientName string, clientType string) (string, error)
+	GetContext(ctx context.Context, contextID string) (map[string]interface{}, error)
+	UpdateContext(ctx context.Context, contextID string, update map[string]interface{}) error
+	AppendContext(ctx context.Context, contextID string, data map[string]interface{}) error
+	SearchContext(ctx context.Context, contextID string, query string, limit int) ([]interface{}, error)
+}
 
 // ContextProvider provides context management tools
 type ContextProvider struct {
 	sessions   map[string]*SessionContext
 	sessionsMu sync.RWMutex
+	coreClient CorePlatformClient // Optional: for Core Platform delegation
 }
 
 // SessionContext represents context for a session
@@ -32,12 +45,43 @@ func NewContextProvider() *ContextProvider {
 	}
 }
 
+// NewContextProviderWithClient creates a context provider with Core Platform client
+func NewContextProviderWithClient(coreClient *core.Client) *ContextProvider {
+	return &ContextProvider{
+		sessions:   make(map[string]*SessionContext),
+		coreClient: coreClient,
+	}
+}
+
 // GetDefinitions returns the tool definitions for context management
 func (p *ContextProvider) GetDefinitions() []tools.ToolDefinition {
 	return []tools.ToolDefinition{
 		{
+			Name:        "context_create",
+			Description: "Create a new context session",
+			Category:    string(tools.CategoryContext),
+			Tags:        []string{string(tools.CapabilityWrite)},
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"client_name": map[string]interface{}{
+						"type":        "string",
+						"description": "Name of the client creating the context",
+					},
+					"client_type": map[string]interface{}{
+						"type":        "string",
+						"description": "Type of client (e.g., 'claude-code', 'ide', 'agent')",
+					},
+				},
+				"required": []string{"client_name"},
+			},
+			Handler: p.handleCreate,
+		},
+		{
 			Name:        "context_list",
 			Description: "List all active sessions",
+			Category:    string(tools.CategoryContext),
+			Tags:        []string{string(tools.CapabilityRead), string(tools.CapabilityList)},
 			InputSchema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
@@ -69,6 +113,8 @@ func (p *ContextProvider) GetDefinitions() []tools.ToolDefinition {
 		{
 			Name:        "context_get",
 			Description: "Get current context for a session",
+			Category:    string(tools.CategoryContext),
+			Tags:        []string{string(tools.CapabilityRead)},
 			InputSchema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
@@ -76,24 +122,43 @@ func (p *ContextProvider) GetDefinitions() []tools.ToolDefinition {
 						"type":        "string",
 						"description": "Session identifier",
 					},
+					"context_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Context identifier (for Core Platform delegation)",
+					},
 				},
-				"required": []string{"session_id"},
+				"required": []string{},
 			},
 			Handler: p.handleGet,
 		},
 		{
 			Name:        "context_update",
 			Description: "Update context for a session",
+			Category:    string(tools.CategoryContext),
+			Tags:        []string{string(tools.CapabilityWrite)},
 			InputSchema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
 					"session_id": map[string]interface{}{
 						"type":        "string",
-						"description": "Session identifier",
+						"description": "Session identifier (for standalone mode)",
+					},
+					"context_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Context identifier (for Core Platform delegation)",
 					},
 					"context": map[string]interface{}{
 						"type":        "object",
 						"description": "Context data to set",
+					},
+					"content": map[string]interface{}{
+						"type":        "string",
+						"description": "Text content to add to context (for semantic operations)",
+					},
+					"role": map[string]interface{}{
+						"type":        "string",
+						"description": "Role of the content (user, assistant, system)",
+						"enum":        []string{"user", "assistant", "system"},
 					},
 					"merge": map[string]interface{}{
 						"type":        "boolean",
@@ -105,19 +170,25 @@ func (p *ContextProvider) GetDefinitions() []tools.ToolDefinition {
 						"description": "Unique key for idempotent requests (prevents duplicate updates)",
 					},
 				},
-				"required": []string{"session_id", "context"},
+				"required": []string{},
 			},
 			Handler: p.handleUpdate,
 		},
 		{
 			Name:        "context_append",
 			Description: "Append to context array or add new context values",
+			Category:    string(tools.CategoryContext),
+			Tags:        []string{string(tools.CapabilityWrite)},
 			InputSchema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
 					"session_id": map[string]interface{}{
 						"type":        "string",
-						"description": "Session identifier",
+						"description": "Session identifier (for standalone mode)",
+					},
+					"context_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Context identifier (for Core Platform delegation)",
 					},
 					"key": map[string]interface{}{
 						"type":        "string",
@@ -126,16 +197,149 @@ func (p *ContextProvider) GetDefinitions() []tools.ToolDefinition {
 					"value": map[string]interface{}{
 						"description": "Value to append",
 					},
+					"content": map[string]interface{}{
+						"type":        "string",
+						"description": "Text content to append (for semantic operations)",
+					},
+					"role": map[string]interface{}{
+						"type":        "string",
+						"description": "Role of the content (user, assistant, system)",
+						"enum":        []string{"user", "assistant", "system"},
+					},
 					"idempotency_key": map[string]interface{}{
 						"type":        "string",
 						"description": "Unique key for idempotent requests (prevents duplicate appends)",
 					},
 				},
-				"required": []string{"session_id", "key", "value"},
+				"required": []string{},
 			},
 			Handler: p.handleAppend,
 		},
+		{
+			Name:        "context_search",
+			Description: "Perform semantic search across context items",
+			Category:    string(tools.CategoryContext),
+			Tags:        []string{string(tools.CapabilityRead), string(tools.CapabilitySearch)},
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"context_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Context identifier to search within",
+					},
+					"query": map[string]interface{}{
+						"type":        "string",
+						"description": "Search query for semantic matching",
+					},
+					"limit": map[string]interface{}{
+						"type":        "integer",
+						"description": "Maximum number of results to return (default: 10)",
+						"minimum":     1,
+						"maximum":     100,
+					},
+				},
+				"required": []string{"context_id", "query"},
+			},
+			Handler: p.handleSearch,
+		},
+		{
+			Name:        "context_compact",
+			Description: "Compact context to reduce size using various strategies",
+			Category:    string(tools.CategoryContext),
+			Tags:        []string{string(tools.CapabilityWrite)},
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"context_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Context identifier to compact",
+					},
+					"strategy": map[string]interface{}{
+						"type":        "string",
+						"description": "Compaction strategy to use",
+						"enum":        []string{"summarize", "prune", "semantic", "sliding", "tool_clear"},
+						"default":     "summarize",
+					},
+				},
+				"required": []string{"context_id"},
+			},
+			Handler: p.handleCompact,
+		},
+		{
+			Name:        "context_delete",
+			Description: "Delete a context session",
+			Category:    string(tools.CategoryContext),
+			Tags:        []string{string(tools.CapabilityDelete)},
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"session_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Session identifier (for standalone mode)",
+					},
+					"context_id": map[string]interface{}{
+						"type":        "string",
+						"description": "Context identifier (for Core Platform delegation)",
+					},
+				},
+				"required": []string{},
+			},
+			Handler: p.handleDelete,
+		},
 	}
+}
+
+// handleCreate creates a new context session
+func (p *ContextProvider) handleCreate(ctx context.Context, args json.RawMessage) (interface{}, error) {
+	var params struct {
+		ClientName string `json:"client_name"`
+		ClientType string `json:"client_type,omitempty"`
+	}
+
+	if err := json.Unmarshal(args, &params); err != nil {
+		return nil, fmt.Errorf("invalid parameters: %w", err)
+	}
+
+	if params.ClientName == "" {
+		return nil, fmt.Errorf("client_name is required")
+	}
+
+	// If Core Platform client is available, delegate to it
+	if p.coreClient != nil {
+		sessionID, err := p.coreClient.CreateSession(ctx, params.ClientName, params.ClientType)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create context via Core Platform: %w", err)
+		}
+
+		return map[string]interface{}{
+			"success":     true,
+			"session_id":  sessionID,
+			"context_id":  sessionID,
+			"client_name": params.ClientName,
+			"client_type": params.ClientType,
+			"backend":     "core_platform",
+		}, nil
+	}
+
+	// Standalone mode: create in-memory session
+	sessionID := fmt.Sprintf("session-%d", time.Now().UnixNano())
+
+	p.sessionsMu.Lock()
+	p.sessions[sessionID] = &SessionContext{
+		SessionID: sessionID,
+		Context:   make(map[string]interface{}),
+		UpdatedAt: time.Now(),
+		Version:   1,
+	}
+	p.sessionsMu.Unlock()
+
+	return map[string]interface{}{
+		"success":     true,
+		"session_id":  sessionID,
+		"client_name": params.ClientName,
+		"client_type": params.ClientType,
+		"backend":     "standalone",
+	}, nil
 }
 
 // handleUpdate updates the context for a session
@@ -154,8 +358,11 @@ func (p *ContextProvider) handleUpdate(ctx context.Context, args json.RawMessage
 	}
 
 	var params struct {
-		SessionID      string                 `json:"session_id"`
-		Context        map[string]interface{} `json:"context"`
+		SessionID      string                 `json:"session_id,omitempty"`
+		ContextID      string                 `json:"context_id,omitempty"`
+		Context        map[string]interface{} `json:"context,omitempty"`
+		Content        string                 `json:"content,omitempty"`
+		Role           string                 `json:"role,omitempty"`
 		Merge          bool                   `json:"merge,omitempty"`
 		IdempotencyKey string                 `json:"idempotency_key,omitempty"`
 	}
@@ -164,11 +371,63 @@ func (p *ContextProvider) handleUpdate(ctx context.Context, args json.RawMessage
 		return rb.Error(fmt.Errorf("invalid parameters: %w", err)), nil
 	}
 
+	// If Core Platform client is available and context_id provided, delegate to it
+	if p.coreClient != nil && params.ContextID != "" {
+		// Build update map for semantic context
+		update := make(map[string]interface{})
+		if params.Content != "" {
+			update["content"] = params.Content
+			if params.Role != "" {
+				update["role"] = params.Role
+			} else {
+				update["role"] = "user"
+			}
+		} else if params.Context != nil {
+			update = params.Context
+		} else {
+			return rb.Error(fmt.Errorf("either 'content' or 'context' is required")), nil
+		}
+
+		err := p.coreClient.UpdateContext(ctx, params.ContextID, update)
+		if err != nil {
+			return rb.Error(fmt.Errorf("failed to update context via Core Platform: %w", err)), nil
+		}
+
+		result := map[string]interface{}{
+			"success":           true,
+			"context_id":        params.ContextID,
+			"backend":           "core_platform",
+			"embedding_enabled": true,
+		}
+
+		if params.IdempotencyKey != "" {
+			response := rb.SuccessWithMetadata(
+				result,
+				&ResponseMetadata{
+					IdempotencyKey:  params.IdempotencyKey,
+					RateLimitStatus: rateLimitStatus,
+				},
+				"context_get", "context_search",
+			)
+			StoreIdempotentResponse(params.IdempotencyKey, response)
+			return response, nil
+		}
+
+		return rb.SuccessWithMetadata(
+			result,
+			&ResponseMetadata{
+				RateLimitStatus: rateLimitStatus,
+			},
+			"context_get", "context_search",
+		), nil
+	}
+
+	// Standalone mode: use in-memory storage
 	if params.SessionID == "" {
-		return rb.Error(fmt.Errorf("session_id is required")), nil
+		return rb.Error(fmt.Errorf("session_id is required for standalone mode")), nil
 	}
 	if params.Context == nil {
-		return rb.Error(fmt.Errorf("context is required")), nil
+		return rb.Error(fmt.Errorf("context is required for standalone mode")), nil
 	}
 
 	// Check idempotency
@@ -210,6 +469,7 @@ func (p *ContextProvider) handleUpdate(ctx context.Context, args json.RawMessage
 		"version":      session.Version,
 		"updated_at":   session.UpdatedAt.Format(time.RFC3339),
 		"context_size": len(session.Context),
+		"backend":      "standalone",
 		"message":      fmt.Sprintf("Context updated for session %s", params.SessionID),
 	}
 
@@ -402,15 +662,27 @@ func (p *ContextProvider) handleList(ctx context.Context, args json.RawMessage) 
 // handleGet retrieves the current context for a session
 func (p *ContextProvider) handleGet(ctx context.Context, args json.RawMessage) (interface{}, error) {
 	var params struct {
-		SessionID string `json:"session_id"`
+		SessionID string `json:"session_id,omitempty"`
+		ContextID string `json:"context_id,omitempty"`
 	}
 
 	if err := json.Unmarshal(args, &params); err != nil {
 		return nil, fmt.Errorf("invalid parameters: %w", err)
 	}
 
+	// If Core Platform client is available and context_id provided, delegate to it
+	if p.coreClient != nil && params.ContextID != "" {
+		result, err := p.coreClient.GetContext(ctx, params.ContextID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get context via Core Platform: %w", err)
+		}
+
+		return result, nil
+	}
+
+	// Standalone mode: use in-memory storage
 	if params.SessionID == "" {
-		return nil, fmt.Errorf("session_id is required")
+		return nil, fmt.Errorf("session_id is required for standalone mode")
 	}
 
 	p.sessionsMu.RLock()

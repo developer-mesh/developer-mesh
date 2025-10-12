@@ -41,10 +41,10 @@ type ContextItem struct {
 	Content string `json:"content" db:"content"`
 
 	// Timestamp is when this context item was created
-	Timestamp time.Time `json:"timestamp" db:"timestamp"`
+	Timestamp time.Time `json:"timestamp" db:"created_at"`
 
 	// Tokens is the token count for this context item
-	Tokens int `json:"tokens,omitempty" db:"tokens"`
+	Tokens int `json:"tokens,omitempty" db:"token_count"`
 
 	// Metadata contains additional information about this context item
 	Metadata map[string]any `json:"metadata,omitempty" db:"metadata"`
@@ -58,11 +58,11 @@ type Context struct {
 	// Type is the type of context (e.g., conversation, task, etc.)
 	Type string `json:"type" db:"type"`
 
-	// Name is the display name of this context
-	Name string `json:"name,omitempty" db:"name"`
+	// Name is the display name of this context (not persisted to database - metadata field instead)
+	Name string `json:"name,omitempty" db:"-"`
 
-	// Description is a human-readable description of the context
-	Description string `json:"description,omitempty" db:"description"`
+	// Description is a human-readable description of the context (not persisted to database - metadata field instead)
+	Description string `json:"description,omitempty" db:"-"`
 
 	// AgentID is the identifier for the AI agent that owns this context
 	AgentID string `json:"agent_id,omitempty" db:"agent_id"`

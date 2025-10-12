@@ -28,7 +28,7 @@ type Embedding struct {
 	ID           string         `json:"id" db:"id"`
 	ContextID    string         `json:"context_id" db:"context_id"`
 	ContentIndex int            `json:"content_index" db:"content_index"`
-	Text         string         `json:"text" db:"text"`
+	Text         string         `json:"text" db:"content"` // db column is 'content', not 'text'
 	Embedding    []float32      `json:"embedding" db:"embedding"`
 	ModelID      string         `json:"model_id" db:"model_id"`
 	CreatedAt    time.Time      `json:"created_at" db:"created_at"`

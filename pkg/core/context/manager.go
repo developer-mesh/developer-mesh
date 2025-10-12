@@ -793,10 +793,8 @@ func (m *Manager) createContextInDB(ctx context.Context, tx *sqlx.Tx, contextDat
 	}
 	_, err = tx.ExecContext(
 		ctx,
-		"INSERT INTO mcp.contexts (id, name, description, agent_id, model_id, session_id, current_tokens, max_tokens, metadata, created_at, updated_at, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
+		"INSERT INTO mcp.contexts (id, agent_id, model_id, session_id, current_tokens, max_tokens, metadata, created_at, updated_at, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
 		contextData.ID,
-		contextData.Name,
-		contextData.Description,
 		contextData.AgentID,
 		contextData.ModelID,
 		contextData.SessionID,
@@ -862,7 +860,7 @@ func (m *Manager) createContextInDB(ctx context.Context, tx *sqlx.Tx, contextDat
 			// Insert into context_items table
 			_, err = tx.ExecContext(
 				ctx,
-				"INSERT INTO mcp.context_items (id, context_id, role, content, tokens, timestamp, metadata) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+				"INSERT INTO mcp.context_items (id, context_id, role, content, token_count, created_at, metadata) VALUES ($1, $2, $3, $4, $5, $6, $7)",
 				item.ID,
 				contextData.ID,
 				item.Role,
@@ -885,8 +883,6 @@ func (m *Manager) getContextFromDB(ctx context.Context, tx *sqlx.Tx, contextID s
 	// Get context from contexts table
 	var contextRow struct {
 		ID            string         `db:"id"`
-		Name          string         `db:"name"`
-		Description   string         `db:"description"`
 		AgentID       string         `db:"agent_id"`
 		ModelID       string         `db:"model_id"`
 		SessionID     sql.NullString `db:"session_id"`
@@ -917,8 +913,6 @@ func (m *Manager) getContextFromDB(ctx context.Context, tx *sqlx.Tx, contextID s
 	// Create context object
 	contextData := &models.Context{
 		ID:            contextRow.ID,
-		Name:          contextRow.Name,
-		Description:   contextRow.Description,
 		AgentID:       contextRow.AgentID,
 		ModelID:       contextRow.ModelID,
 		CurrentTokens: contextRow.CurrentTokens,
@@ -938,7 +932,7 @@ func (m *Manager) getContextFromDB(ctx context.Context, tx *sqlx.Tx, contextID s
 	}
 
 	// Get context items
-	rows, err := tx.QueryxContext(ctx, "SELECT * FROM mcp.context_items WHERE context_id = $1 ORDER BY timestamp", contextID)
+	rows, err := tx.QueryxContext(ctx, "SELECT * FROM mcp.context_items WHERE context_id = $1 ORDER BY created_at", contextID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get context items: %w", err)
 	}
@@ -955,8 +949,8 @@ func (m *Manager) getContextFromDB(ctx context.Context, tx *sqlx.Tx, contextID s
 			ContextID string    `db:"context_id"`
 			Role      string    `db:"role"`
 			Content   string    `db:"content"`
-			Tokens    int       `db:"tokens"`
-			Timestamp time.Time `db:"timestamp"`
+			Tokens    int       `db:"token_count"`
+			Timestamp time.Time `db:"created_at"`
 			Metadata  []byte    `db:"metadata"`
 		}
 
@@ -1037,9 +1031,7 @@ func (m *Manager) updateContextInDB(ctx context.Context, tx *sqlx.Tx, contextDat
 	// Update contexts table
 	_, err = tx.ExecContext(
 		ctx,
-		"UPDATE mcp.contexts SET name = $1, description = $2, agent_id = $3, model_id = $4, session_id = $5, current_tokens = $6, max_tokens = $7, metadata = $8, updated_at = $9, expires_at = $10 WHERE id = $11",
-		contextData.Name,
-		contextData.Description,
+		"UPDATE mcp.contexts SET agent_id = $1, model_id = $2, session_id = $3, current_tokens = $4, max_tokens = $5, metadata = $6, updated_at = $7, expires_at = $8 WHERE id = $9",
 		contextData.AgentID,
 		contextData.ModelID,
 		contextData.SessionID,
@@ -1053,10 +1045,8 @@ func (m *Manager) updateContextInDB(ctx context.Context, tx *sqlx.Tx, contextDat
 	if err != nil {
 		m.logger.Error("updateContextInDB: failed SQL update", map[string]interface{}{
 			"error": err.Error(),
-			"sql":   "UPDATE mcp.contexts SET name = $1, description = $2, agent_id = $3, model_id = $4, session_id = $5, current_tokens = $6, max_tokens = $7, metadata = $8, updated_at = $9, expires_at = $10 WHERE id = $11",
+			"sql":   "UPDATE mcp.contexts SET agent_id = $1, model_id = $2, session_id = $3, current_tokens = $4, max_tokens = $5, metadata = $6, updated_at = $7, expires_at = $8 WHERE id = $9",
 			"params": map[string]interface{}{
-				"name":           contextData.Name,
-				"description":    contextData.Description,
 				"agent_id":       contextData.AgentID,
 				"model_id":       contextData.ModelID,
 				"session_id":     contextData.SessionID,
@@ -1133,7 +1123,7 @@ func (m *Manager) updateContextInDB(ctx context.Context, tx *sqlx.Tx, contextDat
 		// Insert into context_items table
 		_, err = tx.ExecContext(
 			ctx,
-			"INSERT INTO mcp.context_items (id, context_id, role, content, tokens, timestamp, metadata) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+			"INSERT INTO mcp.context_items (id, context_id, role, content, token_count, created_at, metadata) VALUES ($1, $2, $3, $4, $5, $6, $7)",
 			item.ID,
 			contextData.ID,
 			item.Role,
