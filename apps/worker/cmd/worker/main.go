@@ -48,6 +48,43 @@ func (r *redisIdempotencyAdapter) Set(ctx context.Context, key string, value str
 	return r.client.Set(ctx, key, value, ttl).Err()
 }
 
+// validateEmbeddingConfig validates embedding configuration parameters
+func validateEmbeddingConfig(cfg *config.EmbeddingConfig) error {
+	if cfg == nil {
+		return fmt.Errorf("embedding configuration is nil")
+	}
+
+	// Validate Bedrock configuration if enabled
+	if cfg.Providers.Bedrock.Enabled {
+		region := cfg.Providers.Bedrock.Region
+		if region == "" {
+			return fmt.Errorf("bedrock region is required when bedrock is enabled")
+		}
+
+		// Validate AWS region format (e.g., us-east-1, eu-west-2)
+		// Pattern: 2 lowercase letters, dash, lowercase region name, dash, single digit
+		if len(region) < 9 {
+			return fmt.Errorf("bedrock region format appears invalid: %s", region)
+		}
+	}
+
+	// Validate OpenAI configuration if enabled
+	if cfg.Providers.OpenAI.Enabled {
+		if cfg.Providers.OpenAI.APIKey == "" {
+			return fmt.Errorf("openai API key is required when openai is enabled")
+		}
+	}
+
+	// Validate Google configuration if enabled
+	if cfg.Providers.Google.Enabled {
+		if cfg.Providers.Google.APIKey == "" {
+			return fmt.Errorf("google API key is required when google is enabled")
+		}
+	}
+
+	return nil
+}
+
 func main() {
 	flag.Parse()
 
@@ -256,46 +293,54 @@ func runWorker(ctx context.Context) error {
 	// Initialize embedding service for context processing (optional)
 	var contextEmbeddingProcessor *worker.ContextEmbeddingProcessor
 
-	// Only initialize if AWS region is configured
-	if awsRegion := os.Getenv("AWS_REGION"); awsRegion != "" {
-		logger.Info("Initializing embedding service", map[string]interface{}{
-			"aws_region": awsRegion,
+	// Load full configuration to support all embedding options
+	embeddingConfig, err := config.Load()
+	if err != nil {
+		logger.Warn("Failed to load configuration, context embeddings disabled", map[string]interface{}{
+			"error": err.Error(),
 		})
-
-		// Create minimal config for embedding service
-		embeddingConfig := &config.Config{
-			Embedding: config.EmbeddingConfig{
-				Providers: config.ProvidersConfig{
-					Bedrock: config.BedrockConfig{
-						Enabled: true,
-						Region:  awsRegion,
-					},
-				},
-			},
-		}
-
-		// Create embedding service using the factory (now in pkg)
-		embeddingService, err := embedding.CreateEmbeddingServiceV2(embeddingConfig, *db, nil)
-		if err != nil {
-			logger.Warn("Failed to create embedding service, context embeddings disabled", map[string]interface{}{
+	} else if embeddingConfig.Embedding.Providers.Bedrock.Enabled {
+		// Validate Bedrock configuration
+		if err := validateEmbeddingConfig(&embeddingConfig.Embedding); err != nil {
+			logger.Warn("Invalid embedding configuration, context embeddings disabled", map[string]interface{}{
 				"error": err.Error(),
 			})
 		} else {
-			// Create context repository
-			contextRepo := repository.NewPostgresContextRepository(db.GetDB())
+			logger.Info("Initializing embedding service", map[string]interface{}{
+				"provider":     "bedrock",
+				"region":       embeddingConfig.Embedding.Providers.Bedrock.Region,
+				"has_endpoint": embeddingConfig.Embedding.Providers.Bedrock.Endpoint != "",
+			})
 
-			// Create context embedding processor
-			contextEmbeddingProcessor = worker.NewContextEmbeddingProcessor(
-				embeddingService,
-				contextRepo,
-				logger,
-				nil,
-			)
+			// Create embedding service using the factory
+			embeddingService, err := embedding.CreateEmbeddingServiceV2(embeddingConfig, *db, nil)
+			if err != nil {
+				logger.Warn("Failed to create embedding service, context embeddings disabled", map[string]interface{}{
+					"error": err.Error(),
+				})
+			} else {
+				// Create context repository
+				contextRepo := repository.NewPostgresContextRepository(db.GetDB())
 
-			logger.Info("Context embedding processor initialized", nil)
+				// Create context embedding processor
+				contextEmbeddingProcessor = worker.NewContextEmbeddingProcessor(
+					embeddingService,
+					contextRepo,
+					logger,
+					nil,
+				)
+
+				logger.Info("Context embedding processor initialized successfully", map[string]interface{}{
+					"provider": "bedrock",
+					"region":   embeddingConfig.Embedding.Providers.Bedrock.Region,
+				})
+			}
 		}
 	} else {
-		logger.Info("AWS_REGION not set, context embedding processor disabled", nil)
+		logger.Info("Bedrock embedding provider not enabled, context embedding processor disabled", map[string]interface{}{
+			"openai_enabled": embeddingConfig.Embedding.Providers.OpenAI.Enabled,
+			"google_enabled": embeddingConfig.Embedding.Providers.Google.Enabled,
+		})
 	}
 
 	// Create event processor with retry and DLQ support
