@@ -139,18 +139,19 @@ storage:
     disable_ssl: false
 
 # Embedding Configuration for Docker
+# Note: Values are overridden by MCP_EMBEDDING_PROVIDERS_* environment variables via viper AutomaticEnv()
 embedding:
   providers:
     openai:
-      enabled: ${OPENAI_ENABLED:-false}
-      api_key: "${OPENAI_API_KEY}"
+      enabled: false
+      api_key: ""
     bedrock:
-      enabled: ${BEDROCK_ENABLED:-true}
-      region: "${AWS_REGION:-us-east-1}"
-      endpoint: "${BEDROCK_ENDPOINT:-}"
+      enabled: true
+      region: "us-east-1"
+      endpoint: ""
     google:
-      enabled: ${GOOGLE_AI_ENABLED:-false}
-      api_key: "${GOOGLE_AI_API_KEY}"
+      enabled: false
+      api_key: ""
 
 # Monitoring Configuration
 monitoring:

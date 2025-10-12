@@ -111,7 +111,7 @@ services:
       - OPENAI_ENABLED=${OPENAI_ENABLED:-false}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       # AWS Bedrock Provider
-      - BEDROCK_ENABLED=${BEDROCK_ENABLED:-true}
+      - BEDROCK_ENABLED=true
       - BEDROCK_REGION=${AWS_REGION:-us-east-1}
       - BEDROCK_ENDPOINT=${BEDROCK_ENDPOINT:-}
       - BEDROCK_ROLE_ARN=${BEDROCK_ROLE_ARN:-}
@@ -162,6 +162,7 @@ services:
       # Core settings
       - ENVIRONMENT=docker
       - APP_ENV=development
+      - MCP_CONFIG_FILE=configs/config.docker.yaml
       # Database (using service names)
       - DATABASE_HOST=database
       - DB_HOST=database
@@ -199,9 +200,9 @@ services:
       # - WORKER_MOCK_MODE=true
       # Embedding Configuration (Context Processing)
       # AWS Bedrock Provider - Primary embedding service for context items
-      - MCP_EMBEDDING_PROVIDERS_BEDROCK_ENABLED=${BEDROCK_ENABLED:-true}
-      - MCP_EMBEDDING_PROVIDERS_BEDROCK_REGION=${BEDROCK_REGION:-us-east-1}
-      - MCP_EMBEDDING_PROVIDERS_BEDROCK_ENDPOINT=${BEDROCK_ENDPOINT:-}
+      - MCP_EMBEDDING_PROVIDERS_BEDROCK_ENABLED=true
+      - MCP_EMBEDDING_PROVIDERS_BEDROCK_REGION=us-east-1
+      - MCP_EMBEDDING_PROVIDERS_BEDROCK_ENDPOINT=
       # OpenAI Provider (optional - requires API key)
       - MCP_EMBEDDING_PROVIDERS_OPENAI_ENABLED=${OPENAI_ENABLED:-false}
       - MCP_EMBEDDING_PROVIDERS_OPENAI_API_KEY=${OPENAI_API_KEY:-}

@@ -8,6 +8,7 @@ import (
 // Context represents a persistent context object
 type Context struct {
 	ID         string         `json:"id" db:"id"`
+	TenantID   string         `json:"tenant_id" db:"tenant_id"`
 	Name       string         `json:"name" db:"name"`
 	AgentID    string         `json:"agent_id" db:"agent_id"`
 	SessionID  string         `json:"session_id" db:"session_id"`

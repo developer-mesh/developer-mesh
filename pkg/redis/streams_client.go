@@ -335,7 +335,16 @@ func (c *StreamsClient) ReadFromConsumerGroup(ctx context.Context, group, consum
 		NoAck:    noAck,
 	}
 
-	return c.client.XReadGroup(ctx, args).Result()
+	// DEBUG logging
+	fmt.Printf("[DEBUG] XReadGroup args: group=%s, consumer=%s, streams=%v\n", group, consumer, streamArgs)
+
+	result, err := c.client.XReadGroup(ctx, args).Result()
+	if err != nil {
+		fmt.Printf("[DEBUG] XReadGroup error: %v\n", err)
+	} else {
+		fmt.Printf("[DEBUG] XReadGroup success: %d stream(s) returned\n", len(result))
+	}
+	return result, err
 }
 
 // AckMessages acknowledges messages in a consumer group

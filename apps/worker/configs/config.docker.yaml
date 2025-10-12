@@ -10,16 +10,31 @@ api:
   service_name: "worker"
   # Worker doesn't need HTTP server
   listen_address: ""
-  
+
 # Worker-specific configuration
 worker:
   # Override concurrency for worker
   concurrency: ${WORKER_CONCURRENCY:-10}
-  
+
   # Worker-specific queue settings
   sqs:
     visibility_timeout: 300s  # 5 minutes
     wait_time_seconds: 20     # Long polling
-    
+
+# Embedding Configuration for Worker
+# Note: Values are overridden by MCP_EMBEDDING_PROVIDERS_* environment variables via viper AutomaticEnv()
+embedding:
+  providers:
+    openai:
+      enabled: false
+      api_key: ""
+    bedrock:
+      enabled: true
+      region: "us-east-1"
+      endpoint: ""
+    google:
+      enabled: false
+      api_key: ""
+
 # Any Worker-specific overrides can go here
 # Most configuration should be in the shared config.docker.yaml

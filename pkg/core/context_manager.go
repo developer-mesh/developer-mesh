@@ -2,11 +2,15 @@ package core
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
 	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
 	"github.com/developer-mesh/developer-mesh/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/queue"
+	"github.com/google/uuid"
 )
 
 // ErrContextNotFound is returned when a context is not found
@@ -17,6 +21,9 @@ var ErrContextNotFound = errors.New("context not found")
 type ContextManager struct {
 	db          interface{}
 	cache       cache.Cache
+	logger      observability.Logger
+	metrics     observability.MetricsClient
+	queueClient *queue.Client
 	subscribers map[string][]func(models.Event)
 }
 
@@ -24,12 +31,34 @@ type ContextManager struct {
 type TruncateStrategy string
 
 // NewContextManager creates a new context manager
-func NewContextManager(db interface{}, cache cache.Cache) *ContextManager {
-	return &ContextManager{
+// Supports both old signature (db, cache) and new signature (db, logger, metrics, queueClient)
+func NewContextManager(db interface{}, args ...interface{}) *ContextManager {
+	cm := &ContextManager{
 		db:          db,
-		cache:       cache,
 		subscribers: make(map[string][]func(models.Event)),
 	}
+
+	// Handle different argument patterns for backwards compatibility
+	switch len(args) {
+	case 1:
+		// Old signature: NewContextManager(db, cache)
+		if cache, ok := args[0].(cache.Cache); ok {
+			cm.cache = cache
+		}
+	case 3:
+		// New signature: NewContextManager(db, logger, metrics, queueClient)
+		if logger, ok := args[0].(observability.Logger); ok {
+			cm.logger = logger
+		}
+		if metrics, ok := args[1].(observability.MetricsClient); ok {
+			cm.metrics = metrics
+		}
+		if queueClient, ok := args[2].(*queue.Client); ok {
+			cm.queueClient = queueClient
+		}
+	}
+
+	return cm
 }
 
 // CreateContext creates a new context
@@ -165,6 +194,32 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 	// Update timestamp
 	existingContext.UpdatedAt = time.Now()
 
+	// DEBUG: Log state before event publishing decision
+	if cm.logger != nil {
+		cm.logger.Debug("UpdateContext embedding event check", map[string]interface{}{
+			"has_queue_client": cm.queueClient != nil,
+			"has_content":      updateData.Content != nil,
+			"content_length":   len(updateData.Content),
+		})
+	}
+
+	// Publish event for async embedding generation if queue client and content were added
+	if cm.queueClient != nil && updateData.Content != nil && len(updateData.Content) > 0 {
+		// Only publish for new content items (not replacements)
+		shouldPublish := options == nil || !options.ReplaceContent
+		if shouldPublish {
+			if err := cm.publishEmbeddingEvent(ctx, existingContext, updateData.Content); err != nil {
+				if cm.logger != nil {
+					cm.logger.Warn("Failed to publish embedding generation event", map[string]interface{}{
+						"error":      err.Error(),
+						"context_id": contextID,
+					})
+				}
+				// Don't fail the update if event publishing fails
+			}
+		}
+	}
+
 	// Check if context needs truncation
 	if options != nil && options.Truncate && existingContext.CurrentTokens > existingContext.MaxTokens {
 		// For tests, simulate truncation by removing oldest items
@@ -281,3 +336,63 @@ const (
 	// TruncateRelevanceBased truncates based on relevance to the current conversation
 	TruncateRelevanceBased = "relevance_based"
 )
+
+// publishEmbeddingEvent publishes an event for async embedding generation
+func (cm *ContextManager) publishEmbeddingEvent(ctx context.Context, contextData *models.Context, newItems []models.ContextItem) error {
+	// DEBUG: Log entry
+	if cm.logger != nil {
+		cm.logger.Debug("publishEmbeddingEvent called", map[string]interface{}{
+			"context_id":       contextData.ID,
+			"has_queue_client": cm.queueClient != nil,
+			"item_count":       len(newItems),
+		})
+	}
+
+	if cm.queueClient == nil {
+		if cm.logger != nil {
+			cm.logger.Warn("Queue client is nil, cannot publish embedding event", nil)
+		}
+		return nil // Nothing to do if no queue client
+	}
+
+	// Create event payload with context metadata and new items
+	payload := map[string]interface{}{
+		"context_id": contextData.ID,
+		"tenant_id":  contextData.TenantID,
+		"agent_id":   contextData.AgentID,
+		"items":      newItems,
+	}
+
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	// Create queue event
+	event := queue.Event{
+		EventID:   uuid.New().String(),
+		EventType: "context.items.created",
+		Payload:   json.RawMessage(payloadJSON),
+		Timestamp: time.Now(),
+		Metadata: map[string]interface{}{
+			"context_id": contextData.ID,
+			"item_count": len(newItems),
+		},
+	}
+
+	// Enqueue the event
+	if err := cm.queueClient.EnqueueEvent(ctx, event); err != nil {
+		return err
+	}
+
+	if cm.logger != nil {
+		cm.logger.Info("Enqueued embedding generation event", map[string]interface{}{
+			"context_id": contextData.ID,
+			"event_id":   event.EventID,
+			"event_type": event.EventType,
+			"item_count": len(newItems),
+		})
+	}
+
+	return nil
+}

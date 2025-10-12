@@ -177,7 +177,13 @@ func (c *Client) EnqueueEvent(ctx context.Context, event Event) error {
 func (c *Client) ReceiveEvents(ctx context.Context, maxMessages int32, waitSeconds int32) ([]Event, []string, error) {
 	consumerName := fmt.Sprintf("consumer-%d", time.Now().UnixNano())
 
-	streams := []string{c.streamName, ">"}
+	// Pass only stream names - ReadFromConsumerGroup will add the ">" for new messages
+	streams := []string{c.streamName}
+
+	// DEBUG: Log the parameters before calling ReadFromConsumerGroup
+	fmt.Printf("[QUEUE DEBUG] Calling ReadFromConsumerGroup: stream=%s, group=%s, consumer=%s, streams=%v\n",
+		c.streamName, c.consumerGroup, consumerName, streams)
+
 	results, err := c.streamsClient.ReadFromConsumerGroup(
 		ctx,
 		c.consumerGroup,
@@ -188,8 +194,10 @@ func (c *Client) ReceiveEvents(ctx context.Context, maxMessages int32, waitSecon
 		false,
 	)
 	if err != nil {
+		fmt.Printf("[QUEUE DEBUG] ReadFromConsumerGroup error: %v\n", err)
 		return nil, nil, fmt.Errorf("failed to read from stream: %w", err)
 	}
+	fmt.Printf("[QUEUE DEBUG] ReadFromConsumerGroup success: %d results\n", len(results))
 
 	var events []Event
 	var receipts []string

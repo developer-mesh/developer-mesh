@@ -277,57 +277,27 @@ func (s *Server) Initialize(ctx context.Context) error {
 
 	// Ensure we have a valid context manager
 	if s.engine != nil {
-		// Always create a context manager as follows:
-		// 1. First check if one is already set
-		// 2. If not, check the environment to determine if we should use a mock
-		// 3. Create and set either a real or mock context manager
-		// 4. Verify that it was correctly set before proceeding
+		// Check environment variable to determine whether to use mock or real
+		useMock := os.Getenv("USE_MOCK_CONTEXT_MANAGER")
 
-		// Get current context manager (if any)
-		ctxManager := s.engine.GetContextManager()
-
-		// Set a new context manager if none exists
-		if ctxManager == nil {
-			// Check environment variable to determine whether to use mock or real
-			useMock := os.Getenv("USE_MOCK_CONTEXT_MANAGER")
-
-			s.logger.Info("Context manager not found, initializing new one", map[string]any{
-				"use_mock": useMock,
-			})
-
-			if strings.ToLower(useMock) == "true" {
-				// Create mock context manager for development/testing
-				s.logger.Info("Using mock context manager as specified by environment", nil)
-				ctxManager = core.NewMockContextManager()
-			} else {
-				// Use our production-ready context manager implementation
-				s.logger.Info("Initializing production-ready context manager", nil)
-
-				// Pass existing components to the context manager
-				s.logger.Info("Creating production context manager", nil)
-
-				// Create the production context manager with available components
-				// We're using an updated version of NewContextManager that accepts *sqlx.DB directly
-				ctxManager = core.NewContextManager(s.db, s.logger, s.metrics, s.queueClient)
-				s.logger.Info("Production context manager initialized", nil)
-			}
-
-			// Set the context manager on the engine
-			s.engine.SetContextManager(ctxManager)
-
-			// Log the change
-			s.logger.Info("Context manager set on engine", nil)
+		var ctxManager core.ContextManagerInterface
+		if strings.ToLower(useMock) == "true" {
+			// Create mock context manager for development/testing
+			s.logger.Info("Using mock context manager as specified by environment", nil)
+			ctxManager = core.NewMockContextManager()
 		} else {
-			s.logger.Info("Using existing context manager", nil)
+			// Use our production-ready context manager implementation
+			s.logger.Info("Initializing production-ready context manager", nil)
+
+			// Create the production context manager with available components
+			// This includes the queue client for async embedding generation
+			ctxManager = core.NewContextManager(s.db, s.logger, s.metrics, s.queueClient)
+			s.logger.Info("Production context manager initialized with queue client", nil)
 		}
 
-		// Explicitly verify that a context manager is set before continuing
-		if verifyCtx := s.engine.GetContextManager(); verifyCtx == nil {
-			s.logger.Error("Context manager initialization failed - still nil after setting", nil)
-			return fmt.Errorf("failed to initialize context manager, engine reports nil after setting")
-		} else {
-			s.logger.Info("Context manager initialization confirmed successful", nil)
-		}
+		// Set the context manager on the engine
+		s.engine.SetContextManager(ctxManager)
+		s.logger.Info("Context manager set on engine successfully", nil)
 	} else {
 		s.logger.Error("Engine is nil, cannot initialize context manager", nil)
 		return fmt.Errorf("engine is nil, cannot initialize context manager")
@@ -711,11 +681,12 @@ func (s *Server) setupRoutes(ctx context.Context) {
 		// Create lifecycle manager (can be nil for now - will be added when needed)
 		var lifecycleManager *webhook.ContextLifecycleManager = nil
 
-		// Create semantic context manager
+		// Create semantic context manager with queue client for async embedding generation
 		semanticContextMgr := pkgcore.NewSemanticContextManager(
 			contextRepo,
 			embeddingRepo,
 			embeddingClient,
+			s.queueClient, // Pass queue client for async embedding generation
 			lifecycleManager,
 			s.logger,
 			encryptionService,

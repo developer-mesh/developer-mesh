@@ -74,6 +74,9 @@ func NewRedisWorker(config *Config) (*RedisWorker, error) {
 
 // Run starts the worker processing loop
 func (w *RedisWorker) Run(ctx context.Context) error {
+	// Use fmt.Printf for immediate output
+	fmt.Printf("[DEBUG] RedisWorker.Run() starting - consumer_name: %s\n", w.consumerName)
+
 	w.logger.Info("Starting Redis worker", map[string]interface{}{
 		"consumer_name": w.consumerName,
 	})
@@ -88,7 +91,9 @@ func (w *RedisWorker) Run(ctx context.Context) error {
 		}
 
 		// Receive events from Redis
+		fmt.Printf("[DEBUG] Calling ReceiveEvents...\n")
 		events, handles, err := w.queueClient.ReceiveEvents(ctx, 10, 5)
+		fmt.Printf("[DEBUG] ReceiveEvents returned: events=%d, err=%v\n", len(events), err)
 		if err != nil {
 			w.logger.Error("Failed to receive events", map[string]interface{}{
 				"error": err.Error(),

@@ -5,11 +5,14 @@ package core
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/developer-mesh/developer-mesh/pkg/metrics"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/queue"
 	"github.com/developer-mesh/developer-mesh/pkg/repository"
 	"github.com/developer-mesh/developer-mesh/pkg/security"
 	"github.com/developer-mesh/developer-mesh/pkg/webhook"
@@ -36,6 +39,7 @@ type SemanticContextManagerImpl struct {
 	contextRepo      repository.ContextRepository
 	embeddingRepo    repository.VectorAPIRepository
 	embeddingClient  EmbeddingClient
+	queueClient      *queue.Client
 	lifecycleManager *webhook.ContextLifecycleManager
 	auditLogger      observability.Logger
 	encryptionSvc    *security.EncryptionService
@@ -49,10 +53,12 @@ type SemanticContextManagerImpl struct {
 // NewSemanticContextManager creates a new semantic context manager
 // This follows the dependency injection pattern used throughout the codebase
 // Note: embeddingClient can be nil, in which case embedding features will be disabled
+// Note: queueClient can be nil, in which case async embedding generation will be disabled
 func NewSemanticContextManager(
 	contextRepo repository.ContextRepository,
 	embeddingRepo repository.VectorAPIRepository,
 	embeddingClient EmbeddingClient,
+	queueClient *queue.Client,
 	lifecycleManager *webhook.ContextLifecycleManager,
 	logger observability.Logger,
 	encryptionSvc *security.EncryptionService,
@@ -61,6 +67,7 @@ func NewSemanticContextManager(
 		contextRepo:         contextRepo,
 		embeddingRepo:       embeddingRepo,
 		embeddingClient:     embeddingClient,
+		queueClient:         queueClient,
 		lifecycleManager:    lifecycleManager,
 		auditLogger:         logger,
 		encryptionSvc:       encryptionSvc,
@@ -160,66 +167,69 @@ func (m *SemanticContextManagerImpl) UpdateContext(
 		return fmt.Errorf("failed to add context item: %w", err)
 	}
 
-	// Step 3: Generate embedding (if embedding client is available)
-	if m.embeddingClient != nil {
-		// Get the context to retrieve the agent_id
+	// Step 3: Publish event for async embedding generation (if queue client is available)
+	if m.queueClient != nil {
+		// Get the context to retrieve the agent_id and tenant_id
 		contextData, err := m.contextRepo.Get(ctx, contextID)
 		if err != nil {
 			if m.auditLogger != nil {
-				m.auditLogger.Warn("Failed to get context for embedding", map[string]interface{}{
+				m.auditLogger.Warn("Failed to get context for embedding event", map[string]interface{}{
 					"error":      err.Error(),
 					"context_id": contextID,
 				})
 			}
 		} else {
-			startTime := time.Now()
-			// Use the context's agent_id for embedding generation
-			embeddings, modelUsed, err := m.embeddingClient.EmbedContent(ctx, update.Content, "", contextData.AgentID)
-			duration := time.Since(startTime).Seconds()
-
-			// Record embedding generation metrics
-			if m.contextMetrics != nil {
-				m.contextMetrics.RecordEmbeddingGeneration(duration, err == nil)
+			// Create context item for the event payload
+			contextItem := models.ContextItem{
+				ID:        item.ID,
+				Role:      update.Role,
+				Content:   update.Content,
+				Timestamp: time.Now(),
 			}
 
+			// Create event payload
+			payload := map[string]interface{}{
+				"context_id": contextID,
+				"tenant_id":  contextData.TenantID,
+				"agent_id":   contextData.AgentID,
+				"items":      []models.ContextItem{contextItem},
+			}
+
+			payloadJSON, err := json.Marshal(payload)
 			if err != nil {
-				// Log warning but don't fail - embeddings are enhancement
 				if m.auditLogger != nil {
-					m.auditLogger.Warn("Failed to generate embedding", map[string]interface{}{
+					m.auditLogger.Error("Failed to marshal embedding event payload", map[string]interface{}{
 						"error":      err.Error(),
 						"context_id": contextID,
 					})
 				}
 			} else {
-				// Step 4: Store embedding with link to context
-				embeddingObj := &repository.Embedding{
-					ID:        uuid.New().String(),
-					ContextID: contextID,
-					Text:      update.Content,
-					Embedding: embeddings,
-					ModelID:   modelUsed,
-					CreatedAt: time.Now(),
+				// Publish event to webhook-events stream
+				event := queue.Event{
+					EventID:   uuid.New().String(),
+					EventType: "context.items.created",
+					Payload:   json.RawMessage(payloadJSON),
+					Timestamp: time.Now(),
+					Metadata: map[string]interface{}{
+						"context_id": contextID,
+						"item_count": 1,
+					},
 				}
 
-				// Get current item count for sequence number
-				items, _ := m.contextRepo.GetContextItems(ctx, contextID)
-				sequence := len(items)
-
-				// Determine importance score
-				importanceScore := 0.5 // Default
-				if update.Metadata != nil {
-					if score, ok := update.Metadata["importance_score"].(float64); ok {
-						importanceScore = score
-					}
-				}
-
-				// Store with importance
-				_, err = m.embeddingRepo.StoreContextEmbedding(ctx, contextID, embeddingObj, sequence, importanceScore)
-				if err != nil {
+				if err := m.queueClient.EnqueueEvent(ctx, event); err != nil {
 					if m.auditLogger != nil {
-						m.auditLogger.Warn("Failed to store embedding", map[string]interface{}{
+						m.auditLogger.Error("Failed to enqueue embedding generation event", map[string]interface{}{
 							"error":      err.Error(),
 							"context_id": contextID,
+							"event_id":   event.EventID,
+						})
+					}
+				} else {
+					if m.auditLogger != nil {
+						m.auditLogger.Info("Enqueued embedding generation event", map[string]interface{}{
+							"context_id": contextID,
+							"event_id":   event.EventID,
+							"event_type": event.EventType,
 						})
 					}
 				}

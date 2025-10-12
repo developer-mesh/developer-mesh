@@ -158,9 +158,6 @@ func (api *MCPAPI) updateContext(c *gin.Context) {
 		updateRequest.Options = &models.ContextUpdateOptions{}
 	}
 
-	// When using MCPAPI, we want to replace content by default
-	updateRequest.Options.ReplaceContent = true
-
 	// Update content if provided
 	if updateRequest.Content != nil {
 		currentContext.Content = updateRequest.Content
