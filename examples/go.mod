@@ -4,6 +4,6 @@ go 1.24
 
 require (
 	github.com/coder/websocket v1.8.12
+	github.com/google/uuid v1.6.0
+	github.com/gorilla/websocket v1.5.3
 )
-
-require nhooyr.io/websocket v1.8.17 // indirect
