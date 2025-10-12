@@ -717,6 +717,49 @@ func (c *Client) AppendContext(ctx context.Context, sessionID string, appendData
 	return nil
 }
 
+// SearchContext performs semantic search within a context
+func (c *Client) SearchContext(ctx context.Context, contextID string, query string, limit int) ([]interface{}, error) {
+	if !c.connected {
+		return nil, fmt.Errorf("not connected to Core Platform")
+	}
+
+	payload := map[string]interface{}{
+		"query": query,
+	}
+
+	if limit > 0 {
+		payload["limit"] = limit
+	}
+
+	resp, err := c.doRequest(ctx, "POST", fmt.Sprintf("/api/v1/contexts/%s/search", contextID), payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search context: %w", err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			c.logger.Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("context search failed, status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var searchResp struct {
+		ContextID string        `json:"context_id"`
+		Query     string        `json:"query"`
+		Results   []interface{} `json:"results"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&searchResp); err != nil {
+		return nil, fmt.Errorf("failed to decode search results: %w", err)
+	}
+
+	return searchResp.Results, nil
+}
+
 // GetStatus returns the connection status
 func (c *Client) GetStatus() map[string]interface{} {
 	return map[string]interface{}{

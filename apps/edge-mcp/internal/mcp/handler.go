@@ -1662,7 +1662,32 @@ func (h *Handler) handleContextOperation(sessionID string, msgID interface{}, op
 				result = map[string]interface{}{"success": true}
 			}
 
-		case "context.compact", "context.search":
+		case "context.search":
+			// Parse search parameters
+			var searchParams struct {
+				Query string `json:"query"`
+				Limit int    `json:"limit,omitempty"`
+			}
+			if err := json.Unmarshal(args, &searchParams); err != nil {
+				return nil, NewValidationError("arguments", fmt.Sprintf("Invalid search parameters: %v", err)).
+					WithOperation("context.search")
+			}
+
+			// Default limit
+			if searchParams.Limit == 0 {
+				searchParams.Limit = 10
+			}
+
+			h.logger.Info("Semantic context search via Core Platform", map[string]interface{}{
+				"query":      searchParams.Query,
+				"limit":      searchParams.Limit,
+				"context_id": coreContextID,
+			})
+
+			// Call Core Platform's search endpoint
+			result, err = h.coreClient.SearchContext(context.Background(), coreContextID, searchParams.Query, searchParams.Limit)
+
+		case "context.compact":
 			return nil, NewProtocolError(operation, "Operation not supported",
 				fmt.Sprintf("Operation '%s' requires semantic context manager", operation))
 
