@@ -599,17 +599,38 @@ func (s *Server) setupRoutes(ctx context.Context) {
 		IdleTimeout: 30 * time.Minute,
 	}
 	sessionService := pkgservices.NewSessionService(sessionServiceConfig)
+
+	// Session-Context Orchestrator - Coordinates session and context creation
+	// Following Option C (industry best practice orchestration pattern)
+	orchestrator := services.NewSessionContextOrchestrator(services.SessionContextOrchestratorConfig{
+		SessionService: sessionService,
+		ContextManager: s.engine.GetContextManager(),
+		SessionRepo:    sessionRepo,
+		Logger:         s.logger,
+		Metrics:        s.metrics,
+	})
+	s.logger.Info("Session-Context Orchestrator initialized", map[string]interface{}{
+		"pattern": "option_c_orchestration",
+		"features": []string{
+			"atomic session-context creation",
+			"rollback on failure",
+			"single responsibility principle",
+		},
+	})
+
 	sessionHandler := NewSessionHandler(
 		sessionService,
+		orchestrator,
 		s.logger,
 		s.metrics,
 		auth.NewAuditLogger(s.logger),
 	)
 	sessionHandler.RegisterRoutes(v1)
 	s.logger.Info("Session Management API initialized", map[string]interface{}{
-		"default_ttl":  "24h",
-		"max_sessions": 100,
-		"idle_timeout": "30m",
+		"default_ttl":       "24h",
+		"max_sessions":      100,
+		"idle_timeout":      "30m",
+		"orchestrator_enabled": true,
 	})
 
 	// Agent and Model APIs - create repositories first as they're needed by context API

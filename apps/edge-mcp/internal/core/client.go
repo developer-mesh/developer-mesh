@@ -103,6 +103,10 @@ type Client struct {
 
 	// Tool ID mapping for execution
 	toolIDMap map[string]string // Maps tool name to tool ID
+
+	// Session and context tracking
+	currentSessionID string // Current session ID
+	currentContextID string // Current context ID (linked to session)
 }
 
 // NewClient creates a new Core Platform client
@@ -578,11 +582,39 @@ func (c *Client) CreateSession(ctx context.Context, clientName, clientType strin
 		}
 	}()
 
-	if resp.StatusCode == http.StatusOK {
+	// Parse response to extract context_id
+	if resp.StatusCode == http.StatusCreated || resp.StatusCode == http.StatusOK {
+		var sessionResp struct {
+			SessionID string `json:"session_id"`
+			ContextID string `json:"context_id"`
+		}
+
+		if err := json.NewDecoder(resp.Body).Decode(&sessionResp); err != nil {
+			c.logger.Warn("Failed to parse session response", map[string]interface{}{
+				"error": err.Error(),
+			})
+			return sessionID, nil
+		}
+
+		// Store session and context IDs
+		c.mu.Lock()
+		c.currentSessionID = sessionResp.SessionID
+		c.currentContextID = sessionResp.ContextID
+		c.mu.Unlock()
+
 		c.logger.Info("Session registered with Core Platform", map[string]interface{}{
-			"session_id": sessionID,
+			"session_id": sessionResp.SessionID,
+			"context_id": sessionResp.ContextID,
+			"linked":     sessionResp.ContextID != "",
 		})
+
+		// Return the session_id from server (should match what we generated)
+		return sessionResp.SessionID, nil
 	}
+
+	c.logger.Warn("Unexpected status code from session creation", map[string]interface{}{
+		"status_code": resp.StatusCode,
+	})
 
 	return sessionID, nil
 }
@@ -762,11 +794,16 @@ func (c *Client) SearchContext(ctx context.Context, contextID string, query stri
 
 // GetStatus returns the connection status
 func (c *Client) GetStatus() map[string]interface{} {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	return map[string]interface{}{
-		"connected":   c.connected,
-		"base_url":    c.baseURL,
-		"tenant_id":   c.tenantID,
-		"edge_mcp_id": c.edgeMCPID,
+		"connected":    c.connected,
+		"base_url":     c.baseURL,
+		"tenant_id":    c.tenantID,
+		"edge_mcp_id":  c.edgeMCPID,
+		"session_id":   c.currentSessionID,
+		"context_id":   c.currentContextID,
 		"last_error": func() string {
 			if c.lastError != nil {
 				return c.lastError.Error()
@@ -774,6 +811,13 @@ func (c *Client) GetStatus() map[string]interface{} {
 			return ""
 		}(),
 	}
+}
+
+// GetCurrentContextID returns the current context ID (linked to the session)
+func (c *Client) GetCurrentContextID() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.currentContextID
 }
 
 // doRequest performs an authenticated HTTP request

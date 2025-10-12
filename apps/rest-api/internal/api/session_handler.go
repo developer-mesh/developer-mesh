@@ -8,32 +8,38 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/services"
 	"github.com/developer-mesh/developer-mesh/pkg/auth"
 	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
-	"github.com/developer-mesh/developer-mesh/pkg/services"
+	pkgservices "github.com/developer-mesh/developer-mesh/pkg/services"
 )
 
 // SessionHandler handles edge MCP session management endpoints
 type SessionHandler struct {
-	sessionService services.SessionService
-	logger         observability.Logger
-	metricsClient  observability.MetricsClient
-	auditLogger    *auth.AuditLogger
+	sessionService     pkgservices.SessionService
+	orchestrator       services.SessionContextOrchestrator
+	logger             observability.Logger
+	metricsClient      observability.MetricsClient
+	auditLogger        *auth.AuditLogger
+	useOrchestrator    bool // Feature flag to enable orchestration
 }
 
 // NewSessionHandler creates a new session handler
 func NewSessionHandler(
-	sessionService services.SessionService,
+	sessionService pkgservices.SessionService,
+	orchestrator services.SessionContextOrchestrator,
 	logger observability.Logger,
 	metricsClient observability.MetricsClient,
 	auditLogger *auth.AuditLogger,
 ) *SessionHandler {
 	return &SessionHandler{
-		sessionService: sessionService,
-		logger:         logger,
-		metricsClient:  metricsClient,
-		auditLogger:    auditLogger,
+		sessionService:  sessionService,
+		orchestrator:    orchestrator,
+		logger:          logger,
+		metricsClient:   metricsClient,
+		auditLogger:     auditLogger,
+		useOrchestrator: orchestrator != nil, // Enable if orchestrator provided
 	}
 }
 
@@ -119,12 +125,31 @@ func (h *SessionHandler) CreateSession(c *gin.Context) {
 	req.Metadata["user_agent"] = c.GetHeader("User-Agent")
 	req.Metadata["protocol"] = "REST"
 
-	// Create session
-	session, err := h.sessionService.CreateSession(c.Request.Context(), &req)
+	// Create session (with context if orchestrator available)
+	var session *models.EdgeMCPSession
+	var context *models.Context
+
+	if h.useOrchestrator {
+		// Use orchestrator to create both session and context atomically
+		h.logger.Info("Creating session with context via orchestrator", map[string]interface{}{
+			"tenant_id":   tenantID,
+			"client_type": req.ClientType,
+		})
+		session, context, err = h.orchestrator.CreateSessionWithContext(c.Request.Context(), &req)
+	} else {
+		// Fallback to session-only creation
+		h.logger.Warn("Orchestrator not available, creating session only (context not linked)", map[string]interface{}{
+			"tenant_id":   tenantID,
+			"client_type": req.ClientType,
+		})
+		session, err = h.sessionService.CreateSession(c.Request.Context(), &req)
+	}
+
 	if err != nil {
 		h.logger.Error("Failed to create session", map[string]interface{}{
-			"tenant_id": tenantID,
-			"error":     err.Error(),
+			"tenant_id":        tenantID,
+			"error":            err.Error(),
+			"use_orchestrator": h.useOrchestrator,
 		})
 		h.recordMetric(c, "session.create.error", 1, map[string]string{"error": "service_error"})
 
@@ -140,6 +165,16 @@ func (h *SessionHandler) CreateSession(c *gin.Context) {
 
 	// Audit log
 	if h.auditLogger != nil {
+		auditMetadata := map[string]interface{}{
+			"session_id":       session.SessionID,
+			"edge_mcp_id":      session.EdgeMCPID,
+			"orchestrator_used": h.useOrchestrator,
+		}
+		if context != nil {
+			auditMetadata["context_id"] = context.ID
+			auditMetadata["context_created"] = true
+		}
+
 		h.auditLogger.LogAuthAttempt(c.Request.Context(), auth.AuditEvent{
 			EventType: "session.create",
 			TenantID:  tenantID.String(),
@@ -148,21 +183,31 @@ func (h *SessionHandler) CreateSession(c *gin.Context) {
 			Success:   true,
 			IPAddress: c.ClientIP(),
 			UserAgent: c.GetHeader("User-Agent"),
-			Metadata: map[string]interface{}{
-				"session_id":  session.SessionID,
-				"edge_mcp_id": session.EdgeMCPID,
-			},
+			Metadata:  auditMetadata,
 		})
 	}
 
 	// Record metrics
 	h.recordMetric(c, "session.create.success", 1, map[string]string{
-		"client_type": string(req.ClientType),
+		"client_type":       string(req.ClientType),
+		"orchestrator_used": strconv.FormatBool(h.useOrchestrator),
+		"context_created":   strconv.FormatBool(context != nil),
 	})
 	h.recordMetric(c, "session.create.duration", time.Since(start).Seconds(), nil)
 
+	// Build response with context info if available
+	response := models.NewSessionResponse(session)
+	if context != nil {
+		// Add context_id to response metadata or as a new field
+		// The SessionResponse includes ContextID via session.ContextID
+		h.logger.Info("Session created with linked context", map[string]interface{}{
+			"session_id": session.SessionID,
+			"context_id": context.ID,
+		})
+	}
+
 	// Return response
-	c.JSON(http.StatusCreated, models.NewSessionResponse(session))
+	c.JSON(http.StatusCreated, response)
 }
 
 // GetSession retrieves a session by ID
