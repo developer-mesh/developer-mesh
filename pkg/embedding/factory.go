@@ -5,8 +5,14 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
+	"github.com/developer-mesh/developer-mesh/pkg/agents"
 	"github.com/developer-mesh/developer-mesh/pkg/chunking"
+	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
+	"github.com/developer-mesh/developer-mesh/pkg/common/config"
+	"github.com/developer-mesh/developer-mesh/pkg/database"
+	"github.com/developer-mesh/developer-mesh/pkg/embedding/providers"
 )
 
 // EmbeddingFactoryConfig contains configuration for the embedding factory
@@ -291,4 +297,121 @@ func (f *EmbeddingFactory) Initialize(ctx context.Context, chunkingService *chun
 	}
 
 	return pipeline, nil
+}
+
+// CreateEmbeddingServiceV2 creates the multi-agent embedding service (ServiceV2)
+// This is a standalone factory function used by REST API and Worker for ServiceV2
+func CreateEmbeddingServiceV2(cfg *config.Config, db database.Database, cache cache.Cache) (*ServiceV2, error) {
+	// Initialize providers map
+	providerMap := make(map[string]providers.Provider)
+
+	// Check if config exists
+	if cfg == nil {
+		return nil, fmt.Errorf("configuration is nil")
+	}
+
+	// Configure OpenAI if enabled
+	if cfg.Embedding.Providers.OpenAI.Enabled && cfg.Embedding.Providers.OpenAI.APIKey != "" {
+		openaiCfg := providers.ProviderConfig{
+			APIKey:         cfg.Embedding.Providers.OpenAI.APIKey,
+			Endpoint:       "https://api.openai.com/v1",
+			MaxRetries:     3,
+			RetryDelayBase: 100 * time.Millisecond,
+		}
+
+		openaiProvider, err := providers.NewOpenAIProvider(openaiCfg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create OpenAI provider: %w", err)
+		}
+		providerMap["openai"] = openaiProvider
+	}
+
+	// Configure AWS Bedrock if enabled
+	if cfg.Embedding.Providers.Bedrock.Enabled {
+		bedrockCfg := providers.ProviderConfig{
+			Region:   cfg.Embedding.Providers.Bedrock.Region,
+			Endpoint: cfg.Embedding.Providers.Bedrock.Endpoint,
+		}
+
+		bedrockProvider, err := providers.NewBedrockProvider(bedrockCfg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Bedrock provider: %w", err)
+		}
+		providerMap["bedrock"] = bedrockProvider
+	}
+
+	// Configure Google if enabled
+	if cfg.Embedding.Providers.Google.Enabled && cfg.Embedding.Providers.Google.APIKey != "" {
+		googleCfg := providers.ProviderConfig{
+			APIKey:   cfg.Embedding.Providers.Google.APIKey,
+			Endpoint: cfg.Embedding.Providers.Google.Endpoint,
+		}
+
+		googleProvider, err := providers.NewGoogleProvider(googleCfg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Google provider: %w", err)
+		}
+		providerMap["google"] = googleProvider
+	}
+
+	// Require at least one provider
+	if len(providerMap) == 0 {
+		return nil, fmt.Errorf("at least one embedding provider must be configured (OpenAI, Bedrock, or Google)")
+	}
+
+	// Initialize repositories
+	sqlxDB := db.DB()
+	sqlDB := sqlxDB.DB // Get the underlying *sql.DB from *sqlx.DB
+
+	// Create agent repository and service
+	agentRepo := agents.NewPostgresRepository(sqlxDB, "mcp")
+	agentService := agents.NewService(agentRepo)
+
+	// Create embedding repository
+	embeddingRepo := NewRepository(sqlDB)
+
+	// For now, metrics repository can be nil - it's optional
+	var metricsRepo MetricsRepository
+
+	// Create embedding cache adapter
+	embeddingCache := NewEmbeddingCacheAdapter(cache)
+
+	// Create ServiceV2 - this is our ONLY embedding service
+	return NewServiceV2(ServiceV2Config{
+		Providers:    providerMap,
+		AgentService: agentService,
+		Repository:   embeddingRepo,
+		MetricsRepo:  metricsRepo,
+		Cache:        embeddingCache,
+	})
+}
+
+// EmbeddingCacheAdapter adapts cache.Cache to EmbeddingCache
+type EmbeddingCacheAdapter struct {
+	cache cache.Cache
+}
+
+// NewEmbeddingCacheAdapter creates a new cache adapter
+func NewEmbeddingCacheAdapter(cache cache.Cache) EmbeddingCache {
+	return &EmbeddingCacheAdapter{cache: cache}
+}
+
+// Get retrieves a cached embedding
+func (e *EmbeddingCacheAdapter) Get(ctx context.Context, key string) (*CachedEmbedding, error) {
+	var cached CachedEmbedding
+	err := e.cache.Get(ctx, key, &cached)
+	if err != nil {
+		return nil, err
+	}
+	return &cached, nil
+}
+
+// Set stores an embedding in cache
+func (e *EmbeddingCacheAdapter) Set(ctx context.Context, key string, embedding *CachedEmbedding, ttl time.Duration) error {
+	return e.cache.Set(ctx, key, embedding, ttl)
+}
+
+// Delete removes an embedding from cache
+func (e *EmbeddingCacheAdapter) Delete(ctx context.Context, key string) error {
+	return e.cache.Delete(ctx, key)
 }

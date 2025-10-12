@@ -30,6 +30,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
 	"github.com/developer-mesh/developer-mesh/pkg/common/config"
 	"github.com/developer-mesh/developer-mesh/pkg/database"
+	"github.com/developer-mesh/developer-mesh/pkg/embedding"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/security"
 	"github.com/developer-mesh/developer-mesh/pkg/tools"
@@ -660,7 +661,7 @@ func (s *Server) setupRoutes(ctx context.Context) {
 
 	// Embedding API v2 - Multi-agent embedding system
 	// Initialize the embedding service with all configured providers
-	embeddingService, embeddingErr := adapters.CreateEmbeddingService(s.cfg, *database.NewDatabaseWithConnection(s.db), s.cache)
+	embeddingService, embeddingErr := embedding.CreateEmbeddingServiceV2(s.cfg, *database.NewDatabaseWithConnection(s.db), s.cache)
 	if embeddingErr != nil {
 		s.logger.Error("Failed to create embedding service", map[string]any{
 			"error": embeddingErr.Error(),

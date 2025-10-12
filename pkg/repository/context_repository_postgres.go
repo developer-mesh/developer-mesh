@@ -408,7 +408,7 @@ func (r *PostgresContextRepository) GetContextsNeedingCompaction(ctx context.Con
 // LinkEmbeddingToContext creates a link between an embedding and a context
 func (r *PostgresContextRepository) LinkEmbeddingToContext(ctx context.Context, contextID string, embeddingID string, sequence int, importance float64) error {
 	query := `
-		INSERT INTO mcp.context_embedding_links (id, context_id, embedding_id, chunk_sequence, importance_score, is_summary, created_at)
+		INSERT INTO mcp.context_embeddings (id, context_id, embedding_id, chunk_sequence, importance_score, is_summary, created_at)
 		VALUES (gen_random_uuid(), $1, $2, $3, $4, false, NOW())
 		ON CONFLICT (context_id, embedding_id) DO UPDATE
 		SET importance_score = $4, chunk_sequence = $3
@@ -422,7 +422,7 @@ func (r *PostgresContextRepository) LinkEmbeddingToContext(ctx context.Context, 
 func (r *PostgresContextRepository) GetContextEmbeddingLinks(ctx context.Context, contextID string) ([]ContextEmbeddingLink, error) {
 	query := `
 		SELECT id, context_id, embedding_id, chunk_sequence, importance_score, is_summary, created_at
-		FROM mcp.context_embedding_links
+		FROM mcp.context_embeddings
 		WHERE context_id = $1
 		ORDER BY chunk_sequence ASC
 	`
