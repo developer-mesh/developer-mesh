@@ -316,17 +316,39 @@ func (r *RepositoryImpl) StoreContextEmbedding(
 	}
 
 	// Then create the link in context_embeddings table
-	linkQuery := `
+	// Use DELETE+INSERT approach instead of ON CONFLICT to avoid constraint matching issues
+	// Start a transaction for atomic DELETE+INSERT
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	// Delete any existing entry for this context_id and chunk_sequence
+	deleteQuery := `DELETE FROM mcp.context_embeddings WHERE context_id = $1 AND chunk_sequence = $2`
+	_, err = tx.ExecContext(ctx, deleteQuery, contextID, sequence)
+	if err != nil {
+		return "", fmt.Errorf("failed to delete existing link: %w", err)
+	}
+
+	// Insert the new link
+	insertQuery := `
 		INSERT INTO mcp.context_embeddings
 		(context_id, embedding_id, chunk_sequence, importance_score, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, NOW(), NOW())
-		ON CONFLICT (context_id, chunk_sequence) DO UPDATE SET
-		embedding_id = $2, importance_score = $4, updated_at = NOW()
 	`
-
-	_, err := r.db.ExecContext(ctx, linkQuery, contextID, embedding.ID, sequence, importance)
+	_, err = tx.ExecContext(ctx, insertQuery, contextID, embedding.ID, sequence, importance)
 	if err != nil {
-		return "", fmt.Errorf("failed to link embedding to context: %w", err)
+		return "", fmt.Errorf("failed to insert link: %w", err)
+	}
+
+	// Commit the transaction
+	if err = tx.Commit(); err != nil {
+		return "", fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return embedding.ID, nil

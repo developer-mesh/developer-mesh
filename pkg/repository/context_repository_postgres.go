@@ -407,15 +407,41 @@ func (r *PostgresContextRepository) GetContextsNeedingCompaction(ctx context.Con
 
 // LinkEmbeddingToContext creates a link between an embedding and a context
 func (r *PostgresContextRepository) LinkEmbeddingToContext(ctx context.Context, contextID string, embeddingID string, sequence int, importance float64) error {
-	query := `
+	// Use DELETE+INSERT approach instead of ON CONFLICT to avoid constraint matching issues
+	// Start a transaction for atomic DELETE+INSERT
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	// Delete any existing entry for this context_id and chunk_sequence
+	deleteQuery := `DELETE FROM mcp.context_embeddings WHERE context_id = $1 AND chunk_sequence = $2`
+	_, err = tx.ExecContext(ctx, deleteQuery, contextID, sequence)
+	if err != nil {
+		return fmt.Errorf("failed to delete existing link: %w", err)
+	}
+
+	// Insert the new link
+	insertQuery := `
 		INSERT INTO mcp.context_embeddings (id, context_id, embedding_id, chunk_sequence, importance_score, is_summary, created_at)
 		VALUES (gen_random_uuid(), $1, $2, $3, $4, false, NOW())
-		ON CONFLICT (context_id, embedding_id) DO UPDATE
-		SET importance_score = $4, chunk_sequence = $3
 	`
+	_, err = tx.ExecContext(ctx, insertQuery, contextID, embeddingID, sequence, importance)
+	if err != nil {
+		return fmt.Errorf("failed to insert link: %w", err)
+	}
 
-	_, err := r.db.ExecContext(ctx, query, contextID, embeddingID, sequence, importance)
-	return err
+	// Commit the transaction
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
 }
 
 // GetContextEmbeddingLinks retrieves all embedding links for a context

@@ -181,20 +181,18 @@ services:
       - REDIS_PORT=6379
       - REDIS_ADDR=redis:6379
       - REDIS_ADDRESS=redis:6379
-      # AWS/LocalStack configuration
-      - USE_LOCALSTACK=true
-      - AWS_ENDPOINT_URL=http://localstack:4566
+      # AWS Configuration
+      # Use real AWS for Bedrock and other services, LocalStack only for S3
       - AWS_REGION=${AWS_REGION:-us-east-1}
-      # AWS Credentials - Use host environment or defaults for LocalStack
-      # SECURITY NOTE: In production, use IAM roles (ECS Task Roles/EC2 Instance Profiles)
-      # instead of access keys. Never commit real credentials to version control.
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-test}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-test}
-      # SQS configuration
-      - SQS_QUEUE_NAME=tasks
-      - SQS_QUEUE_URL=http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/tasks
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      # S3 Configuration - Use LocalStack for local development
+      - S3_ENDPOINT=http://localstack:4566
+      - S3_USE_PATH_STYLE=true
+      # Note: AWS_ENDPOINT_URL is NOT set globally, so Bedrock uses real AWS
+      # Only S3 operations use LocalStack via S3_ENDPOINT
       # Worker configuration
-      - WORKER_QUEUE_TYPE=${WORKER_QUEUE_TYPE:-sqs}
+      - WORKER_QUEUE_TYPE=redis  # Use Redis Streams for local development
       - WORKER_CONCURRENCY=${WORKER_CONCURRENCY:-5}
       # Optional: Enable mock mode if LocalStack isn't available
       # - WORKER_MOCK_MODE=true

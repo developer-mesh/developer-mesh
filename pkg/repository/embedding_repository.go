@@ -784,16 +784,22 @@ func (r *EmbeddingRepositoryImpl) StoreContextEmbedding(
 	}
 
 	// Then create the link in context_embeddings table
-	linkQuery := `
-		INSERT INTO mcp.context_embeddings
-		(context_id, embedding_id, chunk_sequence, importance_score, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, NOW(), NOW())
-		ON CONFLICT (context_id, chunk_sequence) DO UPDATE SET
-		embedding_id = $2, importance_score = $4, updated_at = NOW()
-	`
-
+	// Use DELETE+INSERT approach instead of ON CONFLICT to avoid constraint matching issues
 	err := r.vectorDB.Transaction(ctx, func(tx *sqlx.Tx) error {
-		_, err := tx.ExecContext(ctx, linkQuery, contextID, embedding.ID, sequence, importance)
+		// Delete any existing entry for this context_id and chunk_sequence
+		deleteQuery := `DELETE FROM mcp.context_embeddings WHERE context_id = $1 AND chunk_sequence = $2`
+		_, err := tx.ExecContext(ctx, deleteQuery, contextID, sequence)
+		if err != nil {
+			return fmt.Errorf("failed to delete existing link: %w", err)
+		}
+
+		// Insert the new link
+		insertQuery := `
+			INSERT INTO mcp.context_embeddings
+			(context_id, embedding_id, chunk_sequence, importance_score, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, NOW(), NOW())
+		`
+		_, err = tx.ExecContext(ctx, insertQuery, contextID, embedding.ID, sequence, importance)
 		return err
 	})
 
