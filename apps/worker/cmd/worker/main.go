@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/developer-mesh/developer-mesh/apps/worker/internal/worker"
+	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
 	"github.com/developer-mesh/developer-mesh/pkg/common/config"
 	"github.com/developer-mesh/developer-mesh/pkg/database"
 	"github.com/developer-mesh/developer-mesh/pkg/embedding"
@@ -134,8 +135,8 @@ func main() {
 }
 
 func runWorker(ctx context.Context) error {
-	// Initialize logger
-	logger := observability.NewNoopLogger()
+	// Initialize logger - use standard logger for debugging
+	logger := observability.NewStandardLogger("worker")
 
 	// Initialize Redis queue client
 	queueClient, err := queue.NewClient(ctx, &queue.Config{
@@ -290,6 +291,33 @@ func runWorker(ctx context.Context) error {
 		}
 	}()
 
+	// Initialize cache client for embedding service
+	// Create Redis cache configuration from existing Redis client
+	cacheConfig := cache.RedisConfig{
+		Address:      redisAddr,
+		Database:     0,
+		MaxRetries:   3,
+		DialTimeout:  5 * time.Second,
+		ReadTimeout:  3 * time.Second,
+		WriteTimeout: 3 * time.Second,
+		PoolSize:     10,
+		MinIdleConns: 2,
+		PoolTimeout:  3,
+	}
+
+	// Initialize cache client
+	cacheClient, err := cache.NewCache(ctx, cacheConfig)
+	if err != nil {
+		logger.Warn("Failed to initialize cache client", map[string]interface{}{
+			"error": err.Error(),
+		})
+		// Continue without cache - embedding service will work, just slower
+	} else {
+		logger.Info("Cache client initialized successfully", map[string]interface{}{
+			"address": redisAddr,
+		})
+	}
+
 	// Initialize embedding service for context processing (optional)
 	var contextEmbeddingProcessor *worker.ContextEmbeddingProcessor
 
@@ -299,7 +327,15 @@ func runWorker(ctx context.Context) error {
 		logger.Warn("Failed to load configuration, context embeddings disabled", map[string]interface{}{
 			"error": err.Error(),
 		})
-	} else if embeddingConfig.Embedding.Providers.Bedrock.Enabled {
+	} else {
+		logger.Info("Configuration loaded successfully", map[string]interface{}{
+			"bedrock_enabled": embeddingConfig.Embedding.Providers.Bedrock.Enabled,
+			"bedrock_region":  embeddingConfig.Embedding.Providers.Bedrock.Region,
+			"openai_enabled":  embeddingConfig.Embedding.Providers.OpenAI.Enabled,
+			"google_enabled":  embeddingConfig.Embedding.Providers.Google.Enabled,
+		})
+	}
+	if err == nil && embeddingConfig.Embedding.Providers.Bedrock.Enabled {
 		// Validate Bedrock configuration
 		if err := validateEmbeddingConfig(&embeddingConfig.Embedding); err != nil {
 			logger.Warn("Invalid embedding configuration, context embeddings disabled", map[string]interface{}{
@@ -312,8 +348,8 @@ func runWorker(ctx context.Context) error {
 				"has_endpoint": embeddingConfig.Embedding.Providers.Bedrock.Endpoint != "",
 			})
 
-			// Create embedding service using the factory
-			embeddingService, err := embedding.CreateEmbeddingServiceV2(embeddingConfig, *db, nil)
+			// Create embedding service using the factory with cache client
+			embeddingService, err := embedding.CreateEmbeddingServiceV2(embeddingConfig, *db, cacheClient)
 			if err != nil {
 				logger.Warn("Failed to create embedding service, context embeddings disabled", map[string]interface{}{
 					"error": err.Error(),
@@ -415,7 +451,12 @@ func runWorker(ctx context.Context) error {
 
 	log.Println("Starting Redis worker with retry and DLQ support...")
 	log.Printf("Health endpoint available at %s/health", os.Getenv("HEALTH_ENDPOINT"))
-	return redisWorker.Run(ctx)
+
+	// DEBUG: Log before calling Run
+	log.Println("DEBUG: About to call redisWorker.Run(ctx)")
+	err = redisWorker.Run(ctx)
+	log.Printf("DEBUG: redisWorker.Run() returned with error: %v", err)
+	return err
 }
 
 // performHealthCheck performs a basic health check
