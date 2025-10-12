@@ -351,7 +351,8 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 	// Only update the fields that were provided in the update request
 	result := &models.Context{
 		ID:            existingContext.ID,
-		Name:          updatedContext.Name, // Use updated name if provided
+		TenantID:      existingContext.TenantID, // Preserve tenant_id from existing context
+		Name:          updatedContext.Name,      // Use updated name if provided
 		Description:   existingContext.Description,
 		AgentID:       existingContext.AgentID,
 		ModelID:       existingContext.ModelID,
@@ -480,6 +481,10 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 		}
 
 		// Publish event for async embedding generation (after successful commit)
+		cm.logger.Info("Checking embedding event conditions", map[string]interface{}{
+			"has_queue_client": cm.queueClient != nil,
+			"content_length":   len(result.Content),
+		})
 		if cm.queueClient != nil && len(result.Content) > 0 {
 			// Filter items to only include user and assistant messages
 			var embeddableItems []models.ContextItem
@@ -488,12 +493,54 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 					embeddableItems = append(embeddableItems, item)
 				}
 			}
+			cm.logger.Info("Filtered embeddable items", map[string]interface{}{
+				"embeddable_count": len(embeddableItems),
+			})
 
 			if len(embeddableItems) > 0 {
+				cm.logger.Info("DEBUG: Inside embeddableItems > 0 block!", map[string]interface{}{
+					"count": len(embeddableItems),
+				})
+				// Extract agent_id from metadata if it's a virtual agent
+				agentID := result.AgentID
+
+				// Debug: Log metadata inspection
+				metadataKeys := []string{}
+				if result.Metadata != nil {
+					for k := range result.Metadata {
+						metadataKeys = append(metadataKeys, k)
+					}
+				}
+
+				cm.logger.Info("Extracting agent_id for event", map[string]interface{}{
+					"result.AgentID":         result.AgentID,
+					"metadata_exists":        result.Metadata != nil,
+					"metadata_keys":          metadataKeys,
+					"virtual_agent_id_raw":   result.Metadata["virtual_agent_id"],
+				})
+
+				if agentID == "" && result.Metadata != nil {
+					if virtualAgentID, ok := result.Metadata["virtual_agent_id"].(string); ok && virtualAgentID != "" {
+						agentID = virtualAgentID
+						cm.logger.Info("Extracted virtual agent ID from metadata", map[string]interface{}{
+							"virtual_agent_id": virtualAgentID,
+						})
+					} else {
+						cm.logger.Warn("Failed to extract virtual agent ID from metadata", map[string]interface{}{
+							"type_assertion_ok": ok,
+							"metadata":          result.Metadata,
+						})
+					}
+				}
+
+				cm.logger.Info("Final agent_id for event", map[string]interface{}{
+					"agent_id": agentID,
+				})
+
 				eventPayload := map[string]interface{}{
 					"context_id": contextID,
 					"tenant_id":  result.TenantID,
-					"agent_id":   result.AgentID,
+					"agent_id":   agentID, // Use virtual agent ID if available
 					"items":      embeddableItems,
 				}
 
