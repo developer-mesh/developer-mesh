@@ -250,6 +250,7 @@ func TestSemanticContextManager_CreateContext(t *testing.T) {
 		mockRepo,
 		nil, // embedding repo not needed for create
 		nil, // embedding client not needed for create
+		nil, // queue client
 		nil, // lifecycle manager not needed for create
 		nil, // logger
 		nil, // encryption
@@ -286,6 +287,7 @@ func TestSemanticContextManager_CreateContext_RepositoryError(t *testing.T) {
 		mockRepo,
 		nil, // embedding repo
 		nil, // embedding client
+		nil, // queue client
 		nil, // lifecycle manager
 		nil, // logger
 		nil, // encryption
@@ -323,6 +325,7 @@ func TestSemanticContextManager_GetContext_Standard(t *testing.T) {
 		mockRepo,
 		nil, // embedding repo
 		nil, // embedding client
+		nil, // queue client
 		nil, // lifecycle manager
 		nil, // logger
 		nil, // encryption
@@ -349,6 +352,7 @@ func TestSemanticContextManager_UpdateContext(t *testing.T) {
 		mockContextRepo,
 		nil, // embedding repo not needed if embedding fails
 		nil, // embedding client
+		nil, // queue client
 		nil, // lifecycle manager
 		nil, // logger
 		nil, // encryption
@@ -381,6 +385,7 @@ func TestSemanticContextManager_DeleteContext(t *testing.T) {
 		mockContextRepo,
 		mockEmbeddingRepo,
 		nil, // embedding client
+		nil, // queue client
 		nil, // lifecycle manager
 		nil, // logger
 		nil, // encryption
@@ -418,6 +423,7 @@ func TestSemanticContextManager_SearchContext(t *testing.T) {
 		mockRepo,
 		nil, // embedding repo
 		nil, // embedding client
+		nil, // queue client
 		nil, // lifecycle manager
 		nil, // logger
 		nil, // encryption
@@ -442,6 +448,7 @@ func TestSemanticContextManager_CompactContext(t *testing.T) {
 		mockRepo,
 		nil, // embedding repo
 		nil, // embedding client
+		nil, // queue client
 		nil, // lifecycle manager
 		nil, // logger
 		nil, // encryption
@@ -469,6 +476,7 @@ func TestSemanticContextManager_ValidateContextIntegrity(t *testing.T) {
 		mockRepo,
 		nil, // embedding repo
 		nil, // embedding client
+		nil, // queue client
 		nil, // lifecycle manager
 		nil, // logger
 		nil, // encryption
@@ -490,6 +498,7 @@ func TestSemanticContextManager_ValidateContextIntegrity_NotFound(t *testing.T) 
 		mockRepo,
 		nil, // embedding repo
 		nil, // embedding client
+		nil, // queue client
 		nil, // lifecycle manager
 		nil, // logger
 		nil, // encryption

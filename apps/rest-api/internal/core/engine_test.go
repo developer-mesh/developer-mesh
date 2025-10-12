@@ -296,7 +296,7 @@ func TestEngineIntegration(t *testing.T) {
 	engine := NewEngine(logger)
 
 	// Create a real context manager (with nil DB so it works in-memory)
-	contextManager := NewContextManager(nil, logger, metrics)
+	contextManager := NewContextManager(nil, logger, metrics, nil)
 
 	// Set the context manager on the engine
 	engine.SetContextManager(contextManager)
