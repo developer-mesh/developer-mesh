@@ -52,9 +52,9 @@ func NewArtifactoryWebhookHandler(
 
 // ArtifactoryWebhookPayload represents the Artifactory webhook payload
 type ArtifactoryWebhookPayload struct {
-	Domain    string              `json:"domain"`
-	EventType string              `json:"event_type"`
-	Timestamp int64               `json:"timestamp"`
+	Domain    string               `json:"domain"`
+	EventType string               `json:"event_type"`
+	Timestamp int64                `json:"timestamp"`
 	Data      ArtifactoryEventData `json:"data"`
 }
 
@@ -495,9 +495,9 @@ func (h *ArtifactoryWebhookHandler) createReleaseFromArtifactory(
 		ArtifactoryPath: &artifactoryPath,
 		PackageType:     string(packageInfo.Type),
 		Metadata: models.JSONMap{
-			"source":                "artifactory",
-			"artifactory_repo":      payload.Data.RepoPath.RepoKey,
-			"artifactory_path":      payload.Data.Path,
+			"source":                  "artifactory",
+			"artifactory_repo":        payload.Data.RepoPath.RepoKey,
+			"artifactory_path":        payload.Data.Path,
 			"artifactory_deployed_at": publishedAt.Format(time.RFC3339),
 			"artifactory_deployed_by": payload.Data.CreatedBy,
 		},
@@ -574,4 +574,3 @@ func (h *ArtifactoryWebhookHandler) extractTenantID(event queue.Event) (uuid.UUI
 	// Default to system tenant if not specified
 	return uuid.Parse("00000000-0000-0000-0000-000000000001")
 }
-

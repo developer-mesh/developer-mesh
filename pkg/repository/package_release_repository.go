@@ -126,7 +126,12 @@ func (r *packageReleaseRepository) Create(ctx context.Context, release *models.P
 	if err != nil {
 		return fmt.Errorf("failed to insert package release: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			// Log but don't override the primary error
+			fmt.Printf("warning: failed to close rows: %v\n", closeErr)
+		}
+	}()
 
 	if rows.Next() {
 		if err := rows.Scan(&id); err != nil {

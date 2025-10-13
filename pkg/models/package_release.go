@@ -20,30 +20,30 @@ const (
 
 // PackageRelease represents a package release in the system
 type PackageRelease struct {
-	ID               uuid.UUID       `json:"id" db:"id"`
-	TenantID         uuid.UUID       `json:"tenant_id" db:"tenant_id"`
-	RepositoryName   string          `json:"repository_name" db:"repository_name"`
-	PackageName      string          `json:"package_name" db:"package_name"`
-	Version          string          `json:"version" db:"version"`
-	VersionMajor     *int            `json:"version_major,omitempty" db:"version_major"`
-	VersionMinor     *int            `json:"version_minor,omitempty" db:"version_minor"`
-	VersionPatch     *int            `json:"version_patch,omitempty" db:"version_patch"`
-	Prerelease       *string         `json:"prerelease,omitempty" db:"prerelease"`
-	IsBreakingChange bool            `json:"is_breaking_change" db:"is_breaking_change"`
-	ReleaseNotes     *string         `json:"release_notes,omitempty" db:"release_notes"`
-	Changelog        *string         `json:"changelog,omitempty" db:"changelog"`
-	PublishedAt      time.Time       `json:"published_at" db:"published_at"`
-	AuthorLogin      *string         `json:"author_login,omitempty" db:"author_login"`
-	GitHubReleaseID  *int64          `json:"github_release_id,omitempty" db:"github_release_id"`
-	ArtifactoryPath  *string         `json:"artifactory_path,omitempty" db:"artifactory_path"`
-	PackageType      string          `json:"package_type" db:"package_type"`
-	Description      *string         `json:"description,omitempty" db:"description"`
-	License          *string         `json:"license,omitempty" db:"license"`
-	Homepage         *string         `json:"homepage,omitempty" db:"homepage"`
-	DocumentationURL *string         `json:"documentation_url,omitempty" db:"documentation_url"`
-	Metadata         JSONMap         `json:"metadata" db:"metadata"`
-	CreatedAt        time.Time       `json:"created_at" db:"created_at"`
-	UpdatedAt        time.Time       `json:"updated_at" db:"updated_at"`
+	ID               uuid.UUID `json:"id" db:"id"`
+	TenantID         uuid.UUID `json:"tenant_id" db:"tenant_id"`
+	RepositoryName   string    `json:"repository_name" db:"repository_name"`
+	PackageName      string    `json:"package_name" db:"package_name"`
+	Version          string    `json:"version" db:"version"`
+	VersionMajor     *int      `json:"version_major,omitempty" db:"version_major"`
+	VersionMinor     *int      `json:"version_minor,omitempty" db:"version_minor"`
+	VersionPatch     *int      `json:"version_patch,omitempty" db:"version_patch"`
+	Prerelease       *string   `json:"prerelease,omitempty" db:"prerelease"`
+	IsBreakingChange bool      `json:"is_breaking_change" db:"is_breaking_change"`
+	ReleaseNotes     *string   `json:"release_notes,omitempty" db:"release_notes"`
+	Changelog        *string   `json:"changelog,omitempty" db:"changelog"`
+	PublishedAt      time.Time `json:"published_at" db:"published_at"`
+	AuthorLogin      *string   `json:"author_login,omitempty" db:"author_login"`
+	GitHubReleaseID  *int64    `json:"github_release_id,omitempty" db:"github_release_id"`
+	ArtifactoryPath  *string   `json:"artifactory_path,omitempty" db:"artifactory_path"`
+	PackageType      string    `json:"package_type" db:"package_type"`
+	Description      *string   `json:"description,omitempty" db:"description"`
+	License          *string   `json:"license,omitempty" db:"license"`
+	Homepage         *string   `json:"homepage,omitempty" db:"homepage"`
+	DocumentationURL *string   `json:"documentation_url,omitempty" db:"documentation_url"`
+	Metadata         JSONMap   `json:"metadata" db:"metadata"`
+	CreatedAt        time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at" db:"updated_at"`
 }
 
 // PackageAsset represents an artifact associated with a release
@@ -113,26 +113,26 @@ type PackageDependency struct {
 
 // PackageReleaseCreate represents the data needed to create a new package release
 type PackageReleaseCreate struct {
-	TenantID         uuid.UUID   `json:"tenant_id" validate:"required"`
-	RepositoryName   string      `json:"repository_name" validate:"required"`
-	PackageName      string      `json:"package_name" validate:"required"`
-	Version          string      `json:"version" validate:"required"`
-	VersionMajor     *int        `json:"version_major,omitempty"`
-	VersionMinor     *int        `json:"version_minor,omitempty"`
-	VersionPatch     *int        `json:"version_patch,omitempty"`
-	Prerelease       *string     `json:"prerelease,omitempty"`
-	IsBreakingChange bool        `json:"is_breaking_change"`
-	ReleaseNotes     *string     `json:"release_notes,omitempty"`
-	Changelog        *string     `json:"changelog,omitempty"`
-	PublishedAt      time.Time   `json:"published_at" validate:"required"`
-	AuthorLogin      *string     `json:"author_login,omitempty"`
-	GitHubReleaseID  *int64      `json:"github_release_id,omitempty"`
-	PackageType      string      `json:"package_type" validate:"required"`
-	Description      *string     `json:"description,omitempty"`
-	License          *string     `json:"license,omitempty"`
-	Homepage         *string     `json:"homepage,omitempty"`
-	DocumentationURL *string     `json:"documentation_url,omitempty"`
-	Metadata         JSONMap     `json:"metadata,omitempty"`
+	TenantID         uuid.UUID `json:"tenant_id" validate:"required"`
+	RepositoryName   string    `json:"repository_name" validate:"required"`
+	PackageName      string    `json:"package_name" validate:"required"`
+	Version          string    `json:"version" validate:"required"`
+	VersionMajor     *int      `json:"version_major,omitempty"`
+	VersionMinor     *int      `json:"version_minor,omitempty"`
+	VersionPatch     *int      `json:"version_patch,omitempty"`
+	Prerelease       *string   `json:"prerelease,omitempty"`
+	IsBreakingChange bool      `json:"is_breaking_change"`
+	ReleaseNotes     *string   `json:"release_notes,omitempty"`
+	Changelog        *string   `json:"changelog,omitempty"`
+	PublishedAt      time.Time `json:"published_at" validate:"required"`
+	AuthorLogin      *string   `json:"author_login,omitempty"`
+	GitHubReleaseID  *int64    `json:"github_release_id,omitempty"`
+	PackageType      string    `json:"package_type" validate:"required"`
+	Description      *string   `json:"description,omitempty"`
+	License          *string   `json:"license,omitempty"`
+	Homepage         *string   `json:"homepage,omitempty"`
+	DocumentationURL *string   `json:"documentation_url,omitempty"`
+	Metadata         JSONMap   `json:"metadata,omitempty"`
 }
 
 // PackageReleaseWithDetails includes all related data for a release

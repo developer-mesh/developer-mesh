@@ -60,17 +60,17 @@ type ArtifactChecksums struct {
 
 // BuildInfo represents Artifactory build information
 type BuildInfo struct {
-	BuildName    string                 `json:"name"`
-	BuildNumber  string                 `json:"number"`
-	BuildAgent   BuildAgent             `json:"buildAgent"`
-	Started      string                 `json:"started"`
-	DurationMs   int64                  `json:"durationMillis"`
-	Principal    string                 `json:"principal"`
-	ArtifactorURI string                `json:"artifactoryPrincipal"`
-	URL          string                 `json:"url"`
-	VCS          []VCSInfo              `json:"vcs"`
-	Modules      []BuildModule          `json:"modules"`
-	Properties   map[string]interface{} `json:"properties"`
+	BuildName     string                 `json:"name"`
+	BuildNumber   string                 `json:"number"`
+	BuildAgent    BuildAgent             `json:"buildAgent"`
+	Started       string                 `json:"started"`
+	DurationMs    int64                  `json:"durationMillis"`
+	Principal     string                 `json:"principal"`
+	ArtifactorURI string                 `json:"artifactoryPrincipal"`
+	URL           string                 `json:"url"`
+	VCS           []VCSInfo              `json:"vcs"`
+	Modules       []BuildModule          `json:"modules"`
+	Properties    map[string]interface{} `json:"properties"`
 }
 
 // BuildAgent represents the build agent information
@@ -88,7 +88,7 @@ type VCSInfo struct {
 
 // BuildModule represents a build module
 type BuildModule struct {
-	ID           string         `json:"id"`
+	ID           string          `json:"id"`
 	Artifacts    []BuildArtifact `json:"artifacts"`
 	Dependencies []BuildArtifact `json:"dependencies"`
 }
@@ -128,7 +128,7 @@ func (c *ArtifactoryClient) GetArtifactProperties(ctx context.Context, repoKey, 
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Artifactory API returned status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("artifactory API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var properties ArtifactProperties
@@ -183,7 +183,7 @@ func (c *ArtifactoryClient) GetBuildInfo(ctx context.Context, buildName, buildNu
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Artifactory API returned status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("artifactory API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var buildInfo BuildInfo
@@ -220,7 +220,7 @@ func (c *ArtifactoryClient) SearchArtifactsByChecksum(ctx context.Context, check
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Artifactory API returned status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("artifactory API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var searchResponse struct {
@@ -268,7 +268,7 @@ func (c *ArtifactoryClient) SearchArtifactsByProperty(ctx context.Context, key, 
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Artifactory API returned status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("artifactory API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var searchResponse struct {
@@ -307,7 +307,7 @@ func (c *ArtifactoryClient) SearchArtifactsByGAVC(ctx context.Context, groupID, 
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Artifactory API returned status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("artifactory API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var searchResponse struct {

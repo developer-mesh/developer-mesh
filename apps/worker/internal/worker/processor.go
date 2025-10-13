@@ -12,13 +12,13 @@ import (
 
 // EventProcessor handles webhook events using the generic processor
 type EventProcessor struct {
-	genericProcessor            WebhookEventProcessor
-	contextEmbeddingProcessor   *ContextEmbeddingProcessor
-	packageEnrichmentProcessor  *PackageEnrichmentProcessor
-	githubReleaseHandler        *GitHubReleaseHandler
-	artifactoryWebhookHandler   *ArtifactoryWebhookHandler
-	logger                      observability.Logger
-	metrics                     observability.MetricsClient
+	genericProcessor           WebhookEventProcessor
+	contextEmbeddingProcessor  *ContextEmbeddingProcessor
+	packageEnrichmentProcessor *PackageEnrichmentProcessor
+	githubReleaseHandler       *GitHubReleaseHandler
+	artifactoryWebhookHandler  *ArtifactoryWebhookHandler
+	logger                     observability.Logger
+	metrics                    observability.MetricsClient
 }
 
 // NewEventProcessor creates a new processor for webhook events

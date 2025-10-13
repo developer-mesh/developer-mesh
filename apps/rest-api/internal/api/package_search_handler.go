@@ -55,25 +55,25 @@ type PackageSearchResultResponse struct {
 
 // PackageInfo represents package information in the response
 type PackageInfo struct {
-	ID               uuid.UUID                `json:"id"`
-	PackageName      string                   `json:"package_name"`
-	Version          string                   `json:"version"`
-	PackageType      string                   `json:"package_type"`
-	Repository       string                   `json:"repository"`
-	Description      *string                  `json:"description,omitempty"`
-	License          *string                  `json:"license,omitempty"`
-	Homepage         *string                  `json:"homepage,omitempty"`
-	PublishedAt      string                   `json:"published_at"`
-	IsBreakingChange bool                     `json:"is_breaking_change"`
-	ArtifactoryPath  *string                  `json:"artifactory_path,omitempty"`
-	Metadata         map[string]interface{}   `json:"metadata,omitempty"`
+	ID               uuid.UUID              `json:"id"`
+	PackageName      string                 `json:"package_name"`
+	Version          string                 `json:"version"`
+	PackageType      string                 `json:"package_type"`
+	Repository       string                 `json:"repository"`
+	Description      *string                `json:"description,omitempty"`
+	License          *string                `json:"license,omitempty"`
+	Homepage         *string                `json:"homepage,omitempty"`
+	PublishedAt      string                 `json:"published_at"`
+	IsBreakingChange bool                   `json:"is_breaking_change"`
+	ArtifactoryPath  *string                `json:"artifactory_path,omitempty"`
+	Metadata         map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // PackageHistoryResponse represents package version history
 type PackageHistoryResponse struct {
-	PackageName string                `json:"package_name"`
+	PackageName string                 `json:"package_name"`
 	Versions    []*VersionInfoResponse `json:"versions"`
-	TotalCount  int                   `json:"total_count"`
+	TotalCount  int                    `json:"total_count"`
 }
 
 // VersionInfoResponse represents a single version in history
@@ -88,10 +88,10 @@ type VersionInfoResponse struct {
 
 // DependencyGraphResponse represents a dependency graph
 type DependencyGraphResponse struct {
-	PackageName string              `json:"package_name"`
-	Version     string              `json:"version"`
+	PackageName string                  `json:"package_name"`
+	Version     string                  `json:"version"`
 	Root        *DependencyNodeResponse `json:"root"`
-	TotalNodes  int                 `json:"total_nodes"`
+	TotalNodes  int                     `json:"total_nodes"`
 }
 
 // DependencyNodeResponse represents a node in the dependency graph

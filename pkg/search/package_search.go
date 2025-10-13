@@ -206,7 +206,13 @@ func (s *PackageSearchService) Search(ctx context.Context, query PackageSearchQu
 		})
 		return nil, fmt.Errorf("failed to execute package search: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			s.logger.Warn("Failed to close rows", map[string]interface{}{
+				"error": closeErr.Error(),
+			})
+		}
+	}()
 
 	// Process results
 	var results []*PackageSearchResult
@@ -277,12 +283,12 @@ func (s *PackageSearchService) Search(ctx context.Context, query PackageSearchQu
 	s.metrics.RecordHistogram("package_search_results_count", float64(len(results)), nil)
 
 	s.logger.Info("Package search completed", map[string]interface{}{
-		"query":        query.Query,
-		"results":      len(results),
-		"tenant_id":    query.TenantID,
-		"model_used":   embeddingResp.ModelUsed,
-		"dimensions":   embeddingResp.Dimensions,
-		"tokens_used":  embeddingResp.TokensUsed,
+		"query":       query.Query,
+		"results":     len(results),
+		"tenant_id":   query.TenantID,
+		"model_used":  embeddingResp.ModelUsed,
+		"dimensions":  embeddingResp.Dimensions,
+		"tokens_used": embeddingResp.TokensUsed,
 	})
 
 	return results, nil
@@ -314,7 +320,13 @@ func (s *PackageSearchService) GetPackageHistory(ctx context.Context, tenantID u
 	if err != nil {
 		return nil, fmt.Errorf("failed to get package history: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			s.logger.Warn("Failed to close rows", map[string]interface{}{
+				"error": closeErr.Error(),
+			})
+		}
+	}()
 
 	var versions []*PackageVersionInfo
 	for rows.Next() {
@@ -410,7 +422,13 @@ func (s *PackageSearchService) fetchDependenciesRecursive(
 	if err != nil {
 		return fmt.Errorf("failed to fetch dependencies: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			s.logger.Warn("Failed to close rows", map[string]interface{}{
+				"error": closeErr.Error(),
+			})
+		}
+	}()
 
 	for rows.Next() {
 		var depName, versionConstraint string
@@ -428,11 +446,11 @@ func (s *PackageSearchService) fetchDependenciesRecursive(
 
 		// Create new node
 		depNode := &DependencyNode{
-			PackageName:       depName,
-			Version:           versionConstraint,
-			ResolvedVersion:   resolvedVersion,
-			DependencyType:    depType,
-			Children:          make([]*DependencyNode, 0),
+			PackageName:     depName,
+			Version:         versionConstraint,
+			ResolvedVersion: resolvedVersion,
+			DependencyType:  depType,
+			Children:        make([]*DependencyNode, 0),
 		}
 
 		visited[depName] = depNode

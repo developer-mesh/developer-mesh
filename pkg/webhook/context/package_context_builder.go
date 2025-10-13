@@ -36,50 +36,50 @@ func NewPackageContextBuilder(
 // EnrichedPackageContext represents enriched context for a package release
 type EnrichedPackageContext struct {
 	// Core Information
-	ReleaseID      uuid.UUID              `json:"release_id"`
-	PackageName    string                 `json:"package_name"`
-	Version        string                 `json:"version"`
-	PackageType    string                 `json:"package_type"`
-	ReleaseDate    time.Time              `json:"release_date"`
-	Repository     string                 `json:"repository"`
+	ReleaseID   uuid.UUID `json:"release_id"`
+	PackageName string    `json:"package_name"`
+	Version     string    `json:"version"`
+	PackageType string    `json:"package_type"`
+	ReleaseDate time.Time `json:"release_date"`
+	Repository  string    `json:"repository"`
 
 	// Release Information
-	ReleaseNotes    *string                `json:"release_notes,omitempty"`
-	Changelog       *string                `json:"changelog,omitempty"`
-	BreakingChanges []string               `json:"breaking_changes,omitempty"`
-	NewFeatures     []string               `json:"new_features,omitempty"`
-	BugFixes        []string               `json:"bug_fixes,omitempty"`
-	MigrationGuide  *string                `json:"migration_guide,omitempty"`
+	ReleaseNotes    *string  `json:"release_notes,omitempty"`
+	Changelog       *string  `json:"changelog,omitempty"`
+	BreakingChanges []string `json:"breaking_changes,omitempty"`
+	NewFeatures     []string `json:"new_features,omitempty"`
+	BugFixes        []string `json:"bug_fixes,omitempty"`
+	MigrationGuide  *string  `json:"migration_guide,omitempty"`
 
 	// Package Metadata
-	Description     *string                `json:"description,omitempty"`
-	Author          *string                `json:"author,omitempty"`
-	License         *string                `json:"license,omitempty"`
-	Homepage        *string                `json:"homepage,omitempty"`
-	Documentation   *string                `json:"documentation,omitempty"`
+	Description   *string `json:"description,omitempty"`
+	Author        *string `json:"author,omitempty"`
+	License       *string `json:"license,omitempty"`
+	Homepage      *string `json:"homepage,omitempty"`
+	Documentation *string `json:"documentation,omitempty"`
 
 	// Dependencies
-	Dependencies    []DependencyInfo       `json:"dependencies,omitempty"`
-	DevDependencies []DependencyInfo       `json:"dev_dependencies,omitempty"`
+	Dependencies    []DependencyInfo `json:"dependencies,omitempty"`
+	DevDependencies []DependencyInfo `json:"dev_dependencies,omitempty"`
 
 	// API Changes
-	APIChanges      []APIChangeInfo        `json:"api_changes,omitempty"`
+	APIChanges []APIChangeInfo `json:"api_changes,omitempty"`
 
 	// Artifactory Information
-	ArtifactoryPath *string                `json:"artifactory_path,omitempty"`
-	Assets          []AssetInfo            `json:"assets,omitempty"`
+	ArtifactoryPath *string     `json:"artifactory_path,omitempty"`
+	Assets          []AssetInfo `json:"assets,omitempty"`
 
 	// Search Optimization
-	SearchableText  string                 `json:"searchable_text"`
-	Keywords        []string               `json:"keywords"`
-	Categories      []string               `json:"categories"`
+	SearchableText string   `json:"searchable_text"`
+	Keywords       []string `json:"keywords"`
+	Categories     []string `json:"categories"`
 
 	// Embeddings
-	Embedding       []float32              `json:"embedding,omitempty"`
-	EmbeddingModel  string                 `json:"embedding_model,omitempty"`
+	Embedding      []float32 `json:"embedding,omitempty"`
+	EmbeddingModel string    `json:"embedding_model,omitempty"`
 
 	// Metadata
-	Metadata        map[string]interface{} `json:"metadata"`
+	Metadata map[string]interface{} `json:"metadata"`
 }
 
 // DependencyInfo represents dependency information
@@ -93,21 +93,21 @@ type DependencyInfo struct {
 
 // APIChangeInfo represents API change information
 type APIChangeInfo struct {
-	Type          string  `json:"type"`
-	Signature     string  `json:"signature"`
-	Description   *string `json:"description,omitempty"`
-	Breaking      bool    `json:"breaking"`
-	FilePath      *string `json:"file_path,omitempty"`
-	LineNumber    *int    `json:"line_number,omitempty"`
+	Type        string  `json:"type"`
+	Signature   string  `json:"signature"`
+	Description *string `json:"description,omitempty"`
+	Breaking    bool    `json:"breaking"`
+	FilePath    *string `json:"file_path,omitempty"`
+	LineNumber  *int    `json:"line_number,omitempty"`
 }
 
 // AssetInfo represents asset information
 type AssetInfo struct {
-	Name           string  `json:"name"`
-	Size           int64   `json:"size,omitempty"`
-	ContentType    *string `json:"content_type,omitempty"`
-	DownloadURL    *string `json:"download_url,omitempty"`
-	ArtifactoryURL *string `json:"artifactory_url,omitempty"`
+	Name           string            `json:"name"`
+	Size           int64             `json:"size,omitempty"`
+	ContentType    *string           `json:"content_type,omitempty"`
+	DownloadURL    *string           `json:"download_url,omitempty"`
+	ArtifactoryURL *string           `json:"artifactory_url,omitempty"`
 	Checksums      map[string]string `json:"checksums,omitempty"`
 }
 
@@ -510,12 +510,12 @@ func (b *PackageContextBuilder) GenerateEmbedding(
 	enrichedCtx.Metadata["embedding_id"] = resp.EmbeddingID.String()
 
 	b.logger.Info("Generated embedding for package release", map[string]interface{}{
-		"package":        enrichedCtx.PackageName,
-		"version":        enrichedCtx.Version,
-		"embedding_id":   resp.EmbeddingID,
-		"model":          resp.ModelUsed,
-		"dimensions":     resp.Dimensions,
-		"tokens_used":    resp.TokensUsed,
+		"package":      enrichedCtx.PackageName,
+		"version":      enrichedCtx.Version,
+		"embedding_id": resp.EmbeddingID,
+		"model":        resp.ModelUsed,
+		"dimensions":   resp.Dimensions,
+		"tokens_used":  resp.TokensUsed,
 	})
 
 	return nil

@@ -121,15 +121,39 @@ func (m *MockPackageReleaseRepository) GetWithDetails(ctx context.Context, id uu
 	return args.Get(0).(*models.PackageReleaseWithDetails), args.Error(1)
 }
 
+func (m *MockPackageReleaseRepository) SearchByName(ctx context.Context, tenantID uuid.UUID, namePattern string, limit int) ([]*models.PackageRelease, error) {
+	args := m.Called(ctx, tenantID, namePattern, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*models.PackageRelease), args.Error(1)
+}
+
+func (m *MockPackageReleaseRepository) GetVersionHistory(ctx context.Context, tenantID uuid.UUID, packageName string, limit int) ([]*models.PackageRelease, error) {
+	args := m.Called(ctx, tenantID, packageName, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*models.PackageRelease), args.Error(1)
+}
+
+func (m *MockPackageReleaseRepository) FindByDependency(ctx context.Context, tenantID uuid.UUID, dependencyName string, limit int) ([]*models.PackageRelease, error) {
+	args := m.Called(ctx, tenantID, dependencyName, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*models.PackageRelease), args.Error(1)
+}
+
 func TestGitHubReleaseHandler_ParseVersion(t *testing.T) {
 	handler := &GitHubReleaseHandler{}
 
 	tests := []struct {
-		name              string
-		tag               string
-		expectedMajor     int
-		expectedMinor     int
-		expectedPatch     int
+		name               string
+		tag                string
+		expectedMajor      int
+		expectedMinor      int
+		expectedPatch      int
 		expectedPrerelease *string
 	}{
 		{
@@ -193,12 +217,12 @@ func TestGitHubReleaseHandler_ParseReleaseNotes(t *testing.T) {
 	handler := &GitHubReleaseHandler{}
 
 	tests := []struct {
-		name                      string
-		body                      string
-		expectedHasBreaking       bool
-		expectedBreakingCount     int
-		expectedNewFeaturesCount  int
-		expectedBugFixesCount     int
+		name                     string
+		body                     string
+		expectedHasBreaking      bool
+		expectedBreakingCount    int
+		expectedNewFeaturesCount int
+		expectedBugFixesCount    int
 	}{
 		{
 			name: "release notes with breaking changes",
@@ -259,7 +283,7 @@ func TestGitHubReleaseHandler_Handle_Published(t *testing.T) {
 	logger := observability.NewLogger("test")
 	metrics := observability.NewMetricsClient()
 
-	handler := NewGitHubReleaseHandler(mockRepo, logger, metrics)
+	handler := NewGitHubReleaseHandler(mockRepo, nil, logger, metrics)
 
 	// Create a sample GitHub release payload
 	payload := GitHubReleasePayload{
@@ -313,7 +337,7 @@ func TestGitHubReleaseHandler_Handle_SkipDraft(t *testing.T) {
 	logger := observability.NewLogger("test")
 	metrics := observability.NewMetricsClient()
 
-	handler := NewGitHubReleaseHandler(mockRepo, logger, metrics)
+	handler := NewGitHubReleaseHandler(mockRepo, nil, logger, metrics)
 
 	payload := GitHubReleasePayload{
 		Action: "published",
@@ -358,10 +382,10 @@ func TestGitHubReleaseHandler_ExtractSection(t *testing.T) {
 - Resolved crash on startup`
 
 	tests := []struct {
-		name           string
-		headers        []string
-		expectedCount  int
-		expectedFirst  string
+		name          string
+		headers       []string
+		expectedCount int
+		expectedFirst string
 	}{
 		{
 			name:          "extract breaking changes",

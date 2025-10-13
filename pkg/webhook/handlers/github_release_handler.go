@@ -48,48 +48,48 @@ func NewGitHubReleaseHandler(
 
 // GitHubReleasePayload represents the GitHub release webhook payload
 type GitHubReleasePayload struct {
-	Action     string `json:"action"`
-	Release    GitHubRelease `json:"release"`
+	Action     string           `json:"action"`
+	Release    GitHubRelease    `json:"release"`
 	Repository GitHubRepository `json:"repository"`
-	Sender     GitHubUser `json:"sender"`
+	Sender     GitHubUser       `json:"sender"`
 }
 
 // GitHubRelease represents a GitHub release
 type GitHubRelease struct {
-	ID          int64             `json:"id"`
-	TagName     string            `json:"tag_name"`
-	Name        string            `json:"name"`
-	Body        string            `json:"body"`
-	Draft       bool              `json:"draft"`
-	Prerelease  bool              `json:"prerelease"`
-	CreatedAt   string            `json:"created_at"`
-	PublishedAt string            `json:"published_at"`
-	Author      GitHubUser        `json:"author"`
-	Assets      []GitHubAsset     `json:"assets"`
-	TarballURL  string            `json:"tarball_url"`
-	ZipballURL  string            `json:"zipball_url"`
+	ID          int64         `json:"id"`
+	TagName     string        `json:"tag_name"`
+	Name        string        `json:"name"`
+	Body        string        `json:"body"`
+	Draft       bool          `json:"draft"`
+	Prerelease  bool          `json:"prerelease"`
+	CreatedAt   string        `json:"created_at"`
+	PublishedAt string        `json:"published_at"`
+	Author      GitHubUser    `json:"author"`
+	Assets      []GitHubAsset `json:"assets"`
+	TarballURL  string        `json:"tarball_url"`
+	ZipballURL  string        `json:"zipball_url"`
 }
 
 // GitHubAsset represents a release asset
 type GitHubAsset struct {
-	ID          int64  `json:"id"`
-	Name        string `json:"name"`
-	ContentType string `json:"content_type"`
-	Size        int64  `json:"size"`
-	DownloadURL string `json:"browser_download_url"`
-	State       string `json:"state"`
+	ID          int64      `json:"id"`
+	Name        string     `json:"name"`
+	ContentType string     `json:"content_type"`
+	Size        int64      `json:"size"`
+	DownloadURL string     `json:"browser_download_url"`
+	State       string     `json:"state"`
 	Uploader    GitHubUser `json:"uploader"`
 }
 
 // GitHubRepository represents a GitHub repository
 type GitHubRepository struct {
-	ID          int64  `json:"id"`
-	Name        string `json:"name"`
-	FullName    string `json:"full_name"`
-	Description string `json:"description"`
-	Homepage    string `json:"homepage"`
+	ID          int64         `json:"id"`
+	Name        string        `json:"name"`
+	FullName    string        `json:"full_name"`
+	Description string        `json:"description"`
+	Homepage    string        `json:"homepage"`
 	License     GitHubLicense `json:"license"`
-	Language    string `json:"language"`
+	Language    string        `json:"language"`
 }
 
 // GitHubLicense represents a repository license
@@ -201,11 +201,11 @@ func (h *GitHubReleaseHandler) Handle(ctx context.Context, event queue.Event) er
 		Description:      strPtr(payload.Repository.Description),
 		Homepage:         strPtr(payload.Repository.Homepage),
 		Metadata: models.JSONMap{
-			"github_url":   fmt.Sprintf("https://github.com/%s/releases/tag/%s", payload.Repository.FullName, payload.Release.TagName),
+			"github_url":    fmt.Sprintf("https://github.com/%s/releases/tag/%s", payload.Repository.FullName, payload.Release.TagName),
 			"is_prerelease": payload.Release.Prerelease,
-			"language":     payload.Repository.Language,
-			"tarball_url":  payload.Release.TarballURL,
-			"zipball_url":  payload.Release.ZipballURL,
+			"language":      payload.Repository.Language,
+			"tarball_url":   payload.Release.TarballURL,
+			"zipball_url":   payload.Release.ZipballURL,
 		},
 	}
 
@@ -226,10 +226,10 @@ func (h *GitHubReleaseHandler) Handle(ctx context.Context, event queue.Event) er
 	}
 
 	h.logger.Info("Stored package release", map[string]interface{}{
-		"release_id":  release.ID,
-		"package":     release.PackageName,
-		"version":     release.Version,
-		"repository":  release.RepositoryName,
+		"release_id": release.ID,
+		"package":    release.PackageName,
+		"version":    release.Version,
+		"repository": release.RepositoryName,
 	})
 
 	// Store assets
