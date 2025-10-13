@@ -211,6 +211,9 @@ services:
       - DEFAULT_EMBEDDING_MODEL=${DEFAULT_EMBEDDING_MODEL:-amazon.titan-embed-text-v2:0}
       - CONTEXT_CHUNK_SIZE=${CONTEXT_CHUNK_SIZE:-1000}
       - EMBEDDING_BATCH_SIZE=${EMBEDDING_BATCH_SIZE:-10}
+      # Artifactory Configuration (optional - for Phase 2 webhook processing)
+      - ARTIFACTORY_URL=${ARTIFACTORY_URL:-https://artifactory.example.com}
+      - ARTIFACTORY_API_KEY=${ARTIFACTORY_API_KEY:-test-artifactory-key}
     depends_on:
       rest-api:
         condition: service_healthy

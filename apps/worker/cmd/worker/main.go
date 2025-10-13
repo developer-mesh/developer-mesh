@@ -391,6 +391,25 @@ func runWorker(ctx context.Context) error {
 		logger.Info("Context embedding processor attached to event processor", nil)
 	}
 
+	// Initialize GitHub release handler
+	releaseRepo := repository.NewPackageReleaseRepository(db.GetDB())
+	githubReleaseHandler := worker.NewGitHubReleaseHandler(releaseRepo, logger, nil)
+	eventProcessor.SetGitHubReleaseHandler(githubReleaseHandler)
+	logger.Info("GitHub release handler attached to event processor", nil)
+
+	// Initialize Artifactory webhook handler (if configured)
+	artifactoryURL := os.Getenv("ARTIFACTORY_URL")
+	artifactoryAPIKey := os.Getenv("ARTIFACTORY_API_KEY")
+	if artifactoryURL != "" && artifactoryAPIKey != "" {
+		artifactoryHandler := worker.NewArtifactoryWebhookHandler(releaseRepo, artifactoryURL, artifactoryAPIKey, logger, nil)
+		eventProcessor.SetArtifactoryWebhookHandler(artifactoryHandler)
+		logger.Info("Artifactory webhook handler attached to event processor", map[string]interface{}{
+			"artifactory_url": artifactoryURL,
+		})
+	} else {
+		logger.Info("Artifactory webhook handler not configured (missing ARTIFACTORY_URL or ARTIFACTORY_API_KEY)", nil)
+	}
+
 	// Create processor function that uses the new event processor
 	processorFunc := func(event queue.Event) error {
 		return eventProcessor.ProcessEvent(ctx, event)

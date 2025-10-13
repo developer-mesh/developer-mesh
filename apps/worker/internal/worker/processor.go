@@ -14,6 +14,8 @@ import (
 type EventProcessor struct {
 	genericProcessor          WebhookEventProcessor
 	contextEmbeddingProcessor *ContextEmbeddingProcessor
+	githubReleaseHandler      *GitHubReleaseHandler
+	artifactoryWebhookHandler *ArtifactoryWebhookHandler
 	logger                    observability.Logger
 	metrics                   observability.MetricsClient
 }
@@ -72,6 +74,24 @@ func (p *EventProcessor) ProcessEvent(ctx context.Context, event queue.Event) er
 			"event_type": event.EventType,
 		})
 		return nil
+
+	case "release", "github.release":
+		if p.githubReleaseHandler != nil {
+			return p.githubReleaseHandler.Handle(ctx, event)
+		}
+		// Fall through to generic processor if release handler not configured
+		p.logger.Debug("GitHub release handler not configured, using generic processor", map[string]interface{}{
+			"event_type": event.EventType,
+		})
+
+	case "artifactory", "artifactory.deployed", "artifact.deployed":
+		if p.artifactoryWebhookHandler != nil {
+			return p.artifactoryWebhookHandler.Handle(ctx, event)
+		}
+		// Fall through to generic processor if Artifactory handler not configured
+		p.logger.Debug("Artifactory webhook handler not configured, using generic processor", map[string]interface{}{
+			"event_type": event.EventType,
+		})
 	}
 
 	// Default to generic processor for all other events
@@ -85,4 +105,14 @@ func (p *EventProcessor) ProcessEvent(ctx context.Context, event queue.Event) er
 // SetContextEmbeddingProcessor sets the context embedding processor
 func (p *EventProcessor) SetContextEmbeddingProcessor(processor *ContextEmbeddingProcessor) {
 	p.contextEmbeddingProcessor = processor
+}
+
+// SetGitHubReleaseHandler sets the GitHub release handler
+func (p *EventProcessor) SetGitHubReleaseHandler(handler *GitHubReleaseHandler) {
+	p.githubReleaseHandler = handler
+}
+
+// SetArtifactoryWebhookHandler sets the Artifactory webhook handler
+func (p *EventProcessor) SetArtifactoryWebhookHandler(handler *ArtifactoryWebhookHandler) {
+	p.artifactoryWebhookHandler = handler
 }
