@@ -57,6 +57,15 @@ type PackageReleaseRepository interface {
 
 	// GetWithDetails retrieves a release with all related data
 	GetWithDetails(ctx context.Context, id uuid.UUID) (*models.PackageReleaseWithDetails, error)
+
+	// SearchByName searches for releases by package name (fuzzy search)
+	SearchByName(ctx context.Context, tenantID uuid.UUID, namePattern string, limit int) ([]*models.PackageRelease, error)
+
+	// GetVersionHistory retrieves version history for a package
+	GetVersionHistory(ctx context.Context, tenantID uuid.UUID, packageName string, limit int) ([]*models.PackageRelease, error)
+
+	// FindByDependency finds releases that depend on a specific package
+	FindByDependency(ctx context.Context, tenantID uuid.UUID, dependencyName string, limit int) ([]*models.PackageRelease, error)
 }
 
 // packageReleaseRepository is the SQL implementation
@@ -416,4 +425,74 @@ func derefSlice[T any](slice []*T) []T {
 		}
 	}
 	return result
+}
+
+// SearchByName searches for releases by package name (fuzzy search)
+func (r *packageReleaseRepository) SearchByName(ctx context.Context, tenantID uuid.UUID, namePattern string, limit int) ([]*models.PackageRelease, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+
+	var releases []*models.PackageRelease
+	query := `
+		SELECT * FROM mcp.package_releases
+		WHERE tenant_id = $1
+		AND (
+			package_name ILIKE $2
+			OR repository_name ILIKE $2
+		)
+		ORDER BY published_at DESC
+		LIMIT $3`
+
+	pattern := "%" + namePattern + "%"
+	err := r.db.SelectContext(ctx, &releases, query, tenantID, pattern, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search releases by name: %w", err)
+	}
+
+	return releases, nil
+}
+
+// GetVersionHistory retrieves version history for a package
+func (r *packageReleaseRepository) GetVersionHistory(ctx context.Context, tenantID uuid.UUID, packageName string, limit int) ([]*models.PackageRelease, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+
+	var releases []*models.PackageRelease
+	query := `
+		SELECT * FROM mcp.package_releases
+		WHERE tenant_id = $1 AND package_name = $2
+		ORDER BY published_at DESC
+		LIMIT $3`
+
+	err := r.db.SelectContext(ctx, &releases, query, tenantID, packageName, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get version history: %w", err)
+	}
+
+	return releases, nil
+}
+
+// FindByDependency finds releases that depend on a specific package
+func (r *packageReleaseRepository) FindByDependency(ctx context.Context, tenantID uuid.UUID, dependencyName string, limit int) ([]*models.PackageRelease, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+
+	var releases []*models.PackageRelease
+	query := `
+		SELECT DISTINCT pr.* FROM mcp.package_releases pr
+		JOIN mcp.package_dependencies pd ON pd.release_id = pr.id
+		WHERE pr.tenant_id = $1
+		AND pd.dependency_name = $2
+		ORDER BY pr.published_at DESC
+		LIMIT $3`
+
+	err := r.db.SelectContext(ctx, &releases, query, tenantID, dependencyName, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find releases by dependency: %w", err)
+	}
+
+	return releases, nil
 }

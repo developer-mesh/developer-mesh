@@ -33,6 +33,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/database"
 	"github.com/developer-mesh/developer-mesh/pkg/embedding"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/search"
 	"github.com/developer-mesh/developer-mesh/pkg/security"
 	"github.com/developer-mesh/developer-mesh/pkg/tools"
 	"github.com/gin-gonic/gin"
@@ -743,6 +744,29 @@ func (s *Server) setupRoutes(ctx context.Context) {
 			"endpoints": []string{
 				"/api/v1/embedding-models/catalog",
 				"/api/v1/tenant-models",
+			},
+		})
+	}
+
+	// Package Search API - Semantic search for package releases (Phase 4)
+	if embeddingService != nil {
+		// Create package search service
+		packageSearchService := search.NewPackageSearchService(
+			s.db,
+			embeddingService,
+			s.logger,
+			s.metrics,
+		)
+
+		// Create and register Package Search API
+		packageSearchHandler := NewPackageSearchHandler(packageSearchService)
+		packageSearchHandler.RegisterRoutes(v1)
+
+		s.logger.Info("Package Search API initialized successfully", map[string]any{
+			"endpoints": []string{
+				"/api/v1/packages/search",
+				"/api/v1/packages/:package_name/history",
+				"/api/v1/packages/:package_name/:version/dependencies",
 			},
 		})
 	}
