@@ -2,6 +2,7 @@ package worker
 
 import (
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/queue"
 	"github.com/developer-mesh/developer-mesh/pkg/repository"
 	"github.com/developer-mesh/developer-mesh/pkg/webhook/handlers"
 )
@@ -12,8 +13,9 @@ type GitHubReleaseHandler = handlers.GitHubReleaseHandler
 // NewGitHubReleaseHandler creates a new GitHub release handler
 func NewGitHubReleaseHandler(
 	releaseRepo repository.PackageReleaseRepository,
+	queueClient *queue.Client,
 	logger observability.Logger,
 	metrics observability.MetricsClient,
 ) *GitHubReleaseHandler {
-	return handlers.NewGitHubReleaseHandler(releaseRepo, logger, metrics)
+	return handlers.NewGitHubReleaseHandler(releaseRepo, queueClient, logger, metrics)
 }

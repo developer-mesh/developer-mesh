@@ -320,6 +320,7 @@ func runWorker(ctx context.Context) error {
 
 	// Initialize embedding service for context processing (optional)
 	var contextEmbeddingProcessor *worker.ContextEmbeddingProcessor
+	var embeddingService *embedding.ServiceV2
 
 	// Load full configuration to support all embedding options
 	embeddingConfig, err := config.Load()
@@ -349,7 +350,7 @@ func runWorker(ctx context.Context) error {
 			})
 
 			// Create embedding service using the factory with cache client
-			embeddingService, err := embedding.CreateEmbeddingServiceV2(embeddingConfig, *db, cacheClient)
+			embeddingService, err = embedding.CreateEmbeddingServiceV2(embeddingConfig, *db, cacheClient)
 			if err != nil {
 				logger.Warn("Failed to create embedding service, context embeddings disabled", map[string]interface{}{
 					"error": err.Error(),
@@ -393,7 +394,7 @@ func runWorker(ctx context.Context) error {
 
 	// Initialize GitHub release handler
 	releaseRepo := repository.NewPackageReleaseRepository(db.GetDB())
-	githubReleaseHandler := worker.NewGitHubReleaseHandler(releaseRepo, logger, nil)
+	githubReleaseHandler := worker.NewGitHubReleaseHandler(releaseRepo, queueClient, logger, nil)
 	eventProcessor.SetGitHubReleaseHandler(githubReleaseHandler)
 	logger.Info("GitHub release handler attached to event processor", nil)
 
@@ -401,13 +402,35 @@ func runWorker(ctx context.Context) error {
 	artifactoryURL := os.Getenv("ARTIFACTORY_URL")
 	artifactoryAPIKey := os.Getenv("ARTIFACTORY_API_KEY")
 	if artifactoryURL != "" && artifactoryAPIKey != "" {
-		artifactoryHandler := worker.NewArtifactoryWebhookHandler(releaseRepo, artifactoryURL, artifactoryAPIKey, logger, nil)
+		artifactoryHandler := worker.NewArtifactoryWebhookHandler(releaseRepo, artifactoryURL, artifactoryAPIKey, queueClient, logger, nil)
 		eventProcessor.SetArtifactoryWebhookHandler(artifactoryHandler)
 		logger.Info("Artifactory webhook handler attached to event processor", map[string]interface{}{
 			"artifactory_url": artifactoryURL,
 		})
 	} else {
 		logger.Info("Artifactory webhook handler not configured (missing ARTIFACTORY_URL or ARTIFACTORY_API_KEY)", nil)
+	}
+
+	// Initialize Package Enrichment Processor (Phase 3)
+	if embeddingService != nil {
+		// Create context repository
+		contextRepo := repository.NewPostgresContextRepository(db.GetDB())
+
+		// Create package enrichment processor
+		packageEnrichmentProcessor := worker.NewPackageEnrichmentProcessor(
+			releaseRepo,
+			contextRepo,
+			embeddingService,
+			logger,
+			nil,
+		)
+
+		eventProcessor.SetPackageEnrichmentProcessor(packageEnrichmentProcessor)
+		logger.Info("Package enrichment processor attached to event processor (Phase 3)", map[string]interface{}{
+			"embedding_provider": "configured",
+		})
+	} else {
+		logger.Info("Package enrichment processor not configured (embedding service not available)", nil)
 	}
 
 	// Create processor function that uses the new event processor

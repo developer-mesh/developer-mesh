@@ -20,6 +20,7 @@ type ArtifactoryWebhookHandler struct {
 	releaseRepo       repository.PackageReleaseRepository
 	artifactoryClient *ArtifactoryClient
 	releaseMatcher    *GitHubReleaseMatcher
+	queueClient       *queue.Client
 	logger            observability.Logger
 	metrics           observability.MetricsClient
 }
@@ -28,6 +29,7 @@ type ArtifactoryWebhookHandler struct {
 func NewArtifactoryWebhookHandler(
 	releaseRepo repository.PackageReleaseRepository,
 	artifactoryClient *ArtifactoryClient,
+	queueClient *queue.Client,
 	logger observability.Logger,
 	metrics observability.MetricsClient,
 ) *ArtifactoryWebhookHandler {
@@ -42,6 +44,7 @@ func NewArtifactoryWebhookHandler(
 		releaseRepo:       releaseRepo,
 		artifactoryClient: artifactoryClient,
 		releaseMatcher:    NewGitHubReleaseMatcher(releaseRepo, logger),
+		queueClient:       queueClient,
 		logger:            logger,
 		metrics:           metrics,
 	}
@@ -165,6 +168,7 @@ func (h *ArtifactoryWebhookHandler) Handle(ctx context.Context, event queue.Even
 	}
 
 	// Update or create package release record
+	var releaseID uuid.UUID
 	if githubRelease != nil {
 		// Update existing GitHub release with Artifactory information
 		if err := h.updateReleaseWithArtifactory(ctx, githubRelease, payload, packageInfo, metadata); err != nil {
@@ -175,9 +179,11 @@ func (h *ArtifactoryWebhookHandler) Handle(ctx context.Context, event queue.Even
 			h.metrics.IncrementCounter("webhook_artifactory_storage_errors_total", 1)
 			return fmt.Errorf("failed to update release with Artifactory data: %w", err)
 		}
+		releaseID = githubRelease.ID
 	} else {
 		// Create new release record from Artifactory data
-		if err := h.createReleaseFromArtifactory(ctx, tenantID, payload, packageInfo, metadata); err != nil {
+		release, err := h.createReleaseFromArtifactory(ctx, tenantID, payload, packageInfo, metadata)
+		if err != nil {
 			h.logger.Error("Failed to create release from Artifactory data", map[string]interface{}{
 				"package": packageInfo.Name,
 				"version": packageInfo.Version,
@@ -186,11 +192,60 @@ func (h *ArtifactoryWebhookHandler) Handle(ctx context.Context, event queue.Even
 			h.metrics.IncrementCounter("webhook_artifactory_storage_errors_total", 1)
 			return fmt.Errorf("failed to create release from Artifactory data: %w", err)
 		}
+		releaseID = release.ID
 	}
 
 	h.metrics.IncrementCounterWithLabels("webhook_artifactory_processed_total", 1, map[string]string{
 		"repo_key":  payload.Data.RepoPath.RepoKey,
 		"tenant_id": tenantID.String(),
+	})
+
+	// Publish enrichment event for Phase 3 processing (if queue client available)
+	if h.queueClient != nil {
+		if err := h.publishEnrichmentEvent(ctx, releaseID, tenantID, event.AuthContext); err != nil {
+			// Log warning but don't fail the entire operation
+			h.logger.Warn("Failed to publish enrichment event", map[string]interface{}{
+				"release_id": releaseID,
+				"error":      err.Error(),
+			})
+		}
+	}
+
+	return nil
+}
+
+// publishEnrichmentEvent publishes an event to trigger package enrichment
+func (h *ArtifactoryWebhookHandler) publishEnrichmentEvent(ctx context.Context, releaseID uuid.UUID, tenantID uuid.UUID, authContext *queue.EventAuthContext) error {
+	// Create enrichment event payload
+	payload, err := json.Marshal(map[string]interface{}{
+		"release_id": releaseID.String(),
+		"tenant_id":  tenantID.String(),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to marshal enrichment event: %w", err)
+	}
+
+	// Publish to queue
+	enrichmentEvent := queue.Event{
+		EventID:     uuid.New().String(),
+		EventType:   "package.enrichment",
+		Payload:     payload,
+		AuthContext: authContext,
+		Timestamp:   time.Now(),
+		Metadata: map[string]interface{}{
+			"source":     "artifactory_webhook_handler",
+			"release_id": releaseID.String(),
+		},
+	}
+
+	if err := h.queueClient.EnqueueEvent(ctx, enrichmentEvent); err != nil {
+		h.metrics.IncrementCounter("webhook_enrichment_event_errors_total", 1)
+		return fmt.Errorf("failed to enqueue enrichment event: %w", err)
+	}
+
+	h.logger.Debug("Published enrichment event", map[string]interface{}{
+		"event_id":   enrichmentEvent.EventID,
+		"release_id": releaseID,
 	})
 
 	return nil
@@ -423,7 +478,7 @@ func (h *ArtifactoryWebhookHandler) createReleaseFromArtifactory(
 	payload ArtifactoryWebhookPayload,
 	packageInfo *PackageInfo,
 	metadata map[string]interface{},
-) error {
+) (*models.PackageRelease, error) {
 	// Parse published timestamp
 	publishedAt := time.Unix(payload.Timestamp/1000, 0)
 
@@ -470,7 +525,7 @@ func (h *ArtifactoryWebhookHandler) createReleaseFromArtifactory(
 
 	// Store the release
 	if err := h.releaseRepo.Create(ctx, release); err != nil {
-		return fmt.Errorf("failed to create release: %w", err)
+		return nil, fmt.Errorf("failed to create release: %w", err)
 	}
 
 	h.logger.Info("Created release from Artifactory data", map[string]interface{}{
@@ -504,7 +559,7 @@ func (h *ArtifactoryWebhookHandler) createReleaseFromArtifactory(
 		})
 	}
 
-	return nil
+	return release, nil
 }
 
 // extractTenantID extracts the tenant ID from the event auth context

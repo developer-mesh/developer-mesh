@@ -2,6 +2,7 @@ package worker
 
 import (
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/queue"
 	"github.com/developer-mesh/developer-mesh/pkg/repository"
 	"github.com/developer-mesh/developer-mesh/pkg/webhook/handlers"
 )
@@ -14,6 +15,7 @@ func NewArtifactoryWebhookHandler(
 	releaseRepo repository.PackageReleaseRepository,
 	artifactoryURL string,
 	artifactoryAPIKey string,
+	queueClient *queue.Client,
 	logger observability.Logger,
 	metrics observability.MetricsClient,
 ) *ArtifactoryWebhookHandler {
@@ -21,5 +23,5 @@ func NewArtifactoryWebhookHandler(
 	artifactoryClient := handlers.NewArtifactoryClient(artifactoryURL, artifactoryAPIKey, logger)
 
 	// Create and return the handler
-	return handlers.NewArtifactoryWebhookHandler(releaseRepo, artifactoryClient, logger, metrics)
+	return handlers.NewArtifactoryWebhookHandler(releaseRepo, artifactoryClient, queueClient, logger, metrics)
 }

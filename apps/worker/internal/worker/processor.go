@@ -12,12 +12,13 @@ import (
 
 // EventProcessor handles webhook events using the generic processor
 type EventProcessor struct {
-	genericProcessor          WebhookEventProcessor
-	contextEmbeddingProcessor *ContextEmbeddingProcessor
-	githubReleaseHandler      *GitHubReleaseHandler
-	artifactoryWebhookHandler *ArtifactoryWebhookHandler
-	logger                    observability.Logger
-	metrics                   observability.MetricsClient
+	genericProcessor            WebhookEventProcessor
+	contextEmbeddingProcessor   *ContextEmbeddingProcessor
+	packageEnrichmentProcessor  *PackageEnrichmentProcessor
+	githubReleaseHandler        *GitHubReleaseHandler
+	artifactoryWebhookHandler   *ArtifactoryWebhookHandler
+	logger                      observability.Logger
+	metrics                     observability.MetricsClient
 }
 
 // NewEventProcessor creates a new processor for webhook events
@@ -75,6 +76,16 @@ func (p *EventProcessor) ProcessEvent(ctx context.Context, event queue.Event) er
 		})
 		return nil
 
+	case "package.enrichment":
+		if p.packageEnrichmentProcessor != nil {
+			return p.packageEnrichmentProcessor.ProcessEvent(ctx, event)
+		}
+		// Fall through to generic processor if enrichment processor not configured
+		p.logger.Debug("Package enrichment processor not configured, skipping event", map[string]interface{}{
+			"event_type": event.EventType,
+		})
+		return nil
+
 	case "release", "github.release":
 		if p.githubReleaseHandler != nil {
 			return p.githubReleaseHandler.Handle(ctx, event)
@@ -105,6 +116,11 @@ func (p *EventProcessor) ProcessEvent(ctx context.Context, event queue.Event) er
 // SetContextEmbeddingProcessor sets the context embedding processor
 func (p *EventProcessor) SetContextEmbeddingProcessor(processor *ContextEmbeddingProcessor) {
 	p.contextEmbeddingProcessor = processor
+}
+
+// SetPackageEnrichmentProcessor sets the package enrichment processor
+func (p *EventProcessor) SetPackageEnrichmentProcessor(processor *PackageEnrichmentProcessor) {
+	p.packageEnrichmentProcessor = processor
 }
 
 // SetGitHubReleaseHandler sets the GitHub release handler

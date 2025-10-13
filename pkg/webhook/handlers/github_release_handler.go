@@ -19,6 +19,7 @@ import (
 // GitHubReleaseHandler processes GitHub release webhook events
 type GitHubReleaseHandler struct {
 	releaseRepo repository.PackageReleaseRepository
+	queueClient *queue.Client
 	logger      observability.Logger
 	metrics     observability.MetricsClient
 }
@@ -26,6 +27,7 @@ type GitHubReleaseHandler struct {
 // NewGitHubReleaseHandler creates a new GitHub release handler
 func NewGitHubReleaseHandler(
 	releaseRepo repository.PackageReleaseRepository,
+	queueClient *queue.Client,
 	logger observability.Logger,
 	metrics observability.MetricsClient,
 ) *GitHubReleaseHandler {
@@ -38,6 +40,7 @@ func NewGitHubReleaseHandler(
 
 	return &GitHubReleaseHandler{
 		releaseRepo: releaseRepo,
+		queueClient: queueClient,
 		logger:      logger,
 		metrics:     metrics,
 	}
@@ -264,6 +267,54 @@ func (h *GitHubReleaseHandler) Handle(ctx context.Context, event queue.Event) er
 	h.metrics.IncrementCounterWithLabels("webhook_github_release_processed_total", 1, map[string]string{
 		"repository": payload.Repository.FullName,
 		"tenant_id":  tenantID.String(),
+	})
+
+	// Publish enrichment event for Phase 3 processing (if queue client available)
+	if h.queueClient != nil {
+		if err := h.publishEnrichmentEvent(ctx, release.ID, tenantID, event.AuthContext); err != nil {
+			// Log warning but don't fail the entire operation
+			h.logger.Warn("Failed to publish enrichment event", map[string]interface{}{
+				"release_id": release.ID,
+				"error":      err.Error(),
+			})
+		}
+	}
+
+	return nil
+}
+
+// publishEnrichmentEvent publishes an event to trigger package enrichment
+func (h *GitHubReleaseHandler) publishEnrichmentEvent(ctx context.Context, releaseID uuid.UUID, tenantID uuid.UUID, authContext *queue.EventAuthContext) error {
+	// Create enrichment event payload
+	payload, err := json.Marshal(map[string]interface{}{
+		"release_id": releaseID.String(),
+		"tenant_id":  tenantID.String(),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to marshal enrichment event: %w", err)
+	}
+
+	// Publish to queue
+	enrichmentEvent := queue.Event{
+		EventID:     uuid.New().String(),
+		EventType:   "package.enrichment",
+		Payload:     payload,
+		AuthContext: authContext,
+		Timestamp:   time.Now(),
+		Metadata: map[string]interface{}{
+			"source":     "github_release_handler",
+			"release_id": releaseID.String(),
+		},
+	}
+
+	if err := h.queueClient.EnqueueEvent(ctx, enrichmentEvent); err != nil {
+		h.metrics.IncrementCounter("webhook_enrichment_event_errors_total", 1)
+		return fmt.Errorf("failed to enqueue enrichment event: %w", err)
+	}
+
+	h.logger.Debug("Published enrichment event", map[string]interface{}{
+		"event_id":   enrichmentEvent.EventID,
+		"release_id": releaseID,
 	})
 
 	return nil
