@@ -89,7 +89,7 @@ type ConfluenceConfig struct {
 // SlackConfig defines configuration for Slack source
 type SlackConfig struct {
 	WorkspaceID string   `json:"workspace_id" binding:"required"`
-	Channels    []string `json:"channels,omitempty"` // Empty means all accessible channels
+	Channels    []string `json:"channels,omitempty"`  // Empty means all accessible channels
 	DaysBack    int      `json:"days_back,omitempty"` // How many days of history to fetch
 }
 

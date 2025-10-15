@@ -15,14 +15,14 @@ import (
 
 // OrgConfig holds the configuration for GitHub organization-wide crawling
 type OrgConfig struct {
-	Org              string   `json:"org"`
-	Token            string   `json:"token"`
-	Repos            []string `json:"repos"`             // Optional: specific repos, empty = all repos
-	IncludeArchived  bool     `json:"include_archived"`  // Default: false
-	IncludeForks     bool     `json:"include_forks"`     // Default: false
-	IncludePatterns  []string `json:"include_patterns"`  // File patterns to include
-	ExcludePatterns  []string `json:"exclude_patterns"`  // File patterns to exclude
-	Branch           string   `json:"branch"`            // Default branch to use (empty = repo default)
+	Org             string   `json:"org"`
+	Token           string   `json:"token"`
+	Repos           []string `json:"repos"`            // Optional: specific repos, empty = all repos
+	IncludeArchived bool     `json:"include_archived"` // Default: false
+	IncludeForks    bool     `json:"include_forks"`    // Default: false
+	IncludePatterns []string `json:"include_patterns"` // File patterns to include
+	ExcludePatterns []string `json:"exclude_patterns"` // File patterns to exclude
+	Branch          string   `json:"branch"`           // Default branch to use (empty = repo default)
 }
 
 // OrgClient handles GitHub organization operations

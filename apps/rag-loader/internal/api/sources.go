@@ -193,11 +193,24 @@ func (h *SourceHandler) CreateSource(c *gin.Context) {
 	}
 
 	if err = h.repo.CreateSource(c.Request.Context(), tx, source); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create source"})
+		log.Printf("Failed to create source: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "failed to create source",
+			"details": err.Error(),
+		})
 		return
 	}
 
-	// Store encrypted credentials
+	// Commit transaction BEFORE storing credentials (FK constraint requires source to exist first)
+	if err = tx.Commit(); err != nil {
+		log.Printf("Failed to commit transaction: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save"})
+		return
+	}
+	log.Printf("Transaction committed successfully, source created: %s", source.SourceID)
+
+	// Store encrypted credentials AFTER transaction commits
+	// (foreign key constraint requires source to exist in rag.tenant_sources)
 	if req.Credentials != nil {
 		for credType, value := range req.Credentials {
 			if err = h.credMgr.StoreCredential(
@@ -207,16 +220,18 @@ func (h *SourceHandler) CreateSource(c *gin.Context) {
 				credType,
 				value,
 			); err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to store credentials"})
+				log.Printf("Failed to store credential %s: %v", credType, err)
+				// Source is already created, so delete it to maintain consistency
+				if delErr := h.repo.DeleteSource(c.Request.Context(), tenantID, req.SourceID); delErr != nil {
+					log.Printf("Failed to delete source after credential error: %v", delErr)
+				}
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"error":   "failed to store credentials",
+					"details": err.Error(),
+				})
 				return
 			}
 		}
-	}
-
-	// Commit transaction
-	if err = tx.Commit(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save"})
-		return
 	}
 
 	// TODO: Schedule sync job if schedule provided
@@ -377,6 +392,7 @@ func (h *SourceHandler) GetSyncJobs(c *gin.Context) {
 
 	jobs, err := h.repo.ListSyncJobs(c.Request.Context(), tenantID, sourceID, limit)
 	if err != nil {
+		log.Printf("Failed to list sync jobs for source %s: %v", sourceID, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list jobs"})
 		return
 	}

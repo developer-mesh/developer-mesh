@@ -9,21 +9,21 @@ import (
 
 // TenantSource represents a tenant's data source configuration
 type TenantSource struct {
-	ID              uuid.UUID       `db:"id" json:"id"`
-	TenantID        uuid.UUID       `db:"tenant_id" json:"tenant_id"`
-	SourceID        string          `db:"source_id" json:"source_id"`
-	SourceType      string          `db:"source_type" json:"source_type"`
-	Enabled         bool            `db:"enabled" json:"enabled"`
-	Schedule        string          `db:"schedule" json:"schedule,omitempty"`
-	Config          json.RawMessage `db:"config" json:"config"`
-	LastSyncAt      *time.Time      `db:"last_sync_at" json:"last_sync_at,omitempty"`
-	NextSyncAt      *time.Time      `db:"next_sync_at" json:"next_sync_at,omitempty"`
-	SyncStatus      string          `db:"sync_status" json:"sync_status"`
-	SyncErrorCount  int             `db:"sync_error_count" json:"sync_error_count"`
-	CreatedAt       time.Time       `db:"created_at" json:"created_at"`
-	UpdatedAt       time.Time       `db:"updated_at" json:"updated_at"`
-	CreatedBy       uuid.UUID       `db:"created_by" json:"created_by,omitempty"`
-	UpdatedBy       *uuid.UUID      `db:"updated_by" json:"updated_by,omitempty"`
+	ID             uuid.UUID       `db:"id" json:"id"`
+	TenantID       uuid.UUID       `db:"tenant_id" json:"tenant_id"`
+	SourceID       string          `db:"source_id" json:"source_id"`
+	SourceType     string          `db:"source_type" json:"source_type"`
+	Enabled        bool            `db:"enabled" json:"enabled"`
+	Schedule       string          `db:"schedule" json:"schedule,omitempty"`
+	Config         json.RawMessage `db:"config" json:"config"`
+	LastSyncAt     *time.Time      `db:"last_sync_at" json:"last_sync_at,omitempty"`
+	NextSyncAt     *time.Time      `db:"next_sync_at" json:"next_sync_at,omitempty"`
+	SyncStatus     string          `db:"sync_status" json:"sync_status"`
+	SyncErrorCount int             `db:"sync_error_count" json:"sync_error_count"`
+	CreatedAt      time.Time       `db:"created_at" json:"created_at"`
+	UpdatedAt      time.Time       `db:"updated_at" json:"updated_at"`
+	CreatedBy      uuid.UUID       `db:"created_by" json:"created_by,omitempty"`
+	UpdatedBy      *uuid.UUID      `db:"updated_by" json:"updated_by,omitempty"`
 }
 
 // TenantSourceCredential represents encrypted credentials for a source
@@ -64,23 +64,23 @@ type TenantDocument struct {
 
 // TenantSyncJob represents a sync job for a tenant source
 type TenantSyncJob struct {
-	ID                 uuid.UUID       `db:"id" json:"id"`
-	TenantID           uuid.UUID       `db:"tenant_id" json:"tenant_id"`
-	SourceID           string          `db:"source_id" json:"source_id"`
-	JobType            string          `db:"job_type" json:"job_type"`
-	Status             string          `db:"status" json:"status"`
-	Priority           int             `db:"priority" json:"priority"`
-	StartedAt          *time.Time      `db:"started_at" json:"started_at,omitempty"`
-	CompletedAt        *time.Time      `db:"completed_at" json:"completed_at,omitempty"`
-	DocumentsProcessed int             `db:"documents_processed" json:"documents_processed"`
-	DocumentsAdded     int             `db:"documents_added" json:"documents_added"`
-	DocumentsUpdated   int             `db:"documents_updated" json:"documents_updated"`
-	DocumentsDeleted   int             `db:"documents_deleted" json:"documents_deleted"`
-	ChunksCreated      int             `db:"chunks_created" json:"chunks_created"`
-	ErrorsCount        int             `db:"errors_count" json:"errors_count"`
-	ErrorMessage       *string         `db:"error_message" json:"error_message,omitempty"`
-	ErrorDetails       json.RawMessage `db:"error_details" json:"error_details,omitempty"`
-	DurationMs         *int            `db:"duration_ms" json:"duration_ms,omitempty"`
-	MemoryUsedMb       *int            `db:"memory_used_mb" json:"memory_used_mb,omitempty"`
-	CreatedAt          time.Time       `db:"created_at" json:"created_at"`
+	ID                 uuid.UUID        `db:"id" json:"id"`
+	TenantID           uuid.UUID        `db:"tenant_id" json:"tenant_id"`
+	SourceID           string           `db:"source_id" json:"source_id"`
+	JobType            string           `db:"job_type" json:"job_type"`
+	Status             string           `db:"status" json:"status"`
+	Priority           int              `db:"priority" json:"priority"`
+	StartedAt          *time.Time       `db:"started_at" json:"started_at,omitempty"`
+	CompletedAt        *time.Time       `db:"completed_at" json:"completed_at,omitempty"`
+	DocumentsProcessed int              `db:"documents_processed" json:"documents_processed"`
+	DocumentsAdded     int              `db:"documents_added" json:"documents_added"`
+	DocumentsUpdated   int              `db:"documents_updated" json:"documents_updated"`
+	DocumentsDeleted   int              `db:"documents_deleted" json:"documents_deleted"`
+	ChunksCreated      int              `db:"chunks_created" json:"chunks_created"`
+	ErrorsCount        int              `db:"errors_count" json:"errors_count"`
+	ErrorMessage       *string          `db:"error_message" json:"error_message,omitempty"`
+	ErrorDetails       *json.RawMessage `db:"error_details" json:"error_details,omitempty"`
+	DurationMs         *int             `db:"duration_ms" json:"duration_ms,omitempty"`
+	MemoryUsedMb       *int             `db:"memory_used_mb" json:"memory_used_mb,omitempty"`
+	CreatedAt          time.Time        `db:"created_at" json:"created_at"`
 }

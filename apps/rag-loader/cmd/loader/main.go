@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"flag"
 	"fmt"
 	"log"
@@ -12,17 +13,22 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gorilla/mux"
+	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/developer-mesh/developer-mesh/apps/rag-loader/internal/api"
+	"github.com/developer-mesh/developer-mesh/apps/rag-loader/internal/auth"
 	"github.com/developer-mesh/developer-mesh/apps/rag-loader/internal/config"
+	"github.com/developer-mesh/developer-mesh/apps/rag-loader/internal/middleware"
+	"github.com/developer-mesh/developer-mesh/apps/rag-loader/internal/repository"
+	"github.com/developer-mesh/developer-mesh/apps/rag-loader/internal/scheduler"
 	"github.com/developer-mesh/developer-mesh/apps/rag-loader/internal/service"
 	"github.com/developer-mesh/developer-mesh/pkg/database"
 	"github.com/developer-mesh/developer-mesh/pkg/embedding"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/rag/security"
 	repoVector "github.com/developer-mesh/developer-mesh/pkg/repository/vector"
 )
 
@@ -105,10 +111,59 @@ func main() {
 		serviceDone <- loaderService.Start(ctx)
 	}()
 
+	// Get RAG master key for credential encryption (base64 encoded, 32 bytes)
+	ragMasterKeyB64 := os.Getenv("RAG_MASTER_KEY")
+	if ragMasterKeyB64 == "" {
+		logger.Warn("RAG_MASTER_KEY not set, using default (insecure)", nil)
+		ragMasterKeyB64 = "K5UjoD45dEV/PehMDwar9ORfItM39KtUg5dT+HymK2A="
+	}
+
+	// Decode base64 master key
+	ragMasterKey, err := base64.StdEncoding.DecodeString(ragMasterKeyB64)
+	if err != nil {
+		log.Fatalf("Failed to decode RAG_MASTER_KEY: %v", err)
+	}
+	if len(ragMasterKey) != 32 {
+		log.Fatalf("RAG_MASTER_KEY must be 32 bytes (got %d bytes)", len(ragMasterKey))
+	}
+
+	credManager := security.NewCredentialManager(db, ragMasterKey)
+
+	// Create and start job processor
+	jobProcessorConfig := scheduler.JobProcessorConfig{
+		PollInterval:  30 * time.Second,
+		MaxConcurrent: cfg.Scheduler.MaxConcurrentJobs,
+		BatchSize:     cfg.Processing.Embedding.BatchSize,
+		RetryAttempts: 3,
+		RetryDelay:    time.Second,
+	}
+	jobProcessor := scheduler.NewJobProcessor(
+		db,
+		credManager,
+		embeddingClient,
+		vectorRepo,
+		logger,
+		jobProcessorConfig,
+	)
+
+	// Start job processor in background
+	go func() {
+		if err := jobProcessor.Start(); err != nil {
+			logger.Error("Job processor error", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
+
+	logger.Info("Job processor started", map[string]interface{}{
+		"poll_interval":  jobProcessorConfig.PollInterval.String(),
+		"max_concurrent": jobProcessorConfig.MaxConcurrent,
+	})
+
 	// Start API server if enabled
 	var httpServer *http.Server
 	if cfg.Scheduler.EnableAPI {
-		httpServer = startAPIServer(cfg, loaderService, logger)
+		httpServer = startAPIServer(cfg, db, logger)
 	}
 
 	// Start health check endpoint
@@ -134,6 +189,10 @@ func main() {
 	// Create shutdown context with timeout
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), cfg.Service.ShutdownTimeout)
 	defer shutdownCancel()
+
+	// Stop the job processor
+	jobProcessor.Stop()
+	logger.Info("Job processor stopped", nil)
 
 	// Stop the loader service
 	if err := loaderService.Stop(); err != nil {
@@ -229,13 +288,71 @@ func connectDatabase(ctx context.Context, cfg config.DatabaseConfig, logger obse
 	return nil, fmt.Errorf("failed to connect to database after %d attempts", maxRetries)
 }
 
-// startAPIServer starts the HTTP API server
-func startAPIServer(cfg *config.Config, svc *service.LoaderService, logger observability.Logger) *http.Server {
-	router := mux.NewRouter()
+// startAPIServer starts the HTTP API server with multi-tenant support
+func startAPIServer(cfg *config.Config, db *sqlx.DB, logger observability.Logger) *http.Server {
+	// Set Gin mode based on log level
+	if cfg.Service.LogLevel == "debug" {
+		gin.SetMode(gin.DebugMode)
+	} else {
+		gin.SetMode(gin.ReleaseMode)
+	}
 
-	// Create API handler
-	apiHandler := api.NewHandler(svc, logger)
-	apiHandler.RegisterRoutes(router)
+	// Create Gin router
+	router := gin.New()
+	router.Use(gin.Recovery())
+
+	// Create dependencies
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		jwtSecret = "docker-jwt-secret-change-in-production"
+	}
+	jwtValidator := auth.NewJWTValidator([]byte(jwtSecret), "devmesh")
+
+	// Get RAG master key for credential encryption (base64 encoded, 32 bytes)
+	ragMasterKeyB64 := os.Getenv("RAG_MASTER_KEY")
+	if ragMasterKeyB64 == "" {
+		logger.Warn("RAG_MASTER_KEY not set, using default (insecure)", nil)
+		ragMasterKeyB64 = "K5UjoD45dEV/PehMDwar9ORfItM39KtUg5dT+HymK2A="
+	}
+
+	// Decode base64 master key
+	ragMasterKey, err := base64.StdEncoding.DecodeString(ragMasterKeyB64)
+	if err != nil {
+		log.Fatalf("Failed to decode RAG_MASTER_KEY: %v", err)
+	}
+	if len(ragMasterKey) != 32 {
+		log.Fatalf("RAG_MASTER_KEY must be 32 bytes (got %d bytes)", len(ragMasterKey))
+	}
+
+	credManager := security.NewCredentialManager(db, ragMasterKey)
+
+	sourceRepo := repository.NewSourceRepository(db)
+
+	// Create middleware
+	tenantMw := middleware.NewTenantMiddleware(db, jwtValidator)
+
+	// Create handlers
+	sourceHandler := api.NewSourceHandler(sourceRepo, credManager)
+
+	// Register routes
+	v1 := router.Group("/api/v1/rag")
+	{
+		// Protected routes (require authentication)
+		protected := v1.Group("")
+		protected.Use(tenantMw.ExtractTenant())
+		{
+			// Source management
+			protected.POST("/sources", sourceHandler.CreateSource)
+			protected.GET("/sources", sourceHandler.ListSources)
+			protected.GET("/sources/:id", sourceHandler.GetSource)
+			protected.PUT("/sources/:id", sourceHandler.UpdateSource)
+			protected.DELETE("/sources/:id", sourceHandler.DeleteSource)
+
+			// Sync management
+			protected.POST("/sources/:id/sync", sourceHandler.TriggerSync)
+			protected.GET("/sources/:id/jobs", sourceHandler.GetSyncJobs)
+		}
+	}
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.Service.Port),

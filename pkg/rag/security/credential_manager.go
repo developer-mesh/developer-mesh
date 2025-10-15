@@ -206,5 +206,5 @@ func (cm *CredentialManager) deriveTenantKey(tenantID uuid.UUID) []byte {
 	h.Write(cm.masterKey)
 	h.Write([]byte(tenantID.String()))
 	h.Write([]byte("RAG_TENANT_KEY_V1")) // Version tag for future key rotation
-	return h.Sum(nil)[:32]                // Use first 32 bytes for AES-256
+	return h.Sum(nil)[:32]               // Use first 32 bytes for AES-256
 }

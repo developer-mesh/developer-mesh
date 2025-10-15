@@ -42,29 +42,34 @@ func (r *SourceRepository) BeginTx(ctx context.Context) (*sqlx.Tx, error) {
 
 // CreateSource creates a new tenant source configuration
 func (r *SourceRepository) CreateSource(ctx context.Context, tx *sqlx.Tx, source *models.TenantSource) error {
-	// Set tenant context for RLS
-	if err := r.setTenantContext(ctx, source.TenantID); err != nil {
-		return err
-	}
-
 	query := `
 		INSERT INTO rag.tenant_sources (
 			id, tenant_id, source_id, source_type,
 			config, schedule, enabled, created_by
 		) VALUES (
-			:id, :tenant_id, :source_id, :source_type,
-			:config, :schedule, :enabled, :created_by
+			$1, $2, $3, $4, $5, $6, $7, $8
 		)`
 
+	var result sql.Result
 	var err error
+
 	if tx != nil {
-		_, err = tx.NamedExecContext(ctx, query, source)
+		result, err = tx.ExecContext(ctx, query,
+			source.ID, source.TenantID, source.SourceID, source.SourceType,
+			source.Config, source.Schedule, source.Enabled, source.CreatedBy)
 	} else {
-		_, err = r.db.NamedExecContext(ctx, query, source)
+		result, err = r.db.ExecContext(ctx, query,
+			source.ID, source.TenantID, source.SourceID, source.SourceType,
+			source.Config, source.Schedule, source.Enabled, source.CreatedBy)
 	}
 
 	if err != nil {
 		return fmt.Errorf("failed to insert source: %w", err)
+	}
+
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("no rows inserted")
 	}
 
 	return nil
@@ -72,12 +77,7 @@ func (r *SourceRepository) CreateSource(ctx context.Context, tx *sqlx.Tx, source
 
 // ListSourcesByTenant retrieves all sources for a tenant
 func (r *SourceRepository) ListSourcesByTenant(ctx context.Context, tenantID uuid.UUID) ([]*models.TenantSource, error) {
-	// Set tenant context for RLS
-	if err := r.setTenantContext(ctx, tenantID); err != nil {
-		return nil, err
-	}
-
-	// Query with explicit tenant filter as additional safety layer
+	// Query with explicit tenant filter for application-level tenant isolation
 	query := `
 		SELECT
 			id, tenant_id, source_id, source_type,
@@ -99,10 +99,6 @@ func (r *SourceRepository) ListSourcesByTenant(ctx context.Context, tenantID uui
 
 // GetSource retrieves a specific source by tenant and source ID
 func (r *SourceRepository) GetSource(ctx context.Context, tenantID uuid.UUID, sourceID string) (*models.TenantSource, error) {
-	if err := r.setTenantContext(ctx, tenantID); err != nil {
-		return nil, err
-	}
-
 	var source models.TenantSource
 	query := `
 		SELECT
@@ -126,10 +122,6 @@ func (r *SourceRepository) GetSource(ctx context.Context, tenantID uuid.UUID, so
 
 // GetEnabledSourcesByTenant retrieves all enabled sources for a tenant
 func (r *SourceRepository) GetEnabledSourcesByTenant(ctx context.Context, tenantID uuid.UUID) ([]*models.TenantSource, error) {
-	if err := r.setTenantContext(ctx, tenantID); err != nil {
-		return nil, err
-	}
-
 	query := `
 		SELECT
 			id, tenant_id, source_id, source_type,
@@ -151,10 +143,6 @@ func (r *SourceRepository) GetEnabledSourcesByTenant(ctx context.Context, tenant
 
 // UpdateSource updates a source configuration
 func (r *SourceRepository) UpdateSource(ctx context.Context, source *models.TenantSource) error {
-	if err := r.setTenantContext(ctx, source.TenantID); err != nil {
-		return err
-	}
-
 	query := `
 		UPDATE rag.tenant_sources
 		SET
@@ -187,10 +175,6 @@ func (r *SourceRepository) UpdateSource(ctx context.Context, source *models.Tena
 
 // DeleteSource deletes a source and cascades to credentials and documents
 func (r *SourceRepository) DeleteSource(ctx context.Context, tenantID uuid.UUID, sourceID string) error {
-	if err := r.setTenantContext(ctx, tenantID); err != nil {
-		return err
-	}
-
 	// CASCADE DELETE will automatically remove:
 	// - tenant_source_credentials
 	// - tenant_documents
@@ -214,10 +198,6 @@ func (r *SourceRepository) DeleteSource(ctx context.Context, tenantID uuid.UUID,
 
 // CreateSyncJob creates a new sync job record
 func (r *SourceRepository) CreateSyncJob(ctx context.Context, job *models.TenantSyncJob) error {
-	if err := r.setTenantContext(ctx, job.TenantID); err != nil {
-		return err
-	}
-
 	query := `
 		INSERT INTO rag.tenant_sync_jobs (
 			id, tenant_id, source_id, job_type, status, priority
@@ -235,10 +215,6 @@ func (r *SourceRepository) CreateSyncJob(ctx context.Context, job *models.Tenant
 
 // UpdateSyncJob updates a sync job's status and statistics
 func (r *SourceRepository) UpdateSyncJob(ctx context.Context, job *models.TenantSyncJob) error {
-	if err := r.setTenantContext(ctx, job.TenantID); err != nil {
-		return err
-	}
-
 	query := `
 		UPDATE rag.tenant_sync_jobs
 		SET
@@ -276,10 +252,6 @@ func (r *SourceRepository) UpdateSyncJob(ctx context.Context, job *models.Tenant
 
 // GetSyncJob retrieves a sync job by ID
 func (r *SourceRepository) GetSyncJob(ctx context.Context, tenantID uuid.UUID, jobID uuid.UUID) (*models.TenantSyncJob, error) {
-	if err := r.setTenantContext(ctx, tenantID); err != nil {
-		return nil, err
-	}
-
 	var job models.TenantSyncJob
 	query := `
 		SELECT
@@ -305,10 +277,6 @@ func (r *SourceRepository) GetSyncJob(ctx context.Context, tenantID uuid.UUID, j
 
 // ListSyncJobs lists sync jobs for a source with pagination
 func (r *SourceRepository) ListSyncJobs(ctx context.Context, tenantID uuid.UUID, sourceID string, limit int) ([]*models.TenantSyncJob, error) {
-	if err := r.setTenantContext(ctx, tenantID); err != nil {
-		return nil, err
-	}
-
 	if limit <= 0 {
 		limit = 10
 	}
@@ -337,10 +305,6 @@ func (r *SourceRepository) ListSyncJobs(ctx context.Context, tenantID uuid.UUID,
 
 // GetSourceCredentials retrieves all credentials for a source
 func (r *SourceRepository) GetSourceCredentials(ctx context.Context, tenantID uuid.UUID, sourceID string) ([]*models.TenantSourceCredential, error) {
-	if err := r.setTenantContext(ctx, tenantID); err != nil {
-		return nil, err
-	}
-
 	query := `
 		SELECT
 			id, tenant_id, source_id, credential_type,
@@ -356,4 +320,32 @@ func (r *SourceRepository) GetSourceCredentials(ctx context.Context, tenantID uu
 	}
 
 	return creds, nil
+}
+
+// GetQueuedJobs retrieves all jobs with status "queued" ordered by priority and creation time
+func (r *SourceRepository) GetQueuedJobs(ctx context.Context, limit int) ([]*models.TenantSyncJob, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+
+	query := `
+		SELECT
+			id, tenant_id, source_id, job_type, status, priority,
+			started_at, completed_at,
+			documents_processed, documents_added, documents_updated,
+			documents_deleted, chunks_created, errors_count,
+			error_message, error_details, duration_ms, memory_used_mb,
+			created_at
+		FROM rag.tenant_sync_jobs
+		WHERE status = 'queued'
+		ORDER BY priority DESC, created_at ASC
+		LIMIT $1`
+
+	var jobs []*models.TenantSyncJob
+	err := r.db.SelectContext(ctx, &jobs, query, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get queued jobs: %w", err)
+	}
+
+	return jobs, nil
 }

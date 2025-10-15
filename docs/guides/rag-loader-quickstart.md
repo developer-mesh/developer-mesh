@@ -11,8 +11,218 @@
 - [ ] GitHub personal access token
 - [ ] AWS account with Bedrock access (us-east-1)
 - [ ] Docker Compose OR Kubernetes cluster
+- [ ] API key or JWT token (for REST API setup)
 
-## 5-Minute Setup (Docker Compose)
+## Setup Methods
+
+Choose the method that fits your architecture:
+
+1. **REST API (Recommended)**: Multi-tenant, dynamic configuration via API calls
+2. **Docker Compose**: Quick local development with static YAML config
+3. **Kubernetes**: Production deployment with ConfigMaps
+
+---
+
+## Method 1: REST API Setup (Recommended - Multi-Tenant)
+
+**Best for**: Production environments, multi-tenant systems, dynamic configuration
+
+### Step 1: Get Your Credentials
+
+1. **GitHub Token**:
+   - Go to https://github.com/settings/tokens
+   - Generate new token (classic)
+   - Select `repo` scope
+   - Copy the token (starts with `ghp_`)
+
+2. **DevMesh API Key**:
+   - Get from your tenant administrator
+   - Format: `devmesh_<hash>`
+
+### Step 2: Start the RAG Loader Service
+
+```bash
+# Set required environment variables
+export RAG_MASTER_KEY=$(openssl rand -base64 32)
+export JWT_SECRET="your-jwt-secret"
+export AWS_REGION="us-east-1"
+export AWS_ACCESS_KEY_ID="your-access-key"
+export AWS_SECRET_ACCESS_KEY="your-secret-key"
+
+# Start services
+docker-compose -f docker-compose.local.yml up -d rag-loader
+
+# Check health
+curl http://localhost:9094/health
+```
+
+### Step 3: Configure Source via API
+
+Create a JSON file with your source configuration:
+
+```bash
+cat > github-source.json << 'EOF'
+{
+  "source_id": "my-org-repos",
+  "source_type": "github_org",
+  "config": {
+    "org": "your-github-org",
+    "include_archived": false,
+    "include_forks": false,
+    "include_patterns": ["*.md", "*.go", "*.yaml", "*.yml", "*.json"],
+    "exclude_patterns": ["vendor/*", "node_modules/*", ".git/*"]
+  },
+  "credentials": {
+    "token": "ghp_your_github_token_here"
+  },
+  "schedule": "0 */6 * * *",
+  "description": "My GitHub organization repositories"
+}
+EOF
+```
+
+### Step 4: Create the Source
+
+```bash
+# Create source
+curl -X POST http://localhost:8084/api/v1/rag/sources \
+  -H "Authorization: Bearer devmesh_YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d @github-source.json
+
+# Response:
+# {
+#   "id": "uuid-here",
+#   "source_id": "my-org-repos",
+#   "message": "Source created successfully"
+# }
+```
+
+### Step 5: Trigger Initial Sync
+
+```bash
+# Manually trigger sync
+curl -X POST http://localhost:8084/api/v1/rag/sources/my-org-repos/sync \
+  -H "Authorization: Bearer devmesh_YOUR_API_KEY"
+
+# Response:
+# {
+#   "job_id": "uuid-here",
+#   "message": "Sync job queued successfully"
+# }
+```
+
+### Step 6: Monitor Progress
+
+```bash
+# List all sources
+curl http://localhost:8084/api/v1/rag/sources \
+  -H "Authorization: Bearer devmesh_YOUR_API_KEY"
+
+# Get specific source
+curl http://localhost:8084/api/v1/rag/sources/my-org-repos \
+  -H "Authorization: Bearer devmesh_YOUR_API_KEY"
+
+# Check sync jobs
+curl http://localhost:8084/api/v1/rag/sources/my-org-repos/jobs \
+  -H "Authorization: Bearer devmesh_YOUR_API_KEY"
+
+# Check metrics
+curl http://localhost:9094/metrics | grep rag_loader_documents_processed_total
+```
+
+### API Source Types
+
+**GitHub Organization (all repos)**:
+```json
+{
+  "source_type": "github_org",
+  "config": {
+    "org": "your-org",
+    "include_archived": false,
+    "include_forks": false,
+    "repos": []  // Empty = all repos, or specify: ["repo1", "repo2"]
+  }
+}
+```
+
+**GitHub Single Repository**:
+```json
+{
+  "source_type": "github_repo",
+  "config": {
+    "owner": "your-org",
+    "repo": "your-repo",
+    "branch": "main"
+  }
+}
+```
+
+### API Management Commands
+
+```bash
+# Update source configuration
+curl -X PUT http://localhost:8084/api/v1/rag/sources/my-org-repos \
+  -H "Authorization: Bearer devmesh_YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "enabled": true,
+    "schedule": "0 */12 * * *"
+  }'
+
+# Delete source
+curl -X DELETE http://localhost:8084/api/v1/rag/sources/my-org-repos \
+  -H "Authorization: Bearer devmesh_YOUR_API_KEY"
+
+# List sync jobs
+curl http://localhost:8084/api/v1/rag/sources/my-org-repos/jobs?limit=10 \
+  -H "Authorization: Bearer devmesh_YOUR_API_KEY"
+```
+
+### Managing Sync Jobs
+
+**Delete duplicate or unwanted sync jobs**:
+
+If you accidentally triggered multiple sync jobs, you can delete the unwanted ones directly from the database:
+
+```bash
+# Step 1: List all sync jobs for a source
+docker exec devops-mcp-database-1 psql -U devmesh -d devmesh_development -c "
+SELECT id, source_id, job_type, status, created_at
+FROM rag.tenant_sync_jobs
+WHERE source_id = 'my-org-repos'
+ORDER BY created_at DESC;"
+
+# Step 2: Delete specific jobs by ID (keep the most recent one)
+docker exec devops-mcp-database-1 psql -U devmesh -d devmesh_development -c "
+DELETE FROM rag.tenant_sync_jobs
+WHERE id IN (
+  'job-id-1',
+  'job-id-2'
+);"
+
+# Step 3: Verify only desired jobs remain
+curl http://localhost:8084/api/v1/rag/sources/my-org-repos/jobs \
+  -H "Authorization: Bearer devmesh_YOUR_API_KEY"
+```
+
+**Note**: A DELETE endpoint for jobs will be added in a future release. For now, direct database access is required.
+
+### API Security
+
+**Credentials are encrypted**:
+- GitHub tokens encrypted with AES-256-GCM
+- Tenant-specific encryption keys derived from master key
+- Per-tenant isolation enforced at database level
+
+**Authentication required**:
+- All endpoints require `Authorization: Bearer <token>` header
+- Supports API keys (from `mcp.api_keys` table) or JWT tokens
+- Row-level security disabled for app-level tenant isolation
+
+---
+
+## Method 2: Docker Compose Setup (Static YAML Config)
 
 ### Step 1: Get Your GitHub Token
 
@@ -265,6 +475,28 @@ aws bedrock invoke-model \
 
 **Fix**: Ensure Bedrock is enabled in us-east-1 and you have appropriate permissions
 
+### Issue: "Multiple duplicate sync jobs queued"
+
+If you accidentally triggered the sync endpoint multiple times, you'll have duplicate queued jobs.
+
+**Fix**: Delete the older jobs, keeping only the most recent:
+
+```bash
+# List jobs
+docker exec devops-mcp-database-1 psql -U devmesh -d devmesh_development -c "
+SELECT id, source_id, status, created_at
+FROM rag.tenant_sync_jobs
+WHERE source_id = 'my-org-repos'
+ORDER BY created_at DESC;"
+
+# Delete older jobs (keep the newest)
+docker exec devops-mcp-database-1 psql -U devmesh -d devmesh_development -c "
+DELETE FROM rag.tenant_sync_jobs
+WHERE id IN ('old-job-id-1', 'old-job-id-2');"
+```
+
+See [Managing Sync Jobs](#managing-sync-jobs) for more details.
+
 ## Configuration Templates
 
 ### Template 1: Single Go Repository
@@ -388,6 +620,14 @@ docker-compose exec postgres psql -U devmesh -d devmesh_development \
 
 # Test GitHub token
 curl -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/rate_limit
+
+# List sync jobs for a source
+docker exec devops-mcp-database-1 psql -U devmesh -d devmesh_development \
+  -c "SELECT id, source_id, status, created_at FROM rag.tenant_sync_jobs WHERE source_id = 'my-org-repos' ORDER BY created_at DESC;"
+
+# Delete duplicate sync jobs
+docker exec devops-mcp-database-1 psql -U devmesh -d devmesh_development \
+  -c "DELETE FROM rag.tenant_sync_jobs WHERE id = 'job-id-to-delete';"
 ```
 
 ## Troubleshooting Checklist

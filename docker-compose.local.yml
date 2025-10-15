@@ -279,8 +279,8 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      # Remove config mount - now database-driven
-      # - ./apps/rag-loader/configs:/app/configs:ro
+      # Mount config for multi-tenant API mode (sources: [])
+      - ./apps/rag-loader/configs:/app/configs:ro
       - ./apps/rag-loader/migrations:/app/migrations:ro
     networks:
       - mcp-network

@@ -429,8 +429,8 @@ func (s *LoaderService) performIngestion(ctx context.Context, job *models.Ingest
 
 	// Update job statistics
 	job.DocumentsProcessed = len(documents)
-	job.ChunksCreated = 0       // TODO: Implement chunking
-	job.EmbeddingsCreated = 0   // TODO: Implement embedding generation
+	job.ChunksCreated = 0     // TODO: Implement chunking
+	job.EmbeddingsCreated = 0 // TODO: Implement embedding generation
 
 	s.logger.Info("Ingestion processing complete", map[string]interface{}{
 		"job_id":              job.ID,
