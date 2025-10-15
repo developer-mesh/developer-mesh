@@ -1,0 +1,237 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rag-loader
+  namespace: devmesh
+  labels:
+    app: rag-loader
+    component: ingestion
+    version: v1
+spec:
+  replicas: 1  # Only one instance for scheduled jobs
+  strategy:
+    type: Recreate  # Ensure clean handoff during updates
+  selector:
+    matchLabels:
+      app: rag-loader
+  template:
+    metadata:
+      labels:
+        app: rag-loader
+        component: ingestion
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9094"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: rag-loader
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+
+      containers:
+      - name: rag-loader
+        image: devmesh/rag-loader:latest
+        imagePullPolicy: Always
+
+        env:
+        # Environment configuration
+        - name: ENVIRONMENT
+          value: "production"
+
+        # Service configuration
+        - name: SERVICE_PORT
+          value: "8084"
+        - name: METRICS_PORT
+          value: "9094"
+
+        # Database configuration
+        - name: DATABASE_HOST
+          valueFrom:
+            secretKeyRef:
+              name: rag-loader-secrets
+              key: database-host
+        - name: DATABASE_PORT
+          value: "5432"
+        - name: DATABASE_NAME
+          value: "devmesh_production"
+        - name: DATABASE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: rag-loader-secrets
+              key: database-username
+        - name: DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: rag-loader-secrets
+              key: database-password
+        - name: DATABASE_SSLMODE
+          value: "require"
+
+        # Redis configuration
+        - name: REDIS_HOST
+          valueFrom:
+            secretKeyRef:
+              name: rag-loader-secrets
+              key: redis-host
+        - name: REDIS_PORT
+          value: "6379"
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: rag-loader-secrets
+              key: redis-password
+
+        # AWS configuration
+        - name: AWS_REGION
+          value: "us-east-1"
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: rag-loader-secrets
+              key: aws-access-key-id
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: rag-loader-secrets
+              key: aws-secret-access-key
+
+        # Scheduler configuration
+        - name: DEFAULT_SCHEDULE
+          value: "0 */6 * * *"  # Every 6 hours
+        - name: MAX_CONCURRENT_JOBS
+          value: "3"
+        - name: JOB_TIMEOUT
+          value: "3600"  # 1 hour
+
+        # Feature flags
+        - name: ENABLE_API
+          value: "true"
+        - name: ENABLE_METRICS
+          value: "true"
+        - name: ENABLE_CACHING
+          value: "true"
+
+        # Logging
+        - name: LOG_LEVEL
+          value: "info"
+        - name: LOG_FORMAT
+          value: "json"
+
+        ports:
+        - name: api
+          containerPort: 8084
+          protocol: TCP
+        - name: metrics
+          containerPort: 9094
+          protocol: TCP
+
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: metrics
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: metrics
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+
+        volumeMounts:
+        - name: config
+          mountPath: /app/configs
+          readOnly: true
+        - name: data
+          mountPath: /app/data
+        - name: logs
+          mountPath: /app/logs
+
+      volumes:
+      - name: config
+        configMap:
+          name: rag-loader-config
+      - name: data
+        persistentVolumeClaim:
+          claimName: rag-loader-data
+      - name: logs
+        emptyDir: {}
+
+      # Pod anti-affinity to avoid scheduling on same node
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - rag-loader
+              topologyKey: kubernetes.io/hostname
+
+      # Tolerate spot instances for cost savings
+      tolerations:
+      - key: "node.kubernetes.io/instance-type"
+        operator: "Equal"
+        value: "spot"
+        effect: "NoSchedule"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rag-loader
+  namespace: devmesh
+  labels:
+    app: rag-loader
+spec:
+  type: ClusterIP
+  selector:
+    app: rag-loader
+  ports:
+  - name: api
+    port: 8084
+    targetPort: api
+    protocol: TCP
+  - name: metrics
+    port: 9094
+    targetPort: metrics
+    protocol: TCP
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rag-loader
+  namespace: devmesh
+  labels:
+    app: rag-loader
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: rag-loader-data
+  namespace: devmesh
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: fast-ssd

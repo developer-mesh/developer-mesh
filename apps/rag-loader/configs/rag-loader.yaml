@@ -1,0 +1,107 @@
+# RAG Loader Configuration - Phase 1
+
+service:
+  port: 8084
+  metrics_port: 9094
+  health_check_interval: 30s
+  shutdown_timeout: 30s
+  log_level: debug
+
+database:
+  host: ${DATABASE_HOST}
+  port: 5432
+  database: ${DATABASE_NAME}
+  username: ${DATABASE_USER}
+  password: ${DATABASE_PASSWORD}
+  ssl_mode: ${DATABASE_SSL_MODE}
+  search_path: rag,mcp,public
+  max_conns: 10
+  max_idle_conns: 5
+
+redis:
+  address: ${REDIS_ADDR}
+  password: ""
+  database: 0
+  max_retries: 3
+  dial_timeout: 5s
+  pool_size: 10
+
+# Data sources configuration
+sources:
+  # Scan entire developer-mesh organization
+  - id: developer_mesh_org
+    type: github_org
+    enabled: true
+    schedule: "*/10 * * * *"  # Every 10 minutes for testing
+    config:
+      org: developer-mesh
+      token: ${GITHUB_ACCESS_TOKEN}
+      include_archived: false
+      include_forks: false
+      include_patterns:
+        - "**/*.go"
+        - "**/*.md"
+        - "**/*.yaml"
+        - "**/*.yml"
+        - "go.mod"
+        - "go.sum"
+      exclude_patterns:
+        - "vendor/**"
+        - "node_modules/**"
+        - "**/*_test.go"
+        - "**/*.pb.go"
+        - "**/*.gen.go"
+        - ".git/**"
+
+  - id: test_source
+    type: test
+    enabled: false  # Disabled now that we're using real GitHub
+    schedule: "*/5 * * * *"
+    config:
+      test_mode: true
+
+processing:
+  chunking_strategy: fixed
+  chunk_size: 500
+  chunk_overlap: 50
+
+  # Phase 4: Embedding configuration
+  embedding:
+    batch_size: 10
+    rate_limit_rpm: 100  # Requests per minute
+    retry_attempts: 3
+    retry_delay: 1s
+    model_override: ""  # Empty to use tenant default
+
+  # Phase 4: Circuit breaker configuration
+  circuit_breaker:
+    failure_threshold: 5
+    success_threshold: 2
+    timeout: 30s
+    half_open_max_requests: 3
+
+# Phase 4: Hybrid search configuration
+search:
+  vector_weight: 0.6        # Weight for dense vector search
+  bm25_weight: 0.2          # Weight for keyword search (BM25)
+  importance_weight: 0.2    # Weight for importance score
+  mmr_lambda: 0.7           # Balance between relevance (1.0) and diversity (0.0)
+  min_score: 0.4            # Minimum score threshold
+  default_limit: 20         # Default number of results
+  max_candidates: 100       # Maximum candidates for re-ranking
+  apply_mmr: true          # Enable MMR for diversity
+
+# Phase 4: Rate limiting configuration
+rate_limiting:
+  enabled: true
+  embedding_rpm: 100        # Embedding requests per minute
+  search_rpm: 200           # Search requests per minute
+  api_rpm: 50               # General API requests per minute
+  burst_multiplier: 2       # Burst capacity = limit * multiplier
+
+scheduler:
+  default_schedule: "*/30 * * * *"  # Default: every 30 minutes
+  job_timeout: 10m
+  enable_api: true
+  enable_events: false  # Events disabled for Phase 1
+  max_concurrent_jobs: 3

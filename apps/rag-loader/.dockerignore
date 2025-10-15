@@ -1,0 +1,42 @@
+# Ignore test files
+*_test.go
+**/*_test.go
+testdata/
+**/testdata/
+
+# Ignore documentation
+*.md
+**/*.md
+docs/
+**/docs/
+
+# Ignore development files
+.git/
+.gitignore
+.env*
+*.local
+
+# Ignore build artifacts
+*.exe
+*.dll
+*.so
+*.dylib
+vendor/
+**/vendor/
+
+# Ignore IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Ignore logs
+*.log
+logs/
+**/logs/
+
+# Ignore temporary files
+tmp/
+**/tmp/
+*.tmp

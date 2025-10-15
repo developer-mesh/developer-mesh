@@ -230,6 +230,61 @@ services:
     networks:
       - mcp-network
 
+  rag-loader:
+    build:
+      context: .
+      dockerfile: apps/rag-loader/Dockerfile
+    ports:
+      - "8084:8084"    # API port
+      - "9094:9094"    # Health/metrics port
+    environment:
+      # Core settings
+      - ENVIRONMENT=docker
+      - LOG_LEVEL=${LOG_LEVEL:-debug}
+      # Multi-tenant API configuration
+      - RAG_API_ENABLED=true
+      - RAG_API_PORT=8084
+      - RAG_LOADER_METRICS_PORT=9094
+      # Database (using service names)
+      - DATABASE_HOST=database
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=devmesh_development
+      - DATABASE_USER=devmesh
+      - DATABASE_PASSWORD=devmesh
+      - DATABASE_SSL_MODE=disable
+      - DATABASE_SEARCH_PATH=rag,mcp,public
+      # Redis (using service names)
+      - REDIS_ADDR=redis:6379
+      - REDIS_PASSWORD=
+      # Security - Multi-tenant encryption and authentication
+      - RAG_MASTER_KEY=${RAG_MASTER_KEY}
+      - JWT_SECRET=${JWT_SECRET:-docker-jwt-secret-change-in-production}
+      # GitHub Configuration - REMOVED: Now per-tenant via API
+      # - GITHUB_ACCESS_TOKEN=${GITHUB_ACCESS_TOKEN}  # Configure per tenant through API
+      # Scheduler configuration
+      - DEFAULT_SCHEDULE="*/30 * * * *"  # Every 30 minutes
+      - SCHEDULER_ENABLE_API=true
+      - SCHEDULER_ENABLE_EVENTS=false  # Phase 1 - events disabled
+      # AWS Configuration (for embeddings)
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      # Embedding Configuration
+      - MCP_EMBEDDING_PROVIDERS_BEDROCK_ENABLED=true
+      - MCP_EMBEDDING_PROVIDERS_BEDROCK_REGION=us-east-1
+      - DEFAULT_EMBEDDING_MODEL=${DEFAULT_EMBEDDING_MODEL:-amazon.titan-embed-text-v2:0}
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      # Remove config mount - now database-driven
+      # - ./apps/rag-loader/configs:/app/configs:ro
+      - ./apps/rag-loader/migrations:/app/migrations:ro
+    networks:
+      - mcp-network
+
   mockserver:
     build:
       context: .

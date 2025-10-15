@@ -1,0 +1,125 @@
+# RAG Loader Configuration Example
+# This file shows how to configure the RAG loader to scan GitHub organizations and repositories
+
+sources:
+  # Example 1: Scan entire GitHub organization (all repos)
+  - id: my_org
+    type: github_org
+    enabled: true
+    schedule: "0 */6 * * *"  # Every 6 hours
+    config:
+      org: your-organization
+      token: ${GITHUB_TOKEN}  # Read from environment variable
+      include_archived: false  # Don't scan archived repos (default: false)
+      include_forks: false     # Don't scan forked repos (default: false)
+      include_patterns:
+        - "**/*.go"
+        - "**/*.md"
+        - "**/*.yaml"
+        - "**/*.yml"
+      exclude_patterns:
+        - "vendor/**"
+        - "node_modules/**"
+        - "**/*_test.go"
+
+  # Example 2: Scan specific repositories in an organization
+  - id: my_org_specific_repos
+    type: github_org
+    enabled: true
+    schedule: "0 */4 * * *"  # Every 4 hours
+    config:
+      org: your-organization
+      token: ${GITHUB_TOKEN}
+      repos:
+        - "backend-service"
+        - "frontend-app"
+        - "docs"
+      include_patterns:
+        - "**/*.go"
+        - "**/*.ts"
+        - "**/*.tsx"
+        - "**/*.md"
+      exclude_patterns:
+        - "**/*.test.ts"
+        - "dist/**"
+
+  # Example 3: Multiple organizations with different tokens
+  - id: org1
+    type: github_org
+    enabled: true
+    schedule: "0 */6 * * *"
+    config:
+      org: organization-one
+      token: ${GITHUB_TOKEN_ORG1}  # Separate token for this org
+      include_archived: false
+      include_forks: false
+      include_patterns:
+        - "**/*.go"
+        - "**/*.md"
+
+  - id: org2
+    type: github_org
+    enabled: true
+    schedule: "30 */6 * * *"  # 30 min offset
+    config:
+      org: organization-two
+      token: ${GITHUB_TOKEN_ORG2}  # Different token
+      include_archived: false
+      include_forks: false
+      include_patterns:
+        - "**/*.py"
+        - "**/*.md"
+
+  # Example 4: Single repository (original method still supported)
+  - id: specific_repo
+    type: github
+    enabled: true
+    schedule: "0 */2 * * *"  # Every 2 hours
+    config:
+      owner: github-user
+      repo: important-repo
+      branch: main
+      token: ${GITHUB_TOKEN}
+      include_patterns:
+        - "**/*.go"
+        - "**/*.md"
+      exclude_patterns:
+        - "vendor/**"
+
+# Service configuration
+service:
+  port: 8084
+  metrics_port: 9094
+  log_level: info
+
+# Scheduler configuration
+scheduler:
+  default_schedule: "0 */6 * * *"  # Default: every 6 hours
+  job_timeout: 30m
+  max_concurrent_jobs: 3
+
+# Processing configuration
+processing:
+  chunking_strategy: "fixed"  # Options: fixed, semantic, markdown
+  chunk_size: 500
+  chunk_overlap: 50
+  embedding:
+    batch_size: 10
+    rate_limit_rpm: 100
+    retry_attempts: 3
+    retry_delay: 1s
+
+# Database configuration (or use environment variables)
+database:
+  host: ${DATABASE_HOST}
+  port: 5432
+  database: ${DATABASE_NAME}
+  username: ${DATABASE_USERNAME}
+  password: ${DATABASE_PASSWORD}
+  ssl_mode: disable
+
+# Redis configuration
+redis:
+  address: ${REDIS_HOST}:6379
+  password: ${REDIS_PASSWORD}
+  database: 0
