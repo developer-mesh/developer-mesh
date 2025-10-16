@@ -238,13 +238,14 @@ func (vdb *VectorDatabase) CreateVector(ctx context.Context, vector []float32) (
 		floatArray[i] = float64(v)
 	}
 
-	// Convert to array format that PostgreSQL can understand: '{a,b,c}'
-	pgArray := fmt.Sprintf("'{%s}'", formatFloatArray(floatArray))
+	// Convert to JSON array format that pgvector expects: [a,b,c]
+	// pgvector can parse JSON array format directly
+	pgArray := fmt.Sprintf("[%s]", formatFloatArray(floatArray))
 
 	// Convert vector to pgvector format
 	var vectorStr string
 	err := vdb.vectorDB.QueryRowContext(ctx, `
-		SELECT $1::float4[]::vector::text
+		SELECT $1::vector::text
 	`, pgArray).Scan(&vectorStr)
 
 	if err != nil {
@@ -285,14 +286,14 @@ func (vdb *VectorDatabase) CalculateSimilarity(ctx context.Context, vector1, vec
 		floatArray2[i] = float64(v)
 	}
 
-	// Convert to array format that PostgreSQL can understand: '{a,b,c}'
-	pgArray1 := fmt.Sprintf("'{%s}'", formatFloatArray(floatArray1))
-	pgArray2 := fmt.Sprintf("'{%s}'", formatFloatArray(floatArray2))
+	// Convert to JSON array format that pgvector expects: [a,b,c]
+	pgArray1 := fmt.Sprintf("[%s]", formatFloatArray(floatArray1))
+	pgArray2 := fmt.Sprintf("[%s]", formatFloatArray(floatArray2))
 
 	// Convert vectors to pgvector format
 	var v1Str, v2Str string
 	err := vdb.vectorDB.QueryRowContext(ctx, `
-		SELECT $1::float4[]::vector::text
+		SELECT $1::vector::text
 	`, pgArray1).Scan(&v1Str)
 
 	if err != nil {
@@ -300,7 +301,7 @@ func (vdb *VectorDatabase) CalculateSimilarity(ctx context.Context, vector1, vec
 	}
 
 	err = vdb.vectorDB.QueryRowContext(ctx, `
-		SELECT $1::float4[]::vector::text
+		SELECT $1::vector::text
 	`, pgArray2).Scan(&v2Str)
 
 	if err != nil {
