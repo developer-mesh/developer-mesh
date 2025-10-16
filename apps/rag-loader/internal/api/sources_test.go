@@ -53,6 +53,19 @@ func setupTestDatabase(t *testing.T) *sqlx.DB {
 	err = db.Ping()
 	require.NoError(t, err, "Failed to ping test database")
 
+	// Create test tenants table if it doesn't exist
+	createTenantsTable := `
+		CREATE TABLE IF NOT EXISTS mcp.tenants (
+			id UUID PRIMARY KEY,
+			name VARCHAR(255) NOT NULL,
+			is_active BOOLEAN DEFAULT true,
+			created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+		)
+	`
+	_, err = db.Exec(createTenantsTable)
+	require.NoError(t, err, "Failed to create tenants table")
+
 	t.Cleanup(func() {
 		db.Close()
 	})

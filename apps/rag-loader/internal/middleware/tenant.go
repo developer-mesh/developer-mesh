@@ -136,6 +136,38 @@ func (tm *TenantMiddleware) validateAPIKey(authHeader string) (uuid.UUID, uuid.U
 
 // setTenantContext sets the tenant context for the request
 func (tm *TenantMiddleware) setTenantContext(c *gin.Context, tenantID, userID uuid.UUID) {
+	// Check if tenant is active
+	var isActive bool
+	err := tm.db.Get(&isActive, `
+		SELECT is_active
+		FROM mcp.tenants
+		WHERE id = $1
+	`, tenantID)
+
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "tenant not found",
+		})
+		c.Abort()
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "failed to check tenant status",
+			"details": err.Error(),
+		})
+		c.Abort()
+		return
+	}
+
+	if !isActive {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": "tenant is inactive",
+		})
+		c.Abort()
+		return
+	}
+
 	// Set tenant context in Gin context for handlers
 	c.Set("tenant_id", tenantID)
 	c.Set("user_id", userID)
