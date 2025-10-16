@@ -303,22 +303,85 @@ func (m *SemanticContextManagerImpl) SearchContext(
 	contextID string,
 	limit int,
 ) ([]*repository.ContextItem, error) {
-	// Use the context repository's search capability
-	items, err := m.contextRepo.Search(ctx, contextID, query)
+	// Set default limit
+	if limit <= 0 {
+		limit = 10
+	}
+
+	// Check if embedding client is available for semantic search
+	if m.embeddingClient == nil || m.embeddingRepo == nil {
+		// Fall back to text search if embedding features not available
+		items, err := m.contextRepo.Search(ctx, contextID, query)
+		if err != nil {
+			return nil, fmt.Errorf("failed to search context: %w", err)
+		}
+
+		// Convert []ContextItem to []*ContextItem
+		result := make([]*repository.ContextItem, len(items))
+		for i := range items {
+			item := items[i]
+			result[i] = &item
+		}
+
+		// Apply limit
+		if len(result) > limit {
+			result = result[:limit]
+		}
+
+		return result, nil
+	}
+
+	// Step 1: Get context to retrieve agent_id
+	contextData, err := m.contextRepo.Get(ctx, contextID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to search context: %w", err)
+		return nil, fmt.Errorf("failed to get context: %w", err)
 	}
 
-	// Convert []ContextItem to []*ContextItem
-	result := make([]*repository.ContextItem, len(items))
-	for i := range items {
-		item := items[i]
-		result[i] = &item
+	// Step 2: Generate query embedding using the context's agent_id
+	queryVector, modelUsed, err := m.embeddingClient.EmbedContent(ctx, query, "", contextData.AgentID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to embed query: %w", err)
 	}
 
-	// Apply limit if specified
-	if limit > 0 && len(result) > limit {
-		result = result[:limit]
+	// Step 3: Search for similar embeddings using vector search
+	embeddings, err := m.embeddingRepo.SearchEmbeddings(
+		ctx,
+		queryVector,
+		contextID,
+		modelUsed,
+		limit,
+		0.5, // Minimum similarity threshold
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search embeddings: %w", err)
+	}
+
+	// Step 4: Convert embeddings to ContextItems
+	result := make([]*repository.ContextItem, 0, len(embeddings))
+	for _, embedding := range embeddings {
+		// Extract content from embedding
+		// Note: embedding.Text is the content field from the embeddings table
+		item := &repository.ContextItem{
+			ID:        embedding.ID,
+			ContextID: contextID,
+			Content:   embedding.Text,
+			Type:      "text", // Default type
+			Metadata: map[string]interface{}{
+				"model_id": embedding.ModelID,
+			},
+		}
+		result = append(result, item)
+	}
+
+	// Step 5: Audit the search
+	if m.auditLogger != nil {
+		m.auditLogger.Info("Semantic context search", map[string]interface{}{
+			"context_id":  contextID,
+			"query":       query,
+			"items_found": len(result),
+			"model_used":  modelUsed,
+			"limit":       limit,
+		})
 	}
 
 	return result, nil

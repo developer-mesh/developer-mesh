@@ -407,8 +407,7 @@ func (r *PostgresContextRepository) GetContextsNeedingCompaction(ctx context.Con
 
 // LinkEmbeddingToContext creates a link between an embedding and a context
 func (r *PostgresContextRepository) LinkEmbeddingToContext(ctx context.Context, contextID string, embeddingID string, sequence int, importance float64) error {
-	// Use DELETE+INSERT approach instead of ON CONFLICT to avoid constraint matching issues
-	// Start a transaction for atomic DELETE+INSERT
+	// Start a transaction
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -419,19 +418,42 @@ func (r *PostgresContextRepository) LinkEmbeddingToContext(ctx context.Context, 
 		}
 	}()
 
-	// Delete any existing entry for this context_id and chunk_sequence
-	deleteQuery := `DELETE FROM mcp.context_embeddings WHERE context_id = $1 AND chunk_sequence = $2`
-	_, err = tx.ExecContext(ctx, deleteQuery, contextID, sequence)
+	// Calculate the actual sequence number based on existing embeddings
+	// This ensures each embedding gets a unique sequence even when events are processed separately
+	var maxSeq sql.NullInt64
+	seqQuery := `SELECT MAX(chunk_sequence) FROM mcp.context_embeddings WHERE context_id = $1`
+	err = tx.GetContext(ctx, &maxSeq, seqQuery, contextID)
 	if err != nil {
-		return fmt.Errorf("failed to delete existing link: %w", err)
+		return fmt.Errorf("failed to get max sequence: %w", err)
 	}
 
-	// Insert the new link
+	actualSequence := 0
+	if maxSeq.Valid {
+		actualSequence = int(maxSeq.Int64) + 1
+	}
+
+	// Check if this embedding is already linked (prevent duplicates)
+	var existingCount int
+	checkQuery := `SELECT COUNT(*) FROM mcp.context_embeddings WHERE context_id = $1 AND embedding_id = $2`
+	err = tx.GetContext(ctx, &existingCount, checkQuery, contextID, embeddingID)
+	if err != nil {
+		return fmt.Errorf("failed to check existing link: %w", err)
+	}
+
+	if existingCount > 0 {
+		// Already linked, just commit and return success
+		if err = tx.Commit(); err != nil {
+			return fmt.Errorf("failed to commit transaction: %w", err)
+		}
+		return nil
+	}
+
+	// Insert the new link with calculated sequence
 	insertQuery := `
 		INSERT INTO mcp.context_embeddings (id, context_id, embedding_id, chunk_sequence, importance_score, is_summary, created_at)
 		VALUES (gen_random_uuid(), $1, $2, $3, $4, false, NOW())
 	`
-	_, err = tx.ExecContext(ctx, insertQuery, contextID, embeddingID, sequence, importance)
+	_, err = tx.ExecContext(ctx, insertQuery, contextID, embeddingID, actualSequence, importance)
 	if err != nil {
 		return fmt.Errorf("failed to insert link: %w", err)
 	}

@@ -693,6 +693,20 @@ func (s *Server) setupRoutes(ctx context.Context) {
 			encryptionService,
 		)
 
+		// Wire up semantic search capability to the ContextManager
+		// This enables the primary /api/v1/contexts/:id/search endpoint to use semantic search
+		if contextManager := s.engine.GetContextManager(); contextManager != nil {
+			if cm, ok := contextManager.(*core.ContextManager); ok {
+				cm.SetSemanticSearch(semanticContextMgr)
+				s.logger.Info("Semantic search capability enabled for ContextManager", map[string]any{
+					"endpoint": "/api/v1/contexts/:id/search",
+					"method":   "semantic vector search with text fallback",
+				})
+			} else {
+				s.logger.Warn("ContextManager is not a *core.ContextManager, cannot enable semantic search", nil)
+			}
+		}
+
 		// Create and register MCP API with semantic context manager
 		mcpAPI := NewMCPAPI(s.engine.GetContextManager())
 		mcpAPI.SetSemanticContextManager(semanticContextMgr)
