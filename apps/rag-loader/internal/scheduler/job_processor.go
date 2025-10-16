@@ -6,15 +6,18 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 
 	"github.com/developer-mesh/developer-mesh/apps/rag-loader/internal/crawler/github"
 	"github.com/developer-mesh/developer-mesh/apps/rag-loader/internal/indexer"
 	"github.com/developer-mesh/developer-mesh/apps/rag-loader/internal/models"
+	"github.com/developer-mesh/developer-mesh/apps/rag-loader/internal/processor"
 	"github.com/developer-mesh/developer-mesh/apps/rag-loader/internal/repository"
 	"github.com/developer-mesh/developer-mesh/pkg/embedding"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/rag/interfaces"
+	ragModels "github.com/developer-mesh/developer-mesh/pkg/rag/models"
 	"github.com/developer-mesh/developer-mesh/pkg/rag/security"
 	repoVector "github.com/developer-mesh/developer-mesh/pkg/repository/vector"
 )
@@ -377,22 +380,186 @@ func (p *JobProcessor) executeIngestion(job *models.TenantSyncJob, source *model
 		return nil
 	}
 
-	// TODO: Implement full document processing pipeline:
-	// 1. Chunk documents using configured chunking strategy
-	// 2. Generate embeddings using batch processor
-	// 3. Store document metadata in rag.tenant_documents
-	// 4. Track actual statistics (chunks_created, documents_added/updated)
-	//
-	// For now, we just log the documents fetched and mark as processed
+	// Process documents in pipeline: chunk → embed → store
+	var (
+		documentsAdded     = 0
+		documentsUpdated   = 0
+		totalChunks        = 0
+		embeddingsCreated  = 0
+		allChunkRequests   []indexer.ChunkEmbeddingRequest
+		documentChunkMap   = make(map[string][]*ragModels.Chunk) // Track chunks per document
+	)
 
+	// Phase 1: Chunk all documents and prepare embedding requests
+	p.logger.Info("Phase 1: Chunking documents", map[string]interface{}{
+		"job_id":    job.ID,
+		"doc_count": len(documents),
+	})
+
+	for _, doc := range documents {
+		// Check if document already exists
+		exists, err := p.docRepo.DocumentExists(p.ctx, doc.ContentHash)
+		if err != nil {
+			p.logger.Warn("Failed to check document existence", map[string]interface{}{
+				"doc_url": doc.URL,
+				"error":   err.Error(),
+			})
+			continue
+		}
+
+		if exists {
+			documentsUpdated++
+			p.logger.Debug("Document already exists, skipping", map[string]interface{}{
+				"doc_url":      doc.URL,
+				"content_hash": doc.ContentHash,
+			})
+			continue
+		}
+
+		// Select appropriate chunker based on file type
+		chunker := processor.GetChunkerForDocument(doc)
+
+		// Generate chunks
+		chunks, err := chunker.Chunk(doc)
+		if err != nil {
+			p.logger.Error("Failed to chunk document", map[string]interface{}{
+				"doc_url": doc.URL,
+				"error":   err.Error(),
+			})
+			continue
+		}
+
+		if len(chunks) == 0 {
+			p.logger.Debug("Document produced no chunks, skipping", map[string]interface{}{
+				"doc_url": doc.URL,
+			})
+			continue
+		}
+
+		// Store chunks for later storage
+		documentChunkMap[doc.ID.String()] = chunks
+		totalChunks += len(chunks)
+
+		// Create embedding requests for all chunks
+		for _, chunk := range chunks {
+			allChunkRequests = append(allChunkRequests, indexer.ChunkEmbeddingRequest{
+				DocumentID: doc.ID,
+				Chunk:      chunk,
+				TenantID:   doc.TenantID,
+			})
+		}
+
+		documentsAdded++
+	}
+
+	p.logger.Info("Chunking complete", map[string]interface{}{
+		"job_id":            job.ID,
+		"documents_added":   documentsAdded,
+		"documents_updated": documentsUpdated,
+		"total_chunks":      totalChunks,
+	})
+
+	// Phase 2: Batch process all chunks to generate embeddings
+	if len(allChunkRequests) > 0 {
+		p.logger.Info("Phase 2: Generating embeddings", map[string]interface{}{
+			"job_id":      job.ID,
+			"chunk_count": len(allChunkRequests),
+		})
+
+		results, err := p.batchProcessor.ProcessChunks(p.ctx, allChunkRequests)
+		if err != nil {
+			// Partial failure - log but continue with successful embeddings
+			p.logger.Error("Batch processing encountered errors", map[string]interface{}{
+				"job_id": job.ID,
+				"error":  err.Error(),
+			})
+		}
+
+		// Build embedding ID map for successful results
+		embeddingMap := make(map[string]string) // chunk_id -> embedding_id
+		for _, result := range results {
+			if result.Error == nil {
+				embeddingMap[result.ChunkID.String()] = result.EmbeddingID
+				embeddingsCreated++
+			} else {
+				p.logger.Warn("Failed to process chunk", map[string]interface{}{
+					"chunk_id": result.ChunkID,
+					"error":    result.Error.Error(),
+				})
+			}
+		}
+
+		p.logger.Info("Embedding generation complete", map[string]interface{}{
+			"job_id":              job.ID,
+			"embeddings_created":  embeddingsCreated,
+			"embeddings_failed":   len(results) - embeddingsCreated,
+		})
+
+		// Phase 3: Store documents and chunks with embedding IDs
+		p.logger.Info("Phase 3: Storing documents and chunks", map[string]interface{}{
+			"job_id":        job.ID,
+			"doc_count":     documentsAdded,
+			"chunk_count":   totalChunks,
+		})
+
+		for _, doc := range documents {
+			// Skip documents that weren't chunked
+			chunks, exists := documentChunkMap[doc.ID.String()]
+			if !exists {
+				continue
+			}
+
+			// Store document
+			if err := p.docRepo.CreateDocument(p.ctx, doc); err != nil {
+				p.logger.Error("Failed to store document", map[string]interface{}{
+					"doc_url": doc.URL,
+					"doc_id":  doc.ID,
+					"error":   err.Error(),
+				})
+				continue
+			}
+
+			// Store chunks with embedding IDs
+			for _, chunk := range chunks {
+				// Set embedding ID if available
+				if embeddingID, ok := embeddingMap[chunk.ID.String()]; ok {
+					embeddingUUID, parseErr := uuid.Parse(embeddingID)
+					if parseErr == nil {
+						chunk.EmbeddingID = &embeddingUUID
+					}
+				}
+
+				// Store chunk
+				if err := p.docRepo.CreateChunk(p.ctx, chunk); err != nil {
+					p.logger.Error("Failed to store chunk", map[string]interface{}{
+						"doc_id":   doc.ID,
+						"chunk_id": chunk.ID,
+						"error":    err.Error(),
+					})
+				}
+			}
+		}
+
+		p.logger.Info("Storage complete", map[string]interface{}{
+			"job_id":              job.ID,
+			"documents_stored":    documentsAdded,
+			"chunks_stored":       totalChunks,
+		})
+	}
+
+	// Update job statistics
 	job.DocumentsProcessed = len(documents)
-	job.DocumentsAdded = len(documents)
-	job.ChunksCreated = 0 // TODO: Implement chunking
+	job.DocumentsAdded = documentsAdded
+	job.DocumentsUpdated = documentsUpdated
+	job.ChunksCreated = totalChunks
 
 	p.logger.Info("Ingestion processing complete", map[string]interface{}{
 		"job_id":              job.ID,
 		"documents_processed": job.DocumentsProcessed,
 		"documents_added":     job.DocumentsAdded,
+		"documents_updated":   job.DocumentsUpdated,
+		"chunks_created":      job.ChunksCreated,
+		"embeddings_created":  embeddingsCreated,
 	})
 
 	return nil
