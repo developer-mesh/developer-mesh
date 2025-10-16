@@ -831,8 +831,10 @@ func (cm *ContextManager) SearchInContext(ctx context.Context, contextID, query 
 			"query":      query,
 		})
 
-		// Create query to search in context items
-		q := `SELECT * FROM mcp.context_items WHERE context_id = $1 AND content LIKE $2`
+		// Create query to search in context items (select specific columns, not *)
+		q := `SELECT id, context_id, type, role, content, token_count, sequence_number, metadata, created_at
+		      FROM mcp.context_items
+		      WHERE context_id = $1 AND content LIKE $2`
 
 		// Execute query with parameters
 		rows, err := cm.db.QueryxContext(ctx, q, contextID, "%"+query+"%")
@@ -853,13 +855,47 @@ func (cm *ContextManager) SearchInContext(ctx context.Context, contextID, query 
 
 		// Iterate through results
 		for rows.Next() {
-			var item models.ContextItem
-			if err := rows.StructScan(&item); err != nil {
+			// Create a temporary struct to handle JSON metadata (match actual schema)
+			var dbItem struct {
+				ID             string          `db:"id"`
+				ContextID      string          `db:"context_id"`
+				Type           string          `db:"type"`
+				Role           string          `db:"role"`
+				Content        string          `db:"content"`
+				TokenCount     int             `db:"token_count"`
+				SequenceNumber int             `db:"sequence_number"`
+				Metadata       json.RawMessage `db:"metadata"`
+				CreatedAt      time.Time       `db:"created_at"`
+			}
+
+			if err := rows.StructScan(&dbItem); err != nil {
 				cm.logger.Error("Failed to scan context item from database", map[string]any{
 					"error": err.Error(),
 				})
 				continue
 			}
+
+			// Convert to models.ContextItem
+			item := models.ContextItem{
+				ID:        dbItem.ID,
+				ContextID: dbItem.ContextID,
+				Role:      dbItem.Role,
+				Content:   dbItem.Content,
+				Tokens:    dbItem.TokenCount,
+				Timestamp: dbItem.CreatedAt,
+			}
+
+			// Unmarshal metadata if present
+			if len(dbItem.Metadata) > 0 && string(dbItem.Metadata) != "null" {
+				if err := json.Unmarshal(dbItem.Metadata, &item.Metadata); err != nil {
+					cm.logger.Warn("Failed to unmarshal item metadata", map[string]any{
+						"error":   err.Error(),
+						"item_id": dbItem.ID,
+					})
+					// Continue without metadata - item is still valid
+				}
+			}
+
 			results = append(results, item)
 		}
 

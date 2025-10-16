@@ -70,11 +70,11 @@ func (r *EmbeddingRepositoryImpl) StoreEmbedding(ctx context.Context, embedding 
 
 	// Now store the embedding in the database
 	query := `INSERT INTO mcp.embeddings
-		(id, context_id, content_index, content, embedding, vector_dimensions, model_id, created_at)
+		(id, context_id, content_index, content, embedding, model_dimensions, model_id, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		ON CONFLICT (id) DO UPDATE SET
 		context_id = $2, content_index = $3, content = $4, embedding = $5,
-		vector_dimensions = $6, model_id = $7`
+		model_dimensions = $6, model_id = $7`
 
 	// Execute the database query using the transaction from the vector database
 	// This ensures that vector operations are atomic
@@ -134,7 +134,7 @@ func (r *EmbeddingRepositoryImpl) SearchEmbeddings(
 
 	// Build search query with vector similarity
 	query := `
-		SELECT id, context_id, content_index, content, embedding::text, vector_dimensions, model_id, created_at,
+		SELECT id, context_id, content_index, content, embedding::text, model_dimensions, model_id, created_at,
 		       (1 - (embedding <=> $1::vector)) as similarity
 		FROM mcp.embeddings
 		WHERE context_id = $2
@@ -257,7 +257,7 @@ func (r *EmbeddingRepositoryImpl) GetContextEmbeddings(ctx context.Context, cont
 	}
 
 	query := `
-		SELECT id, context_id, content_index, content, embedding::text, vector_dimensions, model_id, created_at
+		SELECT id, context_id, content_index, content, embedding::text, model_dimensions, model_id, created_at
 		FROM mcp.embeddings
 		WHERE context_id = $1
 		ORDER BY content_index
@@ -385,7 +385,7 @@ func (r *EmbeddingRepositoryImpl) GetEmbeddingsByModel(
 	}
 
 	query := `
-		SELECT id, context_id, content_index, content, embedding::text, vector_dimensions, model_id, created_at
+		SELECT id, context_id, content_index, content, embedding::text, model_dimensions, model_id, created_at
 		FROM mcp.embeddings
 		WHERE context_id = $1 AND model_id = $2
 		ORDER BY content_index
@@ -560,7 +560,7 @@ func (r *EmbeddingRepositoryImpl) GetEmbeddingByID(ctx context.Context, id strin
 
 	// Create query to fetch embedding by ID
 	query := `
-		SELECT id, context_id, content_index, content, embedding::text, vector_dimensions, model_id, created_at
+		SELECT id, context_id, content_index, content, embedding::text, model_dimensions, model_id, created_at
 		FROM mcp.embeddings
 		WHERE id = $1
 	`
@@ -833,7 +833,7 @@ func (r *EmbeddingRepositoryImpl) GetContextEmbeddingsBySequence(
 
 	query := `
 		SELECT e.id, e.context_id, e.content_index, e.content, e.embedding::text,
-		       e.vector_dimensions, e.model_id, e.created_at
+		       e.model_dimensions, e.model_id, e.created_at
 		FROM mcp.embeddings e
 		JOIN mcp.context_embeddings ce ON e.id = ce.embedding_id
 		WHERE ce.context_id = $1
