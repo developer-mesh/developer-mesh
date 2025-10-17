@@ -1,7 +1,8 @@
 <!-- SOURCE VERIFICATION
-Last Verified: 2025-08-11 14:36:17
-Verification Script: update-docs-parallel.sh
-Batch: aa
+Last Verified: 2025-10-17
+Verification Method: Manual code structure review
+Verified Against: go.work, pkg/ directory structure
+Status: Service names and package counts corrected
 -->
 
 # Package Dependencies
@@ -22,9 +23,10 @@ This document maps the dependency relationships between packages in the Develope
 ```mermaid
 graph TD
     subgraph "Application Layer"
-        MS[mcp-server]
+        MS[edge-mcp]
         RA[rest-api]
         W[worker]
+        RL[rag-loader]
         MOCK[mockserver]
     end
     
@@ -86,15 +88,16 @@ graph TD
 
 ## Package Dependency Matrix
 
-**Note**: The pkg/ directory contains 33 packages. This section covers the main packages and their relationships.
+**Note**: The pkg/ directory contains 50 packages. This section covers the main packages and their relationships.
 
 ### Application Dependencies
 
 | Package | Direct Dependencies | Purpose |
 |---------|-------------------|----------|
-| **mcp-server** | api, auth, services, websocket, observability | WebSocket server for AI agents | <!-- Source: pkg/models/websocket/binary.go -->
-| **rest-api** | api, auth, repository, services, observability | REST API gateway |
-| **worker** | queue, services, events, observability | Async task processing |
+| **edge-mcp** | api, auth, services, websocket, observability | Lightweight MCP gateway server |
+| **rest-api** | api, auth, repository, services, observability | REST API gateway with dynamic tools |
+| **worker** | queue, services, events, observability | Redis Streams async processing |
+| **rag-loader** | embedding, github, chunking, loader | RAG code indexing and loading |
 | **mockserver** | common | Testing mock server |
 
 ### Service Layer Dependencies
@@ -138,7 +141,7 @@ graph TD
 
 ### 1. AI Agent Registration Path
 ```
-mcp-server → api/websocket → services → agents → repository → database <!-- Source: pkg/models/websocket/binary.go -->
+edge-mcp → api/websocket → services → agents → repository → database
                                      ↓
                                   models
 ```

@@ -1,7 +1,8 @@
 <!-- SOURCE VERIFICATION
-Last Verified: 2025-08-11 14:37:21
-Verification Script: update-docs-parallel.sh
-Batch: aa
+Last Verified: 2025-10-17
+Verification Method: Manual code and database schema review
+Verified Against: migrations/sql/000006_agent_manifests.up.sql, pkg/models/agent_manifest.go
+Status: Schema corrected to match actual implementation
 -->
 
 # Universal Agent Registration Architecture
@@ -246,70 +247,91 @@ func (broker *MessageBroker) RouteByCapability(capability string, msg *Message) 
 
 ## Database Schema
 
-### Complete Schema
+### Complete Schema (Verified from 000006_agent_manifests.up.sql)
 
 ```sql
--- Agent Manifests
+-- Agent Manifests (defines agent types and capabilities)
 CREATE TABLE mcp.agent_manifests (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    organization_id UUID NOT NULL REFERENCES mcp.organizations(id),
+    organization_id UUID REFERENCES mcp.organizations(id) ON DELETE CASCADE,
     agent_id VARCHAR(255) UNIQUE NOT NULL,
-    agent_type VARCHAR(100) NOT NULL,
-    capabilities JSONB DEFAULT '[]',
-    requirements JSONB DEFAULT '{}',
-    connection_config JSONB DEFAULT '{}',
-    auth_config JSONB DEFAULT '{}',
+    agent_type VARCHAR(100) NOT NULL, -- ide, slack, monitoring, custom, etc.
+    name VARCHAR(255) NOT NULL,
+    version VARCHAR(50) NOT NULL,
+    description TEXT,
+    capabilities JSONB DEFAULT '[]',        -- Agent capabilities array
+    requirements JSONB DEFAULT '{}',        -- Runtime requirements
+    connection_config JSONB DEFAULT '{}',  -- Connection settings
+    auth_config JSONB DEFAULT '{}',        -- Authentication config
     metadata JSONB DEFAULT '{}',
+    status VARCHAR(50) DEFAULT 'inactive',
+    last_heartbeat TIMESTAMP WITH TIME ZONE,
+    created_by UUID,
+    updated_by UUID,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_agent_type CHECK (agent_type IN ('ide', 'slack', 'monitoring', 'cicd', 'custom'))
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Agent Registrations (Active Instances)
+-- Agent Registrations (active instances of agents)
 CREATE TABLE mcp.agent_registrations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    manifest_id UUID NOT NULL REFERENCES mcp.agent_manifests(id),
+    manifest_id UUID REFERENCES mcp.agent_manifests(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL,
     instance_id VARCHAR(255) NOT NULL,
-    status VARCHAR(50) NOT NULL DEFAULT 'online',
-    health_status VARCHAR(50) NOT NULL DEFAULT 'healthy',
+    registration_token TEXT,
+    registration_status VARCHAR(50) DEFAULT 'pending',
+    activation_date TIMESTAMP WITH TIME ZONE,
+    expiration_date TIMESTAMP WITH TIME ZONE,
+    runtime_config JSONB DEFAULT '{}',
     connection_details JSONB DEFAULT '{}',
-    last_heartbeat TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    registered_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_status CHECK (status IN ('online', 'offline', 'connecting')),
-    CONSTRAINT chk_health CHECK (health_status IN ('healthy', 'unhealthy', 'unknown'))
+    health_status VARCHAR(50) DEFAULT 'unknown',
+    health_check_url TEXT,
+    last_health_check TIMESTAMP WITH TIME ZONE,
+    metrics JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(tenant_id, instance_id)
 );
 
--- Agent Capabilities (with Semantic Search)
+-- Agent Capabilities (normalized for efficient querying)
 CREATE TABLE mcp.agent_capabilities (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    manifest_id UUID NOT NULL REFERENCES mcp.agent_manifests(id),
+    manifest_id UUID REFERENCES mcp.agent_manifests(id) ON DELETE CASCADE,
+    capability_type VARCHAR(100) NOT NULL,
     capability_name VARCHAR(255) NOT NULL,
-    capability_version VARCHAR(50),
-    parameters JSONB DEFAULT '{}',
-    embedding VECTOR(1536),  -- For semantic search via pgvector
+    capability_config JSONB DEFAULT '{}',
+    required BOOLEAN DEFAULT false,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_capability_embedding USING ivfflat (embedding vector_cosine_ops)
+    UNIQUE(manifest_id, capability_type, capability_name)
 );
 
 -- Agent Communication Channels
 CREATE TABLE mcp.agent_channels (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    manifest_id UUID NOT NULL REFERENCES mcp.agent_manifests(id),
-    channel_type VARCHAR(100) NOT NULL,
-    channel_config JSONB DEFAULT '{}',
-    priority INTEGER DEFAULT 5,
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    registration_id UUID REFERENCES mcp.agent_registrations(id) ON DELETE CASCADE,
+    channel_type VARCHAR(50) NOT NULL, -- websocket, http, grpc, redis, etc.
+    channel_config JSONB NOT NULL,
+    priority INTEGER DEFAULT 0,
+    active BOOLEAN DEFAULT true,
+    last_message_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(registration_id, channel_type)
 );
 
--- Indexes for Performance
-CREATE INDEX idx_manifests_org ON mcp.agent_manifests(organization_id);
-CREATE INDEX idx_manifests_type ON mcp.agent_manifests(agent_type);
-CREATE INDEX idx_registrations_manifest ON mcp.agent_registrations(manifest_id);
-CREATE INDEX idx_registrations_status ON mcp.agent_registrations(status, health_status);
-CREATE INDEX idx_capabilities_manifest ON mcp.agent_capabilities(manifest_id);
-CREATE INDEX idx_capabilities_name ON mcp.agent_capabilities(capability_name);
-CREATE INDEX idx_channels_manifest ON mcp.agent_channels(manifest_id);
+-- Performance Indexes
+CREATE INDEX idx_agent_manifests_org_id ON mcp.agent_manifests(organization_id);
+CREATE INDEX idx_agent_manifests_agent_type ON mcp.agent_manifests(agent_type);
+CREATE INDEX idx_agent_manifests_status ON mcp.agent_manifests(status);
+CREATE INDEX idx_agent_manifests_capabilities ON mcp.agent_manifests USING gin(capabilities);
+CREATE INDEX idx_agent_registrations_manifest_id ON mcp.agent_registrations(manifest_id);
+CREATE INDEX idx_agent_registrations_tenant_id ON mcp.agent_registrations(tenant_id);
+CREATE INDEX idx_agent_registrations_status ON mcp.agent_registrations(registration_status);
+CREATE INDEX idx_agent_registrations_health ON mcp.agent_registrations(health_status);
+CREATE INDEX idx_agent_capabilities_manifest_id ON mcp.agent_capabilities(manifest_id);
+CREATE INDEX idx_agent_capabilities_type ON mcp.agent_capabilities(capability_type);
+CREATE INDEX idx_agent_channels_registration_id ON mcp.agent_channels(registration_id);
+CREATE INDEX idx_agent_channels_type ON mcp.agent_channels(channel_type);
+CREATE INDEX idx_agent_channels_active ON mcp.agent_channels(active);
 ```
 
 ## Implementation Components
