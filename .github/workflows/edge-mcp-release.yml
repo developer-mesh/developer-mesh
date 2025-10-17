@@ -195,92 +195,147 @@ jobs:
           VERSION="${{ needs.prepare-release.outputs.version }}"
           cat > release-notes.md << 'EOF'
           ## Edge MCP v${{ needs.prepare-release.outputs.version }}
-          
+
           ### 📦 Installation
-          
+
           #### Quick Install Script (Unix/Linux/macOS)
           ```bash
           # Install latest Edge MCP
           curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/main/apps/edge-mcp/install.sh | bash
           ```
-          
+
           #### Manual Installation
-          
+
           **macOS (Apple Silicon)**
           ```bash
           curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-release.outputs.tag }}/edge-mcp-darwin-arm64.tar.gz | tar xz
           chmod +x edge-mcp-darwin-arm64
           sudo mv edge-mcp-darwin-arm64 /usr/local/bin/edge-mcp
           ```
-          
+
           **macOS (Intel)**
           ```bash
           curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-release.outputs.tag }}/edge-mcp-darwin-amd64.tar.gz | tar xz
           chmod +x edge-mcp-darwin-amd64
           sudo mv edge-mcp-darwin-amd64 /usr/local/bin/edge-mcp
           ```
-          
+
           **Linux (x64)**
           ```bash
           curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-release.outputs.tag }}/edge-mcp-linux-amd64.tar.gz | tar xz
           chmod +x edge-mcp-linux-amd64
           sudo mv edge-mcp-linux-amd64 /usr/local/bin/edge-mcp
           ```
-          
+
           **Linux (ARM64)**
           ```bash
           curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-release.outputs.tag }}/edge-mcp-linux-arm64.tar.gz | tar xz
           chmod +x edge-mcp-linux-arm64
           sudo mv edge-mcp-linux-arm64 /usr/local/bin/edge-mcp
           ```
-          
+
           **Windows (PowerShell as Administrator)**
           ```powershell
           # Download and extract
           Invoke-WebRequest -Uri "https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-release.outputs.tag }}/edge-mcp-windows-amd64.exe.zip" -OutFile "edge-mcp.zip"
           Expand-Archive -Path "edge-mcp.zip" -DestinationPath .
-          
+
           # Add to PATH (optional)
           Move-Item edge-mcp-windows-amd64.exe "C:\Program Files\edge-mcp\edge-mcp.exe"
           [Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\Program Files\edge-mcp", [EnvironmentVariableTarget]::Machine)
           ```
-          
+
           ### 🚀 Quick Start
-          
+
           ```bash
           # Run Edge MCP
           edge-mcp --port 8082
-          
+
           # Check version
           edge-mcp --version
-          
+
           # Run with debug logging
           edge-mcp --log-level debug
           ```
-          
+
           ### 📝 What's Changed
-          
-          See full changelog below or visit [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/apps/edge-mcp/CHANGELOG.md)
-          
-          ### 🔐 Verifying Downloads
-          
-          All binaries include SHA-256 checksums. To verify your download:
-          
-          ```bash
-          # Download checksum file
-          curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-release.outputs.tag }}/checksums.txt -o checksums.txt
-          
-          # Verify your binary (example for Linux x64)
-          sha256sum -c checksums.txt --ignore-missing
-          ```
-          
-          ### 📚 Documentation
-          
-          - [Edge MCP Documentation](https://github.com/${{ github.repository }}/tree/main/apps/edge-mcp)
-          - [IDE Setup Guides](https://github.com/${{ github.repository }}/tree/main/apps/edge-mcp/docs/ide-setup)
-          - [API Reference](https://github.com/${{ github.repository }}/tree/main/apps/edge-mcp/docs/api)
-          
+
           EOF
+
+          # Extract edge-mcp specific changelog
+          # Edge MCP versions are prefixed with "edge-mcp-" in tags but stored as plain versions in changelog
+          echo "Extracting changelog for Edge MCP version ${VERSION}..."
+
+          # Check if there's an edge-mcp specific CHANGELOG
+          if [ -f "apps/edge-mcp/CHANGELOG.md" ]; then
+            CHANGELOG_FILE="apps/edge-mcp/CHANGELOG.md"
+            echo "Using Edge MCP specific changelog: ${CHANGELOG_FILE}"
+          else
+            CHANGELOG_FILE="CHANGELOG.md"
+            echo "Using main changelog: ${CHANGELOG_FILE}"
+          fi
+
+          # Verify version exists
+          if ! grep -q "^## \[${VERSION}\]" "${CHANGELOG_FILE}" 2>/dev/null && \
+             ! grep -q "^## \[edge-mcp-${VERSION}\]" "${CHANGELOG_FILE}" 2>/dev/null; then
+            echo "⚠️  Warning: Version ${VERSION} not found in ${CHANGELOG_FILE}"
+            echo "Looking for patterns: ^## \[${VERSION}\] or ^## \[edge-mcp-${VERSION}\]"
+            echo ""
+            echo "Available versions:"
+            grep "^## \[" "${CHANGELOG_FILE}" 2>/dev/null | head -5 || echo "No versions found"
+            echo ""
+          fi
+
+          # Extract changelog - try both version formats
+          CHANGELOG=$(awk -v ver="${VERSION}" -v edge_ver="edge-mcp-${VERSION}" '
+            BEGIN { found = 0 }
+            /^## \[/ {
+              # Check for either plain version or edge-mcp prefixed version
+              if (index($0, "[" ver "]") > 0 || index($0, "[" edge_ver "]") > 0) {
+                found = 1
+                next
+              }
+              if (found) {
+                exit
+              }
+            }
+            found { print }
+          ' "${CHANGELOG_FILE}" 2>/dev/null | sed 's/^[[:space:]]*//')
+
+          if [ -n "$CHANGELOG" ] && [ "$CHANGELOG" != "" ]; then
+            echo "✅ Successfully extracted changelog for Edge MCP version ${VERSION}"
+            echo "$CHANGELOG" >> release-notes.md
+          else
+            echo "⚠️  No changelog found for version ${VERSION}, using recent commits"
+            echo "### Recent Changes" >> release-notes.md
+            echo "" >> release-notes.md
+            # Get commits related to edge-mcp specifically
+            git log --pretty=format:"- %s (%h)" --grep="edge-mcp" -20 2>/dev/null >> release-notes.md || \
+              git log --pretty=format:"- %s (%h)" -10 >> release-notes.md || \
+              echo "- See commit history for details" >> release-notes.md
+            echo "" >> release-notes.md
+            echo "" >> release-notes.md
+            echo "_Note: For detailed changes, see the [full changelog](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)_" >> release-notes.md
+          fi
+
+          echo "" >> release-notes.md
+          echo "### 🔐 Verifying Downloads" >> release-notes.md
+          echo "" >> release-notes.md
+          echo "All binaries include SHA-256 checksums. To verify your download:" >> release-notes.md
+          echo "" >> release-notes.md
+          echo '```bash' >> release-notes.md
+          echo "# Download checksum file" >> release-notes.md
+          echo "curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-release.outputs.tag }}/checksums.txt -o checksums.txt" >> release-notes.md
+          echo "" >> release-notes.md
+          echo "# Verify your binary (example for Linux x64)" >> release-notes.md
+          echo "sha256sum -c checksums.txt --ignore-missing" >> release-notes.md
+          echo '```' >> release-notes.md
+          echo "" >> release-notes.md
+          echo "### 📚 Documentation" >> release-notes.md
+          echo "" >> release-notes.md
+          echo "- [Edge MCP Documentation](https://github.com/${{ github.repository }}/tree/main/apps/edge-mcp)" >> release-notes.md
+          echo "- [IDE Setup Guides](https://github.com/${{ github.repository }}/tree/main/apps/edge-mcp/docs/ide-setup)" >> release-notes.md
+          echo "- [API Reference](https://github.com/${{ github.repository }}/tree/main/apps/edge-mcp/docs/api)" >> release-notes.md
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

@@ -1,0 +1,231 @@
+# Production environment values
+# Use with: helm install developer-mesh ./developer-mesh -f values-prod.yaml
+
+global:
+  environment: production
+
+  # Use external managed databases
+  database:
+    embedded: false
+    host: "your-rds-endpoint.region.rds.amazonaws.com"
+    port: 5432
+    name: devmesh_production
+    username: devmesh
+    # Use existing secret or provide via --set
+    existingSecret: "database-credentials"
+    existingSecretPasswordKey: "password"
+    sslMode: require
+
+  redis:
+    embedded: false
+    host: "your-elasticache-endpoint.cache.amazonaws.com"
+    port: 6379
+    # Use existing secret or provide via --set
+    existingSecret: "redis-credentials"
+    existingSecretPasswordKey: "password"
+
+  # AWS configuration - use IRSA for EKS
+  aws:
+    region: us-east-1
+    useIRSA: true
+    roleArn: "arn:aws:iam::ACCOUNT_ID:role/developer-mesh-role"
+    s3:
+      bucket: "developer-mesh-contexts-prod"
+
+  security:
+    # Use external secret management
+    existingSecret: "developer-mesh-encryption-secret"
+    existingSecretKeyName: "master-key"
+    jwt:
+      existingSecret: "developer-mesh-jwt-secret"
+      existingSecretKeyName: "jwt-secret"
+      expirationHours: 24
+
+  # Production monitoring
+  monitoring:
+    enabled: true
+    prometheusLabel: prometheus
+    interval: 30s
+
+  tracing:
+    enabled: true
+    otlpEndpoint: "tempo-distributor:4317"
+    samplingRate: 0.1
+
+  networkPolicy:
+    enabled: true
+    type: NetworkPolicy
+
+# Disable embedded databases
+postgresql:
+  enabled: false
+
+redis:
+  enabled: false
+
+# REST API - Production settings
+rest-api:
+  enabled: true
+  replicaCount: 3
+
+  config:
+    logLevel: info
+    logFormat: json
+    allowLocalhostUrls: false
+    allowPrivateNetworkUrls: false
+
+    github:
+      enabled: true
+      owner: "your-org"
+      repo: "your-repo"
+
+    embedding:
+      bedrock:
+        enabled: true
+
+  secrets:
+    create: false
+    # Use existing secrets
+    adminApiKey:
+      existingSecret: "rest-api-secrets"
+      existingSecretKey: "admin-api-key"
+    readerApiKey:
+      existingSecret: "rest-api-secrets"
+      existingSecretKey: "reader-api-key"
+    mcpApiKey:
+      existingSecret: "rest-api-secrets"
+      existingSecretKey: "mcp-api-key"
+    githubToken:
+      existingSecret: "rest-api-secrets"
+      existingSecretKey: "github-token"
+    githubWebhookSecret:
+      existingSecret: "rest-api-secrets"
+      existingSecretKey: "github-webhook-secret"
+
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 20
+
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 2
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 4000m
+      memory: 4Gi
+
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+      nginx.ingress.kubernetes.io/rate-limit: "100"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    hosts:
+      - host: api.developer-mesh.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: api-tls
+        hosts:
+          - api.developer-mesh.com
+
+# Edge MCP - Production settings
+edge-mcp:
+  enabled: true
+  replicaCount: 5
+
+  config:
+    logLevel: info
+    corePlatform:
+      enabled: false
+
+  autoscaling:
+    enabled: true
+    minReplicas: 5
+    maxReplicas: 20
+
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 3
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 1Gi
+
+# Worker - Production settings
+worker:
+  enabled: true
+  replicaCount: 3
+
+  config:
+    logLevel: info
+    concurrency: 10
+
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 15
+
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 2
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 4000m
+      memory: 4Gi
+
+# RAG Loader - Production settings
+rag-loader:
+  enabled: true
+  replicaCount: 2
+
+  config:
+    logLevel: info
+
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 4000m
+      memory: 4Gi
+
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    hosts:
+      - host: rag.developer-mesh.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: rag-tls
+        hosts:
+          - rag.developer-mesh.com

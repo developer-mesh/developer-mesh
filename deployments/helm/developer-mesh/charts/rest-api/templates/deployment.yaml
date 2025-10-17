@@ -1,0 +1,292 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "rest-api.fullname" . }}
+  namespace: {{ .Values.global.namespace.name }}
+  labels:
+    {{- include "rest-api.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      {{- include "rest-api.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "rest-api.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "rest-api.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.securityContext | nindent 8 }}
+        seccompProfile:
+          type: RuntimeDefault
+      {{- if or .Values.initContainers.waitForDatabase.enabled .Values.initContainers.waitForRedis.enabled }}
+      initContainers:
+      {{- if .Values.initContainers.waitForDatabase.enabled }}
+      - name: wait-for-database
+        image: {{ .Values.initContainers.waitForDatabase.image }}
+        command: ['sh', '-c']
+        args:
+          - |
+            echo "Waiting for database at {{ include "developer-mesh.database.host" . }}:{{ include "developer-mesh.database.port" . }}..."
+            until nc -z {{ include "developer-mesh.database.host" . }} {{ include "developer-mesh.database.port" . }}; do
+              echo "Database is unavailable - sleeping"
+              sleep 2
+            done
+            echo "Database is up!"
+        resources:
+          {{- toYaml .Values.initContainers.waitForDatabase.resources | nindent 10 }}
+      {{- end }}
+      {{- if .Values.initContainers.waitForRedis.enabled }}
+      - name: wait-for-redis
+        image: {{ .Values.initContainers.waitForRedis.image }}
+        command: ['sh', '-c']
+        args:
+          - |
+            echo "Waiting for Redis at {{ include "developer-mesh.redis.host" . }}:{{ include "developer-mesh.redis.port" . }}..."
+            until nc -z {{ include "developer-mesh.redis.host" . }} {{ include "developer-mesh.redis.port" . }}; do
+              echo "Redis is unavailable - sleeping"
+              sleep 2
+            done
+            echo "Redis is up!"
+        resources:
+          {{- toYaml .Values.initContainers.waitForRedis.resources | nindent 10 }}
+      {{- end }}
+      {{- end }}
+      containers:
+      - name: rest-api
+        image: {{ include "rest-api.image" . }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.service.targetPort }}
+          protocol: TCP
+        env:
+        # Core settings
+        - name: ENVIRONMENT
+          value: {{ .Values.global.environment | quote }}
+        - name: API_HOST
+          value: {{ .Values.config.apiHost | quote }}
+        - name: API_PORT
+          value: {{ .Values.config.apiPort | quote }}
+        - name: PORT
+          value: {{ .Values.config.apiPort | quote }}
+        - name: LOG_LEVEL
+          value: {{ .Values.config.logLevel | quote }}
+        - name: LOG_FORMAT
+          value: {{ .Values.config.logFormat | quote }}
+
+        # Database connection
+        {{- include "developer-mesh.database.env" . | nindent 8 }}
+
+        # Redis connection
+        {{- include "developer-mesh.redis.env" . | nindent 8 }}
+        - name: CACHE_TYPE
+          value: "redis"
+
+        # AWS configuration
+        {{- include "developer-mesh.aws.env" . | nindent 8 }}
+
+        # Authentication secrets
+        - name: ADMIN_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rest-api.secretName" . }}
+              key: admin-api-key
+        - name: READER_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rest-api.secretName" . }}
+              key: reader-api-key
+        - name: MCP_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rest-api.secretName" . }}
+              key: mcp-api-key
+
+        # JWT secret
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "developer-mesh.jwt.secretName" . }}
+              key: {{ .Values.global.security.jwt.existingSecretKeyName | default "jwt-secret" }}
+
+        # Encryption master key
+        - name: ENCRYPTION_MASTER_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "developer-mesh.encryption.secretName" . }}
+              key: {{ .Values.global.security.existingSecretKeyName | default "encryption-master-key" }}
+
+        {{- if .Values.config.github.enabled }}
+        # GitHub integration
+        - name: GITHUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rest-api.secretName" . }}
+              key: github-token
+        - name: GITHUB_WEBHOOK_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rest-api.secretName" . }}
+              key: github-webhook-secret
+        {{- if .Values.config.github.owner }}
+        - name: GITHUB_OWNER
+          value: {{ .Values.config.github.owner | quote }}
+        {{- end }}
+        {{- if .Values.config.github.repo }}
+        - name: GITHUB_REPO
+          value: {{ .Values.config.github.repo | quote }}
+        {{- end }}
+        {{- end }}
+
+        # Embedding providers
+        - name: EMBEDDING_ENABLED
+          value: {{ .Values.config.embedding.enabled | quote }}
+        {{- if .Values.config.embedding.bedrock.enabled }}
+        - name: BEDROCK_ENABLED
+          value: "true"
+        - name: BEDROCK_REGION
+          value: {{ .Values.global.aws.region | quote }}
+        {{- if .Values.config.embedding.bedrock.endpoint }}
+        - name: BEDROCK_ENDPOINT
+          value: {{ .Values.config.embedding.bedrock.endpoint | quote }}
+        {{- end }}
+        {{- if .Values.config.embedding.bedrock.roleArn }}
+        - name: BEDROCK_ROLE_ARN
+          value: {{ .Values.config.embedding.bedrock.roleArn | quote }}
+        {{- end }}
+        {{- end }}
+
+        {{- if .Values.config.embedding.openai.enabled }}
+        - name: OPENAI_ENABLED
+          value: "true"
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rest-api.secretName" . }}
+              key: openai-api-key
+        {{- end }}
+
+        {{- if .Values.config.embedding.googleAI.enabled }}
+        - name: GOOGLE_AI_ENABLED
+          value: "true"
+        - name: GOOGLE_AI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rest-api.secretName" . }}
+              key: google-ai-api-key
+        {{- end }}
+
+        # Feature flags
+        - name: FEATURE_WEBHOOKS_ENABLED
+          value: {{ .Values.config.features.webhooksEnabled | quote }}
+        - name: FEATURE_VECTOR_SEARCH_ENABLED
+          value: {{ .Values.config.features.vectorSearchEnabled | quote }}
+        - name: FEATURE_GITHUB_INTEGRATION_ENABLED
+          value: {{ .Values.config.features.githubIntegrationEnabled | quote }}
+
+        # CORS settings
+        - name: CORS_ENABLED
+          value: {{ .Values.config.cors.enabled | quote }}
+        {{- if .Values.config.cors.allowedOrigins }}
+        - name: CORS_ALLOWED_ORIGINS
+          value: {{ join "," .Values.config.cors.allowedOrigins | quote }}
+        {{- end }}
+
+        # Rate limiting
+        - name: RATE_LIMIT_ENABLED
+          value: {{ .Values.config.rateLimit.enabled | quote }}
+
+        # Monitoring
+        - name: PROMETHEUS_ENABLED
+          value: {{ .Values.config.prometheus.enabled | quote }}
+
+        # URL validation
+        - name: ALLOW_LOCALHOST_URLS
+          value: {{ .Values.config.allowLocalhostUrls | quote }}
+        - name: ALLOW_PRIVATE_NETWORK_URLS
+          value: {{ .Values.config.allowPrivateNetworkUrls | quote }}
+
+        # Tracing
+        {{- if .Values.global.tracing.enabled }}
+        - name: TRACING_ENABLED
+          value: "true"
+        - name: OTLP_ENDPOINT
+          value: {{ .Values.global.tracing.otlpEndpoint | quote }}
+        {{- end }}
+
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+
+        {{- if .Values.livenessProbe.enabled }}
+        livenessProbe:
+          {{- toYaml .Values.livenessProbe | nindent 10 }}
+        {{- end }}
+
+        {{- if .Values.readinessProbe.enabled }}
+        readinessProbe:
+          {{- toYaml .Values.readinessProbe | nindent 10 }}
+        {{- end }}
+
+        {{- if .Values.startupProbe.enabled }}
+        startupProbe:
+          {{- toYaml .Values.startupProbe | nindent 10 }}
+        {{- end }}
+
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          readOnlyRootFilesystem: {{ .Values.securityContext.readOnlyRootFilesystem }}
+
+        volumeMounts:
+        {{- include "developer-mesh.commonVolumeMounts" . | nindent 8 }}
+        - name: configs
+          mountPath: /app/configs
+          readOnly: true
+        - name: migrations
+          mountPath: /app/migrations
+          readOnly: true
+
+      volumes:
+      {{- include "developer-mesh.commonVolumes" . | nindent 6 }}
+      - name: configs
+        emptyDir: {}
+      - name: migrations
+        emptyDir: {}
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      terminationGracePeriodSeconds: 30

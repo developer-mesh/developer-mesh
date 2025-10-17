@@ -1,0 +1,259 @@
+{{- if .Values.global.networkPolicy.enabled }}
+---
+# Network Policy for REST API
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "developer-mesh.fullname" . }}-rest-api
+  namespace: {{ include "developer-mesh.namespace" . }}
+  labels:
+    {{- include "developer-mesh.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rest-api
+spec:
+  podSelector:
+    matchLabels:
+      app: rest-api
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow from ingress controller
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8080
+    # Allow from edge-mcp
+    - from:
+        - podSelector:
+            matchLabels:
+              app: edge-mcp
+      ports:
+        - protocol: TCP
+          port: 8080
+    # Allow from worker
+    - from:
+        - podSelector:
+            matchLabels:
+              app: worker
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    # Allow to database
+    - to:
+        - podSelector:
+            matchLabels:
+              app: postgresql
+      ports:
+        - protocol: TCP
+          port: 5432
+    # Allow to Redis
+    - to:
+        - podSelector:
+            matchLabels:
+              app: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+    # Allow DNS
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+    # Allow external HTTPS (for GitHub, AWS, etc.)
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 80
+
+---
+# Network Policy for Edge MCP
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "developer-mesh.fullname" . }}-edge-mcp
+  namespace: {{ include "developer-mesh.namespace" . }}
+  labels:
+    {{- include "developer-mesh.labels" . | nindent 4 }}
+    app.kubernetes.io/component: edge-mcp
+spec:
+  podSelector:
+    matchLabels:
+      app: edge-mcp
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow from ingress controller
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8082
+    # Allow from any pod in namespace (for MCP clients)
+    - from:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8082
+  egress:
+    # Allow to REST API
+    - to:
+        - podSelector:
+            matchLabels:
+              app: rest-api
+      ports:
+        - protocol: TCP
+          port: 8080
+    # Allow to Redis
+    - to:
+        - podSelector:
+            matchLabels:
+              app: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+    # Allow DNS
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+
+---
+# Network Policy for Worker
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "developer-mesh.fullname" . }}-worker
+  namespace: {{ include "developer-mesh.namespace" . }}
+  labels:
+    {{- include "developer-mesh.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  podSelector:
+    matchLabels:
+      app: worker
+  policyTypes:
+    - Egress
+  egress:
+    # Allow to database
+    - to:
+        - podSelector:
+            matchLabels:
+              app: postgresql
+      ports:
+        - protocol: TCP
+          port: 5432
+    # Allow to Redis
+    - to:
+        - podSelector:
+            matchLabels:
+              app: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+    # Allow to REST API
+    - to:
+        - podSelector:
+            matchLabels:
+              app: rest-api
+      ports:
+        - protocol: TCP
+          port: 8080
+    # Allow DNS
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+    # Allow external HTTPS (for AWS Bedrock, S3, etc.)
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+
+---
+# Network Policy for RAG Loader
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "developer-mesh.fullname" . }}-rag-loader
+  namespace: {{ include "developer-mesh.namespace" . }}
+  labels:
+    {{- include "developer-mesh.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rag-loader
+spec:
+  podSelector:
+    matchLabels:
+      app: rag-loader
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow from ingress controller
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8084
+    # Allow from other services for metrics
+    - from:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 9094
+  egress:
+    # Allow to database
+    - to:
+        - podSelector:
+            matchLabels:
+              app: postgresql
+      ports:
+        - protocol: TCP
+          port: 5432
+    # Allow to Redis
+    - to:
+        - podSelector:
+            matchLabels:
+              app: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+    # Allow DNS
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+    # Allow external HTTPS (for GitHub API, AWS Bedrock)
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+{{- end }}

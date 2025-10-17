@@ -56,80 +56,105 @@ jobs:
         id: release-notes
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          
+
           # Create comprehensive release notes
           cat > release-notes.md << 'EOF'
           ## 🚀 Developer Mesh v${{ steps.version.outputs.version }}
-          
+
           ### 📦 Docker Images
-          
+
           All images are available on GitHub Container Registry:
-          
+
           ```bash
           # Edge MCP
           docker pull ghcr.io/${{ github.repository_owner }}/developer-mesh-edge-mcp:${{ steps.version.outputs.version }}
-          
+
           # REST API
           docker pull ghcr.io/${{ github.repository_owner }}/developer-mesh-rest-api:${{ steps.version.outputs.version }}
-          
+
           # Worker
           docker pull ghcr.io/${{ github.repository_owner }}/developer-mesh-worker:${{ steps.version.outputs.version }}
           ```
-          
+
           ### 🐳 Quick Start with Docker Compose
-          
+
           ```bash
           # Clone the repository
           git clone https://github.com/${{ github.repository }}.git
           cd developer-mesh
-          
+
           # Start all services
           docker-compose -f docker-compose.local.yml up -d
           ```
-          
+
           ### ✨ Key Features
-          
+
           - **Edge MCP**: WebSocket server for AI agent communication via Model Context Protocol with built-in tools
-          - **REST API**: Dynamic tools integration and management 
+          - **REST API**: Dynamic tools integration and management
           - **Worker**: Redis-based webhook and event processing
           - **Edge MCP**: Lightweight gateway for Claude Code integration
           - **Multi-tenant**: Complete tenant isolation and session management
           - **Security**: JWT authentication, encrypted credentials, rate limiting
-          
+
           ### 🔧 Configuration
-          
+
           Default endpoints:
           - Edge MCP WebSocket: `ws://localhost:8085/ws`
           - REST API: `http://localhost:8081`
           - Health checks: `/health` on each service
-          
+
           ### 📚 Documentation
-          
+
           - [Getting Started](https://github.com/${{ github.repository }}/blob/main/README.md)
           - [API Documentation](https://github.com/${{ github.repository }}/blob/main/docs/API.md)
           - [MCP Protocol Guide](https://github.com/${{ github.repository }}/blob/main/docs/MCP.md)
-          
+
           ### 🔄 What's Changed
-          
+
           EOF
-          
-          # Try to extract changelog for this version
-          CHANGELOG=$(awk -v ver="## \\[${VERSION}\\]" '
+
+          # Improved changelog extraction with better pattern matching
+          # Handles both "## [VERSION]" and "## [VERSION] - DATE" formats
+          echo "Extracting changelog for version ${VERSION}..."
+
+          # First, verify the version exists in CHANGELOG.md
+          if ! grep -q "^## \[${VERSION}\]" CHANGELOG.md; then
+            echo "⚠️  Warning: Version ${VERSION} not found in CHANGELOG.md"
+            echo "Looking for pattern: ^## \[${VERSION}\]"
+            echo ""
+            echo "Available versions in CHANGELOG:"
+            grep "^## \[" CHANGELOG.md | head -5
+            echo ""
+          fi
+
+          # Extract changelog content with improved pattern
+          # This handles "## [VERSION]" with anything after (date, text, etc.)
+          CHANGELOG=$(awk -v ver="${VERSION}" '
             BEGIN { found = 0 }
-            $0 ~ ver { found = 1; next }
-            found && /^## \[/ { exit }
+            /^## \[/ {
+              # Check if this line contains our version
+              if (index($0, "[" ver "]") > 0) {
+                found = 1
+                next
+              }
+              # If we were capturing and hit a new version header, stop
+              if (found) {
+                exit
+              }
+            }
             found { print }
-          ' CHANGELOG.md 2>/dev/null || echo "")
-          
-          if [ -n "$CHANGELOG" ]; then
+          ' CHANGELOG.md 2>/dev/null | sed 's/^[[:space:]]*//')
+
+          if [ -n "$CHANGELOG" ] && [ "$CHANGELOG" != "" ]; then
+            echo "✅ Successfully extracted changelog for version ${VERSION}"
             echo "$CHANGELOG" >> release-notes.md
           else
-            # Generate from recent commits if no changelog
+            echo "⚠️  No changelog found, generating from recent commits"
             echo "### Recent Changes" >> release-notes.md
             echo "" >> release-notes.md
-            git log --pretty=format:"- %s" -10 >> release-notes.md || echo "- See commit history for details" >> release-notes.md
+            git log --pretty=format:"- %s (%h)" -20 >> release-notes.md || echo "- See commit history for details" >> release-notes.md
           fi
-          
+
           echo "" >> release-notes.md
           echo "### 📝 Full Changelog" >> release-notes.md
           echo "https://github.com/${{ github.repository }}/compare/...v${{ steps.version.outputs.version }}" >> release-notes.md

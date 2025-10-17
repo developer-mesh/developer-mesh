@@ -1,0 +1,21 @@
+apiVersion: v2
+name: rest-api
+description: Developer Mesh REST API - Dynamic Tools and Integration Platform
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+
+home: https://github.com/developer-mesh/developer-mesh
+sources:
+  - https://github.com/developer-mesh/developer-mesh
+
+maintainers:
+  - name: Developer Mesh Team
+    email: support@developer-mesh.com
+
+keywords:
+  - rest-api
+  - api
+  - tools
+  - integrations
+  - developer-mesh

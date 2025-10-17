@@ -1,0 +1,19 @@
+apiVersion: v2
+name: edge-mcp
+description: Edge MCP - AI Agent Communication Server for Developer Mesh
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+home: https://github.com/developer-mesh/developer-mesh
+sources:
+- https://github.com/developer-mesh/developer-mesh
+maintainers:
+- name: Developer Mesh Team
+  email: support@developer-mesh.com
+keywords:
+- mcp
+- ai
+- agent
+- devops
+- developer-mesh
+icon: https://developer-mesh.com/icon.png

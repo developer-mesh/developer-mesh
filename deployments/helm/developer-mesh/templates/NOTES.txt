@@ -1,0 +1,140 @@
+🚀 Developer Mesh has been deployed!
+
+Release Name: {{ .Release.Name }}
+Namespace: {{ .Values.global.namespace.name }}
+Environment: {{ .Values.global.environment }}
+
+📋 DEPLOYED SERVICES:
+{{- if .Values.rest-api.enabled }}
+  ✓ REST API ({{ .Values.rest-api.replicaCount }} replicas)
+{{- end }}
+{{- if .Values.edge-mcp.enabled }}
+  ✓ Edge MCP ({{ .Values.edge-mcp.replicaCount }} replicas)
+{{- end }}
+{{- if .Values.worker.enabled }}
+  ✓ Worker ({{ .Values.worker.replicaCount }} replicas)
+{{- end }}
+{{- if .Values.rag-loader.enabled }}
+  ✓ RAG Loader ({{ .Values.rag-loader.replicaCount }} replicas)
+{{- end }}
+
+📊 INFRASTRUCTURE:
+{{- if .Values.postgresql.enabled }}
+  ✓ PostgreSQL (embedded)
+{{- else }}
+  ✓ PostgreSQL (external: {{ .Values.global.database.host }})
+{{- end }}
+{{- if .Values.redis.enabled }}
+  ✓ Redis (embedded)
+{{- else }}
+  ✓ Redis (external: {{ .Values.global.redis.host }})
+{{- end }}
+
+🔍 MONITORING:
+{{- if .Values.global.monitoring.enabled }}
+  ✓ Prometheus ServiceMonitors enabled
+  ✓ Metrics available at /metrics endpoints
+{{- end }}
+{{- if .Values.global.tracing.enabled }}
+  ✓ Distributed tracing enabled ({{ .Values.global.tracing.otlpEndpoint }})
+{{- end }}
+
+🌐 ACCESS SERVICES:
+
+{{- if .Values.rest-api.enabled }}
+
+REST API:
+{{- if .Values.rest-api.ingress.enabled }}
+  External URL: https://{{ (index .Values.rest-api.ingress.hosts 0).host }}
+{{- else }}
+  Port Forward:
+    kubectl port-forward -n {{ .Values.global.namespace.name }} \
+      svc/{{ .Release.Name }}-rest-api 8080:8080
+
+  Then access: http://localhost:8080
+  Health Check: http://localhost:8080/health
+  Metrics: http://localhost:8080/metrics
+{{- end }}
+{{- end }}
+
+{{- if .Values.edge-mcp.enabled }}
+
+Edge MCP:
+  Port Forward:
+    kubectl port-forward -n {{ .Values.global.namespace.name }} \
+      svc/{{ .Release.Name }}-edge-mcp 8082:8082
+
+  Then access: ws://localhost:8082/ws
+  Health Check: http://localhost:8082/health/live
+{{- end }}
+
+{{- if .Values.rag-loader.enabled }}
+
+RAG Loader:
+{{- if .Values.rag-loader.ingress.enabled }}
+  External URL: https://{{ (index .Values.rag-loader.ingress.hosts 0).host }}
+{{- else }}
+  Port Forward:
+    kubectl port-forward -n {{ .Values.global.namespace.name }} \
+      svc/{{ .Release.Name }}-rag-loader 8084:8084
+
+  Then access: http://localhost:8084
+{{- end }}
+{{- end }}
+
+📝 NEXT STEPS:
+
+1. Check pod status:
+   kubectl get pods -n {{ .Values.global.namespace.name }}
+
+2. View logs:
+   kubectl logs -n {{ .Values.global.namespace.name }} -l app=rest-api -f
+
+3. Test REST API health:
+   kubectl run -it --rm debug --image=curlimages/curl --restart=Never -- \
+     curl http://{{ .Release.Name }}-rest-api.{{ .Values.global.namespace.name }}:8080/health
+
+{{- if eq .Values.global.environment "development" }}
+
+⚠️  DEVELOPMENT MODE NOTES:
+  - Using embedded databases (not for production)
+  - Development secrets are in use (change for production)
+  - Network policies are disabled
+  - Resource limits are minimal
+
+{{- else if eq .Values.global.environment "production" }}
+
+✅ PRODUCTION MODE:
+  - Using external managed databases
+  - Ensure secrets are properly configured
+  - Monitor resource usage and scale as needed
+  - Review security policies and network access
+
+{{- end }}
+
+📚 DOCUMENTATION:
+  - Helm Chart: {{ .Chart.Home }}
+  - Documentation: https://docs.developer-mesh.com
+  - GitHub: {{ index .Chart.Sources 0 }}
+
+💡 USEFUL COMMANDS:
+
+View all resources:
+  kubectl get all -n {{ .Values.global.namespace.name }}
+
+Scale services:
+  kubectl scale deployment {{ .Release.Name }}-rest-api \
+    -n {{ .Values.global.namespace.name }} --replicas=5
+
+Upgrade release:
+  helm upgrade {{ .Release.Name }} ./developer-mesh \
+    -n {{ .Values.global.namespace.name }} -f values.yaml
+
+Uninstall:
+  helm uninstall {{ .Release.Name }} -n {{ .Values.global.namespace.name }}
+
+---
+
+Thank you for using Developer Mesh! 🎉
+
+For support, visit: https://github.com/developer-mesh/developer-mesh/issues

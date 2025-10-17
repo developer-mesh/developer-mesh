@@ -42,15 +42,15 @@ WORKDIR /app
 # Use non-root user
 USER nonroot
 
-# Expose port (if needed)
-EXPOSE 8082
+# Expose port for health endpoint
+EXPOSE 8088
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD ["/app/worker", "-health-check"]
 
 # Minimal environment variables
-ENV PORT=8082
+ENV HEALTH_ENDPOINT=:8088
 
 # Metadata labels
 ARG VERSION

@@ -1,0 +1,606 @@
+# Default values for Developer Mesh Platform
+# This is the main values file for the umbrella chart
+
+# Global settings shared across all subcharts
+global:
+  # Image pull secrets for private registries
+  imagePullSecrets: []
+  # imagePullSecrets:
+  #   - name: regcred
+
+  # Global image registry override
+  # If set, this will be prepended to all image repositories
+  imageRegistry: ""
+
+  # Default image pull policy
+  imagePullPolicy: IfNotPresent
+
+  # Environment (development, staging, production)
+  environment: production
+
+  # Common labels applied to all resources
+  labels: {}
+    # team: platform
+    # costCenter: engineering
+
+  # Common annotations
+  annotations: {}
+
+  # Namespace configuration
+  namespace:
+    create: true
+    name: developer-mesh
+
+  # Database configuration (shared by all services)
+  database:
+    # Use embedded PostgreSQL (development) or external (production)
+    embedded: false
+    host: postgresql
+    port: 5432
+    name: devmesh_production
+    username: devmesh
+    # Password should be provided via secret or values override
+    password: ""
+    # Existing secret for database credentials
+    existingSecret: ""
+    existingSecretPasswordKey: "postgresql-password"
+    sslMode: require
+    # Search paths for schema
+    searchPath: "mcp,rag,public"
+    # Connection pool settings
+    maxConnections: 100
+    maxIdleConnections: 10
+    connectionMaxLifetime: 1h
+
+  # Redis configuration (shared by all services)
+  redis:
+    # Use embedded Redis (development) or external (production)
+    embedded: false
+    host: redis-master
+    port: 6379
+    # Password for Redis authentication
+    password: ""
+    # Existing secret for Redis credentials
+    existingSecret: ""
+    existingSecretPasswordKey: "redis-password"
+    # Database number
+    database: 0
+    # Connection settings
+    maxRetries: 3
+    poolSize: 10
+
+  # AWS Configuration (for Bedrock, S3, etc.)
+  aws:
+    region: us-east-1
+    # Use IRSA (IAM Roles for Service Accounts) - recommended for EKS
+    useIRSA: false
+    # Role ARN for IRSA
+    roleArn: ""
+    # Access keys (not recommended for production - use IRSA instead)
+    accessKeyId: ""
+    secretAccessKey: ""
+    # Existing secret containing AWS credentials
+    existingSecret: ""
+    existingSecretAccessKeyIdKey: "aws-access-key-id"
+    existingSecretSecretAccessKeyKey: "aws-secret-access-key"
+    # S3 configuration
+    s3:
+      bucket: mcp-contexts
+      endpoint: ""  # Leave empty for AWS S3, set for S3-compatible services
+      usePathStyle: false
+
+  # Security settings
+  security:
+    # Master encryption key for sensitive data
+    encryptionMasterKey: ""
+    # Existing secret containing encryption key
+    existingSecret: ""
+    existingSecretKeyName: "encryption-master-key"
+    # JWT settings
+    jwt:
+      secret: ""
+      # Existing secret for JWT
+      existingSecret: ""
+      existingSecretKeyName: "jwt-secret"
+      expirationHours: 24
+    # Pod security context (applied to all pods)
+    # Using distroless nonroot user (UID 65532) for most services
+    # RAG Loader overrides this to use UID 1000
+    podSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 65532
+      runAsGroup: 65532
+      fsGroup: 65532
+      seccompProfile:
+        type: RuntimeDefault
+    # Container security context
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+      readOnlyRootFilesystem: true
+
+  # Monitoring settings
+  monitoring:
+    # Enable Prometheus ServiceMonitor
+    enabled: true
+    # Prometheus instance label selector
+    prometheusLabel: prometheus
+    # Scraping interval
+    interval: 30s
+    scrapeTimeout: 10s
+
+  # Tracing settings (OpenTelemetry)
+  tracing:
+    enabled: false
+    # OTLP endpoint (e.g., Jaeger, Tempo)
+    otlpEndpoint: ""
+    samplingRate: 0.1
+
+  # Network policies
+  networkPolicy:
+    enabled: false
+    # Policy type (NetworkPolicy or Cilium)
+    type: NetworkPolicy
+
+# REST API Service Configuration
+rest-api:
+  enabled: true
+  replicaCount: 3
+
+  image:
+    repository: developer-mesh/rest-api
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 8080
+    targetPort: 8080
+    annotations: {}
+
+  # API-specific environment variables
+  config:
+    apiHost: "0.0.0.0"
+    apiPort: 8080
+    logLevel: info
+    logFormat: json
+
+    # Authentication
+    adminApiKey: ""  # Should be provided via secret
+    readerApiKey: ""  # Should be provided via secret
+
+    # GitHub integration
+    github:
+      enabled: true
+      token: ""  # Should be provided via secret
+      webhookSecret: ""  # Should be provided via secret
+      owner: ""
+      repo: ""
+
+    # Embedding providers
+    embedding:
+      enabled: true
+      bedrock:
+        enabled: true
+        endpoint: ""
+        roleArn: ""
+      openai:
+        enabled: false
+        apiKey: ""
+      googleAI:
+        enabled: false
+        apiKey: ""
+
+    # Feature flags
+    features:
+      webhooksEnabled: true
+      vectorSearchEnabled: true
+      githubIntegrationEnabled: true
+
+    # CORS settings
+    cors:
+      enabled: true
+      allowedOrigins:
+        - "http://localhost:3000"
+        - "http://localhost:8080"
+
+    # Rate limiting
+    rateLimit:
+      enabled: true
+      requestsPerSecond: 100
+      burst: 200
+
+  # Resource limits
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+
+  # Autoscaling
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+  # Health checks
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+  startupProbe:
+    enabled: true
+    initialDelaySeconds: 0
+    periodSeconds: 2
+    timeoutSeconds: 3
+    failureThreshold: 60
+
+  # Pod disruption budget
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 2
+
+  # Ingress configuration
+  ingress:
+    enabled: false
+    className: nginx
+    annotations: {}
+      # cert-manager.io/cluster-issuer: letsencrypt-prod
+    hosts:
+      - host: api.developer-mesh.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+      # - secretName: api-tls
+      #   hosts:
+      #     - api.developer-mesh.example.com
+
+# Edge MCP Service Configuration
+edge-mcp:
+  enabled: true
+  replicaCount: 3
+
+  image:
+    repository: developer-mesh/edge-mcp
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 8082
+    targetPort: 8082
+    annotations: {}
+
+  # Edge MCP specific configuration
+  config:
+    apiKey: ""  # Should be provided via secret
+    logLevel: info
+
+    # Core platform connection (optional)
+    corePlatform:
+      enabled: false
+      url: ""
+      apiKey: ""
+
+    # Cache configuration
+    cache:
+      l1:
+        maxItems: 10000
+        ttl: 5m
+      l2:
+        ttl: 1h
+      compression:
+        enabled: true
+        threshold: 1024
+
+    # Rate limiting
+    rateLimit:
+      globalRps: 1000
+      globalBurst: 2000
+      tenantRps: 100
+      tenantBurst: 200
+      toolRps: 50
+      toolBurst: 100
+      enableQuotas: true
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+  startupProbe:
+    enabled: true
+    initialDelaySeconds: 0
+    periodSeconds: 2
+    timeoutSeconds: 3
+    failureThreshold: 30
+
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 2
+
+# Worker Service Configuration
+worker:
+  enabled: true
+  replicaCount: 2
+
+  image:
+    repository: developer-mesh/worker
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  # Worker specific configuration
+  config:
+    logLevel: info
+    concurrency: 5
+    queueType: redis
+
+    # Embedding processing
+    embedding:
+      defaultModel: "amazon.titan-embed-text-v2:0"
+      chunkSize: 1000
+      batchSize: 10
+
+    # Artifactory integration (optional)
+    artifactory:
+      enabled: false
+      url: ""
+      apiKey: ""
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+# RAG Loader Service Configuration
+rag-loader:
+  enabled: true
+  replicaCount: 2
+
+  image:
+    repository: developer-mesh/rag-loader
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 8084
+    targetPort: 8084
+    metricsPort: 9094
+    annotations: {}
+
+  # RAG Loader specific configuration
+  config:
+    logLevel: info
+    apiEnabled: true
+    apiPort: 8084
+    metricsPort: 9094
+
+    # Master key for multi-tenant encryption
+    masterKey: ""  # Should be provided via secret
+
+    # Scheduler configuration
+    scheduler:
+      defaultSchedule: "*/30 * * * *"  # Every 30 minutes
+      enableApi: true
+      enableEvents: false
+
+    # Embedding configuration
+    embedding:
+      defaultModel: "amazon.titan-embed-text-v2:0"
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+  startupProbe:
+    enabled: true
+    initialDelaySeconds: 0
+    periodSeconds: 2
+    timeoutSeconds: 3
+    failureThreshold: 60
+
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+  ingress:
+    enabled: false
+    className: nginx
+    annotations: {}
+    hosts:
+      - host: rag.developer-mesh.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+
+# PostgreSQL Configuration (for development/testing)
+# For production, use external managed PostgreSQL and set global.database.embedded: false
+postgresql:
+  enabled: false  # Set to true for development
+  auth:
+    username: devmesh
+    password: devmesh
+    database: devmesh_development
+    existingSecret: ""
+
+  primary:
+    persistence:
+      enabled: true
+      size: 50Gi
+      storageClass: ""
+
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 2000m
+        memory: 2Gi
+
+    # PostgreSQL configuration
+    extendedConfiguration: |
+      max_connections = 200
+      shared_buffers = 256MB
+      effective_cache_size = 1GB
+      maintenance_work_mem = 64MB
+      checkpoint_completion_target = 0.9
+      wal_buffers = 16MB
+      default_statistics_target = 100
+      random_page_cost = 1.1
+      effective_io_concurrency = 200
+      work_mem = 2621kB
+      min_wal_size = 1GB
+      max_wal_size = 4GB
+
+  # PostgreSQL with pgvector extension
+  image:
+    registry: docker.io
+    repository: pgvector/pgvector
+    tag: pg17
+
+  # Init scripts to create schemas
+  initdbScripts:
+    01-init-extensions.sql: |
+      -- Create extensions
+      CREATE EXTENSION IF NOT EXISTS vector;
+      CREATE EXTENSION IF NOT EXISTS pg_trgm;
+      CREATE EXTENSION IF NOT EXISTS btree_gin;
+
+    02-init-schemas.sql: |
+      -- Create schemas
+      CREATE SCHEMA IF NOT EXISTS mcp;
+      CREATE SCHEMA IF NOT EXISTS rag;
+
+      -- Grant permissions
+      GRANT ALL ON SCHEMA mcp TO devmesh;
+      GRANT ALL ON SCHEMA rag TO devmesh;
+      GRANT ALL ON SCHEMA public TO devmesh;
+
+# Redis Configuration (for development/testing)
+# For production, use external managed Redis and set global.redis.embedded: false
+redis:
+  enabled: false  # Set to true for development
+  architecture: standalone
+
+  auth:
+    enabled: true
+    password: ""
+    existingSecret: ""
+    existingSecretPasswordKey: "redis-password"
+
+  master:
+    persistence:
+      enabled: true
+      size: 20Gi
+      storageClass: ""
+
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+
+    configuration: |-
+      appendonly yes
+      maxmemory 512mb
+      maxmemory-policy allkeys-lru
+      save ""
+      stop-writes-on-bgsave-error no

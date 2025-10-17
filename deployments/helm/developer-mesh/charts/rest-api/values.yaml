@@ -1,0 +1,331 @@
+# Default values for rest-api subchart
+# These can be overridden by parent chart
+
+nameOverride: ""
+fullnameOverride: ""
+
+# Replica count (overridden by HPA when enabled)
+replicaCount: 3
+
+# Image configuration
+image:
+  repository: developer-mesh/rest-api
+  pullPolicy: IfNotPresent
+  tag: ""  # Defaults to chart appVersion
+
+imagePullSecrets: []
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+  annotations: {}
+  labels: {}
+
+# Service Account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# RBAC
+rbac:
+  create: true
+
+# Application configuration
+config:
+  # Core settings
+  apiHost: "0.0.0.0"
+  apiPort: 8080
+  environment: "production"
+  logLevel: "info"
+  logFormat: "json"
+
+  # Authentication
+  adminApiKey: ""
+  readerApiKey: ""
+  mcpApiKey: ""
+
+  # GitHub integration
+  github:
+    enabled: true
+    token: ""
+    webhookSecret: ""
+    owner: ""
+    repo: ""
+
+  # Embedding providers
+  embedding:
+    enabled: true
+    bedrock:
+      enabled: true
+      endpoint: ""
+      roleArn: ""
+    openai:
+      enabled: false
+      apiKey: ""
+    googleAI:
+      enabled: false
+      apiKey: ""
+
+  # Feature flags
+  features:
+    webhooksEnabled: true
+    vectorSearchEnabled: true
+    githubIntegrationEnabled: true
+
+  # CORS settings
+  cors:
+    enabled: true
+    allowedOrigins:
+      - "http://localhost:3000"
+      - "http://localhost:8080"
+
+  # Rate limiting
+  rateLimit:
+    enabled: true
+    requestsPerSecond: 100
+    burst: 200
+
+  # Prometheus metrics
+  prometheus:
+    enabled: true
+
+  # URL validation (for development)
+  allowLocalhostUrls: false
+  allowPrivateNetworkUrls: false
+
+# Secrets (use existing secret or create new)
+secrets:
+  create: true
+  name: ""
+
+  # Admin API key
+  adminApiKey:
+    value: ""
+    existingSecret: ""
+    existingSecretKey: "admin-api-key"
+
+  # Reader API key
+  readerApiKey:
+    value: ""
+    existingSecret: ""
+    existingSecretKey: "reader-api-key"
+
+  # MCP API key
+  mcpApiKey:
+    value: ""
+    existingSecret: ""
+    existingSecretKey: "mcp-api-key"
+
+  # GitHub token
+  githubToken:
+    value: ""
+    existingSecret: ""
+    existingSecretKey: "github-token"
+
+  # GitHub webhook secret
+  githubWebhookSecret:
+    value: ""
+    existingSecret: ""
+    existingSecretKey: "github-webhook-secret"
+
+  # OpenAI API key (if enabled)
+  openaiApiKey:
+    value: ""
+    existingSecret: ""
+    existingSecretKey: "openai-api-key"
+
+  # Google AI API key (if enabled)
+  googleAiApiKey:
+    value: ""
+    existingSecret: ""
+    existingSecretKey: "google-ai-api-key"
+
+# Resource limits
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+
+# Autoscaling
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 10
+          periodSeconds: 60
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+      selectPolicy: Min
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+      selectPolicy: Max
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+# Health probes
+livenessProbe:
+  enabled: true
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+readinessProbe:
+  enabled: true
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+  successThreshold: 1
+
+startupProbe:
+  enabled: true
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 0
+  periodSeconds: 2
+  timeoutSeconds: 3
+  failureThreshold: 60
+  successThreshold: 1
+
+# Security context
+# Using distroless nonroot user (UID 65532)
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  readOnlyRootFilesystem: true
+
+# Pod annotations
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8080"
+  prometheus.io/path: "/metrics"
+
+# Pod labels
+podLabels:
+  app: rest-api
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity rules
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - rest-api
+          topologyKey: kubernetes.io/hostname
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+    # nginx.ingress.kubernetes.io/rate-limit: "100"
+  hosts:
+    - host: api.developer-mesh.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+    # - secretName: api-tls
+    #   hosts:
+    #     - api.developer-mesh.example.com
+
+# Service Monitor for Prometheus Operator
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  scrapeTimeout: 10s
+  relabelings: []
+  metricRelabelings: []
+
+# Database migration job
+migration:
+  enabled: true
+  image:
+    repository: developer-mesh/rest-api
+    tag: ""
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  # Annotations for migration job
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-5"
+    helm.sh/hook-delete-policy: before-hook-creation
+
+# Init containers
+initContainers:
+  # Wait for database
+  waitForDatabase:
+    enabled: true
+    image: busybox:1.36
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 50m
+        memory: 64Mi
+
+  # Wait for Redis
+  waitForRedis:
+    enabled: true
+    image: busybox:1.36
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 50m
+        memory: 64Mi

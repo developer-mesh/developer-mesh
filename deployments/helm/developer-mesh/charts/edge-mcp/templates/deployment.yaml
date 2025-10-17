@@ -1,0 +1,208 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "edge-mcp.fullname" . }}
+  namespace: {{ .Values.global.namespace.name }}
+  labels:
+    {{- include "edge-mcp.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      {{- include "edge-mcp.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "edge-mcp.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "edge-mcp.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.securityContext | nindent 8 }}
+        seccompProfile:
+          type: RuntimeDefault
+      {{- if or .Values.initContainers.waitForRedis.enabled .Values.initContainers.waitForRestApi.enabled }}
+      initContainers:
+      {{- if .Values.initContainers.waitForRedis.enabled }}
+      - name: wait-for-redis
+        image: {{ .Values.initContainers.waitForRedis.image }}
+        command: ['sh', '-c']
+        args:
+          - |
+            echo "Waiting for Redis at {{ include "developer-mesh.redis.host" . }}:{{ include "developer-mesh.redis.port" . }}..."
+            until nc -z {{ include "developer-mesh.redis.host" . }} {{ include "developer-mesh.redis.port" . }}; do
+              echo "Redis is unavailable - sleeping"
+              sleep 2
+            done
+            echo "Redis is up!"
+        resources:
+          {{- toYaml .Values.initContainers.waitForRedis.resources | nindent 10 }}
+      {{- end }}
+      {{- if and .Values.initContainers.waitForRestApi.enabled .Values.config.corePlatform.enabled }}
+      - name: wait-for-rest-api
+        image: {{ .Values.initContainers.waitForRestApi.image }}
+        command: ['sh', '-c']
+        args:
+          - |
+            echo "Waiting for REST API..."
+            until nc -z {{ .Release.Name }}-rest-api {{ .Values.config.corePlatform.url | default "8080" }}; do
+              echo "REST API is unavailable - sleeping"
+              sleep 2
+            done
+            echo "REST API is up!"
+        resources:
+          {{- toYaml .Values.initContainers.waitForRestApi.resources | nindent 10 }}
+      {{- end }}
+      {{- end }}
+      containers:
+      - name: edge-mcp
+        image: {{ include "edge-mcp.image" . }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.service.targetPort }}
+          protocol: TCP
+        env:
+        # Core settings
+        - name: ENVIRONMENT
+          value: {{ .Values.global.environment | quote }}
+        - name: EDGE_MCP_PORT
+          value: {{ .Values.config.port | quote }}
+        - name: LOG_LEVEL
+          value: {{ .Values.config.logLevel | quote }}
+
+        # Edge MCP ID (from pod name)
+        {{- if .Values.config.edgeMcpId }}
+        - name: EDGE_MCP_ID
+          value: {{ .Values.config.edgeMcpId | quote }}
+        {{- else }}
+        - name: EDGE_MCP_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        {{- end }}
+
+        # Authentication
+        - name: EDGE_MCP_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "edge-mcp.secretName" . }}
+              key: edge-mcp-api-key
+
+        # Core Platform connection (optional)
+        {{- if .Values.config.corePlatform.enabled }}
+        - name: DEV_MESH_URL
+          value: {{ .Values.config.corePlatform.url | quote }}
+        - name: DEV_MESH_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "edge-mcp.secretName" . }}
+              key: core-platform-api-key
+        {{- end }}
+
+        # Redis connection
+        {{- include "developer-mesh.redis.env" . | nindent 8 }}
+        - name: EDGE_MCP_REDIS_ENABLED
+          value: {{ .Values.config.cache.redis.enabled | quote }}
+        - name: EDGE_MCP_REDIS_FALLBACK_MODE
+          value: {{ .Values.config.cache.redis.fallbackMode | quote }}
+
+        # Cache configuration
+        - name: EDGE_MCP_L1_MAX_ITEMS
+          value: {{ .Values.config.cache.l1.maxItems | quote }}
+        - name: EDGE_MCP_L1_TTL
+          value: {{ .Values.config.cache.l1.ttl | quote }}
+        - name: EDGE_MCP_L2_TTL
+          value: {{ .Values.config.cache.l2.ttl | quote }}
+        - name: EDGE_MCP_ENABLE_COMPRESSION
+          value: {{ .Values.config.cache.compression.enabled | quote }}
+        - name: EDGE_MCP_COMPRESSION_THRESHOLD
+          value: {{ .Values.config.cache.compression.threshold | quote }}
+
+        # Rate limiting
+        - name: EDGE_MCP_GLOBAL_RPS
+          value: {{ .Values.config.rateLimit.globalRps | quote }}
+        - name: EDGE_MCP_GLOBAL_BURST
+          value: {{ .Values.config.rateLimit.globalBurst | quote }}
+        - name: EDGE_MCP_TENANT_RPS
+          value: {{ .Values.config.rateLimit.tenantRps | quote }}
+        - name: EDGE_MCP_TENANT_BURST
+          value: {{ .Values.config.rateLimit.tenantBurst | quote }}
+        - name: EDGE_MCP_TOOL_RPS
+          value: {{ .Values.config.rateLimit.toolRps | quote }}
+        - name: EDGE_MCP_TOOL_BURST
+          value: {{ .Values.config.rateLimit.toolBurst | quote }}
+        - name: EDGE_MCP_ENABLE_QUOTAS
+          value: {{ .Values.config.rateLimit.enableQuotas | quote }}
+
+        # Tracing
+        {{- if .Values.global.tracing.enabled }}
+        - name: TRACING_ENABLED
+          value: "true"
+        - name: OTLP_ENDPOINT
+          value: {{ .Values.global.tracing.otlpEndpoint | quote }}
+        {{- end }}
+
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+
+        {{- if .Values.livenessProbe.enabled }}
+        livenessProbe:
+          {{- toYaml .Values.livenessProbe | nindent 10 }}
+        {{- end }}
+
+        {{- if .Values.readinessProbe.enabled }}
+        readinessProbe:
+          {{- toYaml .Values.readinessProbe | nindent 10 }}
+        {{- end }}
+
+        {{- if .Values.startupProbe.enabled }}
+        startupProbe:
+          {{- toYaml .Values.startupProbe | nindent 10 }}
+        {{- end }}
+
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          readOnlyRootFilesystem: {{ .Values.securityContext.readOnlyRootFilesystem }}
+
+        volumeMounts:
+        {{- include "developer-mesh.commonVolumeMounts" . | nindent 8 }}
+
+      volumes:
+      {{- include "developer-mesh.commonVolumes" . | nindent 6 }}
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      terminationGracePeriodSeconds: 30

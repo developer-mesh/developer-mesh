@@ -1,0 +1,64 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your release is named {{ .Release.Name }}.
+
+To learn more about the release, try:
+
+  $ helm status {{ .Release.Name }} -n {{ include "edge-mcp.namespace" . }}
+  $ helm get all {{ .Release.Name }} -n {{ include "edge-mcp.namespace" . }}
+
+Edge MCP has been deployed to namespace: {{ include "edge-mcp.namespace" . }}
+
+{{- if .Values.edgeMcp.externalService.enabled }}
+
+The service is exposed via LoadBalancer. Get the external IP with:
+
+  $ kubectl get svc {{ include "edge-mcp.fullname" . }}-external -n {{ include "edge-mcp.namespace" . }}
+
+Once the EXTERNAL-IP is assigned, you can connect to Edge MCP at:
+
+  ws://<EXTERNAL-IP>:{{ .Values.edgeMcp.externalService.port }}/ws
+
+{{- else }}
+
+The service is accessible within the cluster at:
+
+  {{ include "edge-mcp.fullname" . }}.{{ include "edge-mcp.namespace" . }}.svc.cluster.local:{{ .Values.edgeMcp.service.port }}
+
+To access from outside the cluster, use kubectl port-forward:
+
+  $ kubectl port-forward -n {{ include "edge-mcp.namespace" . }} svc/{{ include "edge-mcp.fullname" . }} 8082:{{ .Values.edgeMcp.service.port }}
+
+Then connect to: ws://localhost:8082/ws
+
+{{- end }}
+
+Health checks:
+  - Liveness:  http://<service>:{{ .Values.edgeMcp.service.port }}/health/live
+  - Readiness: http://<service>:{{ .Values.edgeMcp.service.port }}/health/ready
+  - Startup:   http://<service>:{{ .Values.edgeMcp.service.port }}/health/startup
+
+Metrics:
+  - Prometheus: http://<service>:{{ .Values.edgeMcp.service.port }}/metrics
+
+{{- if .Values.edgeMcp.cache.redis.enabled }}
+
+Redis cache is enabled. Check Redis status:
+
+  $ kubectl get pods -n {{ include "edge-mcp.namespace" . }} -l app.kubernetes.io/name=redis
+
+{{- end }}
+
+{{- if .Values.autoscaling.enabled }}
+
+Horizontal Pod Autoscaling is enabled (min: {{ .Values.autoscaling.minReplicas }}, max: {{ .Values.autoscaling.maxReplicas }})
+
+Check HPA status:
+
+  $ kubectl get hpa {{ include "edge-mcp.fullname" . }} -n {{ include "edge-mcp.namespace" . }}
+
+{{- end }}
+
+For more information, see:
+  - Documentation: https://github.com/developer-mesh/developer-mesh/tree/main/docs/deployment
+  - Issues: https://github.com/developer-mesh/developer-mesh/issues

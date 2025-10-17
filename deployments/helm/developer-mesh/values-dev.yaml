@@ -1,0 +1,156 @@
+# Development environment values
+# Use with: helm install developer-mesh ./developer-mesh -f values-dev.yaml
+
+global:
+  environment: development
+
+  # Use embedded databases for development
+  database:
+    embedded: true
+    name: devmesh_development
+    password: "devmesh"
+    sslMode: disable
+
+  redis:
+    embedded: true
+    password: ""
+
+  # AWS configuration for development
+  aws:
+    region: us-east-1
+    useIRSA: false
+    # Set via environment or separate secret file
+    accessKeyId: ""
+    secretAccessKey: ""
+
+  security:
+    encryptionMasterKey: "dev_master_key_32_chars_long123"
+    jwt:
+      secret: "dev-jwt-secret-change-in-production"
+
+  # Disable production features
+  monitoring:
+    enabled: true
+
+  tracing:
+    enabled: false
+
+  networkPolicy:
+    enabled: false
+
+# Enable embedded databases
+postgresql:
+  enabled: true
+  auth:
+    password: "devmesh"
+
+redis:
+  enabled: true
+  auth:
+    enabled: false
+
+# REST API - Development settings
+rest-api:
+  enabled: true
+  replicaCount: 1
+
+  config:
+    logLevel: debug
+    allowLocalhostUrls: true
+    allowPrivateNetworkUrls: true
+
+  secrets:
+    create: true
+    adminApiKey:
+      value: "dev-admin-key-1234567890"
+    readerApiKey:
+      value: "dev-readonly-key-1234567890"
+    mcpApiKey:
+      value: "dev-mcp-key-1234567890"
+    githubToken:
+      value: "ghp_development_token_replace_me"
+    githubWebhookSecret:
+      value: "dev-webhook-secret"
+
+  autoscaling:
+    enabled: false
+
+  podDisruptionBudget:
+    enabled: false
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Edge MCP - Development settings
+edge-mcp:
+  enabled: true
+  replicaCount: 1
+
+  config:
+    apiKey: "dev-edge-mcp-key-1234567890"
+    logLevel: debug
+
+  autoscaling:
+    enabled: false
+
+  podDisruptionBudget:
+    enabled: false
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+# Worker - Development settings
+worker:
+  enabled: true
+  replicaCount: 1
+
+  config:
+    logLevel: debug
+    concurrency: 2
+
+  autoscaling:
+    enabled: false
+
+  podDisruptionBudget:
+    enabled: false
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# RAG Loader - Development settings
+rag-loader:
+  enabled: true
+  replicaCount: 1
+
+  config:
+    logLevel: debug
+    masterKey: "dev-rag-master-key-32chars-1234"
+
+  autoscaling:
+    enabled: false
+
+  podDisruptionBudget:
+    enabled: false
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi

@@ -1,0 +1,61 @@
+apiVersion: v2
+name: developer-mesh
+description: Developer Mesh - AI Agent Orchestration Platform for DevOps
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+
+home: https://github.com/developer-mesh/developer-mesh
+sources:
+  - https://github.com/developer-mesh/developer-mesh
+
+maintainers:
+  - name: Developer Mesh Team
+    email: support@developer-mesh.com
+
+keywords:
+  - mcp
+  - ai
+  - agent
+  - devops
+  - orchestration
+  - developer-mesh
+  - kubernetes
+
+icon: https://developer-mesh.com/icon.png
+
+# Dependencies - Subcharts for each service
+dependencies:
+  # Core Platform Services
+  - name: rest-api
+    version: "1.0.0"
+    repository: "file://./charts/rest-api"
+    condition: rest-api.enabled
+
+  - name: edge-mcp
+    version: "1.0.0"
+    repository: "file://./charts/edge-mcp"
+    condition: edge-mcp.enabled
+
+  - name: worker
+    version: "1.0.0"
+    repository: "file://./charts/worker"
+    condition: worker.enabled
+
+  - name: rag-loader
+    version: "1.0.0"
+    repository: "file://./charts/rag-loader"
+    condition: rag-loader.enabled
+
+  # Optional Infrastructure Dependencies (for development)
+  - name: postgresql
+    version: "15.5.38"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: postgresql.enabled
+    alias: postgresql
+
+  - name: redis
+    version: "20.5.3"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: redis.enabled
+    alias: redis
