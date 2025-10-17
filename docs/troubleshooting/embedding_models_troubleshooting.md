@@ -431,7 +431,7 @@ EOF
 ### Level 1: Application Logs
 ```bash
 tail -f logs/rest-api.log | grep ERROR
-tail -f logs/mcp-server.log | grep embedding
+tail -f logs/edge-mcp.log | grep embedding
 docker-compose logs -f rest-api --tail=100
 ```
 
@@ -463,7 +463,7 @@ ORDER BY duration DESC;
 
 ### Important Files
 - Config: `configs/config.development.yaml`
-- Logs: `logs/rest-api.log`, `logs/mcp-server.log`
+- Logs: `logs/rest-api.log`, `logs/edge-mcp.log`
 - Migrations: `migrations/000015_tenant_embedding_models.up.sql`
 
 ### Key Environment Variables
@@ -486,4 +486,4 @@ make migrate-up
 psql -h localhost -U devmesh -d devmesh_development < scripts/db/seed-embedding-models.sql
 
 # Tail service logs
-docker-compose logs -f rest-api mcp-server
+docker-compose logs -f rest-api edge-mcp

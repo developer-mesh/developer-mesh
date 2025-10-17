@@ -44,14 +44,14 @@ docker inspect <container-name>
    # Check configuration
    cat configs/config.development.yaml
    
-   # Validate configuration locally
-   ./mcp-server --config=configs/config.development.yaml --validate
+   # Test configuration by starting with verbose logging
+   LOG_LEVEL=debug ./edge-mcp --config=configs/config.development.yaml
    ```
 
 2. **Database Connection Failed**
    ```bash
    # Test database connectivity
-   docker-compose exec mcp-server \
+   docker-compose exec edge-mcp \
      psql -h postgres -U devmesh -d devmesh_development -c "SELECT 1"
    
    # Check database credentials in environment
@@ -61,7 +61,7 @@ docker inspect <container-name>
 3. **Missing Environment Variables**
    ```bash
    # List all env vars
-   docker-compose exec mcp-server env | sort
+   docker-compose exec edge-mcp env | sort
    
    # Add missing vars in docker-compose.yml or .env file
    echo "NEW_VAR=value" >> .env.development
@@ -81,7 +81,7 @@ docker inspect <container-name>
 docker stats --no-stream
 
 # Get memory profile
-docker-compose exec mcp-server \
+docker-compose exec edge-mcp \
   curl http://localhost:6060/debug/pprof/heap > heap.prof
 
 # Analyze profile
@@ -94,7 +94,7 @@ go tool pprof -http=:8080 heap.prof
    ```yaml
    # In docker-compose.yml
    services:
-     mcp-server:
+     edge-mcp:
        mem_limit: 2g
        mem_reservation: 1g
    ```
@@ -115,7 +115,7 @@ go tool pprof -http=:8080 heap.prof
    environment:
      - GOGC=50
    # Then restart
-   docker-compose restart mcp-server
+   docker-compose restart edge-mcp
    ```
 
 ### API Timeout Errors
@@ -191,7 +191,7 @@ psql -h localhost -U mcp_user -d mcp -c "
    ```nginx
    # nginx.conf
    location /ws {
-       proxy_pass http://mcp-server:8080;
+       proxy_pass http://edge-mcp:8080;
        proxy_http_version 1.1;
        proxy_set_header Upgrade $http_upgrade;
        proxy_set_header Connection "upgrade";
@@ -714,8 +714,8 @@ go tool pprof -base heap1.prof heap2.prof
 **Diagnosis:**
 ```bash
 # Check DNS resolution
-docker-compose exec mcp-server nslookup postgres
-docker-compose exec mcp-server nslookup redis
+docker-compose exec edge-mcp nslookup postgres
+docker-compose exec edge-mcp nslookup redis
 
 # Check Docker network
 docker network ls
@@ -768,7 +768,7 @@ done | sort | uniq -c
    ```nginx
    # In nginx.conf
    upstream mcp_backend {
-       server mcp-server:8080;
+       server edge-mcp:8080;
        keepalive 32;
    }
    
@@ -782,7 +782,7 @@ done | sort | uniq -c
 2. **Scale Services**
    ```bash
    # Scale up services
-   docker-compose up -d --scale mcp-server=3
+   docker-compose up -d --scale edge-mcp=3
    ```
 
 ## Integration Issues
@@ -858,10 +858,10 @@ curl -H "Authorization: token $GITHUB_TOKEN" \
 1. **Check AWS Credentials**
    ```bash
    # Verify AWS credentials are set
-   docker-compose exec mcp-server env | grep AWS
+   docker-compose exec edge-mcp env | grep AWS
    
    # Test AWS access
-   docker-compose exec mcp-server \
+   docker-compose exec edge-mcp \
      aws s3 ls --debug
    ```
 
@@ -887,7 +887,7 @@ curl -X PUT http://localhost:8080/admin/log-level \
   -d '{"level": "debug"}'
 
 # Environment variable
-kubectl set env deployment/mcp-server LOG_LEVEL=debug -n mcp-prod
+kubectl set env deployment/edge-mcp LOG_LEVEL=debug -n mcp-prod
 ```
 
 ### Distributed Tracing (If Configured)
@@ -897,7 +897,7 @@ kubectl set env deployment/mcp-server LOG_LEVEL=debug -n mcp-prod
 # If you have enabled OpenTelemetry tracing:
 
 # Find slow traces (requires Jaeger)
-curl "http://localhost:16686/api/traces?service=mcp-server&minDuration=1s&limit=20"
+curl "http://localhost:16686/api/traces?service=edge-mcp&minDuration=1s&limit=20"
 
 # Get specific trace
 curl "http://localhost:16686/api/traces/{traceID}"
@@ -964,29 +964,31 @@ func TracingMiddleware() gin.HandlerFunc {
 
 ## Error Reference
 
-### Common Error Codes
+### Common Error Categories
 
-| Error Code | Description | Solution |
+**Note**: The error codes below are documentation references for categorizing issues. The actual application returns standard HTTP status codes (401, 403, 500, etc.) and descriptive error messages in logs.
+
+| Category | Description | Solution |
 |------------|-------------|----------|
-| MCP-001 | Database connection failed | Check database credentials and connectivity |
-| MCP-002 | Redis connection failed | Verify Redis is running and accessible |
-| MCP-003 | Configuration invalid | Validate configuration file syntax |
-| MCP-004 | Tool not found | Ensure tool is registered and enabled |
-| MCP-005 | Authentication failed | Check credentials and token validity |
-| MCP-006 | Rate limit exceeded | Wait for rate limit reset or upgrade plan |
-| MCP-007 | Context not found | Verify context ID and tenant access |
-| MCP-008 | Webhook validation failed | Check webhook secret configuration |
-| MCP-009 | Vector embedding failed | Verify embedding service is available |
-| MCP-010 | Queue processing error | Check Redis Streams and worker connectivity |
+| Database Connection | Database connection failed | Check database credentials and connectivity |
+| Redis Connection | Redis connection failed | Verify Redis is running and accessible |
+| Configuration | Configuration invalid | Validate configuration file syntax |
+| Tool Not Found | Tool not found | Ensure tool is registered and enabled |
+| Authentication | Authentication failed | Check credentials and token validity |
+| Rate Limiting | Rate limit exceeded | Wait for rate limit reset or upgrade plan |
+| Context Not Found | Context not found | Verify context ID and tenant access |
+| Webhook Validation | Webhook validation failed | Check webhook secret configuration |
+| Embedding Failure | Vector embedding failed | Verify embedding service is available |
+| Queue Processing | Queue processing error | Check Redis Streams and worker connectivity |
 
 ### Error Message Patterns
 
 ```bash
 # Search for specific errors in logs
-docker-compose logs mcp-server | grep -E "ERROR|FATAL|panic"
+docker-compose logs edge-mcp | grep -E "ERROR|FATAL|panic"
 
 # Count error types
-docker-compose logs --since=1h mcp-server | \
+docker-compose logs --since=1h edge-mcp | \
   grep ERROR | \
   awk -F'"error":"' '{print $2}' | \
   awk -F'"' '{print $1}' | \
