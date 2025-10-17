@@ -319,8 +319,8 @@ func TestVectorDatabase_CreateVector(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
 
 	// Set up expectations for creating vector
-	mock.ExpectQuery(`SELECT \$1::float4\[\]::vector::text`).
-		WithArgs("'{1.000000,2.000000,3.000000}'").
+	mock.ExpectQuery(`SELECT \$1::vector::text`).
+		WithArgs("[1.000000,2.000000,3.000000]").
 		WillReturnRows(sqlmock.NewRows([]string{"vector"}).AddRow("[1.0,2.0,3.0]"))
 
 	// Create vector
@@ -373,12 +373,12 @@ func TestVectorDatabase_CalculateSimilarity(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
 
 	// Set up expectations for creating vectors
-	mock.ExpectQuery(`SELECT \$1::float4\[\]::vector::text`).
-		WithArgs("'{1.000000,2.000000,3.000000}'").
+	mock.ExpectQuery(`SELECT \$1::vector::text`).
+		WithArgs("[1.000000,2.000000,3.000000]").
 		WillReturnRows(sqlmock.NewRows([]string{"vector"}).AddRow("[1.0,2.0,3.0]"))
 
-	mock.ExpectQuery(`SELECT \$1::float4\[\]::vector::text`).
-		WithArgs("'{4.000000,5.000000,6.000000}'").
+	mock.ExpectQuery(`SELECT \$1::vector::text`).
+		WithArgs("[4.000000,5.000000,6.000000]").
 		WillReturnRows(sqlmock.NewRows([]string{"vector"}).AddRow("[4.0,5.0,6.0]"))
 
 	// Set up expectations for calculating similarity
@@ -464,12 +464,12 @@ func TestVectorDatabase_CalculateSimilarity_Methods(t *testing.T) {
 				WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
 
 			// Set up expectations for creating vectors
-			mock.ExpectQuery(`SELECT \$1::float4\[\]::vector::text`).
-				WithArgs("'{1.000000,2.000000,3.000000}'").
+			mock.ExpectQuery(`SELECT \$1::vector::text`).
+				WithArgs("[1.000000,2.000000,3.000000]").
 				WillReturnRows(sqlmock.NewRows([]string{"vector"}).AddRow("[1.0,2.0,3.0]"))
 
-			mock.ExpectQuery(`SELECT \$1::float4\[\]::vector::text`).
-				WithArgs("'{4.000000,5.000000,6.000000}'").
+			mock.ExpectQuery(`SELECT \$1::vector::text`).
+				WithArgs("[4.000000,5.000000,6.000000]").
 				WillReturnRows(sqlmock.NewRows([]string{"vector"}).AddRow("[4.0,5.0,6.0]"))
 
 			// Set up expectations for calculating similarity

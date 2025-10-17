@@ -205,17 +205,18 @@ test: ## Run all unit tests (excludes integration tests and Redis-dependent test
 	cd apps/rest-api && $(GOTEST) -v -short -timeout=60s ./... && cd ../.. && \
 	cd apps/worker && $(GOTEST) -v -short -timeout=60s ./... && cd ../.. && \
 	cd apps/mockserver && $(GOTEST) -v -short -timeout=60s ./... && cd ../.. && \
+	cd apps/rag-loader && $(GOTEST) -v -short -timeout=60s ./... && cd ../.. && \
 	cd pkg && $(GOTEST) -v -short -timeout=60s $$(go list ./... | grep -v embedding/cache) && cd ..
 
 .PHONY: test-with-services
 test-with-services: start-test-env ## Run unit tests that require Redis/PostgreSQL
 	@echo "Running unit tests with Docker services..."
-	@TEST_REDIS_ADDR=127.0.0.1:6379 $(GOTEST) -v -short ./apps/edge-mcp/... ./apps/rest-api/... ./apps/worker/... ./pkg/... || (make stop-test-env && exit 1)
+	@TEST_REDIS_ADDR=127.0.0.1:6379 $(GOTEST) -v -short ./apps/edge-mcp/... ./apps/rest-api/... ./apps/worker/... ./apps/rag-loader/... ./pkg/... || (make stop-test-env && exit 1)
 	@make stop-test-env
 
 .PHONY: test-coverage
 test-coverage: ## Run tests with coverage report
-	$(GOTEST) -coverprofile=coverage.out ./apps/edge-mcp/... ./apps/rest-api/... ./apps/worker/... ./pkg/...
+	$(GOTEST) -coverprofile=coverage.out ./apps/edge-mcp/... ./apps/rest-api/... ./apps/worker/... ./apps/rag-loader/... ./pkg/...
 	$(GOCMD) tool cover -func=coverage.out
 
 .PHONY: test-coverage-html
@@ -259,6 +260,7 @@ test-integration test-int: start-test-env ## Run integration tests
 	(cd apps/rest-api && $(GOTEST) -tags=integration -v ./... || exit 1) && \
 	(cd apps/worker && $(GOTEST) -tags=integration -v ./... || exit 1) && \
 	(cd apps/mockserver && $(GOTEST) -tags=integration -v ./... || exit 1) && \
+	(cd apps/rag-loader && $(GOTEST) -tags=integration -v ./... || exit 1) && \
 	(cd pkg && $(GOTEST) -tags=integration -v ./... || exit 1) || \
 	(make stop-test-env && exit 1)
 	@make stop-test-env
@@ -286,6 +288,7 @@ lint: ## Run linters
 	@cd apps/rest-api && golangci-lint run ./...
 	@cd apps/worker && golangci-lint run ./...
 	@cd apps/mockserver && golangci-lint run ./...
+	@cd apps/rag-loader && golangci-lint run ./...
 
 .PHONY: fmt
 fmt: ## Format code (excludes .claude templates which are not valid Go)
@@ -300,6 +303,7 @@ vet: ## Run go vet
 	@cd apps/rest-api && $(GOVET) ./... || exit 1
 	@cd apps/worker && $(GOVET) ./... || exit 1
 	@cd apps/mockserver && $(GOVET) ./... || exit 1
+	@cd apps/rag-loader && $(GOVET) ./... || exit 1
 	@cd pkg && $(GOVET) ./... || exit 1
 	@echo "✅ All vet checks passed"
 

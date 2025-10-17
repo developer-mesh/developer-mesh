@@ -176,6 +176,10 @@ func createTestSource(t *testing.T, db *sqlx.DB, tenantID uuid.UUID, sourceID st
 
 // TestTenantIsolation verifies that tenants cannot access each other's data
 func TestTenantIsolation(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
 	// Setup
 	db := setupTestDatabase(t)
 	app := setupTestApp(db)
@@ -302,6 +306,10 @@ func TestTenantIsolation(t *testing.T) {
 
 // TestCredentialEncryption verifies tenant-specific credential encryption
 func TestCredentialEncryption(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
 	// Setup
 	db := setupTestDatabase(t)
 
@@ -384,6 +392,10 @@ func TestCredentialEncryption(t *testing.T) {
 
 // TestAPIWithoutToken verifies that endpoints require authentication
 func TestAPIWithoutToken(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
 	db := setupTestDatabase(t)
 	app := setupTestApp(db)
 
@@ -402,6 +414,10 @@ func TestAPIWithoutToken(t *testing.T) {
 
 // TestAPIWithInvalidToken verifies that invalid tokens are rejected
 func TestAPIWithInvalidToken(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
 	db := setupTestDatabase(t)
 	app := setupTestApp(db)
 
@@ -421,6 +437,10 @@ func TestAPIWithInvalidToken(t *testing.T) {
 
 // TestInactiveTenant verifies that inactive tenants cannot access the API
 func TestInactiveTenant(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
 	db := setupTestDatabase(t)
 	app := setupTestApp(db)
 
@@ -458,6 +478,10 @@ func TestInactiveTenant(t *testing.T) {
 
 // TestCredentialManagerPanicsOnInvalidKeySize verifies that invalid master keys are rejected
 func TestCredentialManagerPanicsOnInvalidKeySize(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
 	db := setupTestDatabase(t)
 
 	// Test with invalid key size (should panic)
@@ -475,6 +499,10 @@ func TestCredentialManagerPanicsOnInvalidKeySize(t *testing.T) {
 
 // TestGetAllCredentials verifies bulk credential retrieval
 func TestGetAllCredentials(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
 	db := setupTestDatabase(t)
 
 	masterKey := make([]byte, 32)
@@ -517,6 +545,10 @@ func TestGetAllCredentials(t *testing.T) {
 
 // TestDeleteCredentials verifies credential deletion
 func TestDeleteCredentials(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
 	db := setupTestDatabase(t)
 
 	masterKey := make([]byte, 32)
