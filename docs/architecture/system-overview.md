@@ -1,9 +1,3 @@
-<!-- SOURCE VERIFICATION
-Last Verified: 2025-08-11 14:36:40
-Verification Script: update-docs-parallel.sh
-Batch: aa
--->
-
 # Developer Mesh System Architecture
 
 ## Overview
@@ -12,68 +6,98 @@ Developer Mesh is an AI Agent Orchestration Platform that enables intelligent ro
 
 ## Architecture Principles
 
-- **Microservices Architecture**: Three independent services communicating via APIs and events
+- **Microservices Architecture**: Multiple independent services communicating via APIs and events
 - **AI-Native Design**: Built from the ground up for multi-agent orchestration and coordination
 - **Clean Architecture**: Clear separation between business logic, adapters, and infrastructure
-- **Event-Driven Design**: Real-time WebSocket communication with asynchronous task processing <!-- Source: pkg/models/websocket/binary.go -->
+- **Event-Driven Design**: Real-time WebSocket communication with asynchronous task processing
 - **Go Workspace**: Monorepo with multiple modules for code sharing and independent deployment
 - **Cloud-Native**: Production AWS integration with Bedrock, S3, and ElastiCache
+- **MCP Protocol**: Full Model Context Protocol 2025-06-18 implementation
 
 ## System Components
 
-### 🔵 MCP Server (`apps/mcp-server`)
+### 🔵 Edge MCP Server (`apps/edge-mcp`)
 
-The MCP Server is the core AI agent orchestration hub with **Universal Agent Registration**:
+Edge MCP is a lightweight MCP server that acts as a gateway to the DevMesh Platform:
 
-- **Universal Agent Registry**: Manages any agent type (IDE, Slack, monitoring, CI/CD, custom)
-- **Agent Manifest System**: Flexible configuration with capabilities, requirements, and auth
-- **Organization Isolation**: Strict tenant separation with cross-org access control
-- **Task Assignment Engine**: Intelligent routing with multiple strategies (capability-match, least-loaded, cost-optimized) <!-- Source: pkg/services/assignment_engine.go -->
-- **Binary WebSocket Protocol**: High-performance communication with compression support <!-- Source: pkg/models/websocket/binary.go -->
-- **Multi-Agent Collaboration**: Orchestrates complex workflows across multiple AI agents
+- **MCP 2025-06-18 Protocol**: Industry-standard Model Context Protocol over WebSocket (JSON-RPC 2.0)
+- **Connection Modes**: Auto-detection for Claude Code, IDEs, and agents
+- **Zero Infrastructure**: No direct database/Redis dependencies - API-based sync with Core Platform
+- **Pass-Through Authentication**: Secure credential management via DevMesh Platform
+- **Dynamic Tool Discovery**: Automatically discovers available tools from tenant
+- **Multi-Tenant Support**: Isolated workspaces with per-tenant configurations
+- **Circuit Breaker**: Resilient connection handling with automatic retries
+- **Command Execution Security**: Process isolation, timeout enforcement, command allowlisting
 
 Key Features:
 - **Universal agent support** for any tool or service type
 - **Capability-based discovery** across different agent types
 - **Tenant isolation** with organization-level security boundaries
-- **Cross-agent messaging** (IDE→Jira, Slack→IDE, Monitoring→Slack)
-- Binary WebSocket protocol with automatic gzip compression (>1KB messages) <!-- Source: pkg/models/websocket/binary.go -->
-- Real-time agent discovery and capability-based routing
-- Workload tracking and dynamic load balancing
-- Task delegation and collaboration patterns (MapReduce, parallel, pipeline)
-- **Multi-level rate limiting** (per-agent, per-tenant, per-capability)
-- **Circuit breaker patterns** for resilient agent communication with auto-recovery
+- **Real-time agent discovery** via MCP tools/list
+- **Resource subscriptions** for workflows and tasks
+- **Binary Protocol Support**: Optional compressed messages for efficiency
+- **Heartbeat Monitoring**: Automatic reconnection handling
 
 ### 🟢 REST API Service (`apps/rest-api`)
 
 The REST API provides HTTP endpoints for external integrations:
 
+- **Tool Management**: Register and configure dynamic tools
+- **Organization Management**: Multi-tenant organization registration and configuration
 - **Agent Management**: Register agents, query capabilities, monitor workload
-- **Task Submission**: Submit tasks with routing preferences and requirements <!-- Source: pkg/services/assignment_engine.go -->
+- **Task Submission**: Submit tasks with routing preferences and requirements
 - **Embedding Operations**: Generate and search embeddings via AWS Bedrock
-- **Tool Integration**: GitHub adapter for DevOps workflow automation
+- **Webhook Processing**: Receive and queue webhook events for async processing
+- **Session Management**: Edge MCP session lifecycle and authentication
 
 Key Features:
 - All endpoints use `/api/v1/*` path prefix
-- Multi-model embedding support (Titan, Cohere, Claude)
+- Multi-model embedding support (AWS Bedrock, OpenAI, Google, Anthropic)
 - Cost tracking and optimization for AI operations
-- JWT and API key authentication
+- JWT and API key authentication (multiple key types: admin, gateway, agent, user)
 - Comprehensive Swagger/OpenAPI documentation
+- Per-tenant credential encryption with AES-256-GCM
+- Redis Streams for webhook event processing
 
 ### 🟠 Worker Service (`apps/worker`)
 
 The Worker handles distributed task processing:
 
+- **Webhook Event Processing**: Consumes events from Redis Streams
 - **Task Distribution**: Processes tasks assigned to AI agents
 - **Embedding Pipeline**: Batch processing for vector embeddings
-- **Notification Delivery**: Sends real-time updates via WebSocket <!-- Source: pkg/models/websocket/binary.go -->
-- **Workflow Coordination**: Manages multi-step AI workflows
+- **Notification Delivery**: Sends real-time updates via WebSocket
+- **Dead Letter Queue**: Handles failed webhook processing
 
 Key Features:
-- Redis Streams for reliable event processing and task delivery
-- Concurrent processing with agent workload awareness
-- Cost tracking for AI model usage
-- Dead letter queue for failed task handling
+- Redis Streams with consumer groups for reliable event processing
+- Concurrent processing with configurable worker pools
+- Automatic retry with exponential backoff
+- Health monitoring and metrics
+
+### 🔷 RAG Loader Service (`apps/rag-loader`)
+
+Multi-tenant RAG (Retrieval-Augmented Generation) loader for codebase indexing:
+
+- **GitHub Integration**: Loads repositories for semantic search
+- **Multi-Org Support**: Per-organization repository configurations
+- **Chunking & Embedding**: Intelligent code chunking with embedding generation
+- **pgvector Storage**: Stores embeddings for fast similarity search
+- **Incremental Updates**: Tracks and processes only changed files
+
+Key Features:
+- Support for multiple GitHub organizations per tenant
+- File type filtering and gitignore respect
+- Batch embedding generation for cost optimization
+- Complete audit trail of loaded repositories
+
+### 🎭 Mock Server (`apps/mockserver`)
+
+Testing infrastructure for development and CI/CD:
+
+- **API Mocking**: Mock external service responses
+- **Tool Testing**: Test dynamic tool integrations
+- **Development Support**: Local testing without external dependencies
 
 ### 📦 Shared Libraries (`pkg/`)
 
@@ -81,13 +105,53 @@ Reusable packages across all services:
 
 ```
 pkg/
-├── adapters/       # External service integrations
-├── common/         # Shared utilities and types
-├── database/       # Database abstractions and migrations
-├── embedding/      # Vector embedding services
-├── models/         # Domain models and entities
-├── observability/  # Logging, metrics, tracing
-└── repository/     # Data access patterns
+├── adapters/           # External service integrations (GitHub, AWS, etc.)
+├── agents/             # Agent management and coordination
+├── auth/               # Authentication and authorization
+├── aws/                # AWS service integrations (Bedrock, S3)
+├── cache/              # Multi-tier caching (L1 memory, L2 Redis)
+├── chunking/           # Code chunking for RAG
+├── circuitbreaker/     # Circuit breaker patterns
+├── client/             # API clients
+├── clients/            # Service clients
+├── collaboration/      # CRDT-based collaborative editing
+├── common/             # Shared utilities and types
+├── config/             # Configuration management
+├── core/               # Core domain logic
+├── database/           # Database abstractions and utilities
+├── embedding/          # Vector embedding services (multi-provider)
+├── errors/             # Error handling and wrapping
+├── events/             # Event publishing and handling
+├── feature/            # Feature flags
+├── health/             # Health check implementations
+├── intelligence/       # AI intelligence services
+├── interfaces/         # Shared interfaces
+├── metrics/            # Metrics collection (Prometheus)
+├── middleware/         # HTTP/WebSocket middleware
+├── models/             # Domain models and entities
+├── observability/      # Logging, metrics, tracing (OpenTelemetry)
+├── protocol/           # Protocol implementations (MCP, etc.)
+├── queue/              # Queue abstractions
+├── rag/                # RAG-specific logic
+├── redis/              # Redis client and streams (streams_client.go)
+├── relationship/       # Relationship management
+├── repository/         # Data access patterns
+├── resilience/         # Resilience patterns (retry, timeout)
+├── retry/              # Retry logic with exponential backoff
+├── rules/              # Business rules engine
+├── safety/             # Safety checks and validation
+├── search/             # Search implementations
+├── security/           # Security utilities (encryption, etc.)
+├── services/           # Business services (assignment_engine.go)
+├── storage/            # Storage abstractions
+├── tests/              # Test utilities
+├── testutil/           # Testing helpers
+├── tokenizer/          # Token counting and management
+├── tools/              # Tool management
+├── util/               # General utilities
+├── utils/              # Additional utilities
+├── webhook/            # Webhook handling
+└── worker/             # Worker pool implementations
 ```
 
 ## Data Architecture
@@ -95,21 +159,50 @@ pkg/
 ### Primary Storage
 
 **PostgreSQL 14+**
-- Relational data storage
-- pgvector extension for embeddings and capability search
-- JSONB for flexible schemas (agent manifests, requirements)
-- Row-level security support
-- **Agent manifest tables** for universal registration:
+- Relational data storage with ACID guarantees
+- pgvector extension for embeddings and semantic search
+- JSONB for flexible schemas (agent manifests, tool configurations)
+- Row-level security support for multi-tenancy
+- Schema: `mcp.*` for all tables
+
+**Key Tables**:
+- **Organizations & Auth**:
+  - `organizations`: Multi-tenant organization registry
+  - `users`: User accounts with role-based access
+  - `api_keys`: Multiple key types (admin, gateway, agent, user)
+
+- **Agent Management**:
   - `agent_manifests`: Core agent definitions with capabilities
   - `agent_registrations`: Active agent instances
   - `agent_capabilities`: Capability registry with semantic search
   - `agent_channels`: Communication channel configurations
 
+- **Dynamic Tools**:
+  - `tool_configurations`: Tool registry with auth configurations
+  - `tool_operations`: OpenAPI operations cache
+  - `organization_tools`: Per-organization tool assignments
+
+- **Embedding System**:
+  - `embedding_model_catalog`: Global model registry (OpenAI, Bedrock, Google, Anthropic)
+  - `tenant_embedding_models`: Per-tenant model configurations
+  - `agent_embedding_preferences`: Agent-specific model preferences
+  - `embedding_usage_tracking`: Usage and cost tracking
+
+- **RAG System**:
+  - `github_repositories`: Tracked repositories per organization
+  - `repository_files`: Indexed file metadata
+  - `code_embeddings`: Vector embeddings for semantic search
+
+- **Webhook System**:
+  - `webhook_events`: Event log
+  - `webhook_dlq`: Dead letter queue for failed events
+
 **Redis 7+**
-- Response caching
-- Session management
-- Distributed locks
-- Rate limiting counters
+- L2 cache for API responses and embeddings
+- Session management for Edge MCP connections
+- Distributed locks for coordination
+- Rate limiting counters (per-agent, per-tenant, per-capability)
+- Redis Streams for event distribution
 
 ### Object Storage
 
@@ -120,351 +213,347 @@ pkg/
 
 ### Message Queue
 
-**Redis Streams** <!-- Source: pkg/redis/streams_client.go -->
-- Event distribution via streams
-- Task queuing with consumer groups
+**Redis Streams**
+- Webhook event processing via `webhook_events` stream
+- Consumer groups for parallel processing
 - Dead letter queue handling
-- Reliable message delivery
-- Webhook event processing
+- Reliable message delivery with acknowledgments
+- Implementation: `pkg/redis/streams_client.go`
 
-## Collaboration Features
+## MCP Protocol Implementation
 
-### CRDT-Based Collaborative Editing
+### Protocol Details
 
-The platform includes advanced CRDT (Conflict-free Replicated Data Type) implementations for real-time collaboration:
+Developer Mesh implements the Model Context Protocol 2025-06-18 specification:
 
-- **DocumentCRDT**: Collaborative text editing with fractional indexing
-- **StateCRDT**: Distributed state management with path-based updates
-- **Vector Clocks**: Causality tracking for distributed operations
-- **Implemented CRDTs**:
-  - GCounter (grow-only counter)
-  - PNCounter (increment/decrement counter)
-  - LWWRegister (last-write-wins register)
-  - ORSet (observed-remove set)
+- **Format**: JSON-RPC 2.0 over WebSocket
+- **Endpoint**: `ws://localhost:8080/ws` (Edge MCP)
+- **Authentication**: Bearer token via Authorization header
+- **Connection Modes**: Claude Code, IDE, Agent, Standard MCP
 
-### Binary WebSocket Protocol <!-- Source: pkg/models/websocket/binary.go -->
-
-High-performance binary protocol for agent communication: <!-- Source: pkg/models/websocket/binary.go -->
+### Connection Flow
 
 ```
-Header (12 bytes):
-┌─────────┬───────┬──────────────┬──────────────┬──────────┐
-│ Version │ Flags │ Message Type │ Payload Size │ Reserved │
-│ 1 byte  │ 1 byte│   2 bytes    │   4 bytes    │  4 bytes │
-└─────────┴───────┴──────────────┴──────────────┴──────────┘
-
-Features:
-- Automatic gzip compression for messages > 1KB
-- Message batching for improved throughput
-- Buffer pooling for reduced GC pressure
-- Max payload size: ~4GB
-- Max decompressed size: 10MB (security limit)
+1. Client → initialize (protocolVersion: "2025-06-18")
+2. Server → capabilities (tools, resources, prompts)
+3. Client → initialized
+4. Client → tools/list (discover available tools)
+5. Client → tools/call (execute tools)
+6. Client → resources/read (read system state)
 ```
+
+### DevMesh Tools Exposed via MCP
+
+All DevMesh functionality is exposed as standard MCP tools:
+
+- `devmesh.task.create` - Create tasks
+- `devmesh.task.assign` - Assign tasks to agents
+- `devmesh.task.status` - Get task status
+- `devmesh.agent.assign` - Assign work to agents
+- `devmesh.context.update` - Update session context
+- `devmesh.context.get` - Get current context
+- `devmesh.search.semantic` - Semantic search across codebase
+- `devmesh.workflow.execute` - Execute predefined workflows
+- `devmesh.workflow.list` - List available workflows
+
+Plus all dynamically registered tools from configured integrations.
+
+### DevMesh Resources
+
+System state exposed through MCP resources:
+
+- `devmesh://system/health` - System health and metrics
+- `devmesh://agents/{tenant_id}` - List of registered agents
+- `devmesh://workflows/{tenant_id}` - Available workflows
+- `devmesh://context/{session_id}` - Current session context
+- `devmesh://tasks/{tenant_id}` - Active tasks
+- `devmesh://tools/{tenant_id}` - Available tools and configs
 
 ## Data Flow Patterns
 
-### 1. Universal Agent Registration Flow
+### 1. Agent Connection Flow (MCP)
 
 ```
-Agent → WebSocket → MCP Server → Manifest Validation <!-- Source: pkg/models/websocket/binary.go -->
-                         ↓
-                 Organization Binding
-                         ↓
-                  Agent Registry → Database
-                         ↓              ↓
-                 Capability Index   Tenant Config
-                         ↓              ↓
-                 Task Router Update  Rate Limits <!-- Source: pkg/services/assignment_engine.go -->
-                         ↓
-                 Discovery Service
+IDE/Agent → WebSocket → Edge MCP → initialize handshake
+                           ↓
+                    DevMesh Platform Auth
+                           ↓
+                    Tool Discovery (tools/list)
+                           ↓
+                    Resource Subscriptions
+                           ↓
+                    Ready for tool execution
 ```
 
-### 2. Task Assignment Flow
+### 2. Tool Execution Flow
 
 ```
-Task Request → REST API → Assignment Engine → Agent Selection <!-- Source: pkg/services/assignment_engine.go -->
-                                    ↓
-                            WebSocket Notification <!-- Source: pkg/models/websocket/binary.go -->
-                                    ↓
-                               Agent Processing
+Client → tools/call → Edge MCP → REST API → Tool Adapter
+                                     ↓
+                              Auth & Validation
+                                     ↓
+                              External Service
+                                     ↓
+                              Response → Client
 ```
 
-### 3. Multi-Agent Collaboration Flow
+### 3. Webhook Processing Flow
 
 ```
-Initiator Agent → Task Delegation → Agent Discovery
-                         ↓
-                 Organization Filter ← Tenant Config
-                         ↓
-                 Capability Matching
-                         ↓
-                 Cross-Agent Routing → Message Broker
-                         ↓                    ↓
-                 Target Agent(s)     Rate Limiter/Circuit Breaker
-                         ↓
-                 Parallel Execution → Result Aggregation
+External Service → REST API → Redis Streams → Worker
+                                 ↓                ↓
+                           Acknowledge      Process Event
+                                                  ↓
+                                            Update Database
+                                                  ↓
+                                         Notify via WebSocket
 ```
 
-### 5. Cross-Agent Message Flow
+### 4. RAG Loader Flow
 
 ```
-Source Agent → Message Broker → Capability Router
-                     ↓                 ↓
-              Organization Check   Target Discovery
-                     ↓                 ↓
-               Rate Limiting      Available Agents
-                     ↓                 ↓
-              Circuit Breaker     Load Balancing
-                     ↓                 ↓
-               Redis Stream   →  Target Agent <!-- Source: pkg/redis/streams_client.go -->
-                                      ↓
-                               Message Handler
+GitHub Trigger → RAG Loader → Clone Repository
+                                     ↓
+                              Filter Files
+                                     ↓
+                              Chunk Code
+                                     ↓
+                         Generate Embeddings (Bedrock)
+                                     ↓
+                         Store in pgvector
+                                     ↓
+                         Available for Semantic Search
 ```
 
-### 4. Vector Embedding Flow
+### 5. Embedding Generation Flow
 
 ```
-Content → Bedrock API → Embedding Generation
-                              ↓
-                         Cost Tracking
-                              ↓
-                    pgvector Storage → Similarity Search
-```
-
-## Integration Patterns
-
-### Adapter Pattern
-
-All external integrations use the adapter pattern:
-
-```go
-type ToolAdapter interface {
-    Execute(ctx context.Context, action string, params map[string]interface{}) (interface{}, error)
-    GetCapabilities() []Capability
-}
-```
-
-Benefits:
-- Isolation of external dependencies
-- Consistent interface across tools
-- Easy testing with mocks
-- Gradual migration support
-
-### Repository Pattern
-
-Data access follows the repository pattern:
-
-```go
-type Repository[T any] interface {
-    Create(ctx context.Context, entity T) (T, error)
-    Get(ctx context.Context, id string) (T, error)
-    List(ctx context.Context, filter Filter) ([]T, error)
-    Update(ctx context.Context, entity T) (T, error)
-    Delete(ctx context.Context, id string) error
-}
+Content → Model Selection Engine → Check Tenant Quotas
+                  ↓                         ↓
+           Circuit Breaker             Failover Logic
+                  ↓                         ↓
+           Provider API (Bedrock)    Alternative Provider
+                  ↓
+           Cost Tracking
+                  ↓
+           pgvector Storage
 ```
 
 ## Security Architecture
 
 ### Authentication & Authorization
 
-- **JWT Tokens**: Stateless authentication (implemented)
-- **API Keys**: Multi-type keys (admin, gateway, agent, user) with different privileges
-- **OAuth 2.0**: Third-party integrations (interface defined, no provider implementations yet)
-- **RBAC**: Role-based access control (Casbin planned, not yet implemented)
+- **JWT Tokens**: Stateless authentication for API access
+- **API Keys**: Multiple types with different privileges:
+  - Admin keys: Full platform access
+  - Gateway keys: Service-to-service auth
+  - Agent keys: Agent-specific permissions
+  - User keys: User-scoped access
+- **OAuth 2.0**: Interface defined for third-party integrations (no provider implementations yet)
 - **Organization Isolation**: Automatic tenant separation at all levels
+
+### Credential Management
+
+- **Per-Tenant Encryption**: AES-256-GCM with unique keys per tenant
+- **Key Derivation**: PBKDF2 for deriving encryption keys from master key
+- **Forward Secrecy**: Unique salt/nonce per encryption operation
+- **Authenticated Encryption**: GCM mode prevents tampering
+- **Secrets Management**: Integration with AWS Secrets Manager
 
 ### Tenant Isolation
 
 - **Strict Mode**: Complete isolation between organizations
 - **Agent Discovery**: Filtered by organization automatically
-- **Message Routing**: Cross-org communication blocked by default
+- **Database Row-Level Security**: PostgreSQL RLS for data isolation
 - **Rate Limiting**: Per-tenant limits with custom configuration
-- **Audit Logging**: All cross-org attempts logged
+- **Audit Logging**: All cross-tenant attempts logged
 
 ### Data Protection
 
-- **Encryption at Rest**: Database and S3 encryption
+- **Encryption at Rest**: Database encryption, S3 encryption
 - **Encryption in Transit**: TLS 1.3 minimum
-- **Secrets Management**: AWS Secrets Manager integration
-- **Audit Logging**: All access logged and monitored
+- **Credential Encryption**: All API keys and tokens encrypted at rest
+- **Audit Logging**: Comprehensive logging of all operations
 
 ## Observability
 
 ### Metrics (Prometheus)
 
-- Request rates and latencies
-- Error rates by endpoint
+- Request rates and latencies per endpoint
+- Error rates by service and endpoint
 - Queue depths and processing times
-- Resource utilization
+- Agent connection counts and health
+- Embedding generation costs and latencies
+- Circuit breaker states
+- Cache hit rates (L1 and L2)
 
 ### Tracing (OpenTelemetry)
 
-- Distributed request tracing
-- Cross-service correlation
+- Distributed request tracing across services
+- Cross-service correlation with trace IDs
 - Performance bottleneck identification
+- Webhook processing traces
 
 ### Logging (Structured)
 
-- JSON-formatted logs
-- Contextual information
+- JSON-formatted logs via `pkg/observability`
+- Contextual information (trace ID, tenant ID, user ID)
 - Log aggregation support
-- Configurable log levels
+- Configurable log levels (Error, Warn, Info, Debug)
 
 ## Deployment Architecture
 
 ### Local Development
 
 ```yaml
-docker-compose:
-  - postgres (with pgvector)
-  - redis
-  - Services (hot reload)
+docker-compose.local.yml:
+  - postgres:latest (with pgvector extension)
+  - redis:latest
+  - edge-mcp (port 8080)
+  - rest-api (port 8081)
+  - worker (background)
+  - rag-loader (on-demand)
 ```
 
 ### Production (AWS)
 
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   ALB/NLB   │────▶│  ECS Tasks  │────▶│     RDS     │
+│   ALB/NLB   │────▶│  ECS Tasks  │────▶│  RDS        │
+│  (TLS)      │     │  (Fargate)  │     │(PostgreSQL) │
 └─────────────┘     └─────────────┘     └─────────────┘
-                           │                     
-                           ▼                     
+                           │
+                           ▼
                     ┌─────────────┐     ┌─────────────┐
                     │Redis Streams│     │ ElastiCache │
+                    │  (Events)   │     │   (Redis)   │
+                    └─────────────┘     └─────────────┘
+                           │
+                           ▼
+                    ┌─────────────┐     ┌─────────────┐
+                    │AWS Bedrock  │     │     S3      │
+                    │(Embeddings) │     │  (Storage)  │
                     └─────────────┘     └─────────────┘
 ```
 
-### Kubernetes (Future)
-
-- Helm charts for deployment
-- Horizontal pod autoscaling
-- Service mesh integration
-- GitOps workflow
-
 ## Performance Considerations
-
-### AI Agent Performance
-
-1. **Task Routing**: Optimized routing decisions with cached capabilities <!-- Source: pkg/services/assignment_engine.go -->
-2. **Binary Protocol**: Significant message size reduction with compression <!-- Source: pkg/models/websocket/binary.go -->
-3. **Connection Pooling**: Reusable WebSocket connections per agent <!-- Source: pkg/models/websocket/binary.go -->
-4. **Workload Balancing**: Real-time load distribution across agents
 
 ### Multi-Level Caching
 
-1. **Memory Cache**: Hot embeddings and agent capabilities
-2. **Redis Cache**: Distributed cache for agent state and embeddings
-3. **Database Cache**: Persistent storage with pgvector indexes
+1. **L1 Cache (Memory)**: Hot embeddings and tool operations (<1ms)
+2. **L2 Cache (Redis)**: Distributed cache with TTL management (<10ms)
+3. **Database (PostgreSQL)**: Persistent storage with indexes
 4. **Cost Cache**: Model pricing data for routing decisions
 
 ### Embedding Optimization
 
-1. **Batch Processing**: Reduce API calls to Bedrock
-2. **Provider Failover**: Automatic switching on rate limits
-3. **Quality/Cost Trade-offs**: Configurable routing strategies
+1. **Batch Processing**: Reduce API calls to providers
+2. **Provider Failover**: Automatic switching on rate limits or failures
+3. **Quality/Cost Trade-offs**: Configurable model selection strategies
 4. **Cache Hit Rates**: Minimize regeneration costs
+5. **Circuit Breakers**: Prevent cascade failures
 
 ### Scalability
 
-1. **Agent Scaling**: Designed for high concurrency with multiple AI agents
-2. **Task Parallelization**: MapReduce patterns for large workloads
-3. **Circuit Breakers**: Prevent cascade failures
+1. **Horizontal Scaling**: Multiple instances behind load balancer
+2. **Worker Parallelization**: Consumer groups for parallel processing
+3. **Connection Pooling**: Database and Redis connection pools
 4. **Stream Partitioning**: Distribute load across Redis consumer groups
 
 ## Resilience Patterns
 
 ### Circuit Breakers
-Prevent cascading failures from external services
+- Prevent cascading failures from external services
+- Configurable failure thresholds and recovery times
+- Implementation in `pkg/circuitbreaker/`
 
 ### Retry Logic
-Exponential backoff with jitter
+- Exponential backoff with jitter
+- Configurable max attempts
+- Implementation in `pkg/retry/`
 
 ### Bulkheads
-Isolate failures to specific components
+- Isolate failures to specific components
+- Separate connection pools per service
 
 ### Health Checks
-Liveness and readiness probes
+- Liveness probes: Service is running
+- Readiness probes: Service can handle traffic
+- Database connectivity checks
+- Redis connectivity checks
 
-## Universal Agent Registration System
+## Collaboration Features
 
-### Architecture Components
+### CRDT-Based Collaborative Editing
 
-1. **Agent Manifest System**:
-   - Flexible agent definitions with type, capabilities, requirements
-   - Dynamic configuration without code changes
-   - Version tracking and compatibility management
-   - Authentication configuration per agent type
+Advanced CRDT (Conflict-free Replicated Data Type) implementations in `pkg/collaboration/`:
 
-2. **Enhanced Registry**:
-   - Extends existing DBAgentRegistry through embedding
-   - Backward compatible with existing agents
-   - Universal agent support without breaking changes
-   - Real-time health and status tracking
+- **DocumentCRDT**: Collaborative text editing with fractional indexing
+- **StateCRDT**: Distributed state management with path-based updates
+- **Vector Clocks**: Causality tracking for distributed operations
+- **Implemented CRDTs**:
+  - GCounter: Grow-only counter
+  - PNCounter: Increment/decrement counter
+  - LWWRegister: Last-write-wins register
+  - ORSet: Observed-remove set
 
-3. **Rate Limiting Architecture**:
-   - **Per-Agent**: Individual agent limits (10 RPS default)
-   - **Per-Tenant**: Organization-wide limits (100 RPS default)
-   - **Per-Capability**: Capability-specific limits (50 RPS default)
-   - **Burst Capacity**: 1.5x multiplier for traffic spikes
-   - **Sliding Windows**: Accurate rate tracking
+## Migration Path
 
-4. **Circuit Breaker System**:
-   - **Agent Breakers**: Trip after 3 failures, 20s recovery
-   - **Capability Breakers**: Trip after 10 failures, 60s recovery
-   - **Tenant Breakers**: Trip after 20 failures, 120s recovery
-   - **Channel Breakers**: For communication channels
-   - **Auto-Recovery**: Half-open state for gradual recovery
+Database migrations are managed per service:
 
-5. **Message Broker**:
-   - Redis Streams for reliable delivery <!-- Source: pkg/redis/streams_client.go -->
-   - Worker pools with consumer groups
-   - Priority queuing (1-10 scale)
-   - Dead letter queue for failures
-   - Capability-based routing
+- **REST API**: `apps/rest-api/migrations/sql/`
+- **RAG Loader**: `apps/rag-loader/migrations/`
+- **Migration Tool**: `pkg/database/migration/`
 
-### Supported Agent Types
+Migrations use golang-migrate with up/down SQL files. Run with:
+```bash
+make migrate-up    # Apply migrations
+make migrate-down  # Rollback migrations
+```
 
-- **IDE Agents**: VS Code, IntelliJ, Neovim (code assistance)
-- **Slack Agents**: Notifications, alerts, team coordination
-- **Monitoring Agents**: Prometheus, DataDog (metrics, health)
-- **CI/CD Agents**: Jenkins, GitHub Actions (builds, deployments)
-- **Custom Agents**: Any tool with WebSocket support <!-- Source: pkg/models/websocket/binary.go -->
-
-## Future Architecture Considerations
+## Future Considerations
 
 1. **Advanced AI Orchestration**:
-   - Hierarchical agent organizations with delegation
-   - Learning-based task routing from historical data <!-- Source: pkg/services/assignment_engine.go -->
-   - Agent capability evolution and specialization
-   - Multi-modal agent support (text, voice, video)
+   - Hierarchical agent organizations
+   - Learning-based task routing from historical data
+   - Agent capability evolution
+   - Multi-modal agent support
 
 2. **Enhanced Collaboration**:
    - Full CRDT delta synchronization
    - Conflict resolution strategies
    - Real-time collaborative debugging
-   - Agent consensus mechanisms
 
 3. **Enterprise Features**:
-   - Casbin RBAC implementation (planned, not yet implemented)
-   - OAuth provider integrations (interface defined, no implementations yet)
+   - Casbin RBAC (planned)
+   - OAuth provider integrations (interface defined)
    - Advanced audit logging
-   - Multi-tenant agent isolation
+   - SAML/SSO support
 
 4. **Performance Enhancements**:
    - GPU-accelerated embeddings
    - Edge agent deployment
    - Predictive task scheduling
-   - Adaptive compression algorithms
+   - Adaptive compression
 
 5. **Integration Expansion**:
    - Additional DevOps tool adapters
    - Cloud provider agnostic design
-   - Kubernetes operator for agents
+   - Kubernetes operator
    - GitOps workflow automation
 
 ## References
 
-- [Go Workspace Structure](go-workspace-structure.md)
-- [Adapter Pattern Implementation](adapter-pattern.md)
-- [API Documentation](../api-reference/vector-search-api.md)
+- [Go Workspace Structure](go-workspace-structure.md) - Multi-module organization
+- [Multi-Agent Embedding Architecture](multi-agent-embedding-architecture.md) - Embedding system design
+- [Universal Agent Architecture](universal-agent-architecture.md) - Agent registration and coordination
+- [Package Dependencies](package-dependencies.md) - Module relationships
+- [MCP Protocol Documentation](../reference/mcp-protocol/MCP_PROTOCOL.md) - Complete protocol details
+- [REST API Reference](../reference/api/rest-api-reference.md) - HTTP API documentation
+- [Edge MCP Documentation](../../apps/edge-mcp/README.md) - Edge MCP gateway details
+
+---
+
+**Document Status**: Verified against codebase
+**Last Updated**: 2025-10-17
+**Verified Components**: All file paths, table schemas, and service descriptions
