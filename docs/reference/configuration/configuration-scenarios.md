@@ -558,9 +558,9 @@ data:
             least_conn;
             keepalive 32;
             
-            server mcp-server-1:8080 max_fails=3 fail_timeout=30s;
-            server mcp-server-2:8080 max_fails=3 fail_timeout=30s;
-            server mcp-server-3:8080 max_fails=3 fail_timeout=30s;
+            server edge-mcp-1:8080 max_fails=3 fail_timeout=30s;
+            server edge-mcp-2:8080 max_fails=3 fail_timeout=30s;
+            server edge-mcp-3:8080 max_fails=3 fail_timeout=30s;
         }
     }
 
@@ -568,7 +568,7 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mcp-server-performance
+  name: edge-mcp-performance
 spec:
   replicas: 10
   template:
@@ -577,7 +577,7 @@ spec:
         node.kubernetes.io/instance-type: c6i.8xlarge
       
       containers:
-      - name: mcp-server
+      - name: edge-mcp
         resources:
           requests:
             memory: "16Gi"

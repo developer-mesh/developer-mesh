@@ -21,7 +21,7 @@ The DevOps MCP platform uses AES-256-GCM encryption with per-tenant key derivati
   - Encrypts tool credentials, authentication data, and secrets
   - Located in:
     - REST API: `apps/rest-api/internal/api/server.go:445`
-    - MCP Server: `apps/mcp-server/internal/api/server.go:368`
+    - Edge MCP: `apps/edge-mcp/cmd/server/main.go`
 
 ### Legacy Support (Deprecated)
 
@@ -95,7 +95,7 @@ services:
     environment:
       - ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY}
   
-  mcp-server:
+  edge-mcp:
     environment:
       - ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY}
 ```
@@ -135,12 +135,12 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mcp-server
+  name: edge-mcp
 spec:
   template:
     spec:
       containers:
-      - name: mcp-server
+      - name: edge-mcp
         env:
         - name: ENCRYPTION_MASTER_KEY
           valueFrom:

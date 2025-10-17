@@ -106,7 +106,7 @@ make env-check
 5. **Start services locally:**
    ```bash
    # Terminal 1
-   make run-mcp-server
+   make run-edge-mcp
 
    # Terminal 2
    make run-rest-api
@@ -229,7 +229,7 @@ make test-e2e-local
 make env-aws
 make down
 make tunnel-all
-make run-mcp-server  # In separate terminal
+make run-edge-mcp  # In separate terminal
 make test-e2e-local
 ```
 
@@ -239,7 +239,7 @@ make test-e2e-local
 make env-aws
 make tunnel-all
 # Restore production data snapshot
-make run-mcp-server  # With debugger attached
+make run-edge-mcp  # With debugger attached
 ```
 
 ### Scenario 4: Switch Back to Docker

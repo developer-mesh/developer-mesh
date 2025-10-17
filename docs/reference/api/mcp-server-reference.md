@@ -46,9 +46,9 @@ The MCP Server API implements the Model Context Protocol specification, providin
 ## Base URL and Versioning
 
 ```
-Base URL: https://api.mcp-server.example.com
+Base URL: https://api.edge-mcp.example.com
 Current Version: v1
-Full Base Path: https://api.mcp-server.example.com/api/v1
+Full Base Path: https://api.edge-mcp.example.com/api/v1
 ```
 
 ### Version Negotiation
@@ -80,7 +80,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ```bash
 curl -H "Authorization: Bearer your-api-key" \
-     https://api.mcp-server.example.com/api/v1/tools
+     https://api.edge-mcp.example.com/api/v1/tools
 ```
 
 ## Rate Limiting
@@ -406,7 +406,7 @@ GET /api/v1/tools
     }
   ],
   "_links": {
-    "self": "https://api.mcp-server.example.com/api/v1/tools"
+    "self": "https://api.edge-mcp.example.com/api/v1/tools"
   }
 }
 ```
@@ -434,9 +434,9 @@ GET /api/v1/tools/:tool
   ],
   "safety_notes": "Cannot delete repositories for safety reasons",
   "_links": {
-    "self": "https://api.mcp-server.example.com/api/v1/tools/github",
-    "actions": "https://api.mcp-server.example.com/api/v1/tools/github/actions",
-    "queries": "https://api.mcp-server.example.com/api/v1/tools/github/queries"
+    "self": "https://api.edge-mcp.example.com/api/v1/tools/github",
+    "actions": "https://api.edge-mcp.example.com/api/v1/tools/github/actions",
+    "queries": "https://api.edge-mcp.example.com/api/v1/tools/github/queries"
   }
 }
 ```
@@ -506,9 +506,9 @@ GET /api/v1/tools/:tool/actions/:action
     "labels": ["bug", "frontend"]
   },
   "_links": {
-    "self": "https://api.mcp-server.example.com/api/v1/tools/github/actions/create_issue",
-    "tool": "https://api.mcp-server.example.com/api/v1/tools/github",
-    "actions": "https://api.mcp-server.example.com/api/v1/tools/github/actions"
+    "self": "https://api.edge-mcp.example.com/api/v1/tools/github/actions/create_issue",
+    "tool": "https://api.edge-mcp.example.com/api/v1/tools/github",
+    "actions": "https://api.edge-mcp.example.com/api/v1/tools/github/actions"
   }
 }
 ```
@@ -544,8 +544,8 @@ POST /api/v1/tools/:tool/actions/:action?context_id=ctx-789
     "html_url": "https://github.com/octocat/hello-world/issues/42"
   },
   "_links": {
-    "self": "https://api.mcp-server.example.com/api/v1/tools/github/actions/create_issue",
-    "tool": "https://api.mcp-server.example.com/api/v1/tools/github"
+    "self": "https://api.edge-mcp.example.com/api/v1/tools/github/actions/create_issue",
+    "tool": "https://api.edge-mcp.example.com/api/v1/tools/github"
   }
 }
 ```
@@ -1019,7 +1019,7 @@ The MCP Server provides WebSocket connections for real-time AI agent communicati
 ### Connection Establishment
 
 ```javascript
-const ws = new WebSocket('wss://api.mcp-server.example.com/ws'); <!-- Source: pkg/models/websocket/binary.go -->
+const ws = new WebSocket('wss://api.edge-mcp.example.com/ws'); <!-- Source: pkg/models/websocket/binary.go -->
 
 ws.on('open', () => {
   // Send MCP initialization
@@ -1225,12 +1225,11 @@ ws.on('error', (error) => {
 
 ## SDK Support
 
-Official SDKs are available for:
+Client examples are available for:
 
 - **Go**: `github.com/developer-mesh/developer-mesh/pkg/client`
-- **Python**: `pip install mcp-server-sdk`
-- **JavaScript/TypeScript**: `npm install @mcp/server-sdk`
-- **Java**: `com.mcp:server-sdk:1.0.0`
+- **Python**: See `docs/reference/openapi/examples/python/client.py` (uses standard `websockets` library)
+- **TypeScript**: See `docs/reference/openapi/examples/typescript/client.ts` (uses standard `ws` library)
 
 ### Go SDK Example
 
@@ -1240,7 +1239,7 @@ import (
 )
 
 // Create client
-client := rest.NewClient("https://api.mcp-server.example.com", "your-api-key")
+client := rest.NewClient("https://api.edge-mcp.example.com", "your-api-key")
 
 // Create context
 ctx, err := client.MCP().CreateContext(&models.Context{
@@ -1258,37 +1257,37 @@ result, err := client.Tools().Execute("github", "create_issue", map[string]inter
 })
 ```
 
-### Python SDK Example
+### Python Client Example
 
 ```python
-from mcp_server_sdk import MCPClient
+# See docs/reference/openapi/examples/python/client.py for full implementation
+import asyncio
+import websockets
 
-# Create client
-client = MCPClient(
-    base_url="https://api.mcp-server.example.com",
-    api_key="your-api-key"
-)
+async def connect_to_edge_mcp():
+    async with websockets.connect(
+        'ws://localhost:8082/ws',
+        extra_headers={'Authorization': 'Bearer your-api-key'}
+    ) as websocket:
+        # Initialize MCP session
+        await websocket.send(json.dumps({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2025-06-18",
+                "clientInfo": {"name": "python-client", "version": "1.0.0"}
+            }
+        }))
 
-# Create context
-context = client.mcp.create_context(
-    agent_id="agent-123",
-    content=[{"role": "user", "content": "Hello"}]
-)
-
-# Execute tool
-result = client.tools.execute(
-    tool="github",
-    action="create_issue",
-    params={
-        "owner": "octocat",
-        "repo": "hello-world",
-        "title": "Test issue"
-    }
-)
+        # Receive and handle responses
+        response = await websocket.recv()
+        # ... handle response
 ```
 
 ## Additional Resources
 
 - [MCP Protocol Specification](https://github.com/anthropics/mcp)
-- [API Playground](https://api.mcp-server.example.com/swagger)
-- [Integration Examples](https://github.com/developer-mesh/developer-mesh/examples)
+- [Python Client Example](docs/reference/openapi/examples/python/client.py)
+- [TypeScript Client Example](docs/reference/openapi/examples/typescript/client.ts)
+- [Integration Examples](https://github.com/developer-mesh/developer-mesh/tree/main/docs/guides/integrations)

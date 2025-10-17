@@ -340,7 +340,7 @@ grep YOUR_VARIABLE configs/*.yaml
 ```bash
 # MCP Server
 export LOG_LEVEL=debug
-./mcp-server 2>&1 | grep -i config
+./edge-mcp 2>&1 | grep -i config
 
 # REST API
 export LOG_LEVEL=debug

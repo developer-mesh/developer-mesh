@@ -90,7 +90,7 @@ Establishes MCP session and exchanges capabilities.
   "result": {
     "protocolVersion": "2025-06-18",
     "serverInfo": {
-      "name": "devmesh-mcp-server",
+      "name": "devmesh-edge-mcp",
       "version": "1.0.0"
     },
     "capabilities": {
@@ -575,9 +575,8 @@ The server can send notifications (requests without id) for events:
 ## Implementation Files
 
 ### Core Implementation
-- `/apps/mcp-server/internal/api/mcp_protocol.go` - Main MCP handler
-- `/apps/mcp-server/internal/api/websocket/connection.go` - Connection management
-- `/apps/mcp-server/internal/api/websocket/server.go` - WebSocket server
+- `/apps/edge-mcp/internal/mcp/handler.go` - Main MCP handler and protocol implementation
+- `/apps/edge-mcp/cmd/server/main.go` - WebSocket server and connection management
 
 ### Protocol Adapters
 - `/pkg/adapters/mcp/protocol_adapter.go` - Protocol conversion
