@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
+	"net/http"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -50,9 +52,22 @@ type cohereEmbeddingResponse struct {
 
 // NewBedrockProvider creates a new AWS Bedrock provider
 func NewBedrockProvider(providerConfig ProviderConfig) (*BedrockProvider, error) {
-	// Load AWS configuration
+	// Load AWS configuration with HTTP client timeout
 	cfg, err := config.LoadDefaultConfig(context.Background(),
 		config.WithRegion(providerConfig.Region),
+		config.WithHTTPClient(&http.Client{
+			Timeout: 30 * time.Second, // Overall request timeout
+			Transport: &http.Transport{
+				MaxIdleConns:        100,
+				MaxIdleConnsPerHost: 10,
+				IdleConnTimeout:     90 * time.Second,
+				TLSHandshakeTimeout: 10 * time.Second,
+				DialContext: (&net.Dialer{
+					Timeout:   10 * time.Second, // Connection timeout
+					KeepAlive: 30 * time.Second,
+				}).DialContext,
+			},
+		}),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load AWS config: %w", err)

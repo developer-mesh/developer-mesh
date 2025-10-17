@@ -56,7 +56,7 @@ func NewLoaderService(
 		RetryAttempts:  3,
 		RetryDelay:     time.Second,
 	}
-	batchProcessor := indexer.NewBatchProcessor(batchConfig, embeddingClient, vectorRepo, logger)
+	batchProcessor := indexer.NewBatchProcessor(batchConfig, db, embeddingClient, vectorRepo, logger)
 
 	// Initialize hybrid search
 	bm25Search := retrieval.NewBM25Search(db)

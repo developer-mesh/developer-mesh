@@ -7,6 +7,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math"
+	"net"
+	"net/http"
 	"path/filepath"
 	"strings"
 	"time"
@@ -38,14 +40,32 @@ type Config struct {
 
 // NewCrawler creates a new GitHub crawler from configuration
 func NewCrawler(tenantID uuid.UUID, config Config) (*Crawler, error) {
-	// Create OAuth2 client if token provided
+	// Create HTTP client with comprehensive timeout configuration
+	httpClient := &http.Client{
+		Timeout: 60 * time.Second, // Overall request timeout
+		Transport: &http.Transport{
+			MaxIdleConns:        100,
+			MaxIdleConnsPerHost: 10,
+			IdleConnTimeout:     90 * time.Second,
+			TLSHandshakeTimeout: 10 * time.Second,
+			DialContext: (&net.Dialer{
+				Timeout:   10 * time.Second, // Connection timeout
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+			ResponseHeaderTimeout: 30 * time.Second, // Time to receive response headers
+		},
+	}
+
+	// Create GitHub client with timeout-configured HTTP client
 	var tc *github.Client
 	if config.Token != "" {
 		ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: config.Token})
-		httpClient := oauth2.NewClient(context.Background(), ts)
-		tc = github.NewClient(httpClient)
+		// Wrap the timeout-configured HTTP client with OAuth2
+		ctx := context.WithValue(context.Background(), oauth2.HTTPClient, httpClient)
+		oauthClient := oauth2.NewClient(ctx, ts)
+		tc = github.NewClient(oauthClient)
 	} else {
-		tc = github.NewClient(nil)
+		tc = github.NewClient(httpClient)
 	}
 
 	return &Crawler{

@@ -3,21 +3,45 @@ package vector
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
+
+	"github.com/developer-mesh/developer-mesh/pkg/database"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 // RepositoryImpl implements the Repository interface
 type RepositoryImpl struct {
-	db *sqlx.DB
+	db       *sqlx.DB
+	vectorDB *database.VectorDatabase
+	logger   observability.Logger
 }
 
 // NewRepository creates a new vector repository instance
 func NewRepository(db *sqlx.DB) Repository {
-	return &RepositoryImpl{db: db}
+	logger := observability.NewStandardLogger("vector_repository")
+
+	// Initialize the vector database for pgvector operations
+	vectorDB, err := database.NewVectorDatabase(db, nil, logger)
+	if err != nil {
+		logger.Error("Failed to create vector database", map[string]interface{}{
+			"error": err.Error(),
+		})
+		// We still create the repository, but operations using vectorDB will fail
+	}
+
+	return &RepositoryImpl{
+		db:       db,
+		vectorDB: vectorDB,
+		logger:   logger,
+	}
 }
 
 // Create stores a new embedding (standardized Repository method)
@@ -95,7 +119,7 @@ func (r *RepositoryImpl) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-// StoreEmbedding stores a vector embedding
+// StoreEmbedding stores a vector embedding in mcp.embeddings
 func (r *RepositoryImpl) StoreEmbedding(ctx context.Context, embedding *Embedding) error {
 	if embedding == nil {
 		return errors.New("embedding cannot be nil")
@@ -106,27 +130,156 @@ func (r *RepositoryImpl) StoreEmbedding(ctx context.Context, embedding *Embeddin
 		embedding.CreatedAt = time.Now()
 	}
 
-	query := `INSERT INTO embeddings (id, context_id, content_index, content, embedding, model_id, created_at, metadata)
-              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-              ON CONFLICT (id) DO UPDATE SET
-              context_id = $2, content_index = $3, content = $4, embedding = $5, model_id = $6, metadata = $8`
+	// Initialize the vector database for pgvector operations
+	if r.vectorDB == nil {
+		return errors.New("vector database not initialized")
+	}
 
-	_, err := r.db.ExecContext(ctx, query,
-		embedding.ID,
-		embedding.ContextID,
-		embedding.ContentIndex,
-		embedding.Text,
-		embedding.Embedding,
-		embedding.ModelID,
-		embedding.CreatedAt,
-		embedding.Metadata,
+	if err := r.vectorDB.Initialize(ctx); err != nil {
+		return fmt.Errorf("failed to initialize vector database: %w", err)
+	}
+
+	// Convert []float32 to pgvector format using VectorDatabase
+	vectorStr, err := r.vectorDB.CreateVector(ctx, embedding.Embedding)
+	if err != nil {
+		return fmt.Errorf("failed to convert embedding to pgvector format: %w", err)
+	}
+
+	// Extract tenant_id from ContextID (assumes UUID format)
+	// For RAG embeddings, ContextID is actually the tenant_id since they're not session-based
+	tenantID := embedding.ContextID
+
+	// For RAG embeddings (source_type=rag), context_id should be NULL since there's no session context
+	// The foreign key constraint requires context_id to reference mcp.contexts(id)
+	var contextIDValue interface{}
+	if embedding.Metadata != nil {
+		if sourceType, ok := embedding.Metadata["source_type"].(string); ok && sourceType == "rag" {
+			contextIDValue = nil // NULL for RAG embeddings
+		} else {
+			contextIDValue = embedding.ContextID // Use ContextID for session-based embeddings
+		}
+	} else {
+		contextIDValue = embedding.ContextID
+	}
+
+	// Calculate content hash for deduplication
+	hash := sha256.Sum256([]byte(embedding.Text))
+	contentHash := hex.EncodeToString(hash[:])
+
+	// Parse model provider and name from ModelID
+	// Format: "provider/model-name" or just "model-name"
+	provider, modelName := parseModelID(embedding.ModelID)
+
+	// Look up model UUID from mcp.embedding_models
+	modelUUID, modelDimensions, err := r.lookupModelUUID(ctx, provider, modelName)
+	if err != nil {
+		return fmt.Errorf("failed to lookup model UUID: %w", err)
+	}
+
+	// Marshal metadata to JSON for JSONB column
+	var metadataJSON []byte
+	if embedding.Metadata != nil {
+		metadataJSON, err = json.Marshal(embedding.Metadata)
+		if err != nil {
+			return fmt.Errorf("failed to marshal metadata: %w", err)
+		}
+	} else {
+		metadataJSON = []byte("{}")
+	}
+
+	// Select the appropriate vector column based on model dimensions
+	var vectorColumn string
+	switch modelDimensions {
+	case 1024:
+		vectorColumn = "embedding_1024"
+	case 1536:
+		vectorColumn = "vector"
+	case 4096:
+		vectorColumn = "embedding"
+	default:
+		return fmt.Errorf("unsupported embedding dimensions: %d (supported: 1024, 1536, 4096)", modelDimensions)
+	}
+
+	// Insert into mcp.embeddings with all required fields
+	query := fmt.Sprintf(`INSERT INTO mcp.embeddings (
+		id, tenant_id, context_id, content_index, chunk_index, content, content_hash,
+		model_id, model_provider, model_name, model_dimensions, %s, created_at, metadata
+	) VALUES (
+		$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
 	)
+	ON CONFLICT (id) DO UPDATE SET
+		tenant_id = $2, context_id = $3, content_index = $4, chunk_index = $5,
+		content = $6, content_hash = $7, model_id = $8, model_provider = $9,
+		model_name = $10, model_dimensions = $11, %s = $12, metadata = $14`, vectorColumn, vectorColumn)
+
+	// Use vectorDB transaction for atomic pgvector operations
+	err = r.vectorDB.Transaction(ctx, func(tx *sqlx.Tx) error {
+		_, err := tx.ExecContext(ctx, query,
+			embedding.ID,
+			tenantID,
+			contextIDValue,
+			embedding.ContentIndex,
+			0, // chunk_index - default to 0 for non-chunk embeddings
+			embedding.Text,
+			contentHash,
+			modelUUID,
+			provider,
+			modelName,
+			modelDimensions,
+			vectorStr,
+			embedding.CreatedAt,
+			metadataJSON,
+		)
+		return err
+	})
 
 	if err != nil {
-		return fmt.Errorf("failed to store embedding: %w", err)
+		return fmt.Errorf("failed to store embedding in mcp.embeddings: %w", err)
 	}
 
 	return nil
+}
+
+// lookupModelUUID looks up the UUID for a model from mcp.embedding_models
+func (r *RepositoryImpl) lookupModelUUID(ctx context.Context, provider, modelName string) (string, int, error) {
+	var modelUUID string
+	var dimensions int
+
+	query := `SELECT id, dimensions FROM mcp.embedding_models WHERE provider = $1 AND model_name = $2`
+
+	err := r.db.QueryRowContext(ctx, query, provider, modelName).Scan(&modelUUID, &dimensions)
+	if err != nil {
+		return "", 0, fmt.Errorf("model not found in catalog (provider=%s, model=%s): %w", provider, modelName, err)
+	}
+
+	return modelUUID, dimensions, nil
+}
+
+// parseModelID parses a model ID string into provider and model name
+// Supports formats: "provider/model-name", "model-name"
+func parseModelID(modelID string) (provider, modelName string) {
+	// Try to split by "/"
+	parts := strings.Split(modelID, "/")
+	if len(parts) == 2 {
+		return parts[0], parts[1]
+	}
+
+	// If no "/" found, try to infer provider from model name prefix
+	if strings.HasPrefix(modelID, "amazon.") {
+		return "bedrock", modelID
+	}
+	if strings.HasPrefix(modelID, "cohere.") {
+		return "bedrock", modelID
+	}
+	if strings.HasPrefix(modelID, "anthropic.") {
+		return "bedrock", modelID
+	}
+	if strings.HasPrefix(modelID, "text-embedding") {
+		return "openai", modelID
+	}
+
+	// Default: assume bedrock provider (most common for RAG loader)
+	return "bedrock", modelID
 }
 
 // SearchEmbeddings performs a vector search with various filter options

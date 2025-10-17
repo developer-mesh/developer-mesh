@@ -66,7 +66,7 @@ func NewJobProcessor(
 		RetryAttempts:  config.RetryAttempts,
 		RetryDelay:     config.RetryDelay,
 	}
-	batchProcessor := indexer.NewBatchProcessor(batchConfig, embeddingClient, vectorRepo, logger)
+	batchProcessor := indexer.NewBatchProcessor(batchConfig, db, embeddingClient, vectorRepo, logger)
 
 	return &JobProcessor{
 		db:              db,
@@ -382,12 +382,12 @@ func (p *JobProcessor) executeIngestion(job *models.TenantSyncJob, source *model
 
 	// Process documents in pipeline: chunk → embed → store
 	var (
-		documentsAdded     = 0
-		documentsUpdated   = 0
-		totalChunks        = 0
-		embeddingsCreated  = 0
-		allChunkRequests   []indexer.ChunkEmbeddingRequest
-		documentChunkMap   = make(map[string][]*ragModels.Chunk) // Track chunks per document
+		documentsAdded    = 0
+		documentsUpdated  = 0
+		totalChunks       = 0
+		embeddingsCreated = 0
+		allChunkRequests  []indexer.ChunkEmbeddingRequest
+		documentChunkMap  = make(map[string][]*ragModels.Chunk) // Track chunks per document
 	)
 
 	// Phase 1: Chunk all documents and prepare embedding requests
@@ -490,16 +490,16 @@ func (p *JobProcessor) executeIngestion(job *models.TenantSyncJob, source *model
 		}
 
 		p.logger.Info("Embedding generation complete", map[string]interface{}{
-			"job_id":              job.ID,
-			"embeddings_created":  embeddingsCreated,
-			"embeddings_failed":   len(results) - embeddingsCreated,
+			"job_id":             job.ID,
+			"embeddings_created": embeddingsCreated,
+			"embeddings_failed":  len(results) - embeddingsCreated,
 		})
 
 		// Phase 3: Store documents and chunks with embedding IDs
 		p.logger.Info("Phase 3: Storing documents and chunks", map[string]interface{}{
-			"job_id":        job.ID,
-			"doc_count":     documentsAdded,
-			"chunk_count":   totalChunks,
+			"job_id":      job.ID,
+			"doc_count":   documentsAdded,
+			"chunk_count": totalChunks,
 		})
 
 		for _, doc := range documents {
@@ -541,9 +541,9 @@ func (p *JobProcessor) executeIngestion(job *models.TenantSyncJob, source *model
 		}
 
 		p.logger.Info("Storage complete", map[string]interface{}{
-			"job_id":              job.ID,
-			"documents_stored":    documentsAdded,
-			"chunks_stored":       totalChunks,
+			"job_id":           job.ID,
+			"documents_stored": documentsAdded,
+			"chunks_stored":    totalChunks,
 		})
 	}
 

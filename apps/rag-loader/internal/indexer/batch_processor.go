@@ -3,11 +3,15 @@ package indexer
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/developer-mesh/developer-mesh/pkg/embedding"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
@@ -36,6 +40,7 @@ func DefaultBatchProcessorConfig() BatchProcessorConfig {
 // BatchProcessor handles batch processing of document chunks for embedding generation
 type BatchProcessor struct {
 	config          BatchProcessorConfig
+	db              *sqlx.DB
 	embeddingClient *embedding.ContextEmbeddingClient
 	vectorRepo      repoVector.Repository
 	logger          observability.Logger
@@ -44,12 +49,14 @@ type BatchProcessor struct {
 // NewBatchProcessor creates a new batch processor
 func NewBatchProcessor(
 	config BatchProcessorConfig,
+	db *sqlx.DB,
 	embeddingClient *embedding.ContextEmbeddingClient,
 	vectorRepo repoVector.Repository,
 	logger observability.Logger,
 ) *BatchProcessor {
 	return &BatchProcessor{
 		config:          config,
+		db:              db,
 		embeddingClient: embeddingClient,
 		vectorRepo:      vectorRepo,
 		logger:          logger,
@@ -227,9 +234,13 @@ func (b *BatchProcessor) processChunkWithRetry(ctx context.Context, req ChunkEmb
 
 // processChunk processes a single chunk
 func (b *BatchProcessor) processChunk(ctx context.Context, req ChunkEmbeddingRequest) (string, error) {
+	// Add timeout to prevent indefinite hangs - apply to ALL operations
+	opCtx, cancel := context.WithTimeout(ctx, 90*time.Second)
+	defer cancel()
+
 	// Generate embedding
 	vector, modelUsed, err := b.embeddingClient.EmbedContent(
-		ctx,
+		opCtx,
 		req.Chunk.Content,
 		"", // Use default model for tenant
 	)
@@ -237,10 +248,21 @@ func (b *BatchProcessor) processChunk(ctx context.Context, req ChunkEmbeddingReq
 		return "", fmt.Errorf("failed to generate embedding: %w", err)
 	}
 
-	// Create embedding record
+	// Store the embedding vector - delegate to vector repository
+	// Note: Storing directly to mcp.embeddings requires the vector repo
+	// to handle the full schema. For RAG loader, embeddings are linked
+	// to chunks in Phase 3 after batch processing completes.
+	//
+	// We return the embedding vector in the result so it can be
+	// stored with the chunk in Phase 3 of the pipeline.
+	embeddingID := uuid.New().String()
+
+	// For now, store using the existing vector repository interface
+	// This will work but may not populate all schema fields correctly.
+	// The chunk storage in Phase 3 should handle the embedding linkage.
 	emb := &repoVector.Embedding{
-		ID:        uuid.New().String(),
-		ContextID: req.TenantID.String(), // Use tenant ID as context
+		ID:        embeddingID,
+		ContextID: req.TenantID.String(),
 		Text:      req.Chunk.Content,
 		Embedding: vector,
 		ModelID:   modelUsed,
@@ -253,12 +275,43 @@ func (b *BatchProcessor) processChunk(ctx context.Context, req ChunkEmbeddingReq
 		},
 	}
 
-	// Store embedding
-	if err := b.vectorRepo.StoreEmbedding(ctx, emb); err != nil {
+	// Store embedding with timeout context
+	if err := b.vectorRepo.StoreEmbedding(opCtx, emb); err != nil {
+		// Check if this is a duplicate key error
+		errorMsg := err.Error()
+		if strings.Contains(errorMsg, "embeddings_tenant_id_content_hash_model_id_key") {
+			// Duplicate embedding - find and return the existing embedding_id
+			b.logger.Debug("Duplicate embedding detected, looking up existing embedding_id", map[string]interface{}{
+				"chunk_id": req.Chunk.ID,
+			})
+
+			existingID, lookupErr := b.findExistingEmbeddingID(opCtx, req.TenantID, req.Chunk.Content, modelUsed)
+			if lookupErr != nil {
+				b.logger.Warn("Failed to find existing embedding after duplicate error", map[string]interface{}{
+					"chunk_id": req.Chunk.ID,
+					"error":    lookupErr.Error(),
+				})
+				// Return error - Phase 3 should skip this chunk or set embedding_id to NULL
+				return "", fmt.Errorf("duplicate embedding but failed to find existing: %w", lookupErr)
+			}
+
+			b.logger.Debug("Found existing embedding for duplicate content", map[string]interface{}{
+				"chunk_id":              req.Chunk.ID,
+				"existing_embedding_id": existingID,
+			})
+			return existingID, nil
+		}
+
+		// Other errors - log and return error
+		b.logger.Error("Failed to store embedding", map[string]interface{}{
+			"chunk_id":     req.Chunk.ID,
+			"embedding_id": embeddingID,
+			"error":        errorMsg,
+		})
 		return "", fmt.Errorf("failed to store embedding: %w", err)
 	}
 
-	return emb.ID, nil
+	return embeddingID, nil
 }
 
 // ProcessBatchStats returns statistics about batch processing
@@ -291,4 +344,31 @@ func (b *BatchProcessor) GetStats(results []ChunkEmbeddingResult, totalTime time
 		AverageTime:      avgTime,
 		TotalTime:        totalTime,
 	}
+}
+
+// findExistingEmbeddingID queries the database to find an existing embedding by content hash
+func (b *BatchProcessor) findExistingEmbeddingID(ctx context.Context, tenantID uuid.UUID, content string, modelName string) (string, error) {
+	// Calculate content hash (same as GitHub crawler does)
+	hash := sha256.Sum256([]byte(content))
+	contentHash := hex.EncodeToString(hash[:])
+
+	// Query for existing embedding with matching tenant_id, content_hash, and model_name
+	// Join with embedding_models to match by model_name (string) instead of model_id (UUID)
+	query := `
+		SELECT e.id
+		FROM mcp.embeddings e
+		JOIN mcp.embedding_models m ON e.model_id = m.id
+		WHERE e.tenant_id = $1
+		  AND e.content_hash = $2
+		  AND m.model_name = $3
+		LIMIT 1
+	`
+
+	var existingID string
+	err := b.db.GetContext(ctx, &existingID, query, tenantID, contentHash, modelName)
+	if err != nil {
+		return "", fmt.Errorf("failed to query existing embedding: %w", err)
+	}
+
+	return existingID, nil
 }
