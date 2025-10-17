@@ -103,10 +103,11 @@ Create `.env` file:
 
 ```bash
 # Database
-DATABASE_USERNAME=devmesh
+DATABASE_USER=devmesh
 DATABASE_PASSWORD=your-secure-password
 
 # Redis
+REDIS_ADDR=redis:6379
 REDIS_PASSWORD=your-redis-password
 
 # GitHub
@@ -138,7 +139,7 @@ curl http://localhost:9094/health
 curl http://localhost:9094/metrics | grep rag_loader
 
 # Check API (if enabled)
-curl http://localhost:8084/api/v1/jobs
+curl http://localhost:8084/api/v1/rag/sources
 
 # View logs
 docker-compose logs -f rag-loader | grep -E "processing|completed"
@@ -655,9 +656,9 @@ kubectl create namespace devmesh
 kubectl create secret generic rag-loader-secrets \
   --namespace=devmesh \
   --from-literal=database-host=postgres.example.com \
-  --from-literal=database-username=devmesh \
+  --from-literal=database-user=devmesh \
   --from-literal=database-password=your-password \
-  --from-literal=redis-host=redis.example.com \
+  --from-literal=redis-addr=redis.example.com:6379 \
   --from-literal=redis-password=your-redis-password \
   --from-literal=aws-access-key-id=AKIA... \
   --from-literal=aws-secret-access-key=your-secret \
@@ -707,10 +708,9 @@ services:
     environment:
       - DATABASE_HOST=postgres
       - DATABASE_NAME=devmesh_development
-      - DATABASE_USERNAME=devmesh
+      - DATABASE_USER=devmesh
       - DATABASE_PASSWORD=devmesh
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - REDIS_ADDR=redis:6379
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - AWS_REGION=us-east-1
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
@@ -828,9 +828,9 @@ kubectl logs -n devmesh -l app=rag-loader | grep -i scheduler
 kubectl get cm -n devmesh rag-loader-config -o yaml | grep enabled
 
 # Manually trigger a job (if API enabled)
-curl -X POST http://localhost:8084/api/v1/jobs \
+curl -X POST http://localhost:8084/api/v1/rag/sources/my_repo/sync \
   -H "Content-Type: application/json" \
-  -d '{"source_id": "my_repo"}'
+  -H "Authorization: Bearer YOUR_API_KEY"
 ```
 
 #### GitHub Authentication Errors

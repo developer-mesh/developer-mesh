@@ -232,12 +232,11 @@ AWS_SECRET_ACCESS_KEY=...
 # Database
 DATABASE_HOST=postgres
 DATABASE_NAME=devmesh_development
-DATABASE_USERNAME=devmesh
+DATABASE_USER=devmesh
 DATABASE_PASSWORD=devmesh
 
 # Redis
-REDIS_HOST=redis
-REDIS_PORT=6379
+REDIS_ADDR=redis:6379
 REDIS_PASSWORD=
 ```
 
@@ -406,11 +405,10 @@ AWS_SECRET_ACCESS_KEY=...
 
 DATABASE_HOST=postgres.company.internal
 DATABASE_NAME=devmesh_production
-DATABASE_USERNAME=devmesh
+DATABASE_USER=devmesh
 DATABASE_PASSWORD=secure_password
 
-REDIS_HOST=redis.company.internal
-REDIS_PORT=6379
+REDIS_ADDR=redis.company.internal:6379
 REDIS_PASSWORD=redis_password
 ```
 

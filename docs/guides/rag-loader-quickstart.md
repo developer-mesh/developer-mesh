@@ -247,12 +247,11 @@ AWS_SECRET_ACCESS_KEY=your_secret_key
 # Database
 DATABASE_HOST=postgres
 DATABASE_NAME=devmesh_development
-DATABASE_USERNAME=devmesh
+DATABASE_USER=devmesh
 DATABASE_PASSWORD=devmesh
 
 # Redis
-REDIS_HOST=redis
-REDIS_PORT=6379
+REDIS_ADDR=redis:6379
 REDIS_PASSWORD=
 ```
 
@@ -361,9 +360,9 @@ kubectl create secret generic rag-loader-secrets \
   --namespace=devmesh \
   --from-literal=github-token=ghp_your_token \
   --from-literal=database-host=postgres.your-cluster.local \
-  --from-literal=database-username=devmesh \
+  --from-literal=database-user=devmesh \
   --from-literal=database-password=your-password \
-  --from-literal=redis-host=redis.your-cluster.local \
+  --from-literal=redis-addr=redis.your-cluster.local:6379 \
   --from-literal=redis-password=your-redis-password \
   --from-literal=aws-access-key-id=AKIA... \
   --from-literal=aws-secret-access-key=your-secret
@@ -664,8 +663,8 @@ aws bedrock list-foundation-models --region us-east-1
 # Test database
 psql $DATABASE_URL -c "SELECT version();"
 
-# Test Redis
-redis-cli -h $REDIS_HOST ping
+# Test Redis (extract host from REDIS_ADDR)
+redis-cli -h ${REDIS_ADDR%:*} ping
 ```
 
 ## Success Criteria
