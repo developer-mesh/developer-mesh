@@ -91,7 +91,11 @@ func (h *SourceHandler) testGitHubCredentials(ctx context.Context, config json.R
 	if err != nil {
 		return fmt.Errorf("failed to connect to GitHub: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("Failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode == 401 {
 		return fmt.Errorf("invalid GitHub token")
@@ -110,7 +114,11 @@ func (h *SourceHandler) testGitHubCredentials(ctx context.Context, config json.R
 		if err != nil {
 			return fmt.Errorf("failed to access organization: %w", err)
 		}
-		defer orgResp.Body.Close()
+		defer func() {
+			if err := orgResp.Body.Close(); err != nil {
+				log.Printf("Failed to close org response body: %v", err)
+			}
+		}()
 
 		if orgResp.StatusCode == 404 {
 			return fmt.Errorf("organization '%s' not found or no access", org)
@@ -126,13 +134,13 @@ func (h *SourceHandler) testGitHubCredentials(ctx context.Context, config json.R
 // testConfluenceCredentials validates Confluence credentials
 func (h *SourceHandler) testConfluenceCredentials(ctx context.Context, config json.RawMessage, credentials map[string]string) error {
 	// TODO: Implement Confluence credential validation
-	return fmt.Errorf("Confluence credential testing not yet implemented")
+	return fmt.Errorf("confluence credential testing not yet implemented")
 }
 
 // testSlackCredentials validates Slack credentials
 func (h *SourceHandler) testSlackCredentials(ctx context.Context, config json.RawMessage, credentials map[string]string) error {
 	// TODO: Implement Slack credential validation
-	return fmt.Errorf("Slack credential testing not yet implemented")
+	return fmt.Errorf("slack credential testing not yet implemented")
 }
 
 // testS3Credentials validates AWS S3 credentials
@@ -175,7 +183,9 @@ func (h *SourceHandler) CreateSource(c *gin.Context) {
 	}
 	defer func() {
 		if err != nil {
-			tx.Rollback()
+			if rbErr := tx.Rollback(); rbErr != nil {
+				log.Printf("Failed to rollback transaction: %v", rbErr)
+			}
 		}
 	}()
 
@@ -387,7 +397,10 @@ func (h *SourceHandler) GetSyncJobs(c *gin.Context) {
 	// Get limit from query params
 	limit := 10
 	if limitStr := c.Query("limit"); limitStr != "" {
-		fmt.Sscanf(limitStr, "%d", &limit)
+		if _, err := fmt.Sscanf(limitStr, "%d", &limit); err != nil {
+			log.Printf("Invalid limit parameter '%s': %v", limitStr, err)
+			limit = 10 // Reset to default on error
+		}
 	}
 
 	jobs, err := h.repo.ListSyncJobs(c.Request.Context(), tenantID, sourceID, limit)

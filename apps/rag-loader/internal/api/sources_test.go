@@ -67,7 +67,9 @@ func setupTestDatabase(t *testing.T) *sqlx.DB {
 	require.NoError(t, err, "Failed to create tenants table")
 
 	t.Cleanup(func() {
-		db.Close()
+		if err := db.Close(); err != nil {
+			t.Logf("Failed to close database: %v", err)
+		}
 	})
 
 	return db
@@ -84,7 +86,9 @@ func setupTestApp(db *sqlx.DB) *gin.Engine {
 
 	// Create test master key for encryption
 	masterKey := make([]byte, 32)
-	rand.Read(masterKey)
+	if _, err := rand.Read(masterKey); err != nil {
+		panic(fmt.Sprintf("Failed to generate master key: %v", err))
+	}
 
 	// Create services
 	credMgr := security.NewCredentialManager(db, masterKey)
@@ -129,11 +133,11 @@ func createTestTenant(t *testing.T, db *sqlx.DB, tenantID uuid.UUID, name string
 	// Cleanup: Remove tenant after test
 	t.Cleanup(func() {
 		// Delete in reverse order due to foreign keys
-		db.Exec("DELETE FROM rag.tenant_sync_jobs WHERE tenant_id = $1", tenantID)
-		db.Exec("DELETE FROM rag.tenant_documents WHERE tenant_id = $1", tenantID)
-		db.Exec("DELETE FROM rag.tenant_source_credentials WHERE tenant_id = $1", tenantID)
-		db.Exec("DELETE FROM rag.tenant_sources WHERE tenant_id = $1", tenantID)
-		db.Exec("DELETE FROM mcp.tenants WHERE id = $1", tenantID)
+		_, _ = db.Exec("DELETE FROM rag.tenant_sync_jobs WHERE tenant_id = $1", tenantID)
+		_, _ = db.Exec("DELETE FROM rag.tenant_documents WHERE tenant_id = $1", tenantID)
+		_, _ = db.Exec("DELETE FROM rag.tenant_source_credentials WHERE tenant_id = $1", tenantID)
+		_, _ = db.Exec("DELETE FROM rag.tenant_sources WHERE tenant_id = $1", tenantID)
+		_, _ = db.Exec("DELETE FROM mcp.tenants WHERE id = $1", tenantID)
 	})
 }
 
@@ -456,7 +460,7 @@ func TestInactiveTenant(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		db.Exec("DELETE FROM mcp.tenants WHERE id = $1", tenantID)
+		_, _ = db.Exec("DELETE FROM mcp.tenants WHERE id = $1", tenantID)
 	})
 
 	// Generate token for inactive tenant
@@ -506,7 +510,9 @@ func TestGetAllCredentials(t *testing.T) {
 	db := setupTestDatabase(t)
 
 	masterKey := make([]byte, 32)
-	rand.Read(masterKey)
+	if _, err := rand.Read(masterKey); err != nil {
+		t.Fatalf("Failed to generate master key: %v", err)
+	}
 	credMgr := security.NewCredentialManager(db, masterKey)
 
 	tenantID := uuid.New()
@@ -552,7 +558,9 @@ func TestDeleteCredentials(t *testing.T) {
 	db := setupTestDatabase(t)
 
 	masterKey := make([]byte, 32)
-	rand.Read(masterKey)
+	if _, err := rand.Read(masterKey); err != nil {
+		t.Fatalf("Failed to generate master key: %v", err)
+	}
 	credMgr := security.NewCredentialManager(db, masterKey)
 
 	tenantID := uuid.New()

@@ -16,6 +16,11 @@ import (
 	"github.com/developer-mesh/developer-mesh/apps/rag-loader/internal/auth"
 )
 
+// contextKey is a custom type for context keys to avoid collisions
+type contextKey string
+
+const tenantIDKey contextKey = "tenant_id"
+
 // TenantMiddleware handles tenant context extraction and validation
 type TenantMiddleware struct {
 	db           *sqlx.DB
@@ -173,7 +178,7 @@ func (tm *TenantMiddleware) setTenantContext(c *gin.Context, tenantID, userID uu
 	c.Set("user_id", userID)
 
 	// Set tenant in request context for database operations
-	ctx := context.WithValue(c.Request.Context(), "tenant_id", tenantID)
+	ctx := context.WithValue(c.Request.Context(), tenantIDKey, tenantID)
 	c.Request = c.Request.WithContext(ctx)
 
 	// Set database tenant for Row Level Security

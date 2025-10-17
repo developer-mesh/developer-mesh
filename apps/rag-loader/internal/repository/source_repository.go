@@ -21,16 +21,6 @@ func NewSourceRepository(db *sqlx.DB) *SourceRepository {
 	return &SourceRepository{db: db}
 }
 
-// setTenantContext sets the tenant context for RLS
-// CRITICAL: This MUST be called before any query to enforce tenant isolation
-func (r *SourceRepository) setTenantContext(ctx context.Context, tenantID uuid.UUID) error {
-	_, err := r.db.ExecContext(ctx, "SELECT rag.set_current_tenant($1)", tenantID)
-	if err != nil {
-		return fmt.Errorf("failed to set tenant context: %w", err)
-	}
-	return nil
-}
-
 // BeginTx begins a new database transaction
 func (r *SourceRepository) BeginTx(ctx context.Context) (*sqlx.Tx, error) {
 	tx, err := r.db.BeginTxx(ctx, nil)
