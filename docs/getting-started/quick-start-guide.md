@@ -79,7 +79,7 @@ make migrate-up
 make dev
 
 # This starts:
-# - MCP Server on port 8080
+# - Edge MCP Server on port 8085
 # - REST API on port 8081
 # - Worker service for async processing
 ```
@@ -99,8 +99,8 @@ make run-worker       # Terminal 3: Worker service
 ### Step 5: Verify Installation
 
 ```bash
-# Check MCP Server health
-curl http://localhost:8080/health
+# Check Edge MCP Server health (Docker uses port 8085)
+curl http://localhost:8085/health
 
 # Expected response:
 # {"status":"healthy","version":"1.0.0"}
@@ -246,9 +246,9 @@ Developer Mesh implements the Model Context Protocol (MCP) for AI agent communic
 # macOS: brew install websocat
 # Linux: Download from https://github.com/vi/websocat
 
-# Connect to MCP server
+# Connect to MCP server (use port 8085 for Docker, 8080 for local)
 websocat --header="Authorization: Bearer devmesh_xxxxxxxxxxxxx" \
-  ws://localhost:8080/ws
+  ws://localhost:8085/ws
 ```
 
 #### Initialize MCP Session
@@ -451,14 +451,16 @@ curl -H "Authorization: Bearer devmesh_xxxxxxxxxxxxx" \
 
 ```bash
 # Find process using port
-lsof -i :8080  # MCP Server
+lsof -i :8085  # Edge MCP Server (Docker)
+lsof -i :8080  # Edge MCP Server (local dev)
 lsof -i :8081  # REST API
 
 # Kill process
 kill -9 <PID>
 
 # Or kill by port
-kill -9 $(lsof -t -i:8080)
+kill -9 $(lsof -t -i:8085)  # For Docker
+kill -9 $(lsof -t -i:8080)  # For local dev
 ```
 
 ### Database Connection Failed
