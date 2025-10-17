@@ -673,7 +673,7 @@ org := &Organization{
 
 - Review [WebSocket Client Requirements](../WEBSOCKET_CLIENT_REQUIREMENTS.md) for detailed protocol requirements <!-- Source: pkg/models/websocket/binary.go -->
 - See the [test agent implementation](../../test/e2e/agent/agent.go) for a complete example
-- Check [MCP Server API Reference](../api-reference/mcp-server-reference.md) for all message types
+- Check [MCP Server API Reference](../api-reference/edge-mcp-reference.md) for all message types
 - Learn about [Task Routing Algorithms](./task-routing-algorithms.md) for task distribution <!-- Source: pkg/services/assignment_engine.go -->
 - Read [Multi-Tenant API Implementation](../MULTI_TENANT_API_IMPLEMENTATION_PLAN.md) for tenant isolation details
 

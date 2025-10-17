@@ -1346,7 +1346,7 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         - name: MCP_SERVER_URL
-          value: "wss://mcp-server.mcp.svc.cluster.local:8080/ws"
+          value: "wss://edge-mcp.mcp.svc.cluster.local:8080/ws"
         - name: MCP_API_KEY
           valueFrom:
             secretKeyRef:

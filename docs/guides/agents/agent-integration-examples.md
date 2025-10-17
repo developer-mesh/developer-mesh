@@ -1795,7 +1795,7 @@ spec:
           name: metrics
         env:
         - name: MCP_SERVER_URL
-          value: "wss://mcp-server.mcp.svc.cluster.local:8080 (MCP Server)/ws"
+          value: "wss://edge-mcp.mcp.svc.cluster.local:8080 (MCP Server)/ws"
         - name: AGENT_ID
           valueFrom:
             fieldRef:

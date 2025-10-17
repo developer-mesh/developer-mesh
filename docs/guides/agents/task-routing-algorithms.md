@@ -1102,7 +1102,7 @@ If these algorithms were to be implemented:
 
 For actual task routing in Developer Mesh, refer to: <!-- Source: pkg/services/assignment_engine.go -->
 - [Agent Registration Guide](./agent-registration-guide.md) - How agents connect
-- [WebSocket API Reference](../api-reference/mcp-server-reference.md) - Task assignment protocol <!-- Source: pkg/models/websocket/binary.go -->
+- [WebSocket API Reference](../api-reference/edge-mcp-reference.md) - Task assignment protocol <!-- Source: pkg/models/websocket/binary.go -->
 - Test implementation: `/test/e2e/agent/agent.go`
 
 ### Common Issues
@@ -1130,7 +1130,7 @@ For actual task routing in Developer Mesh, refer to: <!-- Source: pkg/services/a
 ## Next Steps
 
 1. Review the actual [Agent Registration Guide](./agent-registration-guide.md)
-2. Check the [WebSocket API Reference](../api-reference/mcp-server-reference.md) <!-- Source: pkg/models/websocket/binary.go -->
+2. Check the [WebSocket API Reference](../api-reference/edge-mcp-reference.md) <!-- Source: pkg/models/websocket/binary.go -->
 3. Study the test agent implementation for working examples
 
 ## Resources

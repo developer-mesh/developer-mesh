@@ -345,11 +345,11 @@ tracing:
 ### 3. Initialize in Services
 
 ```go
-// apps/mcp-server/cmd/server/main.go
+// apps/edge-mcp/cmd/server/main.go
 func main() {
     // Initialize tracing
     tp, err := observability.InitTracing(observability.TracingConfig{
-        ServiceName:    "mcp-server",
+        ServiceName:    "edge-mcp",
         ServiceVersion: version.Version,
         Environment:    config.Environment,
         JaegerEndpoint: config.Tracing.JaegerEndpoint,
@@ -367,7 +367,7 @@ func main() {
     }()
     
     // Create tracer
-    tracer := otel.Tracer("mcp-server",
+    tracer := otel.Tracer("edge-mcp",
         trace.WithInstrumentationVersion(version.Version),
     )
     
@@ -816,7 +816,7 @@ func analyzeErrors(traces []Trace) *ErrorReport {
 
 ```bash
 # Find slow traces
-curl "http://localhost:16686/api/traces?service=mcp-server&minDuration=5s&limit=20"
+curl "http://localhost:16686/api/traces?service=edge-mcp&minDuration=5s&limit=20"
 
 # Analyze specific slow trace
 TRACE_ID="4bf92f3577b34da6a3ce929d0e0e4736"
@@ -1162,7 +1162,7 @@ func (s *CostAwareSampler) ShouldSample(parameters trace.SamplingParameters) tra
 ```go
 // Use hierarchical naming
 "service.component.operation"
-"mcp-server.handler.CreateContext"
+"edge-mcp.handler.CreateContext"
 "rest-api.repository.SearchEmbeddings"
 "worker.bedrock.GenerateEmbedding"
 

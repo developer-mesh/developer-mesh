@@ -93,7 +93,7 @@ aws sts get-caller-identity --profile production
 │                       Docker Host                                │
 ├──────────────────────────────────────────────────────────────────┤
 │  Docker Compose Services:                                        │
-│  - mcp-server (port 8080)                                        │
+│  - edge-mcp (port 8080)                                        │
 │  - rest-api (port 8081)                                          │
 │  - worker (background processing)                                │
 │  - nginx (reverse proxy, if used)                               │
@@ -151,7 +151,7 @@ Elastic IP: Assigned for stable access
 
 # SSH access (from CLAUDE.md)
 export SSH_KEY_PATH=/path/to/your/key.pem
-./scripts/ssh-to-ec2.sh
+ssh -i $SSH_KEY_PATH ec2-user@YOUR-EC2-IP
 
 # On the EC2 instance
 cd /home/ec2-user/developer-mesh
@@ -322,12 +322,12 @@ Ensure your AWS account has access to Bedrock:
 make docker-build
 
 # Tag images for deployment
-docker tag mcp-server:latest mcp-server:production
+docker tag edge-mcp:latest edge-mcp:production
 docker tag rest-api:latest rest-api:production
 docker tag worker:latest worker:production
 
 # Save images (if transferring manually)
-docker save mcp-server:production | gzip > mcp-server.tar.gz
+docker save edge-mcp:production | gzip > edge-mcp.tar.gz
 docker save rest-api:production | gzip > rest-api.tar.gz
 docker save worker:production | gzip > worker.tar.gz
 
@@ -343,8 +343,8 @@ scp -i $SSH_KEY_PATH *.tar.gz ec2-user@54.86.185.227:/home/ec2-user/
 version: '3.8'
 
 services:
-  mcp-server:
-    image: mcp-server:production
+  edge-mcp:
+    image: edge-mcp:production
     ports:
       - "8080:8080"
     environment:
@@ -368,7 +368,7 @@ services:
     ports:
       - "8081:8081"
     environment:
-      # Similar to mcp-server
+      # Similar to edge-mcp
     restart: unless-stopped
 
   worker:
@@ -385,13 +385,13 @@ services:
 
 ```bash
 # SSH to EC2 instance
-./scripts/ssh-to-ec2.sh
+ssh -i $SSH_KEY_PATH ec2-user@YOUR-EC2-IP
 
 # On EC2 instance
 cd /home/ec2-user/developer-mesh
 
 # Load images (if transferred manually)
-docker load < mcp-server.tar.gz
+docker load < edge-mcp.tar.gz
 docker load < rest-api.tar.gz
 docker load < worker.tar.gz
 
@@ -435,7 +435,7 @@ curl http://localhost:8080/health
 curl http://localhost:8081/health
 
 # Monitor logs
-docker-compose logs -f mcp-server
+docker-compose logs -f edge-mcp
 docker-compose logs -f worker
 
 # Check resource usage
@@ -677,7 +677,7 @@ sudo yum update -y
 docker system prune -a
 
 # Monitor for vulnerabilities
-docker scan mcp-server:production
+docker scan edge-mcp:production
 ```
 
 ## Monitoring and Alerts
@@ -744,7 +744,7 @@ curl http://localhost:8080/metrics
 curl http://localhost:8081/metrics
 
 # Monitor WebSocket connections <!-- Source: pkg/models/websocket/binary.go -->
-docker exec mcp-server sh -c 'netstat -an | grep :8080 | grep ESTABLISHED | wc -l'
+docker exec edge-mcp sh -c 'netstat -an | grep :8080 | grep ESTABLISHED | wc -l'
 
 # Database connections
 docker exec -it postgres psql -U mcp_admin -d mcp -c "SELECT count(*) FROM pg_stat_activity;"
@@ -919,7 +919,7 @@ aws ec2 run-instances \
 make docker-build
 
 # Tag for production
-docker tag mcp-server:latest mcp-server:v1.2.0
+docker tag edge-mcp:latest edge-mcp:v1.2.0
 docker tag rest-api:latest rest-api:v1.2.0
 docker tag worker:latest worker:v1.2.0
 
@@ -928,7 +928,7 @@ docker-compose exec postgres pg_dump -U mcp_admin mcp > backup-$(date +%Y%m%d).s
 
 # Update with minimal downtime
 docker-compose pull
-docker-compose up -d --no-deps mcp-server
+docker-compose up -d --no-deps edge-mcp
 docker-compose up -d --no-deps rest-api
 docker-compose up -d --no-deps worker
 
@@ -1030,7 +1030,7 @@ database:
    # Check container memory
    docker stats
    # Restart specific service
-   docker-compose restart mcp-server
+   docker-compose restart edge-mcp
    ```
 
 3. **Database Connection Errors**
@@ -1090,7 +1090,7 @@ aws ec2 stop-instances --instance-ids i-xxx
 ### Project-Specific
 - [CLAUDE.md](../../CLAUDE.md) - Production deployment notes
 - [Docker Compose Reference](https://docs.docker.com/compose/)
-- SSH script: `./scripts/ssh-to-ec2.sh`
+- SSH script: `ssh -i $SSH_KEY_PATH ec2-user@YOUR-EC2-IP`
 - ElastiCache script: `./scripts/aws/connect-elasticache.sh`
 
 ### AWS Documentation

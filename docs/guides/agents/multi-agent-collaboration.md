@@ -1230,7 +1230,7 @@ For actual multi-agent features in Developer Mesh:
 
 1. Review actual implementation in `/pkg/services/assignment_engine.go` <!-- Source: pkg/services/assignment_engine.go -->
 2. Check [Agent Registration Guide](./agent-registration-guide.md) for current features
-3. See [WebSocket API Reference](../api-reference/mcp-server-reference.md) for protocol <!-- Source: pkg/models/websocket/binary.go -->
+3. See [WebSocket API Reference](../api-reference/edge-mcp-reference.md) for protocol <!-- Source: pkg/models/websocket/binary.go -->
 4. Study test implementations in `/test/e2e/agent/`
 
 ## Resources

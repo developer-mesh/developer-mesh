@@ -631,7 +631,7 @@ func (b *BatchProcessor) processBatch() {
 # Cost-optimized resource allocation
 production:
   services:
-    mcp-server:
+    edge-mcp:
       cpu: 1024      # 1 vCPU (was 2)
       memory: 2048   # 2 GB (was 4)
       scaling:
@@ -655,14 +655,14 @@ production:
 func ScheduleScaling() {
     // Scale down at night (EST)
     cron.Schedule("0 22 * * *", func() {
-        scaleService("mcp-server", 1)    // Minimum instances
+        scaleService("edge-mcp", 1)    // Minimum instances
         scaleService("worker", 0)         // No workers at night
         costTracker.Log("Scaled down for night")
     })
     
     // Scale up in morning
     cron.Schedule("0 6 * * *", func() {
-        scaleService("mcp-server", 3)    // Normal capacity
+        scaleService("edge-mcp", 3)    // Normal capacity
         scaleService("worker", 2)         // Normal workers
         costTracker.Log("Scaled up for day")
     })

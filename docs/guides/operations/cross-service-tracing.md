@@ -106,7 +106,7 @@ func TracingMiddleware() gin.HandlerFunc {
         )
         
         // Start server span
-        tracer := otel.Tracer("mcp-server")
+        tracer := otel.Tracer("edge-mcp")
         ctx, span := tracer.Start(ctx, 
             fmt.Sprintf("%s %s", c.Request.Method, c.Request.URL.Path),
             trace.WithSpanKind(trace.SpanKindServer),

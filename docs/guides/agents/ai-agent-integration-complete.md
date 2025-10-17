@@ -823,7 +823,7 @@ spec:
         image: your-registry/ai-agent:latest
         env:
         - name: MCP_SERVER_URL
-          value: "wss://mcp-server.mcp.svc.cluster.local:8080/ws"
+          value: "wss://edge-mcp.mcp.svc.cluster.local:8080/ws"
         - name: MCP_API_KEY
           valueFrom:
             secretKeyRef:
@@ -1062,7 +1062,7 @@ func (a *MyCustomAgent) logTaskCompletion(task Task, result *TaskResult) {
 1. **Connection Failures**
    ```bash
    # Check network connectivity
-   curl -v wss://mcp-server:8080/ws
+   curl -v wss://edge-mcp:8080/ws
    
    # Verify API key
    echo $MCP_API_KEY | base64 -d

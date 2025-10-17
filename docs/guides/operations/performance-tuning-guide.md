@@ -61,7 +61,7 @@ Batch: ac
 │                 Docker Compose                           │
 │        (All services on single host)                     │
 ├──────────────────────────────────────────────────────────┤
-│  - mcp-server (port 8080)                                │
+│  - edge-mcp (port 8080)                                │
 │  - rest-api (port 8081)                                  │
 │  - worker (background tasks)                             │
 └───────────────────────┬─────────────────────────────────┘
@@ -92,7 +92,7 @@ The following architecture represents potential future improvements:
 
 **What's Actually Implemented:**
 - Basic WebSocket binary protocol (24-byte header) <!-- Source: pkg/models/websocket/binary.go -->
-- Simple connection pooling in `apps/mcp-server/internal/api/websocket/pool.go` <!-- Source: pkg/models/websocket/binary.go -->
+- Simple connection pooling in `apps/edge-mcp/internal/api/websocket/pool.go` <!-- Source: pkg/models/websocket/binary.go -->
 - Standard Go HTTP server
 - Basic database queries without optimization
 
@@ -731,7 +731,7 @@ http2.ConfigureServer(server, &http2.Server{
 apiVersion: v1
 kind: Service
 metadata:
-  name: mcp-server
+  name: edge-mcp
   annotations:
     service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
     service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"

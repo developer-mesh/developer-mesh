@@ -78,14 +78,14 @@ curl -H "X-B3-Sampled: 1" \
 open http://localhost:16686/trace/{traceId}
 
 # From logs
-grep "trace_id" /var/log/mcp/mcp-server.log | tail -1
+grep "trace_id" /var/log/mcp/edge-mcp.log | tail -1
 # {"trace_id":"4bf92f3577b34da6a3ce929d0e0e4736","msg":"Request processed"}
 ```
 
 #### By Service and Operation
 
 ```
-Service: mcp-server
+Service: edge-mcp
 Operation: POST /api/v1/agents
 Tags: error=true
 Timeframe: Last hour
@@ -105,7 +105,7 @@ cost.exceeded = true
 
 ```
 Trace
-├── Span 1: HTTP POST /api/v1/tasks (mcp-server)
+├── Span 1: HTTP POST /api/v1/tasks (edge-mcp)
 │   ├── Span 2: ValidateRequest
 │   ├── Span 3: AuthorizeUser
 │   ├── Span 4: CreateTask (database)
@@ -126,7 +126,7 @@ Trace
   "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
   "span_id": "a3ce929d0e0e4736",
   "operation": "CreateTask",
-  "service": "mcp-server",
+  "service": "edge-mcp",
   "duration": 45.3,
   "tags": {
     "user.id": "user-123",
@@ -149,7 +149,7 @@ Trace
 
 1. **Find the slow trace**:
 ```
-Service: mcp-server
+Service: edge-mcp
 Operation: POST /api/v1/tasks
 Min Duration: 5s
 ```
@@ -198,7 +198,7 @@ WHERE embedding_vector IS NOT NULL;
 
 1. **Search for WebSocket traces**: <!-- Source: pkg/models/websocket/binary.go -->
 ```
-Service: mcp-server
+Service: edge-mcp
 Operation: HandleWebSocketMessage <!-- Source: pkg/models/websocket/binary.go -->
 Tags: ws.message_type=TaskAssignment
 ```
@@ -268,8 +268,8 @@ Service: ANY
 2. **Follow error propagation**:
 ```
 POST /api/v1/tasks (Failed)
-├── mcp-server: CreateTask ✓
-├── mcp-server: PublishToQueue ✓
+├── edge-mcp: CreateTask ✓
+├── edge-mcp: PublishToQueue ✓
 └── worker: ProcessTask ❌
     ├── FetchFromQueue ✓
     ├── ExecuteTask ❌
@@ -486,7 +486,7 @@ func CompareTraces(ctx context.Context, goodTraceID, badTraceID string) {
 trace_id="4bf92f3577b34da6a3ce929d0e0e4736"
 
 # Using Loki
-logcli query '{service="mcp-server"} |= "'$trace_id'"' --limit=1000
+logcli query '{service="edge-mcp"} |= "'$trace_id'"' --limit=1000
 
 # Using CloudWatch Insights
 fields @timestamp, @message
@@ -501,15 +501,15 @@ fields @timestamp, @message
 # Trace time: 2024-01-10 14:30:00 - 14:30:05
 
 # Request rate during incident
-rate(http_requests_total{service="mcp-server"}[5m])
+rate(http_requests_total{service="edge-mcp"}[5m])
   [@1704896400]
 
 # Error rate
-rate(http_requests_total{service="mcp-server",status=~"5.."}[5m])
+rate(http_requests_total{service="edge-mcp",status=~"5.."}[5m])
   [@1704896400]
 
 # Database connections
-mysql_connections_active{service="mcp-server"}
+mysql_connections_active{service="edge-mcp"}
   [@1704896400]
 ```
 
@@ -581,7 +581,7 @@ WITH span_durations AS (
     duration_ms,
     NTILE(10) OVER (PARTITION BY operation_name ORDER BY duration_ms) as bucket
   FROM spans
-  WHERE service_name = 'mcp-server'
+  WHERE service_name = 'edge-mcp'
     AND start_time > NOW() - INTERVAL '1 hour'
 )
 SELECT 

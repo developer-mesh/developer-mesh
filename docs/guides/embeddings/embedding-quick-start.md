@@ -266,7 +266,7 @@ curl http://localhost:8081/api/v1/embeddings/agents/my-first-agent \
 docker-compose logs -f rest-api
 
 # MCP Server logs
-docker-compose logs -f mcp-server
+docker-compose logs -f edge-mcp
 ```
 
 ## Troubleshooting

@@ -420,8 +420,8 @@ type ServiceSamplingConfig struct {
 }
 
 var serviceConfigs = map[string]ServiceSamplingConfig{
-    "mcp-server": {
-        ServiceName:      "mcp-server",
+    "edge-mcp": {
+        ServiceName:      "edge-mcp",
         BaseSamplingRate: 0.01, // 1% base
         Rules: []SamplingRule{
             {Name: "errors", Rate: 1.0},
@@ -517,7 +517,7 @@ version: "1.0"
 default_rate: 0.001  # 0.1% default
 
 services:
-  mcp-server:
+  edge-mcp:
     base_rate: 0.01
     rate_limit: 100  # traces per second
     

@@ -113,7 +113,7 @@ Consider using the test agent as a basis for code generation tools that could sc
 - [Agent Registration Guide](./agent-registration-guide.md) - Current best practices
 - [WebSocket Client Requirements](../WEBSOCKET_CLIENT_REQUIREMENTS.md) - Protocol requirements <!-- Source: pkg/models/websocket/binary.go -->
 - [Test Agent Implementation](../../test/e2e/agent/agent.go) - Reference implementation
-- [API Reference](../api-reference/mcp-server-reference.md) - Message protocol details
+- [API Reference](../api-reference/edge-mcp-reference.md) - Message protocol details
 
 ## Note
 

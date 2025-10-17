@@ -243,9 +243,9 @@ func processBatch(ctx context.Context, items []Item) error {
 "service.component.operation"
 
 // Good examples:
-"mcp-server.handler.CreateContext"
-"mcp-server.repository.SaveContext"
-"mcp-server.cache.Get"
+"edge-mcp.handler.CreateContext"
+"edge-mcp.repository.SaveContext"
+"edge-mcp.cache.Get"
 "rest-api.auth.ValidateToken"
 "worker.bedrock.InvokeModel"
 
@@ -261,7 +261,7 @@ func processBatch(ctx context.Context, items []Item) error {
 // Essential attributes for every span
 span.SetAttributes(
     // Resource identifiers
-    attribute.String("service.name", "mcp-server"),
+    attribute.String("service.name", "edge-mcp"),
     attribute.String("service.version", "1.2.3"),
     attribute.String("service.instance", instanceID),
     
