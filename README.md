@@ -6,7 +6,7 @@ Batch: ad
 
 # Developer Mesh - AI Agent Orchestration Platform
 
-![Version](https://img.shields.io/badge/version-0.0.2-blue.svg)
+![Version](https://img.shields.io/badge/version-0.0.7-blue.svg)
 ![Go](https://img.shields.io/badge/go-1.24+-00ADD8.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/developer-mesh/developer-mesh)](https://goreportcard.com/report/github.com/developer-mesh/developer-mesh)

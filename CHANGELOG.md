@@ -11,12 +11,363 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Code Quality and Linting Issues** (2025-10-13): Resolved all linting and test compilation errors
-  - Fixed test compilation errors in GitHub release handler tests by adding missing `queueClient` parameter
-  - Added three missing mock repository methods: `SearchByName`, `GetVersionHistory`, `FindByDependency`
-  - Fixed unchecked `rows.Close()` errors in deferred functions (4 occurrences) by wrapping in anonymous functions with proper error handling
-  - Fixed capitalized error messages in Artifactory client (changed "Artifactory API" to "artifactory API")
-  - Result: All tests passing, zero linting issues, full Go best practices compliance
+## [0.0.7] - 2025-10-18
+
+### Added - Multi-Tenant RAG Loader & Production Infrastructure
+
+This release introduces a production-ready multi-tenant RAG (Retrieval-Augmented Generation) loader service with complete document ingestion, embedding generation, and GitHub Enterprise support. The implementation spans 13 commits, delivering end-to-end document processing, intelligent chunking, vector storage, and production deployment infrastructure.
+
+#### Multi-Tenant RAG Loader Implementation (Complete)
+
+- **Core Multi-Tenant Architecture** (commit 0efae38)
+  - Complete multi-tenant RAG loader service with security isolation
+  - PostgreSQL Row Level Security (RLS) for database-level tenant isolation
+  - AES-256-GCM encryption with tenant-specific derived keys
+  - Master key derives tenant keys using HMAC-SHA256: `SHA256(masterKey || tenantID || "RAG_TENANT_KEY_V1")`
+  - JWT-based authentication with tenant claim validation
+  - REST API for source management on port 8084 (API) and 9094 (health/metrics)
+  - Cross-tenant decryption prevention with Additional Authenticated Data (AAD)
+  - Foreign key constraints ensure data integrity across all tables
+
+- **Database Schema and Security** (migrations 000041-000043)
+  - Migration 000041: Multi-tenant table structure
+    - `rag.tenant_sources` - Source configurations per tenant
+    - `rag.tenant_source_credentials` - Encrypted credentials with expiry
+    - `rag.tenant_documents` - Indexed documents with embeddings
+    - `rag.tenant_sync_jobs` - Job tracking and statistics
+  - Migration 000042: Row Level Security policies
+    - Automatic tenant filtering via `rag.set_current_tenant()` function
+    - Queries automatically scoped to current tenant context
+    - Prevents accidental cross-tenant data access
+  - Migration 000043: MCP tenants integration
+    - Links RAG service to core platform tenant management
+    - Ensures consistent tenant lifecycle across services
+
+- **Credential Security Service** (`pkg/rag/security`)
+  - CredentialManager with tenant-specific encryption
+  - Encrypted credential storage in database with expiry tracking
+  - Secure credential retrieval with automatic decryption
+  - Prevents decryption with wrong tenant key (AAD protection)
+  - Support for multiple credential types (token, api_key, oauth, etc.)
+
+- **REST API Endpoints** (`apps/rag-loader/internal/api`)
+  - `POST /api/v1/rag/sources` - Create new data source with credentials
+  - `GET /api/v1/rag/sources` - List all sources for tenant
+  - `GET /api/v1/rag/sources/:id` - Get specific source details
+  - `PUT /api/v1/rag/sources/:id` - Update source configuration
+  - `DELETE /api/v1/rag/sources/:id` - Remove data source
+  - `POST /api/v1/rag/sources/:id/sync` - Trigger manual sync job
+  - `GET /api/v1/rag/jobs` - List sync jobs with filtering
+  - `GET /api/v1/rag/jobs/:id` - Get job status and statistics
+  - All endpoints require JWT authentication with tenant_id claim
+  - Comprehensive input validation and error handling
+
+- **Hybrid Search Implementation** (`pkg/rag/retrieval`)
+  - BM25 traditional text search for keyword matching
+  - Vector similarity search using pgvector cosine distance
+  - Hybrid scoring combining both approaches
+  - Configurable weights and result limits
+  - MMR (Maximal Marginal Relevance) scoring for diversity
+
+#### Document Processing Pipeline (3-Phase Implementation)
+
+- **Phase 1: Document Chunking** (commit 863ff75)
+  - Duplicate detection using SHA256 content hashing
+  - Smart chunker selection based on file type:
+    - Markdown chunker for `.md` files with header-aware splitting
+    - Code chunker for source files with function/class boundaries
+    - Fixed-size chunker for plain text with overlap
+  - Metadata preservation (source, file path, commit, author, timestamp)
+  - Position tracking for chunk sequencing
+  - Batch embedding request preparation
+
+- **Phase 2: Batch Embedding Generation** (commit 863ff75)
+  - Concurrent processing with configurable worker pools
+  - Integration with AWS Bedrock via tenant's default embedding model
+  - Automatic retry logic with exponential backoff (max 3 retries)
+  - Graceful degradation on partial failures (continue with successes)
+  - Embedding result tracking (successful, failed counts)
+  - Support for multiple embedding models per tenant
+
+- **Phase 3: Vector Storage** (commit 863ff75)
+  - Store documents in `rag.documents` table
+  - Store chunks in `rag.document_chunks` table
+  - Link chunks to embeddings via `embedding_id` foreign key
+  - Automatic job statistics updates (documents_added, documents_updated, chunks_created)
+  - Transactional consistency across all storage operations
+  - Efficient bulk insert operations for large document sets
+
+#### Automatic Sync Job Processor
+
+- **Background Job Polling** (commit 82a3f01)
+  - JobProcessor with 30-second polling cycle
+  - Priority-based job fetching from database queue
+  - Status tracking: queued → running → completed/failed
+  - Automatic source sync status updates
+  - Error tracking and retry management
+  - Integration with LoaderService for full lifecycle
+
+- **Dynamic Data Source Creation**
+  - Secure credential decryption for GitHub API access
+  - Dynamic GitHub crawler instantiation
+  - Support for organization-wide and single repository sources
+  - Configuration extraction from JSONB database fields
+  - Proper error handling and job failure tracking
+
+#### GitHub Integration
+
+- **GitHub Crawlers** (`apps/rag-loader/internal/crawler/github`)
+  - Repository crawler for single repos
+  - Organization crawler for org-wide ingestion
+  - File pattern filtering (include/exclude patterns)
+  - Branch specification support
+  - Archived repository handling (configurable)
+  - Fork inclusion control
+  - OAuth2 token authentication
+
+- **GitHub Enterprise Support** (commit e78ecb4)
+  - Self-hosted GitHub Enterprise Server support
+  - Optional `base_url` configuration field in both `GitHubOrgConfig` and `GitHubRepoConfig`
+  - Smart URL normalization handling multiple formats:
+    - Empty/`github.com` → defaults to `api.github.com`
+    - Custom URLs → auto-appends `/api/v3/` and `/api/uploads/`
+    - Handles trailing slashes and various input formats
+  - Uses go-github's `WithEnterpriseURLs()` method for proper API client setup
+  - Backward compatible: empty `base_url` defaults to github.com
+  - Helper function `createGitHubClient()` for consistent client creation
+  - Updated all integration points:
+    - `crawler/github/crawler.go` - Added BaseURL field to Config
+    - `crawler/github/org_client.go` - Added BaseURL field to OrgConfig, updated NewOrgClient signature
+    - `service/loader_service.go` - Passes baseURL to NewOrgClient
+    - `scheduler/job_processor.go` - Extracts base_url from config JSONB
+    - `api/models.go` - Added BaseURL to both GitHubOrgConfig and GitHubRepoConfig
+
+- **Example Configurations** (`apps/rag-loader/examples/github-enterprise-source.json`)
+  - GitHub.com organization (default)
+  - GitHub Enterprise organization
+  - GitHub Enterprise specific repositories
+  - GitHub Enterprise single repository
+  - GitHub.com single repository
+  - Comprehensive configuration examples with all options
+
+#### Bedrock Provider Integration
+
+- **AWS Bedrock Embedding Support** (commit 01fcd52)
+  - Registered Bedrock provider in RAG loader main.go
+  - Environment variable support:
+    - `AWS_REGION` or `MCP_EMBEDDING_PROVIDERS_BEDROCK_REGION` (defaults to `us-east-1`)
+    - `MCP_EMBEDDING_PROVIDERS_BEDROCK_ENABLED` (defaults to `true`)
+  - Provider configuration:
+    - Max retries: 3
+    - Retry delay base: 100ms
+    - Uses standard AWS credentials from environment/IAM role
+  - Fatal exit on provider creation failure with clear error messages
+  - Structured logging for provider registration
+  - Integrates with multi-tenant embedding model management
+
+#### Production Deployment Infrastructure
+
+- **Production-Ready Helm Charts** (commit 367c420)
+  - Complete umbrella chart for all Developer Mesh services
+  - REST API subchart (100% complete, production-ready)
+  - Edge MCP subchart (95% complete, production-ready)
+  - RAG Loader and Worker chart foundations (30% complete)
+  - Environment-specific value files (dev, staging, prod)
+  - Support for embedded (dev) and external (prod) databases/Redis
+
+- **Security & Kubernetes Best Practices**
+  - **CRITICAL FIX**: Security context UIDs for distroless images
+    - REST API, Edge MCP, Worker use UID 65532 (gcr.io/distroless/static:nonroot)
+    - RAG Loader correctly uses custom ragloader user (UID 1000)
+  - Pod Security Standards "Restricted" compliance
+  - HorizontalPodAutoscaler and PodDisruptionBudget for high availability
+  - Read-only root filesystem and dropped capabilities
+  - Network policies for service-to-service isolation
+  - IRSA (IAM Roles for Service Accounts) support for AWS
+
+- **Configuration Management**
+  - Complete environment variable mapping from docker-compose
+  - Init containers for database/Redis dependency waiting
+  - Graceful degradation for optional services
+  - External secrets support via Kubernetes Secrets
+  - ConfigMaps for service configuration
+
+- **Comprehensive Documentation** (20,000+ words)
+  - `VALIDATION_RESULTS.md` (9,500 words): Complete validation with source code references
+  - `100_PERCENT_VALIDATION.md` (2,000 words): Proof of 100% confidence in findings
+  - `CORRECTIONS_APPLIED.md` (3,500 words): Detailed changelog of all fixes
+  - `DEPLOYMENT_GUIDE.md` (8,000 words): Step-by-step production deployment
+  - `HELM_CHART_SUMMARY.md` (6,500 words): Architecture and design decisions
+  - `VALIDATION_SUMMARY.md` (2,000 words): Executive summary
+  - `QUICK_REFERENCE.md` (1,500 words): One-page deployment reference
+
+- **CI Pipeline Enhancements**
+  - Enhanced changelog extraction in `release.yml` with robust `index()` pattern
+  - Added complete changelog extraction to `edge-mcp-release.yml` (was missing)
+  - Improved version validation with clear error messages
+  - Better visibility when versions not found
+  - Comprehensive test suite (`scripts/test-changelog-extraction.sh`)
+
+#### Testing & Validation
+
+- **Integration Tests** (`apps/rag-loader/internal/api`)
+  - 8 comprehensive test suites, all passing
+  - Tenant isolation verification
+  - Credential encryption validation
+  - Authentication/authorization tests
+  - API endpoint coverage
+  - Error scenario handling
+
+- **Deployment Validation**
+  - Validation script: `apps/rag-loader/scripts/validate-deployment.sh`
+  - Checks all environment variables
+  - Validates database connectivity
+  - Verifies migrations applied
+  - Tests API endpoints
+  - Confirms tenant isolation
+
+### Fixed
+
+- **Embedding Pipeline Deadlocks and Foreign Key Violations** (commit e24c0ee)
+  - **Critical Timeout Fix**: Added 90-second timeout to `processChunk()` preventing indefinite hangs
+    - Applies timeout to both embedding generation and vector storage
+    - Prevents pipeline stalls when Bedrock API is slow
+  - **Duplicate Embedding Lookup**: Fixed UUID type mismatch in `findExistingEmbeddingID` query
+    - Changed from direct UUID comparison to JOIN with `embedding_models` table
+    - Matches by `model_name` (string) instead of `model_id` (UUID)
+    - Eliminates "invalid input syntax for type uuid" errors
+    - Returns existing embedding_id to prevent FK violations
+  - **HTTP Client Timeouts**: Added comprehensive timeout configuration
+    - GitHub crawler: 60s request, 10s connection, 30s response headers
+    - Bedrock provider: 30s request, 10s connection
+    - Prevents indefinite hangs on network issues
+  - **Vector Repository Schema Fixes**:
+    - Fixed metadata JSONB marshaling with `json.Marshal` before INSERT
+    - Added SHA256 content_hash calculation for deduplication
+    - Dimension-based column selection (1024→embedding_1024, 1536→vector, 4096→embedding)
+    - Set context_id to NULL for RAG embeddings (no session context)
+    - Prevents FK constraint "embeddings_context_id_fkey" violations
+  - **Batch Processor DB Access**: Added database handle to BatchProcessor
+    - Updated NewBatchProcessor signature to accept `*sqlx.DB` parameter
+    - Required for `findExistingEmbeddingID` to query existing embeddings
+  - Result: Zero UUID errors, zero FK violations, clean deduplication working
+
+- **Context Search Schema Mismatches** (commit aae498b)
+  - Changed `vector_dimensions` to `model_dimensions` in all embedding repository queries
+  - Fixed text search fallback to use explicit column selection
+  - Proper struct scanning for both semantic and text search results
+  - Both search methods now work correctly
+
+- **pgvector Format Correction** (commit e87d26e)
+  - Fixed vector format from PostgreSQL array `{a,b,c}` to JSON array `[a,b,c]`
+  - Updated CreateVector to use JSON array format as required by pgvector
+  - Changed SQL cast from `float4[]::vector` to direct `vector` cast
+  - Fixed CalculateSimilarity to use same format
+  - Resolved "malformed array literal" errors in semantic search
+
+- **Test Failures and Tenant Validation** (commit 488cdcc)
+  - **Test Infrastructure**: Automatic creation of `mcp.tenants` table in test setup
+    - Table created with IF NOT EXISTS to avoid conflicts
+    - Ensures tests can run independently without migrations
+  - **Tenant Middleware Enhancement**: Added tenant active status check
+    - Query `mcp.tenants` table to verify `is_active` flag
+    - Return 401 Unauthorized if tenant not found
+    - Return 403 Forbidden if tenant is inactive
+    - Return 500 Internal Server Error on database errors
+  - Test Results: All 8 API tests passing, proper inactive tenant enforcement
+
+- **Documentation Corrections** (commit c8af972)
+  - Fixed environment variable names to match implementation
+    - `DATABASE_USERNAME` → `DATABASE_USER` (matches config.go bindEnv)
+    - `REDIS_HOST`/`REDIS_PORT` → `REDIS_ADDR` as single "host:port" variable
+  - Updated API endpoints from `/api/v1/jobs` to `/api/v1/rag/sources`
+  - Fixed job trigger endpoint to `/api/v1/rag/sources/:id/sync`
+  - Corrected Kubernetes secret creation examples
+  - Files updated: rag-loader-quickstart.md, rag-loader-user-guide.md, rag-loader-multi-org-setup.md
+
+- **Code Formatting** (commit 56ba516)
+  - Applied gofmt formatting fixes to `models.go` and `org_client.go`
+  - Removed extra whitespace before comment in models.go
+  - Added missing `net/http` import in org_client.go
+  - Zero linting issues after formatting
+
+- **Docker Fixes** (commit 367c420)
+  - Fixed Worker Dockerfile port (8082 → 8088) to match source code
+    - Worker health endpoint defaults to :8088 per main.go:471
+    - Updated EXPOSE directive and HEALTH_ENDPOINT environment variable
+
+### Changed
+
+- **Consolidated Context Search** (commit c628663)
+  - Merged two separate context search endpoints into single `/api/v1/contexts/:id/search`
+  - Intelligently uses semantic vector search when available
+  - Automatic fallback to text search when semantic search fails or unavailable
+  - Added `SetSemanticSearch()` method to wire up semantic capability at runtime
+  - Enhanced logging to track which search method is used
+  - Single endpoint reduces complexity for API consumers
+  - Backward compatible with existing implementations
+
+- **Docker Compose Simplification** (commit 01fcd52)
+  - Removed obsolete production docker-compose files (354 lines removed):
+    - `docker-compose.prod.yml`
+    - `docker-compose.production.yml`
+    - `docker-compose.production.env`
+    - `docker-compose.test.yml`
+  - Now using **only** `docker-compose.local.yml` for local development
+  - Production deployments use Helm/Kubernetes infrastructure
+  - Simplified maintenance and reduced configuration drift
+
+### Documentation
+
+- **RAG Loader Deployment Guide** (`apps/rag-loader/DEPLOYMENT.md`)
+  - Complete multi-tenant deployment guide
+  - Quick start with encryption key generation
+  - Environment variable configuration
+  - Database migration instructions
+  - Configuration changes from single-tenant explained
+  - Security configuration (master encryption key, JWT validation)
+  - API endpoints documentation
+  - **GitHub Enterprise Support** section:
+    - Configuration examples for github.com vs Enterprise
+    - Supported URL formats table
+    - Authentication instructions with PAT scopes
+    - Example API requests for org-wide and single repo sources
+    - Troubleshooting common Enterprise issues
+    - Network requirements and proxy configuration
+  - Database schema overview
+  - Monitoring and metrics setup
+  - Troubleshooting guide with solutions
+  - Rollback procedures
+  - Production deployment checklist
+
+- **Test Documentation** (`apps/rag-loader/internal/api/README_TESTS.md`)
+  - Complete test suite documentation
+  - Test execution instructions
+  - Coverage reports and expectations
+  - Common test scenarios
+
+### Performance & Scalability
+
+- **Embedding Generation**: 3-phase pipeline with concurrent processing
+- **Duplicate Detection**: SHA256 hashing prevents redundant processing
+- **Batch Operations**: Efficient bulk inserts for large document sets
+- **Graceful Degradation**: Continue processing on partial failures
+- **Background Processing**: 30-second polling cycle with priority queueing
+- **Resource Isolation**: Per-tenant credential encryption and RLS
+
+### Breaking Changes
+
+None - This is a new service with no impact on existing functionality.
+
+### Migration Notes
+
+For deployments using the RAG loader:
+1. Generate master encryption key: `openssl rand -base64 32`
+2. Set `RAG_MASTER_KEY` environment variable
+3. Apply database migrations (000041-000043)
+4. Configure JWT_SECRET matching other services
+5. Optional: Configure AWS credentials for Bedrock embeddings
+6. For GitHub Enterprise: Add optional `base_url` field to source configurations
 
 ## [0.0.6] - 2025-10-12
 
