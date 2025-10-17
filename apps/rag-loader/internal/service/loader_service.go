@@ -210,7 +210,10 @@ func (s *LoaderService) initializeGitHubOrgSource(ctx context.Context, tenantID 
 	}
 
 	// Create org client
-	orgClient := github.NewOrgClient(orgConfig.Token, s.logger)
+	orgClient, err := github.NewOrgClient(orgConfig.Token, orgConfig.BaseURL, s.logger)
+	if err != nil {
+		return fmt.Errorf("failed to create GitHub org client: %w", err)
+	}
 
 	// Validate org access
 	if err := orgClient.ValidateOrgAccess(ctx, orgConfig.Org); err != nil {

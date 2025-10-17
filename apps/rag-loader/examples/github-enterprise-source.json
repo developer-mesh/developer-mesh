@@ -1,0 +1,114 @@
+{
+  "description": "Example GitHub Enterprise source configuration",
+  "examples": [
+    {
+      "name": "GitHub.com Organization (Default)",
+      "config": {
+        "source_id": "github-public-org",
+        "source_type": "github_org",
+        "config": {
+          "org": "kubernetes",
+          "include_archived": false,
+          "include_forks": false,
+          "include_patterns": ["*.md", "docs/**"],
+          "exclude_patterns": ["vendor/**", "node_modules/**"]
+        },
+        "credentials": {
+          "token": "ghp_your_github_token_here"
+        },
+        "schedule": "0 2 * * *",
+        "description": "Public Kubernetes organization on github.com"
+      }
+    },
+    {
+      "name": "GitHub Enterprise Organization",
+      "config": {
+        "source_id": "enterprise-engineering",
+        "source_type": "github_org",
+        "config": {
+          "org": "engineering",
+          "base_url": "https://github.company.com",
+          "include_archived": false,
+          "include_forks": true,
+          "include_patterns": ["*.md", "*.go", "docs/**", "README*"],
+          "exclude_patterns": ["vendor/**", "node_modules/**", "*.test.go"]
+        },
+        "credentials": {
+          "token": "ghp_enterprise_token_here"
+        },
+        "schedule": "0 3 * * *",
+        "description": "Internal engineering organization"
+      }
+    },
+    {
+      "name": "GitHub Enterprise Specific Repos",
+      "config": {
+        "source_id": "enterprise-platform-repos",
+        "source_type": "github_org",
+        "config": {
+          "org": "platform",
+          "base_url": "https://github.internal.company.com",
+          "repos": ["api-gateway", "auth-service", "data-platform"],
+          "include_archived": false,
+          "include_patterns": ["*.md", "docs/**", "openapi.yaml"],
+          "exclude_patterns": ["test/**", "*.test.*"]
+        },
+        "credentials": {
+          "token": "ghp_enterprise_token"
+        },
+        "schedule": "0 */6 * * *",
+        "description": "Platform team core repositories"
+      }
+    },
+    {
+      "name": "GitHub Enterprise Single Repository",
+      "config": {
+        "source_id": "api-documentation",
+        "source_type": "github_repo",
+        "config": {
+          "owner": "platform",
+          "repo": "api-documentation",
+          "branch": "main",
+          "base_url": "https://github.company.com",
+          "include_patterns": ["docs/**/*.md", "*.md", "openapi/**"],
+          "exclude_patterns": ["drafts/**", "archive/**"]
+        },
+        "credentials": {
+          "token": "ghp_enterprise_token"
+        },
+        "schedule": "0 * * * *",
+        "description": "API documentation repository"
+      }
+    },
+    {
+      "name": "GitHub.com Repository (Default)",
+      "config": {
+        "source_id": "golang-repo",
+        "source_type": "github_repo",
+        "config": {
+          "owner": "golang",
+          "repo": "go",
+          "branch": "master",
+          "include_patterns": ["doc/**/*.md", "README*"],
+          "exclude_patterns": ["test/**"]
+        },
+        "credentials": {
+          "token": "ghp_github_token"
+        },
+        "schedule": "0 4 * * *",
+        "description": "Go programming language documentation"
+      }
+    }
+  ],
+  "notes": {
+    "base_url": "Optional. Omit for github.com, set to your GitHub Enterprise URL for self-hosted instances",
+    "supported_formats": [
+      "https://github.company.com",
+      "https://github.company.com/",
+      "https://github.company.com/api/v3"
+    ],
+    "authentication": "Personal Access Token with 'repo' and 'read:org' scopes",
+    "schedule": "Cron expression for sync frequency (optional)",
+    "patterns": "Glob patterns for file inclusion/exclusion"
+  }
+}

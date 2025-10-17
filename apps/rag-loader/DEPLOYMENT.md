@@ -169,12 +169,14 @@ Content-Type: application/json
   "source_type": "github_org",
   "config": {
     "org": "myorg",
+    "base_url": "https://github.company.com",  // Optional: for GitHub Enterprise
     "include_archived": false
   },
   "credentials": {
     "token": "ghp_xxx"
   },
-  "schedule": "0 */6 * * *"
+  "schedule": "0 */6 * * *",
+  "description": "GitHub Enterprise organization"
 }
 
 # List sources (requires JWT)
@@ -184,6 +186,138 @@ Authorization: Bearer <jwt-token>
 # Trigger manual sync
 POST http://localhost:8084/api/v1/rag/sources/:id/sync
 Authorization: Bearer <jwt-token>
+```
+
+## GitHub Enterprise Support
+
+The RAG loader supports both GitHub.com and self-hosted GitHub Enterprise instances.
+
+### Configuration
+
+Add the optional `base_url` field to your source configuration to use GitHub Enterprise:
+
+**GitHub.com (default):**
+```json
+{
+  "source_type": "github_org",
+  "config": {
+    "org": "my-organization"
+  },
+  "credentials": {
+    "token": "ghp_token"
+  }
+}
+```
+
+**GitHub Enterprise Server:**
+```json
+{
+  "source_type": "github_org",
+  "config": {
+    "org": "internal-engineering",
+    "base_url": "https://github.company.com",
+    "include_archived": false
+  },
+  "credentials": {
+    "token": "ghp_enterprise_token"
+  }
+}
+```
+
+### Supported URL Formats
+
+| Input | Normalized To | Notes |
+|-------|--------------|-------|
+| _empty_ | `api.github.com` | Default (GitHub.com) |
+| `https://github.com` | `api.github.com` | Explicit GitHub.com |
+| `https://github.company.com` | `https://github.company.com/api/v3/` | Auto-appends API path |
+| `https://github.company.com/` | `https://github.company.com/api/v3/` | Strips trailing slash |
+
+### Authentication for GitHub Enterprise
+
+1. Navigate to your Enterprise instance: `https://github.company.com/settings/tokens`
+2. Generate Personal Access Token with required scopes:
+   - `repo` - Full control of private repositories
+   - `read:org` - Read organization data (for org-wide crawling)
+3. Store token securely in credentials
+
+### Example Configurations
+
+#### Organization-wide (Enterprise)
+```bash
+curl -X POST http://localhost:8084/api/v1/rag/sources \
+  -H "Authorization: Bearer JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "source_id": "enterprise-repos",
+    "source_type": "github_org",
+    "config": {
+      "org": "engineering",
+      "base_url": "https://github.company.com",
+      "include_forks": true,
+      "include_patterns": ["*.md", "docs/**"],
+      "exclude_patterns": ["vendor/**"]
+    },
+    "credentials": {
+      "token": "ghp_enterprise_token"
+    }
+  }'
+```
+
+#### Single Repository (Enterprise)
+```bash
+curl -X POST http://localhost:8084/api/v1/rag/sources \
+  -H "Authorization: Bearer JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "source_id": "api-docs",
+    "source_type": "github_repo",
+    "config": {
+      "owner": "platform",
+      "repo": "documentation",
+      "branch": "main",
+      "base_url": "https://github.company.com"
+    },
+    "credentials": {
+      "token": "ghp_enterprise_token"
+    }
+  }'
+```
+
+### Troubleshooting GitHub Enterprise
+
+#### "Failed to access organization"
+- **Cause**: Invalid token or insufficient permissions
+- **Solution**: Verify token has `read:org` scope and hasn't expired
+```bash
+# Test token manually
+curl -H "Authorization: token YOUR_TOKEN" \
+  https://github.company.com/api/v3/user
+```
+
+#### "Failed to create GitHub Enterprise client"
+- **Cause**: Invalid base_url format
+- **Solution**: Ensure URL starts with `https://` and is valid
+```bash
+# Test connectivity
+curl -I https://github.company.com
+```
+
+#### "Connection timeout"
+- **Cause**: Network/firewall blocking access
+- **Solution**: Verify HTTPS access to Enterprise host, check firewall rules
+
+### Network Requirements
+
+Ensure the RAG loader can access:
+- GitHub Enterprise Server on port 443 (HTTPS)
+- Valid DNS resolution for Enterprise domain
+- Valid TLS/SSL certificates
+
+For proxy environments:
+```bash
+export HTTPS_PROXY=https://proxy.company.com:8443
+export NO_PROXY=localhost,127.0.0.1,.company.com
 ```
 
 ## Database Schema

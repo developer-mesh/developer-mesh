@@ -35,7 +35,8 @@ type Config struct {
 	Branch          string   `json:"branch"`
 	IncludePatterns []string `json:"include_patterns"`
 	ExcludePatterns []string `json:"exclude_patterns"`
-	Token           string   `json:"token"` // GitHub personal access token
+	Token           string   `json:"token"`    // GitHub personal access token
+	BaseURL         string   `json:"base_url"` // GitHub Enterprise base URL (optional, defaults to github.com)
 }
 
 // NewCrawler creates a new GitHub crawler from configuration
@@ -58,14 +59,20 @@ func NewCrawler(tenantID uuid.UUID, config Config) (*Crawler, error) {
 
 	// Create GitHub client with timeout-configured HTTP client
 	var tc *github.Client
+	var err error
+
 	if config.Token != "" {
 		ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: config.Token})
 		// Wrap the timeout-configured HTTP client with OAuth2
 		ctx := context.WithValue(context.Background(), oauth2.HTTPClient, httpClient)
 		oauthClient := oauth2.NewClient(ctx, ts)
-		tc = github.NewClient(oauthClient)
+		tc, err = createGitHubClient(oauthClient, config.BaseURL)
 	} else {
-		tc = github.NewClient(httpClient)
+		tc, err = createGitHubClient(httpClient, config.BaseURL)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GitHub client: %w", err)
 	}
 
 	return &Crawler{
@@ -73,6 +80,46 @@ func NewCrawler(tenantID uuid.UUID, config Config) (*Crawler, error) {
 		config:   config,
 		tenantID: tenantID,
 	}, nil
+}
+
+// createGitHubClient creates a GitHub client with support for GitHub Enterprise
+func createGitHubClient(httpClient *http.Client, baseURL string) (*github.Client, error) {
+	// Default to github.com if no base URL provided
+	if baseURL == "" || baseURL == "https://github.com" || baseURL == "https://api.github.com" {
+		return github.NewClient(httpClient), nil
+	}
+
+	// For GitHub Enterprise, we need both the base URL and upload URL
+	// The go-github library expects:
+	// - baseURL: https://github.company.com/api/v3/ (with trailing slash)
+	// - uploadURL: https://github.company.com/api/uploads/ (with trailing slash)
+
+	// Normalize the base URL
+	baseURL = strings.TrimSuffix(baseURL, "/")
+
+	// Construct API URL
+	apiURL := baseURL
+	if !strings.HasSuffix(apiURL, "/api/v3") {
+		apiURL = apiURL + "/api/v3/"
+	} else {
+		apiURL = apiURL + "/"
+	}
+
+	// Construct upload URL
+	uploadURL := strings.TrimSuffix(baseURL, "/api/v3")
+	if !strings.HasSuffix(uploadURL, "/api/uploads") {
+		uploadURL = uploadURL + "/api/uploads/"
+	} else {
+		uploadURL = uploadURL + "/"
+	}
+
+	// Create client with Enterprise URLs
+	client, err := github.NewClient(httpClient).WithEnterpriseURLs(apiURL, uploadURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GitHub Enterprise client: %w", err)
+	}
+
+	return client, nil
 }
 
 // ID returns a unique identifier for this source
@@ -343,6 +390,11 @@ func ParseRepoConfig(config map[string]interface{}) (Config, error) {
 	// Optional: branch
 	if branch, ok := config["branch"].(string); ok {
 		repoConfig.Branch = branch
+	}
+
+	// Optional: base_url (for GitHub Enterprise)
+	if baseURL, ok := config["base_url"].(string); ok {
+		repoConfig.BaseURL = strings.TrimSpace(baseURL)
 	}
 
 	// Optional: include_patterns

@@ -23,6 +23,7 @@ type OrgConfig struct {
 	IncludePatterns []string `json:"include_patterns"` // File patterns to include
 	ExcludePatterns []string `json:"exclude_patterns"` // File patterns to exclude
 	Branch          string   `json:"branch"`           // Default branch to use (empty = repo default)
+	BaseURL         string   `json:"base_url"`         // GitHub Enterprise base URL (optional, defaults to github.com)
 }
 
 // OrgClient handles GitHub organization operations
@@ -32,20 +33,24 @@ type OrgClient struct {
 }
 
 // NewOrgClient creates a new GitHub organization client
-func NewOrgClient(token string, logger observability.Logger) *OrgClient {
-	var tc *github.Client
+func NewOrgClient(token string, baseURL string, logger observability.Logger) (*OrgClient, error) {
+	var httpClient *http.Client
 	if token != "" {
 		ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
-		httpClient := oauth2.NewClient(context.Background(), ts)
-		tc = github.NewClient(httpClient)
+		httpClient = oauth2.NewClient(context.Background(), ts)
 	} else {
-		tc = github.NewClient(nil)
+		httpClient = nil
+	}
+
+	tc, err := createGitHubClient(httpClient, baseURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GitHub client: %w", err)
 	}
 
 	return &OrgClient{
 		client: tc,
 		logger: logger,
-	}
+	}, nil
 }
 
 // ListRepositories lists all repositories in an organization with filtering
@@ -176,6 +181,7 @@ func (c *OrgClient) CreateCrawlers(ctx context.Context, tenantID uuid.UUID, orgC
 			IncludePatterns: orgConfig.IncludePatterns,
 			ExcludePatterns: orgConfig.ExcludePatterns,
 			Token:           orgConfig.Token,
+			BaseURL:         orgConfig.BaseURL,
 		}
 
 		// Create crawler
@@ -234,6 +240,11 @@ func ParseOrgConfig(config map[string]interface{}) (OrgConfig, error) {
 		orgConfig.Token = token
 	} else {
 		return orgConfig, fmt.Errorf("token is required for github_org source")
+	}
+
+	// Optional: base_url (for GitHub Enterprise)
+	if baseURL, ok := config["base_url"].(string); ok {
+		orgConfig.BaseURL = strings.TrimSpace(baseURL)
 	}
 
 	// Optional: repos

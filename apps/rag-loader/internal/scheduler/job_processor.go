@@ -306,8 +306,18 @@ func (p *JobProcessor) createGitHubOrgSource(source *models.TenantSource, creden
 		}
 	}
 
+	// Optional: base_url (for GitHub Enterprise)
+	baseURL := ""
+	if url, ok := config["base_url"].(string); ok {
+		baseURL = url
+		orgConfig.BaseURL = url
+	}
+
 	// Create org client
-	orgClient := github.NewOrgClient(token, p.logger)
+	orgClient, err := github.NewOrgClient(token, baseURL, p.logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GitHub org client: %w", err)
+	}
 
 	// Create crawlers for all repos
 	crawlers, err := orgClient.CreateCrawlers(p.ctx, source.TenantID, orgConfig)

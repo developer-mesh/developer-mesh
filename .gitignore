@@ -99,3 +99,4 @@ test/e2e/.env
 # SSH connection scripts (contain IP addresses)
 scripts/ssh-to-ec2.sh
 build/
+apps/rag-loader/loader
