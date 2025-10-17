@@ -104,8 +104,9 @@ AWS_SECRET_ACCESS_KEY=your-secret-key
 # S3 Configuration (IP-restricted bucket)
 S3_BUCKET=sean-mcp-dev-contexts
 
-# SQS Configuration
-SQS_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/594992249511/sean-mcp-test
+# Queue Configuration (Redis Streams is primary, SQS is legacy/optional)
+# SQS_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/594992249511/sean-mcp-test  # Optional: Legacy AWS SQS
+# Note: System primarily uses Redis Streams for event processing
 
 # Database (local PostgreSQL)
 DATABASE_HOST=localhost
@@ -679,15 +680,15 @@ make test-coverage  # Must maintain >85%
 1. **Verify Setup**: Run `make pre-commit` to ensure everything is configured correctly
 2. **Run Integration Tests**: `make test-integration` with real AWS services
 3. **Review Architecture**: See [System Overview](../architecture/system-overview.md)
-4. **Understand AI Features**: Read [AI Agent Orchestration](../ai-agents/ai-agent-orchestration.md)
-5. **Check WebSocket Protocol**: See [MCP Protocol Reference](../api/mcp-protocol-reference.md) <!-- Source: pkg/models/websocket/binary.go -->
+4. **Understand AI Features**: Read [AI Agent Orchestration](../guides/agents/ai-agent-orchestration.md)
+5. **Check WebSocket Protocol**: See [MCP Protocol Reference](../reference/mcp-protocol/) <!-- Source: pkg/models/websocket/binary.go -->
 
 ## Important References
 
 - [CLAUDE.md](../../CLAUDE.md) - Essential implementation rules and commands
-- [Configuration Guide](../operations/configuration-guide.md) - Environment setup details
+- [Configuration Guide](../deployment/configuration-guide.md) - Environment setup details
 - [Production Deployment](../deployment/production-deployment.md) - AWS deployment guide
-- [Observability Architecture](../guides/observability-architecture.md) - Monitoring setup
+- [Observability Architecture](../guides/operations/observability-architecture.md) - Monitoring setup
 
 ## Frequently Encountered Issues
 

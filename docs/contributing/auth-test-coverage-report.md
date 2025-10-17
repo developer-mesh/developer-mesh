@@ -47,7 +47,7 @@ This report analyzes the ACTUAL authentication test coverage in the Developer Me
 - `pkg/auth/factory_test.go` - Auth factory tests
 
 ### 3. Passthrough Authentication Tests - ✅ EXISTS
-**File**: `apps/mcp-server/internal/api/handlers/passthrough_auth_integration_test.go`
+**File**: `apps/edge-mcp/internal/api/handlers/passthrough_auth_integration_test.go`
 
 **Actually Tested:**
 - Complete authentication flow testing
@@ -59,8 +59,8 @@ This report analyzes the ACTUAL authentication test coverage in the Developer Me
 - Context propagation
 
 **Related Test Files:**
-- `apps/mcp-server/internal/api/auth_middleware_test.go`
-- `apps/mcp-server/internal/api/websocket/auth_header_test.go`
+- `apps/edge-mcp/internal/api/auth_middleware_test.go`
+- `apps/edge-mcp/internal/api/websocket/auth_header_test.go`
 - `apps/rest-api/internal/api/auth_enhanced_test.go`
 - `apps/rest-api/internal/api/auth_new_test.go`
 

@@ -1168,7 +1168,7 @@ By following these patterns and practices, you can build robust integrations tha
 
 ## Additional Resources
 
-- [Error Taxonomy Reference](../pkg/models/errors.go)
-- [Error Templates Documentation](../apps/edge-mcp/internal/mcp/error_templates.go)
+- [Error Taxonomy Reference](../../pkg/models/errors.go)
+- [Error Templates Documentation](../../apps/edge-mcp/internal/mcp/error_templates.go)
 - [MCP Protocol Error Handling](https://developer-mesh.io/docs/mcp-protocol)
 - [API Error Reference](https://developer-mesh.io/api/errors)

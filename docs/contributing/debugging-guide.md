@@ -11,17 +11,17 @@ Comprehensive debugging strategies for the Developer Mesh platform, from develop
 ## Quick Debugging Commands
 
 ```bash
-# Health check all services
-make health-check
+# Health check all services (silent check for scripts)
+make health-check-silent
 
 # View real-time logs
-make logs-follow service=edge-mcp
+docker-compose logs -f edge-mcp
 
 # Debug mode with verbose logging
-LOG_LEVEL=debug make run service=edge-mcp
+LOG_LEVEL=debug make run-edge-mcp
 
-# Interactive debugging
-make debug service=rest-api
+# View all service logs
+docker-compose logs -f
 ```
 
 ## Debugging Setup
@@ -532,16 +532,16 @@ cb.OnStateChange = func(from, to gobreaker.State) {
 ## Troubleshooting Checklist
 
 ### Service Won't Start
-- [ ] Check port availability: `lsof -i :8080 (MCP Server)`
-- [ ] Verify config file: `make validate-config`
+- [ ] Check port availability: `lsof -i :8080` (Edge MCP)
+- [ ] Verify config file exists: `ls -la configs/config.yaml`
 - [ ] Check permissions: `ls -la configs/`
-- [ ] Review logs: `journalctl -u edge-mcp -f`
+- [ ] Review logs: `docker-compose logs -f edge-mcp` or `journalctl -u edge-mcp -f` (systemd)
 
 ### Database Issues
 - [ ] Test connection: `pg_isready -h localhost -p 5432`
 - [ ] Check migrations: `make migrate-status`
-- [ ] Verify credentials: `make db-test-connection`
-- [ ] Review slow queries: `make db-slow-queries`
+- [ ] Verify credentials: `psql -h localhost -U devmesh -d devmesh_development -c "SELECT 1;"`
+- [ ] Review slow queries: `psql -h localhost -U devmesh -d devmesh_development -c "SELECT * FROM pg_stat_statements ORDER BY mean_exec_time DESC LIMIT 10;"`
 
 ### Memory Leaks
 - [ ] Enable pprof: `go tool pprof http://localhost:6060/debug/pprof/heap`

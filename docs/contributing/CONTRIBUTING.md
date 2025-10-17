@@ -37,7 +37,7 @@ Harassment, offensive behavior, or discrimination of any kind will not be tolera
 - Go 1.24
 - Docker and Docker Compose
 - PostgreSQL 14+ with pgvector extension
-- Redis 7.0+ (for Redis Streams)
+- Redis 8+ (for Redis Streams)
 - Make
 - Git
 - golang-migrate (for database migrations)
@@ -86,7 +86,7 @@ Harassment, offensive behavior, or discrimination of any kind will not be tolera
    make build
    
    # Run services (in separate terminals)
-   make run-mcp-server
+   make run-edge-mcp
    make run-rest-api
    make run-worker
    ```
@@ -243,12 +243,12 @@ make install-tools
 ```
 devops-mcp/
 ├── apps/                    # Application modules (Go workspace)
-│   ├── mcp-server/         # MCP protocol WebSocket server
+│   ├── edge-mcp/           # MCP protocol WebSocket server
 │   │   ├── cmd/            # Entry points
 │   │   └── internal/       # Private packages
 │   ├── rest-api/           # REST API service
 │   ├── worker/             # Redis Streams event processor
-│   ├── edge-mcp/           # Edge MCP binary
+│   ├── rag-loader/         # RAG code indexing and loading
 │   └── mockserver/         # Mock server for testing
 ├── pkg/                    # Shared packages (public API)
 │   ├── adapters/           # External adapters (AWS, MCP, etc.)

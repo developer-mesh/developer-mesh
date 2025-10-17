@@ -14,6 +14,8 @@ Batch: aa
 
 This guide covers testing strategies, tools, and best practices for Developer Mesh. The project uses standard Go testing with testify for assertions and mocking. Integration tests can use either LocalStack or real AWS services.
 
+**Note**: This guide contains references to AWS SQS for legacy testing purposes. The system has migrated to Redis Streams as the primary message queue. While SQS tests remain for backwards compatibility testing, new tests should focus on Redis Streams functionality.
+
 ## Testing Pyramid
 
 ```
