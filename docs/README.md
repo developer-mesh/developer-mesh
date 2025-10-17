@@ -1,137 +1,167 @@
 # Developer Mesh Documentation
 
-Welcome to the Developer Mesh documentation. This guide provides comprehensive information for users, developers, and operators of the Developer Mesh platform.
+Welcome to the Developer Mesh documentation. This guide provides comprehensive information for users, developers, and operators of the Developer Mesh platform - an AI agent orchestration platform for DevOps workflows.
 
-## 📖 Documentation Overview
+## Quick Links
 
-### [Getting Started](getting-started/)
-Start here if you're new to Developer Mesh
-- [Quick Start Guide](getting-started/quick-start-guide.md) - Get up and running in minutes
-- [Organization Setup](getting-started/organization-setup.md) - Register your organization and invite users
-- [Authentication Quick Start](getting-started/authentication-quick-start.md) - Authentication setup
-- Installation & Configuration guides
+- **New to Developer Mesh?** Start with the [Quick Start Guide](getting-started/quick-start-guide.md)
+- **Setting up your organization?** See [Organization Setup](getting-started/organization-setup.md)
+- **Need API docs?** Check the [API Reference](reference/api/)
+- **Having issues?** Visit [Troubleshooting](troubleshooting/)
 
-### [Architecture](architecture/)
-Understanding the system design
+## Documentation Structure
+
+Our documentation is organized following the [Divio documentation system](https://documentation.divio.com/) to help you find exactly what you need:
+
+### 📚 [Getting Started](getting-started/)
+**Start here if you're new to Developer Mesh**
+
+Quick tutorials and initial setup guides to get you up and running:
+- [Quick Start Guide](getting-started/quick-start-guide.md) - Get running in 5 minutes
+- [Organization Setup](getting-started/organization-setup.md) - Create and configure your organization
+- [Authentication Quick Start](getting-started/authentication-quick-start.md) - Set up authentication
+
+### 📖 [Guides](guides/)
+**Task-oriented how-to guides**
+
+Step-by-step instructions for specific tasks and features:
+
+- **[Agents](guides/agents/)** - Building and managing AI agents
+- **[Authentication](guides/authentication/)** - Auth patterns and OAuth integration
+- **[Embeddings](guides/embeddings/)** - Working with embeddings and semantic search
+- **[Integrations](guides/integrations/)** - Integrating with external tools and platforms
+- **[RAG](guides/rag/)** - RAG (Retrieval-Augmented Generation) setup and patterns
+- **[Operations](guides/operations/)** - Performance tuning, observability, and cost management
+
+### 📋 [Reference](reference/)
+**Technical reference documentation**
+
+Detailed API documentation and configuration reference:
+
+- **[API Reference](reference/api/)** - REST API endpoints and schemas
+- **[MCP Protocol](reference/mcp-protocol/)** - Model Context Protocol specification
+- **[Configuration](reference/configuration/)** - Environment variables and configuration options
+- **[OpenAPI](reference/openapi/)** - OpenAPI specifications and SDKs
+
+### 🏗️ [Architecture](architecture/)
+**Understanding the system design**
+
+In-depth explanations of system architecture and concepts:
 - [System Overview](architecture/system-overview.md) - High-level architecture
-- [Go Workspace Structure](architecture/go-workspace-structure.md) - Multi-module organization
+- [Go Workspace Structure](architecture/go-workspace-structure.md) - Project organization
 - [Multi-Agent Embedding Architecture](architecture/multi-agent-embedding-architecture.md) - Embedding system design
-- [Package Dependencies](architecture/package-dependencies.md) - Module dependencies
+- [Package Dependencies](architecture/package-dependencies.md) - Module relationships
 
-### [API Reference](api-reference/)
-Complete API documentation
-- [REST API Reference](api-reference/rest-api-reference.md) - REST endpoints
-- [Organization & Auth API](api-reference/organization-auth-api.md) - Organization registration and user management
-- [MCP Server Reference](api-reference/mcp-server-reference.md) - WebSocket protocol
-- [Embedding API](api-reference/embedding-api-reference.md) - Multi-agent embedding endpoints
-- [Webhook API](api-reference/webhook-api-reference.md) - Webhook processing
-- [Authentication API](api-reference/authentication-api-reference.md) - Auth middleware and tokens
+### 🚀 [Deployment](deployment/)
+**Production deployment and operations**
 
-### [Developer Guide](developer/)
-For contributors and developers
-- [Development Environment](developer/development-environment.md) - Setup instructions
-- [Debugging Guide](developer/debugging-guide.md) - Troubleshooting tips
+Deployment guides, monitoring, and operational runbooks:
+- Production deployment strategies
+- Security best practices
+- Monitoring and observability
+- Infrastructure configuration
 
-### [Examples](examples/)
-Real-world integration examples
-- [GitHub Integration](examples/github-integration.md) - Using GitHub features
-- [AI Agent Integration](examples/ai-agent-integration.md) - Connecting AI assistants
-- [Custom Tools](examples/custom-tool-integration.md) - Adding new integrations
-- [IDE Integration](examples/ide-integration.md) - Using with Windsurf, Cursor, and other IDEs
-- [Binary WebSocket Protocol](examples/binary-websocket-protocol.md) - Binary protocol examples
-- [Embedding Examples](examples/embedding-examples.md) - Using embeddings
+### 💡 [Examples](examples/)
+**Real-world code examples**
 
-## 🚀 Quick Links
+Working code samples organized by category:
+- **[Agents](examples/agents/)** - AI agent integration examples
+- **[Integrations](examples/integrations/)** - GitHub, IDE, and platform integrations
+- **[Tools](examples/tools/)** - Custom tool integration examples
 
-### For Users
-- [Quick Start Guide](getting-started/quick-start-guide.md)
-- [Organization Setup](getting-started/organization-setup.md)
-- [Examples](examples/README.md)
+### 🤝 [Contributing](contributing/)
+**For developers and contributors**
 
-### For Developers
-- [Development Setup](developer/development-environment.md)
-- [Contributing Guide](../CONTRIBUTING.md)
-- [Architecture Overview](architecture/system-overview.md)
+Development guides and contribution guidelines:
+- [Development Environment](contributing/development-environment.md) - Local setup
+- [Testing Guide](contributing/testing-guide.md) - Writing and running tests
+- [Debugging Guide](contributing/debugging-guide.md) - Troubleshooting development issues
+- [Contributing Guidelines](contributing/CONTRIBUTING.md) - How to contribute
 
-### For Operators
-- [Operations Runbook](operations/OPERATIONS_RUNBOOK.md)
-- [Monitoring](operations/MONITORING.md)
-- [Security](operations/SECURITY.md)
+### 🔧 [Troubleshooting](troubleshooting/)
+**Problem-solving guides**
 
-## 📚 Documentation Structure
+Common issues and their solutions:
+- [Troubleshooting Guide](troubleshooting/README.md) - Common problems and fixes
+- Component-specific troubleshooting guides
 
-```
-docs/
-├── architecture/           # System design and architecture
-├── api-reference/         # API documentation
-├── developer/             # Developer guides
-├── examples/              # Usage examples
-├── getting-started/       # Quick start and setup
-├── operations/            # Deployment and operations
-└── troubleshooting/       # Problem solving guides
-```
+## Finding Information by Role
 
-## 🔍 Finding Information
+### 👨‍💻 Application Developer
+You want to integrate Developer Mesh into your application:
+1. Start with [Quick Start Guide](getting-started/quick-start-guide.md)
+2. Review [API Reference](reference/api/)
+3. Check [Integration Examples](examples/integrations/)
+4. Follow [Integration Guides](guides/integrations/)
 
-### By Role
+### 🔧 Platform Developer
+You want to contribute to or extend Developer Mesh:
+1. Set up your [Development Environment](contributing/development-environment.md)
+2. Understand the [System Architecture](architecture/system-overview.md)
+3. Review [Contributing Guidelines](contributing/CONTRIBUTING.md)
+4. Check [Testing Guide](contributing/testing-guide.md)
 
-**Application Developer**
-- Start with [Examples](examples/README.md)
-- Review [API Reference](api-reference/)
-- Check [Integration Patterns](examples/)
+### ⚙️ DevOps Engineer
+You want to deploy and operate Developer Mesh:
+1. Review [Deployment Guide](deployment/)
+2. Set up [Monitoring](deployment/monitoring.md)
+3. Understand [Security Best Practices](deployment/security.md)
+4. Follow [Operations Runbook](deployment/operations-runbook.md)
 
-**Platform Developer**
-- Read [Architecture](architecture/system-overview.md)
-- Set up [Development Environment](developer/development-environment.md)
-- Follow [Contributing Guide](../CONTRIBUTING.md)
+### 🤖 AI Engineer
+You want to build and orchestrate AI agents:
+1. Read [Agent Guides](guides/agents/)
+2. Review [Agent Examples](examples/agents/)
+3. Understand [Multi-Agent Architecture](architecture/multi-agent-embedding-architecture.md)
+4. Check [RAG Integration Guide](guides/rag/)
 
-**DevOps Engineer**
-- Check [Operations Guide](operations/)
-- Review [Configuration Guide](operations/configuration-guide.md)
-- Understand [Monitoring](operations/MONITORING.md)
+## Documentation Principles
 
-### By Topic
+Our documentation follows these core principles:
 
-**Integration**
-- [GitHub Integration](examples/github-integration.md)
-- [AI Agent Setup](examples/ai-agent-integration.md)
-- [Custom Tools](examples/custom-tool-integration.md)
+1. **Clear and Concise** - Easy to understand, no unnecessary jargon
+2. **Example-Driven** - Every concept illustrated with real code
+3. **Up-to-Date** - Reflects the current implementation
+4. **Well-Organized** - Follows the Divio documentation system
+5. **Accessible** - Written for various skill levels
 
-**Embedding & Search**
-- [Embedding Examples](examples/embedding-examples.md)
-- [Embedding API Reference](api-reference/embedding-api-reference.md)
-
-**Troubleshooting**
-- [Troubleshooting Guide](troubleshooting/TROUBLESHOOTING.md)
-- [Debugging Guide](developer/debugging-guide.md)
-
-## 📝 Documentation Standards
-
-Our documentation follows these principles:
-
-1. **Clear and Concise**: Easy to understand
-2. **Example-Driven**: Real-world code examples
-3. **Up-to-Date**: Reflects current implementation
-4. **Searchable**: Well-organized and indexed
-5. **Accessible**: Written for various skill levels
-
-## 🤝 Contributing to Documentation
-
-Documentation improvements are always welcome! See our [Contributing Guide](../CONTRIBUTING.md) for:
-
-- Documentation style guide
-- How to submit documentation PRs
-- Building documentation locally
-
-## 📞 Getting Help
+## Getting Help
 
 Can't find what you need?
 
-1. Search the documentation
-2. Check [GitHub Issues](https://github.com/developer-mesh/developer-mesh/issues)
-3. Ask in [Discussions](https://github.com/developer-mesh/developer-mesh/discussions)
-4. Review [Examples](examples/README.md)
+1. **Search** the documentation using your browser's search (Cmd/Ctrl + F)
+2. **Check** [Troubleshooting](troubleshooting/) for common issues
+3. **Browse** [Examples](examples/) for working code samples
+4. **Review** [GitHub Issues](https://github.com/developer-mesh/developer-mesh/issues)
+5. **Ask** in [GitHub Discussions](https://github.com/developer-mesh/developer-mesh/discussions)
+
+## Contributing to Documentation
+
+Documentation improvements are always welcome! To contribute:
+
+1. Follow our [Contributing Guidelines](contributing/CONTRIBUTING.md)
+2. Ensure documentation follows our principles above
+3. Include code examples where applicable
+4. Test all code examples before submitting
+5. Submit a pull request with clear description
+
+## Documentation Standards
+
+When writing documentation:
+
+- Use present tense ("it creates" not "it will create")
+- Use active voice ("the server processes" not "the request is processed")
+- Keep sentences short and focused
+- Include code examples with comments
+- Link to related documentation
+- Update table of contents when adding sections
+
+## Version Information
+
+- **Documentation Version**: 1.0.0
+- **Last Updated**: January 2025
+- **Platform Version**: See [main README](../README.md)
 
 ---
 
-*Last updated: January 2025*
+**Need help?** Check our [Troubleshooting Guide](troubleshooting/) or [open an issue](https://github.com/developer-mesh/developer-mesh/issues).
