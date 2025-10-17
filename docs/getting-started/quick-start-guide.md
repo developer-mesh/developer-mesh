@@ -91,7 +91,7 @@ make dev
 make build
 
 # Then in separate terminals:
-make run-mcp-server   # Terminal 1: MCP Server (port 8080)
+make run-edge-mcp     # Terminal 1: Edge MCP Server (port 8080)
 make run-rest-api     # Terminal 2: REST API (port 8081)
 make run-worker       # Terminal 3: Worker service
 ```
@@ -293,7 +293,7 @@ curl -X POST http://localhost:8081/api/v1/tasks \
 make docker-compose-logs
 
 # Specific service
-docker-compose -f docker-compose.local.yml logs mcp-server -f
+docker-compose -f docker-compose.local.yml logs edge-mcp -f
 ```
 
 ### Run Tests
@@ -302,10 +302,10 @@ docker-compose -f docker-compose.local.yml logs mcp-server -f
 # Unit tests (fast)
 make test
 
-# Test specific module
-make test-mcp-server
-make test-rest-api
-make test-worker
+# Test specific module (cd into the app directory first)
+cd apps/edge-mcp && go test ./...
+cd apps/rest-api && go test ./...
+cd apps/worker && go test ./...
 
 # Integration tests (requires Docker)
 make test-integration
@@ -354,9 +354,11 @@ docker-compose -f docker-compose.prod.yml up -d
 ```
 developer-mesh/
 ├── apps/               # Microservices (Go workspace modules)
-│   ├── mcp-server/     # MCP protocol implementation
-│   ├── rest-api/       # REST API endpoints  
-│   └── worker/         # Async job processor
+│   ├── edge-mcp/       # MCP protocol implementation (WebSocket server)
+│   ├── rest-api/       # REST API endpoints
+│   ├── worker/         # Async job processor
+│   ├── rag-loader/     # RAG document loader
+│   └── mockserver/     # Mock API server for testing
 ├── pkg/                # Shared libraries
 ├── configs/            # Configuration files
 ├── docs/               # Documentation
@@ -492,9 +494,10 @@ go work sync
 make build
 
 # If module errors occur:
-cd apps/mcp-server && go mod tidy
+cd apps/edge-mcp && go mod tidy
 cd apps/rest-api && go mod tidy
 cd apps/worker && go mod tidy
+cd apps/rag-loader && go mod tidy
 go work sync
 ```
 

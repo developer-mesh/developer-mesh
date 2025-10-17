@@ -523,7 +523,8 @@ func (f *Factory) RegisterAdapter(provider string, constructor AdapterConstructo
 Expose your tool to AI agents via MCP:
 
 ```go
-// apps/mcp-server/internal/api/tools/gitlab/tools.go
+// Example: apps/edge-mcp/internal/tools/gitlab/tools.go
+// (Actual implementation would follow the pattern in apps/edge-mcp/internal/tools/)
 package gitlab
 
 import (
