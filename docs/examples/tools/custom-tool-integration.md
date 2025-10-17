@@ -76,16 +76,14 @@ func (s *SecureToolExecutor) ExecuteTool(ctx context.Context, toolName string, p
 }
 
 // Store tool credentials securely
-curl -X POST http://localhost:8081/api/v1/auth/tools/credentials \
+curl -X PUT http://localhost:8081/api/v1/tools/TOOL_ID/credentials \
   -H "Authorization: Bearer $JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "tool_name": "github",
     "credentials": {
       "token": "ghp_...",
       "type": "personal_access_token"
-    },
-    "tenant_id": "my-tenant"
+    }
   }'
 ```
 
@@ -923,7 +921,7 @@ class GitLabIntegration:
 
 # Usage
 async def main():
-    mcp = MCPClient(base_url="http://localhost:8080/api/v1")
+    mcp = MCPClient(base_url="http://localhost:8081/api/v1")
     gitlab = GitLabIntegration(mcp)
     
     # Trigger build for feature branch

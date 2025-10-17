@@ -514,7 +514,7 @@ class IntelligentBugFixer:
 # Example usage
 async def main():
     # Initialize components
-    mcp = MCPClient(base_url="http://localhost:8080/api/v1")
+    mcp = MCPClient(base_url="http://localhost:8081/api/v1")
     github_ops = GitHubOperations(GitHubAdapter(mcp, github_config))
     ai_client = AIClient()  # Your AI service
     

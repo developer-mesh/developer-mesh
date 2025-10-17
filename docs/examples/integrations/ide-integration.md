@@ -33,7 +33,7 @@ Here's how Windsurf or Cursor could implement an MCP integration:
 class MCPIntegration {
   constructor(apiKey, mcpUrl) {
     this.apiKey = apiKey;
-    this.mcpUrl = mcpUrl || 'http://localhost:8080/api/v1';
+    this.mcpUrl = mcpUrl || 'http://localhost:8081/api/v1';
     this.headers = {
       'Authorization': `Bearer ${this.apiKey}`,
       'Content-Type': 'application/json'
@@ -642,7 +642,7 @@ IDE extensions should provide these configuration options:
 
 ```json
 {
-  "devopsMcp.serverUrl": "http://localhost:8080/api/v1",
+  "devopsMcp.serverUrl": "http://localhost:8081/api/v1",
   "devopsMcp.apiKey": "",
   "devopsMcp.features": {
     "vectorSearch": true,

@@ -44,7 +44,7 @@ import os
 
 # Initialize clients with environment configuration
 mcp_client = MCPClient(
-    base_url=os.getenv("MCP_BASE_URL", "http://localhost:8080/api/v1"),
+    base_url=os.getenv("MCP_BASE_URL", "http://localhost:8081/api/v1"),
     api_key=os.getenv("MCP_API_KEY"),
     timeout=30
 )
@@ -58,23 +58,28 @@ vector_client = VectorClient(
 
 ## Authentication with API Keys
 
-### Using the Enhanced Auth System
+### Obtaining API Keys
+API keys are provided when you register an organization:
+
 ```bash
-# Create an API key with specific scopes
-curl -X POST http://localhost:8081/api/v1/auth/keys \
-  -H "Authorization: Bearer $ADMIN_JWT" \
+# Register your organization to get an API key
+curl -X POST http://localhost:8081/api/v1/auth/register/organization \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "ai-agent-key",
-    "scopes": ["contexts:read", "contexts:write", "tools:execute"],
-    "tenant_id": "ai-agent-tenant",
-    "expires_at": "2025-12-31T23:59:59Z"
+    "organization_name": "My AI Company",
+    "organization_slug": "my-ai-company",
+    "admin_email": "admin@myai.com",
+    "admin_name": "Admin User",
+    "admin_password": "SecurePass123!"
   }'
 
+# Response includes your API key:
+# {"api_key": "devmesh_xxxxx", ...}
+
 # Use the API key in your AI agent
-export API_KEY="mcp_k_..."
+export API_KEY="devmesh_xxxxx"
 curl -X POST http://localhost:8081/api/v1/contexts \
-  -H "X-API-Key: $API_KEY" \
+  -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"content": "AI agent context data"}'
 ```
@@ -648,7 +653,7 @@ class DevOpsAIAssistant:
 # Initialize clients and assistant
 async def main():
     # Setup clients
-    mcp_client = MCPClient(base_url="http://localhost:8080/api/v1")
+    mcp_client = MCPClient(base_url="http://localhost:8081/api/v1")
     vector_client = VectorClient(base_url="http://localhost:8081/api/v1")
     openai_client = OpenAI()  # or Anthropic, Bedrock, etc.
     
