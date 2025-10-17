@@ -160,7 +160,7 @@ MONITOR               # Watch all commands (debug)
 Add to docker-compose.local.yml environment:
 ```yaml
 services:
-  mcp-server:
+  edge-mcp:
     environment:
       - LOG_LEVEL=debug
       - DEBUG_SQL=true
@@ -183,7 +183,7 @@ curl http://localhost:8081/health
 docker-compose -f docker-compose.local.yml logs -f
 
 # Specific service
-docker-compose -f docker-compose.local.yml logs -f mcp-server
+docker-compose -f docker-compose.local.yml logs -f edge-mcp
 
 # Filter for errors
 docker-compose -f docker-compose.local.yml logs -f 2>&1 | grep -i error
@@ -231,7 +231,7 @@ make test
 make test-integration
 
 # Test specific service
-cd apps/mcp-server && go test ./...
+cd apps/edge-mcp && go test ./...
 ```
 
 ## Pre-commit Checks

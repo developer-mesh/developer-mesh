@@ -424,7 +424,7 @@ if os.Getenv("USE_SSH_TUNNEL_FOR_REDIS") == "true" {
 make dev-native
 
 # Or run specific services
-go run apps/mcp-server/cmd/main.go
+go run apps/edge-mcp/cmd/main.go
 go run apps/rest-api/cmd/main.go
 go run apps/worker/cmd/main.go
 ```
@@ -436,7 +436,7 @@ For Docker-based development, ensure the tunnel is accessible:
 ```yaml
 # docker-compose.yml adjustments
 services:
-  mcp-server:
+  edge-mcp:
     environment:
       - REDIS_ADDR=host.docker.internal:6379  # Access host's tunnel
       - USE_SSH_TUNNEL_FOR_REDIS=true

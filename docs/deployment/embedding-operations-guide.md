@@ -647,7 +647,7 @@ curl -X POST http://localhost:8081/api/v1/admin/cache/warm
 ### API Key Management
 ```bash
 # Rotate API keys
-./scripts/rotate-api-keys.sh
+./scripts/manage-api-keys.sh
 
 # Audit API key usage
 SELECT api_key_id, 

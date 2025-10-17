@@ -100,7 +100,7 @@ echo "=== Checklist Complete ==="
 docker-compose -f docker-compose.production.yml ps
 
 # Check service logs
-docker-compose -f docker-compose.production.yml logs --tail=100 mcp-server
+docker-compose -f docker-compose.production.yml logs --tail=100 edge-mcp
 docker-compose -f docker-compose.production.yml logs --tail=100 rest-api
 docker-compose -f docker-compose.production.yml logs --tail=100 worker
 
@@ -108,7 +108,7 @@ docker-compose -f docker-compose.production.yml logs --tail=100 worker
 docker stats
 
 # Check container health
-docker inspect mcp-server | jq '.[0].State.Health'
+docker inspect edge-mcp | jq '.[0].State.Health'
 ```
 
 ### Database Operations
@@ -157,7 +157,7 @@ Developer Mesh is deployed using Docker Compose on EC2 instances. The deployment
 
 #### Available Images
 
-- `developer-mesh-mcp-server` - MCP protocol server (built locally)
+- `developer-mesh-edge-mcp` - MCP protocol server (built locally)
 - `developer-mesh-rest-api` - REST API service (built locally)
 - `developer-mesh-worker` - Event processing worker (built locally)
 
@@ -180,7 +180,7 @@ export GITHUB_USERNAME=your-github-username
 ./scripts/pull-images.sh
 
 # 3. Verify image signatures (optional but recommended)
-cosign verify ghcr.io/${GITHUB_USERNAME}/developer-mesh-mcp-server:latest
+cosign verify ghcr.io/${GITHUB_USERNAME}/developer-mesh-edge-mcp:latest
 cosign verify ghcr.io/${GITHUB_USERNAME}/developer-mesh-rest-api:latest
 cosign verify ghcr.io/${GITHUB_USERNAME}/developer-mesh-worker:latest
 
@@ -257,7 +257,7 @@ docker-compose -f docker-compose.production.yml logs --tail=50
 **Note**: Kubernetes deployment is planned but not currently implemented. The YAML below represents future architecture:
 
 ```yaml
-# FUTURE: kubernetes/deployments/mcp-server.yaml
+# FUTURE: kubernetes/deployments/edge-mcp.yaml
 # This is aspirational - not currently used
 
 #### Image Verification
@@ -537,7 +537,7 @@ kubectl exec -it redis-0 -n mcp-prod -- redis-cli --rdb /backup/redis.rdb
 
 # 5. Verify services
 echo "Step 5: Verifying services..."
-kubectl wait --for=condition=ready pod -l app=mcp-server -n mcp-prod --timeout=300s
+kubectl wait --for=condition=ready pod -l app=edge-mcp -n mcp-prod --timeout=300s
 kubectl wait --for=condition=ready pod -l app=rest-api -n mcp-prod --timeout=300s
 kubectl wait --for=condition=ready pod -l app=worker -n mcp-prod --timeout=300s
 
@@ -566,11 +566,11 @@ if ! pg_isready -h primary.db.mcp; then
     kubectl exec -it postgres-standby-0 -n mcp-prod -- pg_ctl promote
     
     # 3. Update connection strings
-    kubectl set env deployment/mcp-server DATABASE_URL=postgres://user:pass@standby.db.mcp:5432/mcp
+    kubectl set env deployment/edge-mcp DATABASE_URL=postgres://user:pass@standby.db.mcp:5432/mcp
     kubectl set env deployment/rest-api DATABASE_URL=postgres://user:pass@standby.db.mcp:5432/mcp
     
     # 4. Restart services
-    kubectl rollout restart deployment/mcp-server deployment/rest-api -n mcp-prod
+    kubectl rollout restart deployment/edge-mcp deployment/rest-api -n mcp-prod
     
     # 5. Set up new standby (when possible)
     echo "Remember to provision new standby database"
@@ -603,7 +603,7 @@ data:
           --change-batch file://failover-west.json
         
         # Scale up secondary region
-        kubectl --context=west-cluster scale deployment mcp-server rest-api --replicas=6
+        kubectl --context=west-cluster scale deployment edge-mcp rest-api --replicas=6
         
         # Notify team
         ./notify-oncall.sh "Region failover initiated: east -> west"
@@ -645,7 +645,7 @@ ANALYZE api_keys;
 ```bash
 # Update docker-compose.production.yml environment variables
 services:
-  mcp-server:
+  edge-mcp:
     environment:
       # Connection pool settings
       DB_MAX_CONNECTIONS: 50  # Adjust based on RDS instance
@@ -917,7 +917,7 @@ GITHUB_USERNAME=${GITHUB_USERNAME:-your-github-username}
 
 if [ -z "$SERVICE" ] || [ -z "$VERSION" ]; then
     echo "Usage: ./deploy.sh SERVICE VERSION"
-    echo "Example: ./deploy.sh mcp-server v1.2.3"
+    echo "Example: ./deploy.sh edge-mcp v1.2.3"
     exit 1
 fi
 
@@ -1010,7 +1010,7 @@ case $ALERT_TYPE in
     "high_latency")
         echo "Responding to high latency alert..."
         # Restart services (limited options on single instance)
-        docker-compose -f docker-compose.production.yml restart mcp-server
+        docker-compose -f docker-compose.production.yml restart edge-mcp
         # Clear Redis cache
         docker exec redis redis-cli FLUSHALL
         # Check memory usage
@@ -1025,7 +1025,7 @@ case $ALERT_TYPE in
         # Check logs
         docker-compose -f docker-compose.production.yml logs --tail=1000 > /tmp/error-logs.txt
         # Roll back if recent deployment
-        CURRENT_VERSION=$(docker inspect mcp-server | jq -r '.[0].Config.Labels.version')
+        CURRENT_VERSION=$(docker inspect edge-mcp | jq -r '.[0].Config.Labels.version')
         echo "Current version: $CURRENT_VERSION"
         echo "To rollback: docker-compose pull with previous version tags"
         # Restart with increased logging
@@ -1036,7 +1036,7 @@ case $ALERT_TYPE in
     "database_connection_pool_exhausted")
         echo "Responding to database connection exhaustion..."
         # Increase connection pool
-        kubectl set env deployment/mcp-server DB_MAX_CONNECTIONS=200 -n mcp-prod
+        kubectl set env deployment/edge-mcp DB_MAX_CONNECTIONS=200 -n mcp-prod
         # Kill long-running queries
         psql -h localhost -U mcp_user -d mcp -c "
             SELECT pg_terminate_backend(pid) 
@@ -1102,7 +1102,7 @@ kubectl logs --all-containers=true --prefix=true -n mcp-prod > /security/inciden
 ./notify-security.sh "Security incident: ${INCIDENT_TYPE}"
 
 # 4. Enable enhanced monitoring
-kubectl set env deployment/mcp-server SECURITY_MODE=enhanced -n mcp-prod
+kubectl set env deployment/edge-mcp SECURITY_MODE=enhanced -n mcp-prod
 ```
 
 ### Data Corruption Recovery
@@ -1114,7 +1114,7 @@ kubectl set env deployment/mcp-server SECURITY_MODE=enhanced -n mcp-prod
 echo "Data corruption detected, starting recovery..."
 
 # 1. Stop writes
-kubectl scale deployment mcp-server rest-api --replicas=0 -n mcp-prod
+kubectl scale deployment edge-mcp rest-api --replicas=0 -n mcp-prod
 
 # 2. Identify corruption extent
 psql -h localhost -U mcp_user -d mcp -c "
@@ -1141,7 +1141,7 @@ psql -h localhost -U mcp_user -d mcp -c "SELECT COUNT(*) FROM contexts;"
 psql -h localhost -U mcp_user -d mcp -c "SELECT COUNT(*) FROM vector_embeddings;"
 
 # 6. Resume services
-kubectl scale deployment mcp-server rest-api --replicas=3 -n mcp-prod
+kubectl scale deployment edge-mcp rest-api --replicas=3 -n mcp-prod
 ```
 
 ## Health Checks

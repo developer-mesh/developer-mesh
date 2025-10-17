@@ -117,9 +117,9 @@ global:
   evaluation_interval: 15s
 
 scrape_configs:
-  - job_name: 'mcp-server'
+  - job_name: 'edge-mcp'
     static_configs:
-      - targets: ['mcp-server:8080']
+      - targets: ['edge-mcp:8080']
     relabel_configs:
       - source_labels: [__address__]
         target_label: instance
@@ -474,7 +474,7 @@ func InitTracing() (*trace.TracerProvider, error) {
         trace.WithBatcher(exporter),
         trace.WithResource(resource.NewWithAttributes(
             semconv.SchemaURL,
-            semconv.ServiceNameKey.String("mcp-server"),
+            semconv.ServiceNameKey.String("edge-mcp"),
             semconv.ServiceVersionKey.String("1.0.0"),
         )),
     )
@@ -485,7 +485,7 @@ func InitTracing() (*trace.TracerProvider, error) {
 
 // Use in handlers
 func HandleRequest(ctx context.Context) {
-    tracer := otel.Tracer("mcp-server")
+    tracer := otel.Tracer("edge-mcp")
     ctx, span := tracer.Start(ctx, "HandleRequest")
     defer span.End()
     

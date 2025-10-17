@@ -70,7 +70,7 @@ AUDIT_LOG_LEVEL=info
 2. **Configuration Validation**
    ```bash
    # Validate configuration
-   ./mcp-server validate-config --config=configs/auth.production.yaml
+   ./edge-mcp validate-config --config=configs/auth.production.yaml
    
    # Test authentication
    curl -H "Authorization: Bearer ${TEST_API_KEY}" https://api.example.com/health
@@ -301,7 +301,7 @@ curl http://localhost:8080/health
 echo -n "your-api-key" | wc -c  # Should be >= 16
 
 # Check auth service logs
-kubectl logs -f deployment/mcp-server -c auth | grep ERROR
+kubectl logs -f deployment/edge-mcp -c auth | grep ERROR
 
 # Test with curl
 curl -v -H "Authorization: Bearer your-api-key" http://localhost:8080/api/v1/models
@@ -389,7 +389,7 @@ psql $DATABASE_URL -c "
 "
 
 # CPU/Memory usage
-kubectl top pods -l app=mcp-server
+kubectl top pods -l app=edge-mcp
 ```
 
 **Solutions:**
@@ -532,7 +532,7 @@ kubectl create secret generic api-keys \
   --dry-run=client -o yaml | kubectl apply -f -
 
 # Restart pods to pick up new keys
-kubectl rollout restart deployment/mcp-server
+kubectl rollout restart deployment/edge-mcp
 ```
 
 ### Security Audit
@@ -583,7 +583,7 @@ ORDER BY 1 DESC;
    ./scripts/block-ips.sh --threshold 100 --window 5m
    
    # Increase rate limits temporarily
-   kubectl set env deployment/mcp-server RATE_LIMIT_MAX_ATTEMPTS=10
+   kubectl set env deployment/edge-mcp RATE_LIMIT_MAX_ATTEMPTS=10
    
    # Alert security team
    ./scripts/security-alert.sh --type brute-force --severity high
@@ -681,9 +681,9 @@ tar czf - backups/ | \
    
    # Verify service health
    ./scripts/verify-auth-health.sh
-   
+
    # Run integration tests
-   make test-auth-integration
+   make test-integration
    ```
 
 2. **Data Recovery**

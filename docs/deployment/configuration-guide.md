@@ -438,8 +438,8 @@ When deploying with pre-built Docker images from GitHub Container Registry:
 ```yaml
 # docker-compose.prod.yml
 services:
-  mcp-server:
-    image: ghcr.io/${GITHUB_USERNAME}/developer-mesh-mcp-server:${VERSION:-latest}
+  edge-mcp:
+    image: ghcr.io/${GITHUB_USERNAME}/developer-mesh-edge-mcp:${VERSION:-latest}
     environment:
       MCP_CONFIG_FILE: /app/configs/config.docker.yaml
       DATABASE_HOST: database
@@ -965,8 +965,7 @@ cost_management:
 
 ## Configuration Scenarios
 
-For detailed configuration examples for different use cases, see:
-- [Configuration Scenarios Guide](../guides/configuration-scenarios.md)
+The following scenarios provide guidance for common use cases:
 
 ### Quick Reference
 

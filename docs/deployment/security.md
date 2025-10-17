@@ -113,11 +113,11 @@ Service Mesh → Pods → Managed Services
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: mcp-server-ingress
+  name: edge-mcp-ingress
 spec:
   podSelector:
     matchLabels:
-      app: mcp-server
+      app: edge-mcp
   # ... rest of policy
 ```
 
@@ -505,13 +505,13 @@ type AuditEvent struct {
 
 ```bash
 # View audit logs in Docker Compose
-docker-compose logs -f mcp-server | grep "audit_event"
+docker-compose logs -f edge-mcp | grep "audit_event"
 
 # Parse JSON logs with jq
-docker-compose logs mcp-server | grep "audit_event" | jq '.'
+docker-compose logs edge-mcp | grep "audit_event" | jq '.'
 
 # Filter by event type
-docker-compose logs mcp-server | grep "audit_event" | jq 'select(.event_type=="auth_failed")'
+docker-compose logs edge-mcp | grep "audit_event" | jq 'select(.event_type=="auth_failed")'
 ```
 
 ### Log Retention
@@ -527,13 +527,13 @@ docker-compose logs mcp-server | grep "audit_event" | jq 'select(.event_type=="a
 ```yaml
 # docker-compose.production.yml
 services:
-  mcp-server:
+  edge-mcp:
     logging:
       driver: "json-file"
       options:
         max-size: "100m"
         max-file: "10"
-        labels: "service=mcp-server"
+        labels: "service=edge-mcp"
 ```
 
 **CloudWatch Logs (EC2)**:
@@ -665,10 +665,10 @@ func SecurityHeaders() gin.HandlerFunc {
 2. **Initial Response**
    ```bash
    # Check active connections
-   docker-compose exec mcp-server netstat -an
+   docker-compose exec edge-mcp netstat -an
    
    # Review recent logs
-   docker-compose logs --tail 1000 mcp-server | grep -E "error|fail|denied"
+   docker-compose logs --tail 1000 edge-mcp | grep -E "error|fail|denied"
    
    # Check system resources
    docker stats
@@ -683,7 +683,7 @@ func SecurityHeaders() gin.HandlerFunc {
    # Update database or configuration
    
    # Scale down if under attack
-   docker-compose scale mcp-server=0
+   docker-compose scale edge-mcp=0
    ```
 
 4. **Investigation**
@@ -707,7 +707,7 @@ docker-compose stop
 
 # Start only essential services
 docker-compose up -d postgres redis
-docker-compose up -d mcp-server
+docker-compose up -d edge-mcp
 ```
 
 **Credential Rotation**:

@@ -16,7 +16,7 @@ The project automatically builds and publishes Docker images to GitHub Container
 
 - **Registry**: `ghcr.io` (GitHub Container Registry)
 - **Image Namespace**: `developer-mesh-{service}` (local build)
-- **Services**: `mcp-server`, `rest-api`, `worker`, `mockserver`
+- **Services**: `edge-mcp`, `rest-api`, `worker`, `mockserver`
 
 ## Image Naming Convention
 
@@ -27,7 +27,7 @@ developer-mesh-{service}:{tag}
 
 Example:
 ```
-ghcr.io/s-corkum/developer-mesh-mcp-server:latest
+ghcr.io/s-corkum/developer-mesh-edge-mcp:latest
 ghcr.io/s-corkum/developer-mesh-rest-api:v1.2.3
 ```
 
@@ -55,7 +55,7 @@ The CI/CD pipeline automatically generates the following tags:
 ```bash
 # Note: Images are built locally in development
 # For production, replace 'developer-mesh' with your registry
-docker pull developer-mesh-mcp-server:latest
+docker pull developer-mesh-edge-mcp:latest
 docker pull developer-mesh-rest-api:latest
 docker pull developer-mesh-worker:latest
 docker pull developer-mesh-mockserver:latest
@@ -63,7 +63,7 @@ docker pull developer-mesh-mockserver:latest
 
 ### Specific Version
 ```bash
-docker pull developer-mesh-mcp-server:v1.2.3
+docker pull developer-mesh-edge-mcp:v1.2.3
 docker pull developer-mesh-rest-api:v1.2.3
 docker pull developer-mesh-worker:v1.2.3
 ```
@@ -85,8 +85,8 @@ Update your `docker-compose.yml` to use the published images:
 
 ```yaml
 services:
-  mcp-server:
-    image: developer-mesh-mcp-server:latest
+  edge-mcp:
+    image: developer-mesh-edge-mcp:latest
     # ... rest of configuration
 
   rest-api:
@@ -109,7 +109,7 @@ All images include the following metadata:
 
 To inspect image metadata:
 ```bash
-docker inspect developer-mesh-mcp-server:latest
+docker inspect developer-mesh-edge-mcp:latest
 ```
 
 ## Security Features
@@ -119,7 +119,7 @@ Image signing with Sigstore Cosign is temporarily disabled while we resolve GitH
 
 <!-- When re-enabled, verify signatures with:
 ```bash
-cosign verify developer-mesh-mcp-server:latest
+cosign verify developer-mesh-edge-mcp:latest
 ```
 -->
 
@@ -159,13 +159,13 @@ If you get permission denied when pulling images, ensure:
 ### Wrong Architecture
 Docker should automatically select the correct architecture. To force a specific architecture:
 ```bash
-docker pull --platform linux/amd64 developer-mesh-mcp-server:latest
+docker pull --platform linux/amd64 developer-mesh-edge-mcp:latest
 ```
 
 ### Old Image Versions
 To ensure you have the latest version:
 ```bash
-docker pull developer-mesh-mcp-server:latest
+docker pull developer-mesh-edge-mcp:latest
 docker images | grep developer-mesh
 ```
 
@@ -198,8 +198,8 @@ docker build \
   --build-arg VERSION=$(git describe --tags --always) \
   --build-arg COMMIT_SHA=$(git rev-parse HEAD) \
   --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
-  -t developer-mesh-mcp-server:local \
-  -f apps/mcp-server/Dockerfile .
+  -t developer-mesh-edge-mcp:local \
+  -f apps/edge-mcp/Dockerfile .
 ```
 
 ## References
