@@ -363,14 +363,13 @@ Before going to production:
 
 ## Next Steps
 
-1. Review the [full authentication documentation](../developer/authentication-implementation-guide.md)
-2. Set up [monitoring and metrics](../operations/authentication-operations-guide.md)
-3. Configure [production deployment](../api-reference/authentication-api-reference.md)
-4. Implement [custom auth providers](../examples/custom-auth-provider.md)
+1. Review the [full authentication documentation](../contributing/authentication-implementation-guide.md)
+2. Set up [monitoring and metrics](../deployment/authentication-operations-guide.md)
+3. Configure [production deployment](../reference/api/authentication-api-reference.md)
 
 ## Getting Help
 
-- Check the [troubleshooting guide](../operations/authentication-operations-guide.md#troubleshooting)
+- Check the [troubleshooting guide](../deployment/authentication-operations-guide.md#troubleshooting)
 - Review [example implementations](../examples/)
 - Submit issues at [GitHub Issues](https://github.com/developer-mesh/developer-mesh/issues)
 

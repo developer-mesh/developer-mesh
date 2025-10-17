@@ -354,16 +354,16 @@ API keys:
 
 After setting up your organization:
 
-1. [Configure your first agent](../guides/agent-registration-guide.md)
-2. [Set up dynamic tools](../dynamic_tools_api.md)
-3. [Configure webhooks](../webhook-api-reference.md)
-4. [Explore the API](../api-reference/rest-api-reference.md)
+1. [Configure your first agent](../guides/agents/agent-registration-guide.md)
+2. [Set up dynamic tools](../reference/api/dynamic_tools_api.md)
+3. [Configure webhooks](../reference/api/webhook-api-reference.md)
+4. [Explore the API](../reference/api/rest-api-reference.md)
 
 ## Getting Help
 
 If you encounter issues:
 
-1. Check the [Troubleshooting Guide](../troubleshooting/TROUBLESHOOTING.md)
+1. Check the [Troubleshooting Guide](../troubleshooting/README.md)
 2. Review [Common Issues](#common-error-responses) above
 3. Contact support with your organization ID (never share your API key)
 

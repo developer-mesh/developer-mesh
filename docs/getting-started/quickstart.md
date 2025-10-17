@@ -710,13 +710,13 @@ You: For developer-mesh/developer-mesh, get the repository info,
 
 1. ✅ **Complete Quick Start** (you are here)
 2. 📖 **Read Integration Guides**
-   - [Claude Code Integration](./integrations/claude-code.md)
-   - [Cursor Integration](./integrations/cursor.md)
-   - [Generic MCP Client](./integrations/generic-mcp-client.md)
+   - [Claude Code Integration](../guides/integrations/claude-code.md)
+   - [Cursor Integration](../guides/integrations/cursor.md)
+   - [Generic MCP Client](../guides/integrations/generic-mcp-client.md)
 3. 🔧 **Explore Tools**
    - Use `/tools list` in your AI client
    - Filter by category (repository, issues, ci_cd, etc.)
-   - Read [Tool Usage Examples](./tool-usage-examples.md)
+   - Read [Tool Usage Examples](../examples/tools/tool-usage-examples.md)
 
 ### Intermediate Path
 
@@ -750,12 +750,11 @@ You: For developer-mesh/developer-mesh, get the repository info,
 
 ## 📚 Related Documentation
 
-- **[OpenAPI Specification](./openapi/edge-mcp.yaml)** - Complete API reference
-- **[Error Handling Guide](./error-handling.md)** - Semantic errors and recovery
-- **[Tool Usage Examples](./tool-usage-examples.md)** - Detailed examples for all tools
-- **[Kubernetes Deployment](../deployments/k8s/README.md)** - Production deployment guide
-- **[Troubleshooting Guide](./integrations/troubleshooting.md)** - Common issues and solutions
-- **[Local Development Guide](./LOCAL_DEVELOPMENT.md)** - Development environment setup
+- **[Error Handling Guide](../contributing/error-handling.md)** - Semantic errors and recovery
+- **[Tool Usage Examples](../examples/tools/tool-usage-examples.md)** - Detailed examples for all tools
+- **[Kubernetes Deployment](../deployment/k8s/README.md)** - Production deployment guide
+- **[Troubleshooting Guide](../guides/integrations/troubleshooting.md)** - Common issues and solutions
+- **[Local Development Guide](../deployment/local-development.md)** - Development environment setup
 
 ---
 

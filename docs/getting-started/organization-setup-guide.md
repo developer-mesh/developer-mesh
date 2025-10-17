@@ -18,7 +18,7 @@ This guide walks you through setting up your organization in Developer Mesh and 
 
 Before you begin, ensure you have:
 
-1. Developer Mesh running locally (see [Quick Start Guide](../getting-started/quick-start-guide.md))
+1. Developer Mesh running locally (see [Quick Start Guide](./quick-start-guide.md))
 2. Access to the REST API on port 8081
 3. A valid email address for the admin account
 
@@ -317,7 +317,7 @@ curl -X POST http://localhost:8081/api/v1/auth/login \
 
 If you encounter issues not covered here:
 
-1. Check the [API Reference](../api-reference/authentication-api-reference.md)
+1. Check the [API Reference](../reference/api/authentication-api-reference.md)
 2. Review server logs: `docker-compose logs rest-api`
 3. Search [GitHub Issues](https://github.com/developer-mesh/developer-mesh/issues)
 4. Ask in [Discussions](https://github.com/developer-mesh/developer-mesh/discussions)
@@ -327,6 +327,6 @@ If you encounter issues not covered here:
 After setting up your organization:
 
 1. [Connect AI Agents](./ai-agent-orchestration.md) - Set up your first AI agent
-2. [Configure Tools](../dynamic_tools_api.md) - Add DevOps tools
+2. [Configure Tools](../reference/api/dynamic_tools_api.md) - Add DevOps tools
 3. [Create Workflows](./multi-agent-collaboration.md) - Build automation workflows
 4. [Monitor Usage](./cost-optimization-guide.md) - Track costs and usage
