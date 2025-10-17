@@ -27,6 +27,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/apps/rag-loader/internal/service"
 	"github.com/developer-mesh/developer-mesh/pkg/database"
 	"github.com/developer-mesh/developer-mesh/pkg/embedding"
+	embeddingProviders "github.com/developer-mesh/developer-mesh/pkg/embedding/providers"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/rag/security"
 	repoVector "github.com/developer-mesh/developer-mesh/pkg/repository/vector"
@@ -98,6 +99,34 @@ func main() {
 
 	// Create embedding client
 	embeddingClient := embedding.NewContextEmbeddingClient(logger)
+
+	// Register Bedrock provider for embeddings
+	bedrockRegion := os.Getenv("AWS_REGION")
+	if bedrockRegion == "" {
+		bedrockRegion = os.Getenv("MCP_EMBEDDING_PROVIDERS_BEDROCK_REGION")
+	}
+	if bedrockRegion == "" {
+		bedrockRegion = "us-east-1" // Default region
+	}
+
+	bedrockEnabled := os.Getenv("MCP_EMBEDDING_PROVIDERS_BEDROCK_ENABLED")
+	if bedrockEnabled == "" || bedrockEnabled == "true" {
+		bedrockCfg := embeddingProviders.ProviderConfig{
+			Region:         bedrockRegion,
+			MaxRetries:     3,
+			RetryDelayBase: 100 * time.Millisecond,
+		}
+
+		bedrockProvider, err := embeddingProviders.NewBedrockProvider(bedrockCfg)
+		if err != nil {
+			log.Fatalf("Failed to create Bedrock provider: %v", err)
+		}
+
+		embeddingClient.RegisterProvider("bedrock", bedrockProvider)
+		logger.Info("Bedrock provider registered", map[string]interface{}{
+			"region": bedrockRegion,
+		})
+	}
 
 	// Create vector repository
 	vectorRepo := repoVector.NewRepository(db)
