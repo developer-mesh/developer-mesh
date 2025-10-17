@@ -63,7 +63,7 @@ type SyncJobResponse struct {
 // GitHubOrgConfig defines configuration for GitHub organization source
 type GitHubOrgConfig struct {
 	Org             string   `json:"org" binding:"required"`
-	BaseURL         string   `json:"base_url,omitempty"`  // GitHub Enterprise URL (optional, defaults to github.com)
+	BaseURL         string   `json:"base_url,omitempty"` // GitHub Enterprise URL (optional, defaults to github.com)
 	IncludeArchived bool     `json:"include_archived"`
 	IncludeForks    bool     `json:"include_forks"`
 	IncludePatterns []string `json:"include_patterns"`
