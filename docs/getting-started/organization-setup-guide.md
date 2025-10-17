@@ -144,7 +144,7 @@ Only organization owners and admins can invite new users:
 
 ```bash
 # Invite a developer
-curl -X POST http://localhost:8081/api/v1/auth/users/invite \
+curl -X POST http://localhost:8081/api/v1/users/invite \
   -H "Authorization: Bearer devmesh_YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -154,7 +154,7 @@ curl -X POST http://localhost:8081/api/v1/auth/users/invite \
   }'
 
 # Invite an admin
-curl -X POST http://localhost:8081/api/v1/auth/users/invite \
+curl -X POST http://localhost:8081/api/v1/users/invite \
   -H "Authorization: Bearer devmesh_YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -232,13 +232,13 @@ export API_KEY="devmesh_xxxxx"
 
 # 3. Invite team members
 for email in alice@team.com bob@team.com charlie@team.com; do
-  curl -X POST http://localhost:8081/api/v1/auth/users/invite \
+  curl -X POST http://localhost:8081/api/v1/users/invite \
     -H "Authorization: Bearer $API_KEY" \
     -d "{\"email\":\"$email\",\"role\":\"member\"}"
 done
 
 # 4. Invite team lead as admin
-curl -X POST http://localhost:8081/api/v1/auth/users/invite \
+curl -X POST http://localhost:8081/api/v1/users/invite \
   -H "Authorization: Bearer $API_KEY" \
   -d '{"email":"lead@team.com","role":"admin"}'
 ```

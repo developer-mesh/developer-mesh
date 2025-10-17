@@ -203,7 +203,7 @@ Only organization owners and admins can invite new users:
 
 ```bash
 # Invite a new user
-curl -X POST http://localhost:8081/api/v1/auth/users/invite \
+curl -X POST http://localhost:8081/api/v1/users/invite \
   -H "Authorization: Bearer devmesh_xxxxxxxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{
@@ -266,23 +266,9 @@ Send these messages after connecting:
 {"jsonrpc":"2.0","id":3,"method":"tools/list"}
 ```
 
-### Create and Assign Tasks
+### Next Steps
 
-```bash
-# Create a task via REST API
-curl -X POST http://localhost:8081/api/v1/tasks \
-  -H "Authorization: Bearer devmesh_xxxxxxxxxxxxx" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Review pull request #123",
-    "type": "code_review",
-    "priority": "high",
-    "metadata": {
-      "repository": "my-repo",
-      "pr_number": 123
-    }
-  }'
-```
+After connecting your agent via MCP, you can use the available tools to interact with your DevOps workflows. Use the `tools/list` method to discover all available tools.
 
 ## 🛠️ Common Operations
 
