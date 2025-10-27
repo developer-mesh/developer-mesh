@@ -33,7 +33,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.22
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.22.0
-	github.com/redis/go-redis/v9 v9.12.0
+	github.com/redis/go-redis/v9 v9.16.0
 	github.com/shopspring/decimal v1.2.0
 	github.com/shurcooL/githubv4 v0.0.0-20240727222349-48295856cce7
 	github.com/sony/gobreaker v1.0.0
