@@ -22,7 +22,7 @@ func NewListCodeScanningAlertsHandler(p *GitHubProvider) *ListCodeScanningAlerts
 func (h *ListCodeScanningAlertsHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "list_code_scanning_alerts",
-		Description: "List code scanning security alerts for a repository, showing potential vulnerabilities found by static analysis",
+		Description: "List code scanning alerts (rule, severity, state, location). Use when: security audit, reviewing CodeQL results, checking vulnerability status.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -148,7 +148,7 @@ func NewGetCodeScanningAlertHandler(p *GitHubProvider) *GetCodeScanningAlertHand
 func (h *GetCodeScanningAlertHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "get_code_scanning_alert",
-		Description: "Get detailed information about a specific code scanning security alert",
+		Description: "Get code scanning alert details (rule, instances, tool, SARIF). Use when: investigating alert, checking affected code, understanding vulnerability.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -236,7 +236,7 @@ func NewUpdateCodeScanningAlertHandler(p *GitHubProvider) *UpdateCodeScanningAle
 func (h *UpdateCodeScanningAlertHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "update_code_scanning_alert",
-		Description: "Update a code scanning alert status to dismiss or reopen it with explanatory context",
+		Description: "Update code scanning alert state (dismiss/reopen with reason). Use when: dismissing false positive, documenting wont_fix, reopening alert.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -357,7 +357,7 @@ func NewListDependabotAlertsHandler(p *GitHubProvider) *ListDependabotAlertsHand
 func (h *ListDependabotAlertsHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "list_dependabot_alerts",
-		Description: "List Dependabot security alerts for vulnerable dependencies in a repository",
+		Description: "List dependency alerts (package, severity, state, CVE). Use when: security audit, checking vulnerabilities, triaging alerts.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -492,7 +492,7 @@ func NewGetDependabotAlertHandler(p *GitHubProvider) *GetDependabotAlertHandler 
 func (h *GetDependabotAlertHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "get_dependabot_alert",
-		Description: "Get detailed information about a specific Dependabot security alert",
+		Description: "Get alert details (vulnerability, affected range, patched versions, CVSS). Use when: investigating CVE, checking fix version, understanding risk.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -585,7 +585,7 @@ func NewUpdateDependabotAlertHandler(p *GitHubProvider) *UpdateDependabotAlertHa
 func (h *UpdateDependabotAlertHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "update_dependabot_alert",
-		Description: "Update a Dependabot alert status to dismiss or reopen it with explanatory context",
+		Description: "Update alert state (dismiss with reason or reopen). Use when: dismissing false positive, acknowledging risk, reopening alert.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -710,7 +710,7 @@ func NewListSecretScanningAlertsHandler(p *GitHubProvider) *ListSecretScanningAl
 func (h *ListSecretScanningAlertsHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "list_secret_scanning_alerts",
-		Description: "List secret scanning alerts for exposed secrets like API keys and tokens found in a repository",
+		Description: "List secret alerts (type, state, created date). Use when: finding leaked credentials, security audit, checking exposed keys.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -844,7 +844,7 @@ func NewGetSecretScanningAlertHandler(p *GitHubProvider) *GetSecretScanningAlert
 func (h *GetSecretScanningAlertHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "get_secret_scanning_alert",
-		Description: "Get detailed information about a specific secret scanning alert",
+		Description: "Get secret alert details (type, locations, state). Use when: investigating exposed secret, checking leak severity, planning remediation.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -933,7 +933,7 @@ func NewUpdateSecretScanningAlertHandler(p *GitHubProvider) *UpdateSecretScannin
 func (h *UpdateSecretScanningAlertHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "update_secret_scanning_alert",
-		Description: "Update a secret scanning alert to resolve or reopen it with appropriate documentation",
+		Description: "Update secret alert (resolve/reopen with resolution type). Use when: marking secret revoked, dismissing false positive, reopening alert.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -1055,7 +1055,7 @@ func NewListSecretScanningLocationsHandler(p *GitHubProvider) *ListSecretScannin
 func (h *ListSecretScanningLocationsHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "list_secret_scanning_locations",
-		Description: "List all file locations where a specific secret was detected in the repository",
+		Description: "List locations where secret appears (file, line, commit). Use when: finding all instances, removing leaked secret, checking git history.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -1170,7 +1170,7 @@ func NewListSecurityAdvisoriesHandler(p *GitHubProvider) *ListSecurityAdvisories
 func (h *ListSecurityAdvisoriesHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "list_security_advisories",
-		Description: "List repository-specific security advisories that have been published by the repository maintainers",
+		Description: "List repo security advisories (GHSA ID, CVE, severity, state). Use when: checking published vulnerabilities, reviewing disclosures, project security audit.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -1309,7 +1309,7 @@ func NewListGlobalSecurityAdvisoriesHandler(p *GitHubProvider) *ListGlobalSecuri
 func (h *ListGlobalSecurityAdvisoriesHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "list_global_security_advisories",
-		Description: "Search the GitHub Advisory Database for security vulnerabilities across all open source software",
+		Description: "Search global advisory database (CVE, GHSA, ecosystem, severity). Use when: researching vulnerabilities, checking package security, finding CVE details.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{

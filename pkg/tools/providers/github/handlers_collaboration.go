@@ -23,7 +23,7 @@ func NewListNotificationsHandler(p *GitHubProvider) *ListNotificationsHandler {
 func (h *ListNotificationsHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "list_notifications",
-		Description: "List GitHub notifications for the authenticated user including issues, pull requests, and repository activity.",
+		Description: "List notifications (repo activity, mentions, updates, state). Use when: checking inbox, finding unread items, tracking repo activity.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -230,7 +230,7 @@ func NewListGistsHandler(p *GitHubProvider) *ListGistsHandler {
 func (h *ListGistsHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "list_gists",
-		Description: "List GitHub Gists for a user or the authenticated user. Gists are code snippets that can be shared and embedded.",
+		Description: "List gists (description, files, visibility, created date). Use when: browsing code snippets, finding shared code, checking public gists.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -362,7 +362,7 @@ func NewGetGistHandler(p *GitHubProvider) *GetGistHandler {
 func (h *GetGistHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "get_gist",
-		Description: "Get detailed information about a specific GitHub Gist including all files and content.",
+		Description: "Get gist details (files, content, revisions, comments). Use when: viewing snippet, checking version history, reading shared code.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -455,7 +455,7 @@ func NewCreateGistHandler(p *GitHubProvider) *CreateGistHandler {
 func (h *CreateGistHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "create_gist",
-		Description: "Create a new GitHub Gist with one or more files. Gists are perfect for sharing code snippets, notes, and configurations.",
+		Description: "Create gist with files (public/private). Use when: sharing code snippet, creating example, documenting solution.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{

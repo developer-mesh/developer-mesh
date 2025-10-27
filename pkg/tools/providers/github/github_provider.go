@@ -253,10 +253,9 @@ func (p *GitHubProvider) initializeToolsets() {
 	// Context toolset - always enabled
 	contextTools := &Toolset{
 		Name:        "context",
-		Description: "Tools that provide context about the current user and GitHub context",
+		Description: "Tools that provide context about the current user",
 		Tools: []ToolHandler{
 			NewGetMeHandler(p),
-			NewGetTeamsHandler(p),
 		},
 		Enabled: true,
 	}
@@ -288,25 +287,19 @@ func (p *GitHubProvider) initializeToolsets() {
 	}
 	p.toolsetRegistry["security"] = securityTools
 
-	// Collaboration toolset - notifications, gists, watching
+	// Collaboration toolset - notifications and gists
 	collaborationTools := &Toolset{
 		Name:        "collaboration",
-		Description: "Collaboration features including notifications, gists, and watching",
+		Description: "Collaboration features including notifications and gists",
 		Tools: []ToolHandler{
 			// Notifications
 			NewListNotificationsHandler(p),
-			NewMarkNotificationAsReadHandler(p),
 			// Gists
 			NewListGistsHandler(p),
 			NewGetGistHandler(p),
 			NewCreateGistHandler(p),
 			NewUpdateGistHandler(p),
 			NewDeleteGistHandler(p),
-			NewStarGistHandler(p),
-			NewUnstarGistHandler(p),
-			// Watching
-			NewWatchRepositoryHandler(p),
-			NewUnwatchRepositoryHandler(p),
 		},
 		Enabled: false,
 	}
@@ -324,7 +317,6 @@ func (p *GitHubProvider) initializeToolsets() {
 			NewGetTreeHandler(p),
 			NewCreateTreeHandler(p),
 			// Commits
-			NewGetGitCommitHandler(p),
 			NewCreateCommitHandler(p),
 			// References
 			NewGetRefHandler(p),
@@ -337,40 +329,16 @@ func (p *GitHubProvider) initializeToolsets() {
 	}
 	p.toolsetRegistry["git"] = gitTools
 
-	// Organizations toolset - organization and team management
+	// Organizations toolset - user search
 	orgsTools := &Toolset{
 		Name:        "organizations",
-		Description: "Organization, team, and user management",
+		Description: "User and organization search for collaboration",
 		Tools: []ToolHandler{
-			NewListOrganizationsHandler(p),
-			NewGetOrganizationHandler(p),
-			NewSearchOrganizationsHandler(p),
 			NewSearchUsersHandler(p),
-			NewListTeamsHandler(p),
-			NewGetTeamMembersHandler(p),
 		},
 		Enabled: false,
 	}
 	p.toolsetRegistry["organizations"] = orgsTools
-
-	// GraphQL toolset - advanced GraphQL operations
-	graphqlTools := &Toolset{
-		Name:        "graphql",
-		Description: "Advanced GraphQL-based operations for efficient data fetching",
-		Tools: []ToolHandler{
-			// Query operations
-			NewListIssuesGraphQLHandler(p),
-			NewSearchIssuesAndPRsGraphQLHandler(p),
-			NewGetRepositoryDetailsGraphQLHandler(p),
-			// Mutation operations
-			NewCreateIssueGraphQLHandler(p),
-			NewCreatePullRequestGraphQLHandler(p),
-			NewAddPullRequestReviewGraphQLHandler(p),
-			NewMergePullRequestGraphQLHandler(p),
-		},
-		Enabled: false,
-	}
-	p.toolsetRegistry["graphql"] = graphqlTools
 
 	// Discussions toolset
 	discussionsTools := &Toolset{
@@ -417,8 +385,7 @@ func (p *GitHubProvider) enableDefaultToolsets() {
 		"collaboration",
 		"git",
 		"organizations",
-		"graphql",     // New GraphQL operations
-		"discussions", // New Discussions API
+		"discussions", // GitHub Discussions API
 	}
 	for _, name := range defaultToolsets {
 		if err := p.EnableToolset(name); err != nil {

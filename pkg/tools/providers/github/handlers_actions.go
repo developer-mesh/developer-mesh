@@ -23,7 +23,7 @@ func NewListWorkflowsHandler(p *GitHubProvider) *ListWorkflowsHandler {
 func (h *ListWorkflowsHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "list_workflows",
-		Description: "List all GitHub Actions workflow files in a repository's .github/workflows directory",
+		Description: "List workflows (name, path, state). Use when: browsing CI/CD, finding workflow file, checking enabled workflows.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -162,7 +162,7 @@ func NewListWorkflowRunsHandler(p *GitHubProvider) *ListWorkflowRunsHandler {
 func (h *ListWorkflowRunsHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "list_workflow_runs",
-		Description: "List workflow runs for a repository or specific workflow with filtering options",
+		Description: "List workflow runs (status, conclusion, branch, trigger, commit). Use when: checking CI/CD status, monitoring builds, finding failed runs.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -343,7 +343,7 @@ func NewGetWorkflowRunHandler(p *GitHubProvider) *GetWorkflowRunHandler {
 func (h *GetWorkflowRunHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "get_workflow_run",
-		Description: "Get detailed information about a specific GitHub Actions workflow run including status, logs URL, and artifacts",
+		Description: "Get run details (status, conclusion, jobs, logs_url, artifacts). Use when: investigating failure, checking run status, analyzing build.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -443,7 +443,7 @@ func NewListWorkflowJobsHandler(p *GitHubProvider) *ListWorkflowJobsHandler {
 func (h *ListWorkflowJobsHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "list_workflow_jobs",
-		Description: "List all jobs within a GitHub Actions workflow run, showing individual job status and details",
+		Description: "List jobs in run (name, status, conclusion, started_at). Use when: checking job status, finding failed job, analyzing pipeline.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -587,7 +587,7 @@ func NewRunWorkflowHandler(p *GitHubProvider) *RunWorkflowHandler {
 func (h *RunWorkflowHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "run_workflow",
-		Description: "Manually trigger a GitHub Actions workflow using workflow_dispatch event",
+		Description: "Trigger workflow run with inputs on ref (branch/tag). Use when: manual deployment, running tests, triggering CI/CD.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -701,7 +701,7 @@ func NewRerunWorkflowRunHandler(p *GitHubProvider) *RerunWorkflowRunHandler {
 func (h *RerunWorkflowRunHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "rerun_workflow_run",
-		Description: "Rerun a completed or failed GitHub Actions workflow run using the same commit SHA and inputs",
+		Description: "Re-run workflow (all jobs or failed jobs only). Use when: retrying after fix, rerunning flaky test, re-deploying.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -787,7 +787,7 @@ func NewCancelWorkflowRunHandler(p *GitHubProvider) *CancelWorkflowRunHandler {
 func (h *CancelWorkflowRunHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "cancel_workflow_run",
-		Description: "Cancel a running or queued GitHub Actions workflow run to stop execution and save resources",
+		Description: "Cancel in-progress workflow run. Use when: stopping bad deploy, canceling outdated build, halting long-running job.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{

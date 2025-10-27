@@ -115,14 +115,14 @@ func GetOperationDescription(operationName string) string {
 		"get_team_members":     "List all members of a specific team",
 
 		// User and collaboration operations
-		"get_me":                    "Get information about the authenticated user",
-		"search_users":              "Search for users using GitHub's search syntax",
+		"get_me":                    "Get authenticated user profile (login, name, email, bio). Use when: checking current user, verifying auth, getting user details.",
+		"search_users":              "Search users (username, repos, followers, location). Use when: finding collaborators, discovering developers, searching by skills.",
 		"list_notifications":        "List all notifications for the authenticated user",
 		"mark_notification_as_read": "Mark a notification as read",
 		"create_gist":               "Create a new GitHub Gist with one or more files",
 		"get_gist":                  "Retrieve a specific Gist by ID",
-		"update_gist":               "Update an existing Gist's files or description",
-		"delete_gist":               "Delete a Gist permanently",
+		"update_gist":               "Update gist (modify files, description, add/remove files). Use when: fixing snippet, updating example, revising shared code.",
+		"delete_gist":               "Delete gist permanently (cannot be undone). Use when: removing outdated snippet, cleaning up test gists, deleting shared code.",
 		"list_gists":                "List Gists for a user or the authenticated user",
 		"star_gist":                 "Star a Gist to save it to your starred list",
 		"unstar_gist":               "Remove a Gist from your starred list",
@@ -130,20 +130,11 @@ func GetOperationDescription(operationName string) string {
 		// Search operations
 		"search_code": "Search for code across GitHub repositories using advanced query syntax",
 
-		// GraphQL operations
-		"repository_details_graphql":      "Get comprehensive repository details using GitHub's GraphQL API",
-		"issue_create_graphql":            "Create an issue using GitHub's GraphQL API for enhanced features",
-		"issues_list_graphql":             "List issues with advanced filtering using GraphQL",
-		"pull_request_create_graphql":     "Create a pull request using GraphQL for additional options",
-		"pull_request_merge_graphql":      "Merge a pull request using GraphQL with advanced merge options",
-		"pull_request_review_add_graphql": "Add a pull request review using GraphQL",
-		"search_issues_prs_graphql":       "Search issues and pull requests using GraphQL for richer results",
-
 		// Discussion operations
-		"discussions_list":           "List discussions in a repository with category filtering",
-		"discussion_get":             "Get detailed information about a specific discussion",
-		"discussion_comments_get":    "Retrieve all comments for a discussion thread",
-		"discussion_categories_list": "List all discussion categories for a repository",
+		"discussions_list":           "List discussions (title, category, author, status). Use when: browsing community topics, finding Q&A, checking announcements.",
+		"discussion_get":             "Get discussion details (body, comments, answer, reactions). Use when: reading thread, checking solution, viewing conversation.",
+		"discussion_comments_get":    "Get discussion comments (author, content, replies). Use when: reading responses, finding answer, following conversation.",
+		"discussion_categories_list": "List discussion categories (name, emoji, description). Use when: checking available categories, organizing topics, finding category ID.",
 	}
 
 	if desc, ok := descriptions[operationName]; ok {

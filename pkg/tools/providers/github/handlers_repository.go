@@ -22,7 +22,7 @@ func NewListRepositoriesHandler(p *GitHubProvider) *ListRepositoriesHandler {
 func (h *ListRepositoriesHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "list_repositories",
-		Description: "List repositories for a user, organization, or authenticated user with pagination and filtering options",
+		Description: "List repositories for user/org (name, visibility, stars, language). Use when: browsing repos, finding project, checking org repos.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -189,7 +189,7 @@ func NewGetRepositoryHandler(p *GitHubProvider) *GetRepositoryHandler {
 func (h *GetRepositoryHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "get_repository",
-		Description: "Get detailed information about a specific GitHub repository including metadata, permissions, and statistics",
+		Description: "Get repo details (name, description, default branch, visibility, topics). Use when: exploring new repo, checking repo settings, validating repo access.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -318,7 +318,7 @@ func NewUpdateRepositoryHandler(p *GitHubProvider) *UpdateRepositoryHandler {
 func (h *UpdateRepositoryHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "update_repository",
-		Description: "Update repository settings including name, description, visibility, and merge options (requires admin permissions)",
+		Description: "Update repo settings (name, description, visibility, features). Use when: changing repo metadata, toggling features, renaming project.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -528,7 +528,7 @@ func NewDeleteRepositoryHandler(p *GitHubProvider) *DeleteRepositoryHandler {
 func (h *DeleteRepositoryHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "delete_repository",
-		Description: "⚠️  DESTRUCTIVE: Permanently delete a repository and all its data (requires admin permissions). This action cannot be undone.",
+		Description: "Permanently delete repo. Use when: cleaning up test repos, removing deprecated projects. **Irreversible**.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -618,7 +618,7 @@ func NewSearchRepositoriesHandler(p *GitHubProvider) *SearchRepositoriesHandler 
 func (h *SearchRepositoriesHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "search_repositories",
-		Description: "Search for repositories on GitHub using advanced search syntax with filters for language, stars, forks, and more",
+		Description: "Search repos by name, description, topics, language, stars. Use when: finding libraries, discovering projects, locating examples.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -802,7 +802,7 @@ func NewGetFileContentsHandler(p *GitHubProvider) *GetFileContentsHandler {
 func (h *GetFileContentsHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "get_file_contents",
-		Description: "Retrieve the raw contents of a file from a GitHub repository with support for different branches, tags, or commits",
+		Description: "Get file content (raw or base64) at ref. Use when: reading code, fetching config, analyzing file content.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -917,7 +917,7 @@ func NewListCommitsHandler(p *GitHubProvider) *ListCommitsHandler {
 func (h *ListCommitsHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "list_commits",
-		Description: "List commits from a GitHub repository",
+		Description: "List commits (SHA, message, author, date, stats). Use when: reviewing history, finding specific commit, checking recent changes.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -1001,7 +1001,7 @@ func NewSearchCodeHandler(p *GitHubProvider) *SearchCodeHandler {
 func (h *SearchCodeHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "search_code",
-		Description: "Search for code on GitHub",
+		Description: "Search code across repos (file content, path, language, repo). Use when: finding function usage, locating examples, code archaeology.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -1110,7 +1110,7 @@ func NewGetCommitHandler(p *GitHubProvider) *GetCommitHandler {
 func (h *GetCommitHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "get_commit",
-		Description: "Get a specific commit from a GitHub repository",
+		Description: "Get commit details (message, author, date, files changed, stats, parents). Use when: reviewing commit, checking changes, investigating bug introduction.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -1163,7 +1163,7 @@ func NewListBranchesHandler(p *GitHubProvider) *ListBranchesHandler {
 func (h *ListBranchesHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "list_branches",
-		Description: "List branches in a GitHub repository",
+		Description: "List all branches (name, SHA, protected status). Use when: browsing branches, finding feature branch, checking branch protection.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -1234,7 +1234,7 @@ func NewCreateOrUpdateFileHandler(p *GitHubProvider) *CreateOrUpdateFileHandler 
 func (h *CreateOrUpdateFileHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "create_or_update_file",
-		Description: "Create or update a file in a GitHub repository",
+		Description: "Create/update single file with content, message, branch. Use when: editing config, fixing typo, updating README.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -1318,7 +1318,7 @@ func NewCreateRepositoryHandler(p *GitHubProvider) *CreateRepositoryHandler {
 func (h *CreateRepositoryHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "create_repository",
-		Description: "Create a new GitHub repository with optional templates and initialization settings",
+		Description: "Create new repo with name, description, visibility, template. Use when: starting new project, scaffolding from template, creating test repo.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -1436,7 +1436,7 @@ func NewForkRepositoryHandler(p *GitHubProvider) *ForkRepositoryHandler {
 func (h *ForkRepositoryHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "fork_repository",
-		Description: GetOperationDescription("fork_repository"),
+		Description: "Fork repo to user/org account. Use when: contributing to OSS, creating independent copy, experimenting with code.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -1624,7 +1624,7 @@ func NewCreateBranchHandler(p *GitHubProvider) *CreateBranchHandler {
 func (h *CreateBranchHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "create_branch",
-		Description: "Create a new branch in a repository",
+		Description: "Create branch from ref (commit/branch/tag). Use when: starting feature work, creating hotfix, branching for experiment.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -1699,7 +1699,7 @@ func NewPushFilesHandler(p *GitHubProvider) *PushFilesHandler {
 func (h *PushFilesHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "push_files",
-		Description: "Push multiple files to a repository atomically",
+		Description: "Push multiple files in single commit. Use when: bulk file changes, scaffolding project, multi-file refactor.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -1838,7 +1838,7 @@ func NewDeleteFileHandler(p *GitHubProvider) *DeleteFileHandler {
 func (h *DeleteFileHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "delete_file",
-		Description: "Delete a file from a repository",
+		Description: "Delete file with commit message. Use when: removing deprecated file, cleaning up, deleting config.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{

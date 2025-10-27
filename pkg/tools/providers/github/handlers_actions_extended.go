@@ -25,7 +25,7 @@ func NewRerunFailedJobsHandler(p *GitHubProvider) *RerunFailedJobsHandler {
 func (h *RerunFailedJobsHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "rerun_failed_jobs",
-		Description: "Rerun failed jobs in a workflow run",
+		Description: "Re-run only failed jobs in workflow. Use when: retrying flaky tests, fixing specific failure, partial re-run.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -80,7 +80,7 @@ func NewGetJobLogsHandler(p *GitHubProvider) *GetJobLogsHandler {
 func (h *GetJobLogsHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "get_job_logs",
-		Description: "Get logs for a workflow job",
+		Description: "Get specific job logs (single job output). Use when: debugging job failure, checking specific step, analyzing job output.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -149,7 +149,7 @@ func NewGetWorkflowRunLogsHandler(p *GitHubProvider) *GetWorkflowRunLogsHandler 
 func (h *GetWorkflowRunLogsHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "get_workflow_run_logs",
-		Description: "Get logs for an entire workflow run",
+		Description: "Get full workflow logs (all jobs, all steps). Use when: debugging failure, analyzing build output, troubleshooting CI/CD.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -205,7 +205,7 @@ func NewGetWorkflowRunUsageHandler(p *GitHubProvider) *GetWorkflowRunUsageHandle
 func (h *GetWorkflowRunUsageHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "get_workflow_run_usage",
-		Description: "Get usage information for a workflow run",
+		Description: "Get run billable time (minutes by OS). Use when: checking costs, analyzing usage, optimizing billing.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -258,7 +258,7 @@ func NewListArtifactsHandler(p *GitHubProvider) *ListArtifactsHandler {
 func (h *ListArtifactsHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "list_artifacts",
-		Description: "List artifacts for a repository or workflow run",
+		Description: "List artifacts from run (name, size, expired). Use when: downloading build outputs, accessing test results, fetching packages.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -337,7 +337,7 @@ func NewDownloadArtifactHandler(p *GitHubProvider) *DownloadArtifactHandler {
 func (h *DownloadArtifactHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "download_artifact",
-		Description: "Get download URL for an artifact",
+		Description: "Download artifact by ID (returns zip). Use when: getting build artifacts, downloading test results, fetching packages.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -393,7 +393,7 @@ func NewDeleteWorkflowRunLogsHandler(p *GitHubProvider) *DeleteWorkflowRunLogsHa
 func (h *DeleteWorkflowRunLogsHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "delete_workflow_run_logs",
-		Description: "Delete logs for a workflow run",
+		Description: "Delete workflow logs (compliance/cleanup). Use when: removing sensitive logs, cleaning up storage, compliance.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{

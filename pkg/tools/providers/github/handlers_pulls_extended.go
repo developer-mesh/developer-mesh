@@ -22,7 +22,7 @@ func NewUpdatePullRequestBranchHandler(p *GitHubProvider) *UpdatePullRequestBran
 func (h *UpdatePullRequestBranchHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "update_pull_request_branch",
-		Description: "Update a pull request branch with the latest changes from base branch",
+		Description: "Update PR branch with latest from base (merge base into head). Use when: resolving conflicts, updating stale PR, syncing with main.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -77,7 +77,7 @@ func NewGetPullRequestDiffHandler(p *GitHubProvider) *GetPullRequestDiffHandler 
 func (h *GetPullRequestDiffHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "get_pull_request_diff",
-		Description: "Get the diff of a pull request",
+		Description: "Get PR unified diff (full patch text). Use when: detailed code review, analyzing changes, generating changelog.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -133,7 +133,7 @@ func NewGetPullRequestReviewsHandler(p *GitHubProvider) *GetPullRequestReviewsHa
 func (h *GetPullRequestReviewsHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "get_pull_request_reviews",
-		Description: "List reviews for a pull request",
+		Description: "Get PR reviews (reviewer, state, body, submitted_at). Use when: checking review status, seeing feedback, tracking approvals.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -200,7 +200,7 @@ func NewGetPullRequestReviewCommentsHandler(p *GitHubProvider) *GetPullRequestRe
 func (h *GetPullRequestReviewCommentsHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "get_pull_request_review_comments",
-		Description: "List review comments for a pull request",
+		Description: "Get PR review comments (line, path, body, author, position). Use when: reading feedback, addressing comments, tracking discussion.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -287,7 +287,7 @@ func NewCreatePullRequestReviewHandler(p *GitHubProvider) *CreatePullRequestRevi
 func (h *CreatePullRequestReviewHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "create_pull_request_review",
-		Description: "Create a review for a pull request",
+		Description: "Start PR review (create pending review, add comments). Use when: beginning code review, batching comments, structured review.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -399,7 +399,7 @@ func NewSubmitPullRequestReviewHandler(p *GitHubProvider) *SubmitPullRequestRevi
 func (h *SubmitPullRequestReviewHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "submit_pull_request_review",
-		Description: "Submit a pending pull request review",
+		Description: "Submit review with state (APPROVE, REQUEST_CHANGES, COMMENT). Use when: finishing review, approving PR, requesting changes.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -474,7 +474,7 @@ func NewAddPullRequestReviewCommentHandler(p *GitHubProvider) *AddPullRequestRev
 func (h *AddPullRequestReviewCommentHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "add_pull_request_review_comment",
-		Description: "Add a review comment to a pull request",
+		Description: "Add inline comment to PR file/line. Use when: commenting on code, suggesting change, asking question.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{

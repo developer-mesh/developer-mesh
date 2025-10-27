@@ -22,7 +22,7 @@ func NewGetPullRequestHandler(p *GitHubProvider) *GetPullRequestHandler {
 func (h *GetPullRequestHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "get_pull_request",
-		Description: "Get a specific pull request from a GitHub repository",
+		Description: "Get PR details (title, body, status, reviews, checks, reviewers, mergeable). Use when: reviewing PR, checking status, analyzing changes.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -75,7 +75,7 @@ func NewListPullRequestsHandler(p *GitHubProvider) *ListPullRequestsHandler {
 func (h *ListPullRequestsHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "list_pull_requests",
-		Description: "List pull requests in a GitHub repository",
+		Description: "List PRs (number, title, status, author, labels). Use when: reviewing PRs, checking team work, finding PR to review.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -180,7 +180,7 @@ func NewGetPullRequestFilesHandler(p *GitHubProvider) *GetPullRequestFilesHandle
 func (h *GetPullRequestFilesHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "get_pull_request_files",
-		Description: "Get files changed in a pull request",
+		Description: "Get PR files changed (filename, status, additions, deletions, patch). Use when: reviewing changes, analyzing impact, checking modified files.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -249,7 +249,7 @@ func NewSearchPullRequestsHandler(p *GitHubProvider) *SearchPullRequestsHandler 
 func (h *SearchPullRequestsHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "search_pull_requests",
-		Description: "Search for pull requests on GitHub",
+		Description: "Search PRs by title, state, author, label, repo. Use when: finding specific PR, tracking author's PRs, filtering by criteria.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -356,7 +356,7 @@ func NewCreatePullRequestHandler(p *GitHubProvider) *CreatePullRequestHandler {
 func (h *CreatePullRequestHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "create_pull_request",
-		Description: "Create a new pull request from one branch to another, enabling code review and collaboration",
+		Description: "Create PR from head branch to base with title, body. Use when: submitting work, requesting review, proposing changes.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -499,7 +499,7 @@ func NewMergePullRequestHandler(p *GitHubProvider) *MergePullRequestHandler {
 func (h *MergePullRequestHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "merge_pull_request",
-		Description: "Merge an approved pull request into the base branch using specified merge strategy",
+		Description: "Merge PR with method (merge, squash, rebase) and message. Use when: accepting changes, merging approved work, closing PR.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -630,7 +630,7 @@ func NewUpdatePullRequestHandler(p *GitHubProvider) *UpdatePullRequestHandler {
 func (h *UpdatePullRequestHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "update_pull_request",
-		Description: "Update an existing pull request",
+		Description: "Update PR (title, body, state, labels, assignees). Use when: revising PR description, adding reviewers, updating metadata.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{

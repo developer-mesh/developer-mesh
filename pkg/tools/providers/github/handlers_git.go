@@ -23,7 +23,7 @@ func NewGetBlobHandler(p *GitHubProvider) *GetBlobHandler {
 func (h *GetBlobHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "get_blob",
-		Description: "Retrieve the content of a blob object (file content) from Git storage by its SHA",
+		Description: "Get blob content (raw file data) by SHA. Use when: accessing specific Git object, low-level Git operations, blob inspection.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -124,7 +124,7 @@ func NewCreateBlobHandler(p *GitHubProvider) *CreateBlobHandler {
 func (h *CreateBlobHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "create_blob",
-		Description: "Create a new blob object containing file content in Git's object storage",
+		Description: "Create blob from content (returns SHA). Use when: low-level Git operations, building commits programmatically, storing file content.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -226,7 +226,7 @@ func NewGetTreeHandler(p *GitHubProvider) *GetTreeHandler {
 func (h *GetTreeHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "get_tree",
-		Description: "Retrieve a tree object showing the directory structure at a specific commit",
+		Description: "Get tree object (files, dirs, SHAs, permissions). Use when: exploring repo structure, analyzing directory layout, traversing Git objects.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -333,7 +333,7 @@ func NewCreateTreeHandler(p *GitHubProvider) *CreateTreeHandler {
 func (h *CreateTreeHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "create_tree",
-		Description: "Create a new tree object in a repository's Git database. Trees represent directory structures in Git and contain references to blobs (files) and other trees (subdirectories).",
+		Description: "Create tree from file/dir entries. Use when: advanced Git operations, programmatic commits, custom Git structures.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -672,7 +672,7 @@ func NewCreateCommitHandler(p *GitHubProvider) *CreateCommitHandler {
 func (h *CreateCommitHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "create_commit",
-		Description: "Create a new commit in a repository",
+		Description: "Create commit with tree, parent(s), message. Use when: programmatic commits, automation, advanced Git operations.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -843,7 +843,7 @@ func NewGetRefHandler(p *GitHubProvider) *GetRefHandler {
 func (h *GetRefHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "get_ref",
-		Description: "Retrieve a Git reference (branch or tag) from a repository. Returns the object the reference points to.",
+		Description: "Get ref details (SHA, type, object). Use when: validating ref exists, checking HEAD position, resolving tag.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -951,7 +951,7 @@ func NewListRefsHandler(p *GitHubProvider) *ListRefsHandler {
 func (h *ListRefsHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "list_refs",
-		Description: "List references in a repository",
+		Description: "List all refs with SHA (branches, tags, notes). Use when: auditing refs, finding all branches, listing tags.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -1019,7 +1019,7 @@ func NewCreateRefHandler(p *GitHubProvider) *CreateRefHandler {
 func (h *CreateRefHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "create_ref",
-		Description: "Create a new reference in a repository",
+		Description: "Create ref (branch, tag) pointing to SHA. Use when: creating tag, creating branch programmatically, marking release.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -1133,7 +1133,7 @@ func NewUpdateRefHandler(p *GitHubProvider) *UpdateRefHandler {
 func (h *UpdateRefHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "update_ref",
-		Description: "Update an existing reference in a repository",
+		Description: "Update ref to point to different SHA. Use when: force-pushing branch, updating tag, changing HEAD.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -1203,7 +1203,7 @@ func NewDeleteRefHandler(p *GitHubProvider) *DeleteRefHandler {
 func (h *DeleteRefHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "delete_ref",
-		Description: "Delete a reference from a repository",
+		Description: "Delete ref (branch, tag). Use when: cleaning up merged branches, removing old tags, deleting stale refs.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{

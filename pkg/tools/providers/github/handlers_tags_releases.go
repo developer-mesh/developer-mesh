@@ -22,7 +22,7 @@ func NewListTagsHandler(p *GitHubProvider) *ListTagsHandler {
 func (h *ListTagsHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "list_tags",
-		Description: "List repository tags, typically used for versioning and releases. Returns tags with their commit information.",
+		Description: "List tags (name, SHA, type). Use when: browsing versions, finding release tag, checking tag history.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -151,7 +151,7 @@ func NewGetTagHandler(p *GitHubProvider) *GetTagHandler {
 func (h *GetTagHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "get_tag",
-		Description: "Get detailed information about a specific tag in a repository, including the Git object it points to.",
+		Description: "Get tag details (name, SHA, message, tagger, object). Use when: inspecting tag metadata, validating tag, checking annotated tag info.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -282,7 +282,7 @@ func NewListReleasesHandler(p *GitHubProvider) *ListReleasesHandler {
 func (h *ListReleasesHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "list_releases",
-		Description: "List GitHub releases for a repository. Releases are deployable software iterations with release notes and assets.",
+		Description: "List releases (tag, name, draft, prerelease, published_at). Use when: browsing versions, checking latest release, finding changelog.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -426,7 +426,7 @@ func NewGetLatestReleaseHandler(p *GitHubProvider) *GetLatestReleaseHandler {
 func (h *GetLatestReleaseHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "get_latest_release",
-		Description: "Get the latest published release for a repository. Returns the most recent non-prerelease, non-draft release.",
+		Description: "Get latest published release (not draft/prerelease). Use when: checking current version, downloading latest, getting release notes.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -531,7 +531,7 @@ func NewGetReleaseByTagHandler(p *GitHubProvider) *GetReleaseByTagHandler {
 func (h *GetReleaseByTagHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "get_release_by_tag",
-		Description: "Get a specific release by its associated tag name. Useful for retrieving release details for a specific version.",
+		Description: "Get release for specific tag. Use when: finding version release, getting release notes, downloading tagged version.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -649,7 +649,7 @@ func NewCreateReleaseHandler(p *GitHubProvider) *CreateReleaseHandler {
 func (h *CreateReleaseHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "create_release",
-		Description: "Create a new GitHub release. Creates a tag if it doesn't exist and publishes release notes with optional assets.",
+		Description: "Create release with tag, name, body, draft status, assets. Use when: publishing version, creating changelog, distributing binaries.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{

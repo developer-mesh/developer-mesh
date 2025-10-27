@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+- **GitHub MCP Tools Optimization**
+  - Removed 17 redundant tools (15% reduction) to improve AI agent tool selection accuracy
+  - Removed GraphQL toolset (7 tools) - duplicates REST API functionality
+  - Removed team/org management tools (5 tools) - platform admin, not developer workflow
+  - Removed low-value social features (5 tools) - star/unstar gist, watch/unwatch repo, mark notification as read
+  - Simplified Organizations toolset to search_users only (5 tools removed)
+  - Simplified Context toolset to get_me only (get_teams removed)
+  - Removed redundant get_git_commit (superseded by get_commit)
+  - Updated all 102 remaining tool descriptions with AI-optimized format:
+    - Concise "what data" + "Use when: scenario1, scenario2, scenario3" format
+    - Improved clarity for AI agent tool selection
+    - Better developer understanding of tool purpose
+  - Token usage reduced by ~1,800 tokens per MCP session (15% reduction)
+  - All developer workflow functionality preserved
+  - **Breaking Change**: GraphQL tools (github_*_graphql) no longer available - use REST equivalents
+
 ### Fixed
 
 ## [0.0.8] - 2025-10-26

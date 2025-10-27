@@ -24,7 +24,7 @@ func NewGetIssueHandler(p *GitHubProvider) *GetIssueHandler {
 func (h *GetIssueHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "get_issue",
-		Description: "Retrieve detailed information about a specific GitHub issue, including metadata, comments count, labels, and current state",
+		Description: "Get issue details (title, body, state, labels, assignees, comments, timeline). Use when: investigating issue, checking status, reading discussion.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -134,7 +134,7 @@ func NewSearchIssuesHandler(p *GitHubProvider) *SearchIssuesHandler {
 func (h *SearchIssuesHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "search_issues",
-		Description: "Search for issues across GitHub using advanced search syntax with filters for repository, state, labels, and more",
+		Description: "Search issues by title, state, author, label, assignee, repo. Use when: finding bug, tracking work, filtering issues.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -296,7 +296,7 @@ func NewListIssuesHandler(p *GitHubProvider) *ListIssuesHandler {
 func (h *ListIssuesHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "list_issues",
-		Description: "List issues from a GitHub repository",
+		Description: "List issues (number, title, state, labels, assignee, author). Use when: triaging issues, finding bugs, checking open work.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -492,7 +492,7 @@ func NewGetIssueCommentsHandler(p *GitHubProvider) *GetIssueCommentsHandler {
 func (h *GetIssueCommentsHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "get_issue_comments",
-		Description: "Get comments for a specific issue",
+		Description: "Get issue comments (author, body, created_at, reactions). Use when: reading discussion, following conversation, checking feedback.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -561,7 +561,7 @@ func NewCreateIssueHandler(p *GitHubProvider) *CreateIssueHandler {
 func (h *CreateIssueHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "create_issue",
-		Description: "Create a new issue in a GitHub repository",
+		Description: "Create issue with title, body, labels, assignees. Use when: reporting bug, requesting feature, documenting task.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -660,7 +660,7 @@ func NewAddIssueCommentHandler(p *GitHubProvider) *AddIssueCommentHandler {
 func (h *AddIssueCommentHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "add_issue_comment",
-		Description: "Add a comment to a GitHub issue",
+		Description: "Add comment to issue. Use when: responding, asking question, providing update, linking PR.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -722,7 +722,7 @@ func NewUpdateIssueHandler(p *GitHubProvider) *UpdateIssueHandler {
 func (h *UpdateIssueHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "update_issue",
-		Description: "Update an existing GitHub issue",
+		Description: "Update issue (title, body, state, labels, assignees). Use when: refining description, changing status, reassigning work.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -833,7 +833,7 @@ func NewLockIssueHandler(p *GitHubProvider) *LockIssueHandler {
 func (h *LockIssueHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "lock_issue",
-		Description: "Lock an issue to prevent further comments",
+		Description: "Lock issue (prevent comments) with reason. Use when: closing heated discussion, preventing spam, archiving resolved issue.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -894,7 +894,7 @@ func NewUnlockIssueHandler(p *GitHubProvider) *UnlockIssueHandler {
 func (h *UnlockIssueHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "unlock_issue",
-		Description: "Unlock an issue to allow comments",
+		Description: "Unlock issue (allow comments). Use when: reopening discussion, allowing feedback, reversing lock.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -946,7 +946,7 @@ func NewGetIssueEventsHandler(p *GitHubProvider) *GetIssueEventsHandler {
 func (h *GetIssueEventsHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "get_issue_events",
-		Description: "Get events for a GitHub issue",
+		Description: "Get issue events (labeled, assigned, closed, reopened, etc.). Use when: tracking history, auditing changes, understanding timeline.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -1015,7 +1015,7 @@ func NewGetIssueTimelineHandler(p *GitHubProvider) *GetIssueTimelineHandler {
 func (h *GetIssueTimelineHandler) GetDefinition() ToolDefinition {
 	return ToolDefinition{
 		Name:        "get_issue_timeline",
-		Description: "Get timeline events for a GitHub issue",
+		Description: "Get combined timeline (events + comments in order). Use when: full issue history, understanding context, comprehensive view.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
