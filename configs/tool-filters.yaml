@@ -1,0 +1,122 @@
+# Tool Filtering Configuration
+# Defines which tools should be excluded to reduce context usage for AI agents
+#
+# NOTE: Harness modules are controlled at source in HarnessProvider.
+# This config is kept for other providers and as documentation.
+
+harness:
+  # Harness tools are controlled at source in:
+  # pkg/tools/providers/harness/harness_provider.go (lines 216-250)
+  #
+  # Only enabled modules are listed in the enabledModules map.
+  # Omitted modules are automatically disabled (Go maps return false for missing keys).
+  #
+  # This prevents unwanted tools from ever being created:
+  # - User & RBAC management (ModuleUser, ModuleRBACPolicy, etc.)
+  # - Account & platform administration (ModuleAccount, ModuleProject, etc.)
+  # - Cost management (ModuleCCM, ModuleCV, ModuleDashboard)
+  # - Governance & compliance (ModuleGovernance, ModuleAudit)
+  # - Low-level integrations (ModuleRegistry, ModuleNotification, ModuleWebhook)
+  # - IaC templates (ModuleTemplate, ModuleInputSet, ModuleTrigger)
+  #
+  # No runtime filtering needed - omitted modules simply don't create tools.
+  excluded_patterns: []
+  workflow_operations: []
+
+  # Explicitly kept tools for reference (45 tools)
+  # This is informational - the filter uses excluded_patterns + exceptions
+  kept_tools:
+    pipelines_execution:
+      - "harness_pipelines_execute"
+      - "harness_pipelines_get"
+      - "harness_pipelines_list"
+      - "harness_executions_status"
+      - "harness_executions_get"
+      - "harness_executions_list"
+      - "harness_executions_abort"
+      - "harness_executions_rollback"
+      - "harness_logs_stream"
+      - "harness_logs_download"
+
+    code_repository:
+      - "harness_repositories_list"
+      - "harness_repositories_get"
+      - "harness_repositories_branches"
+      - "harness_repositories_commits"
+      - "harness_pullrequests_list"
+      - "harness_pullrequests_get"
+      - "harness_pullrequests_merge"
+      - "harness_pullrequests_review"
+      - "harness_pullrequests_activities"
+      - "harness_pullrequests_checks"
+
+    security_testing:
+      - "harness_sto_scans_list"
+      - "harness_sto_vulnerabilities_list"
+      - "harness_sto_exemptions_create"
+      - "harness_ssca_sbom_generate"
+      - "harness_ssca_sbom_get"
+      - "harness_ssca_vulnerabilities_list"
+      - "harness_ssca_artifacts_scan"
+      - "harness_chaos_experiments_list"
+      - "harness_chaos_experiments_get"
+      - "harness_chaos_experiments_run"
+      - "harness_chaos_experiments_results"
+
+    infrastructure:
+      - "harness_services_list"
+      - "harness_services_get"
+      - "harness_environments_list"
+      - "harness_environments_get"
+      - "harness_infrastructures_list"
+      - "harness_infrastructures_get"
+      - "harness_manifests_list"
+      - "harness_manifests_get"
+      - "harness_gitops_applications_list"
+      - "harness_gitops_applications_get"
+      - "harness_gitops_applications_sync"
+      - "harness_gitops_applications_rollback"
+      - "harness_gitops_applications_resources"
+      - "harness_iacm_workspaces_list"
+      - "harness_iacm_workspaces_get"
+      - "harness_iacm_workspaces_create"
+      - "harness_iacm_stacks_list"
+      - "harness_iacm_cost_estimation"
+
+    configuration:
+      - "harness_variables_list"
+      - "harness_variables_get"
+      - "harness_secrets_list"
+      - "harness_secrets_get"
+      - "harness_connectors_list"
+      - "harness_connectors_get"
+      - "harness_connectors_validate"
+      - "harness_filestore_list"
+      - "harness_filestore_get"
+      - "harness_filestore_download"
+
+    feature_management:
+      - "harness_featureflags_list"
+      - "harness_featureflags_get"
+      - "harness_featureflags_toggle"
+      - "harness_featureflags_evaluations"
+      - "harness_featureflags_metrics"
+      - "harness_featureflags_targets_list"
+      - "harness_featureflags_segments_list"
+
+    approvals:
+      - "harness_approvals_list"
+      - "harness_approvals_get"
+      - "harness_approvals_approve"
+      - "harness_approvals_reject"
+      - "harness_approvals_history"
+
+# GitHub Tool Optimization (already optimized in previous work)
+github:
+  excluded_patterns: []  # Already optimized
+
+# Future: Add more providers as needed
+# gitlab:
+#   excluded_patterns: []
+# jira:
+#   excluded_patterns: []

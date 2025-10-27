@@ -575,6 +575,18 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	// Create credential repository for permission discovery (needed by dynamic tools API)
 	credentialRepo := credential.NewPostgresRepository(s.db)
 
+	// Initialize tool filter service for context optimization
+	configPath := services.GetToolFilterConfigPath()
+	toolFilterService, err := services.NewToolFilterService(configPath, s.logger)
+	if err != nil {
+		s.logger.Warn("Failed to initialize tool filter service, filtering disabled", map[string]interface{}{
+			"error":       err.Error(),
+			"config_path": configPath,
+		})
+		// Create empty service to avoid nil pointer
+		toolFilterService = &services.ToolFilterService{}
+	}
+
 	// Create dynamic tools API with template repository and credential repo for permission discovery
 	dynamicToolsAPI := NewDynamicToolsAPI(
 		dynamicToolsService,
@@ -585,6 +597,7 @@ func (s *Server) setupRoutes(ctx context.Context) {
 		orgToolRepo,
 		encryptionService,
 		credentialRepo,
+		toolFilterService,
 	)
 	dynamicToolsAPI.RegisterRoutes(v1)
 

@@ -214,49 +214,39 @@ func NewHarnessProvider(logger observability.Logger) *HarnessProvider {
 		},
 		baseURL: "https://app.harness.io",
 		enabledModules: map[HarnessModule]bool{
-			ModulePipeline:        true,
-			ModuleProject:         true,
-			ModuleConnector:       true,
-			ModuleCCM:             true,
-			ModuleGitOps:          true,
-			ModuleCV:              true,
-			ModuleSTO:             true,
-			ModuleFF:              true,
-			ModuleIaCM:            true,
-			ModuleService:         true,
-			ModuleEnvironment:     true,
-			ModuleInfra:           true,
-			ModulePullRequest:     true,
-			ModuleRepository:      true,
-			ModuleRegistry:        true,
-			ModuleDashboard:       true,
-			ModuleChaos:           true,
-			ModuleSSCA:            true,
-			ModuleLogs:            true,
-			ModuleTemplate:        true,
-			ModuleIDP:             true,
-			ModuleAudit:           true,
-			ModuleDatabase:        true,
-			ModuleExecution:       true,
-			ModuleSecret:          true,
-			ModuleUser:            true,
-			ModuleDelegate:        true,
-			ModuleApproval:        true,
-			ModuleNotification:    true,
-			ModuleWebhook:         true,
-			ModuleAPIKey:          true,
-			ModuleAccount:         true,
-			ModuleLicense:         true,
-			ModuleVariable:        true,
-			ModuleFileStore:       true,
-			ModuleResourceGroup:   true,
-			ModuleRBACPolicy:      true,
-			ModuleDelegateProfile: true,
-			ModuleGovernance:      true,
-			ModuleManifest:        true,
-			ModuleTrigger:         true,
-			ModuleInputSet:        true,
-			ModuleFreezeWindow:    true,
+			// Pipeline & Execution
+			ModulePipeline:  true, // CI/CD pipelines, builds, deployments
+			ModuleExecution: true, // Pipeline execution status, logs
+
+			// Code Repository
+			ModulePullRequest: true, // PR operations, merge, review
+			ModuleRepository:  true, // Repository access, branches, commits
+
+			// Security Testing
+			ModuleSTO:   true, // Security Testing Orchestration
+			ModuleSSCA:  true, // Supply Chain Security (SBOM, vulnerabilities)
+			ModuleChaos: true, // Chaos Engineering experiments
+
+			// Infrastructure & Deployment
+			ModuleGitOps:      true, // GitOps applications, sync, rollback
+			ModuleIaCM:        true, // Infrastructure as Code Management
+			ModuleService:     true, // Service definitions
+			ModuleEnvironment: true, // Environment configurations
+			ModuleInfra:       true, // Infrastructure definitions
+			ModuleManifest:    true, // Kubernetes manifests
+
+			// Configuration & Secrets
+			ModuleVariable:  true, // Variables (read-only)
+			ModuleSecret:    true, // Secrets (read-only)
+			ModuleConnector: true, // External service connections
+			ModuleFileStore: true, // File storage access
+			ModuleLogs:      true, // Log streaming and access
+
+			// Feature Management
+			ModuleFF: true, // Feature Flags
+
+			// Approvals
+			ModuleApproval: true, // Approval workflows
 		},
 	}
 	// Set operation mappings in base provider

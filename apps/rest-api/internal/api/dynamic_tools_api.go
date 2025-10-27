@@ -33,6 +33,7 @@ type DynamicToolsAPI struct {
 	orgToolRepo       pkgrepository.OrganizationToolRepository // For updating org tools with permissions
 	encryptionService *security.EncryptionService              // For decrypting credentials
 	credentialRepo    credential.Repository                    // For accessing user credentials
+	toolFilterService *services.ToolFilterService              // For filtering tools based on configuration
 }
 
 // NewDynamicToolsAPI creates a new dynamic tools API handler
@@ -45,6 +46,7 @@ func NewDynamicToolsAPI(
 	orgToolRepo pkgrepository.OrganizationToolRepository,
 	encryptionService *security.EncryptionService,
 	credentialRepo credential.Repository,
+	toolFilterService *services.ToolFilterService,
 ) *DynamicToolsAPI {
 	return &DynamicToolsAPI{
 		toolService:       toolService,
@@ -55,6 +57,7 @@ func NewDynamicToolsAPI(
 		orgToolRepo:       orgToolRepo,
 		encryptionService: encryptionService,
 		credentialRepo:    credentialRepo,
+		toolFilterService: toolFilterService,
 	}
 }
 
@@ -218,6 +221,43 @@ func (api *DynamicToolsAPI) ListTools(c *gin.Context) {
 				}
 			}
 		}
+	}
+
+	// Apply tool filtering for Edge MCP clients if filter service is available
+	if isEdgeMCP && api.toolFilterService != nil {
+		// Extract tool names for filtering
+		toolNames := make([]string, len(tools))
+		for i, tool := range tools {
+			toolNames[i] = tool.ToolName
+		}
+
+		// Apply filtering
+		filteredNames := api.toolFilterService.FilterTools(toolNames)
+
+		// Create a set of filtered names for O(1) lookup
+		filteredSet := make(map[string]bool)
+		for _, name := range filteredNames {
+			filteredSet[name] = true
+		}
+
+		// Filter the tools array
+		filteredTools := make([]*models.DynamicTool, 0, len(filteredNames))
+		for _, tool := range tools {
+			if filteredSet[tool.ToolName] {
+				filteredTools = append(filteredTools, tool)
+			}
+		}
+
+		// Replace tools with filtered list
+		originalCount := len(tools)
+		tools = filteredTools
+
+		api.logger.Info("Applied tool filtering for Edge MCP", map[string]interface{}{
+			"tenant_id":      tenantID,
+			"original_count": originalCount,
+			"filtered_count": len(tools),
+			"reduction":      originalCount - len(tools),
+		})
 	}
 
 	// Record success metric
