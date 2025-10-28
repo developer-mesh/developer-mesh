@@ -12,225 +12,13 @@ func (p *ArtifactoryProvider) GetEnhancedAIOptimizedDefinitions() []providers.AI
 	}
 
 	return []providers.AIOptimizedToolDefinition{
-		// Repository Management
-		{
-			Name:        "artifactory_repositories",
-			DisplayName: "Artifactory Repository Management",
-			Category:    "repository_management",
-			Subcategory: "configuration",
-			Description: "Complete repository lifecycle management for local, remote, virtual, and federated repositories in JFrog Artifactory",
-			DetailedHelp: `Manage all aspects of Artifactory repositories including:
-- Local repositories: Store artifacts produced by your builds
-- Remote repositories: Proxy and cache artifacts from external sources (Maven Central, npm, Docker Hub, etc.)
-- Virtual repositories: Aggregate multiple repositories under a single logical URL
-- Federated repositories: Replicate artifacts across multiple Artifactory instances
-Each repository type supports specific package formats (Maven, npm, Docker, PyPI, etc.) and has unique configuration options.`,
-			UsageExamples: []providers.Example{
-				{
-					Scenario: "List all available repositories with type filtering",
-					Input: map[string]interface{}{
-						"action": "list",
-						"parameters": map[string]interface{}{
-							"type":        "local",
-							"packageType": "maven",
-						},
-					},
-					ExpectedOutput: `[{"key": "libs-release-local", "type": "LOCAL", "packageType": "Maven", "url": "..."}]`,
-					Explanation:    "Lists only local Maven repositories, useful for finding deployment targets",
-				},
-				{
-					Scenario: "Create a local Maven repository for release artifacts",
-					Input: map[string]interface{}{
-						"action": "create",
-						"parameters": map[string]interface{}{
-							"repoKey":                 "my-maven-releases",
-							"rclass":                  "local",
-							"packageType":             "maven",
-							"description":             "Maven release artifacts",
-							"includesPattern":         "**/*",
-							"excludesPattern":         "**/*.tmp",
-							"repoLayoutRef":           "maven-2-default",
-							"handleReleases":          true,
-							"handleSnapshots":         false,
-							"maxUniqueSnapshots":      0,
-							"snapshotVersionBehavior": "unique",
-						},
-					},
-					Explanation: "Creates a local repository optimized for Maven release artifacts with proper layout and snapshot handling",
-				},
-				{
-					Scenario: "Create a remote repository to proxy Maven Central",
-					Input: map[string]interface{}{
-						"action": "create",
-						"parameters": map[string]interface{}{
-							"repoKey":                        "maven-central-remote",
-							"rclass":                         "remote",
-							"packageType":                    "maven",
-							"url":                            "https://repo.maven.apache.org/maven2",
-							"description":                    "Proxy for Maven Central",
-							"offline":                        false,
-							"storeArtifactsLocally":          true,
-							"socketTimeoutMillis":            15000,
-							"cacheExpirationSeconds":         7200,
-							"retrievalCachePeriodSecs":       7200,
-							"missedRetrievalCachePeriodSecs": 1800,
-						},
-					},
-					Explanation: "Creates a caching proxy for Maven Central with optimized timeout and cache settings",
-				},
-				{
-					Scenario: "Create a virtual repository aggregating multiple repos",
-					Input: map[string]interface{}{
-						"action": "create",
-						"parameters": map[string]interface{}{
-							"repoKey":     "maven-virtual",
-							"rclass":      "virtual",
-							"packageType": "maven",
-							"repositories": []string{
-								"libs-release-local",
-								"libs-snapshot-local",
-								"maven-central-remote",
-							},
-							"defaultDeploymentRepo": "libs-snapshot-local",
-							"description":           "Virtual repository aggregating all Maven repositories",
-						},
-					},
-					Explanation: "Creates a virtual repository that provides a single URL for accessing multiple Maven repositories",
-				},
-				{
-					Scenario: "Update repository configuration",
-					Input: map[string]interface{}{
-						"action": "update",
-						"parameters": map[string]interface{}{
-							"repoKey":         "my-maven-releases",
-							"description":     "Updated description for Maven releases",
-							"notes":           "This repository contains production-ready artifacts",
-							"includesPattern": "**/*.jar,**/*.pom",
-							"excludesPattern": "**/*-sources.jar",
-						},
-					},
-					Explanation: "Updates repository settings including patterns for artifact inclusion/exclusion",
-				},
-			},
-			SemanticTags: []string{
-				"repository", "repo", "storage", "configuration", "maven", "npm", "docker",
-				"pypi", "nuget", "helm", "go", "cargo", "conan", "rpm", "debian",
-				"local", "remote", "virtual", "federated", "proxy", "cache",
-				"package-management", "artifact-storage", "create", "list", "update", "delete",
-			},
-			InputSchema: providers.AIParameterSchema{
-				Type: "object",
-				Properties: map[string]providers.AIPropertySchema{
-					"action": {
-						Type:        "string",
-						Description: "The repository operation to perform",
-						Examples:    []interface{}{"list", "get", "create", "update", "delete"},
-						Template:    "repos/{action}",
-					},
-					"parameters": {
-						Type:        "object",
-						Description: "Operation-specific parameters",
-						Properties: map[string]providers.AIPropertySchema{
-							"repoKey": {
-								Type:        "string",
-								Description: "Unique repository identifier (lowercase, alphanumeric, hyphens, underscores)",
-								Examples:    []interface{}{"libs-release-local", "maven-central-remote", "docker-hub"},
-								Template:    "^[a-z0-9-_]+$",
-								MinLength:   2,
-								MaxLength:   64,
-							},
-							"rclass": {
-								Type:         "string",
-								Description:  "Repository class determining storage and proxy behavior",
-								Examples:     []interface{}{"local", "remote", "virtual", "federated"},
-								SmartDefault: "local",
-							},
-							"packageType": {
-								Type:         "string",
-								Description:  "Package format the repository will store",
-								Examples:     []interface{}{"maven", "gradle", "npm", "pypi", "docker", "helm", "go", "nuget", "generic"},
-								SmartDefault: "generic",
-							},
-							"url": {
-								Type:        "string",
-								Description: "Remote repository URL (required for remote repositories)",
-								Examples:    []interface{}{"https://repo.maven.apache.org/maven2", "https://registry.npmjs.org"},
-								Template:    "^https?://.*",
-							},
-							"repositories": {
-								Type:        "array",
-								Description: "List of repositories to include (for virtual repositories)",
-								ItemType:    "string",
-								Examples:    []interface{}{[]string{"libs-release-local", "libs-snapshot-local"}},
-							},
-							"description": {
-								Type:        "string",
-								Description: "Human-readable repository description",
-								MaxLength:   1024,
-							},
-							"includesPattern": {
-								Type:         "string",
-								Description:  "Pattern for artifacts to include (Ant-style wildcards)",
-								Examples:     []interface{}{"**/*", "**/*.jar", "com/mycompany/**"},
-								SmartDefault: "**/*",
-							},
-							"excludesPattern": {
-								Type:        "string",
-								Description: "Pattern for artifacts to exclude (Ant-style wildcards)",
-								Examples:    []interface{}{"**/*.tmp", "**/*-sources.jar", "**/test/**"},
-							},
-						},
-						Required: []string{}, // Varies by action
-					},
-				},
-				Required: []string{"action"},
-				AIHints: &providers.AIParameterHints{
-					ParameterGrouping: map[string][]string{
-						"basic":    {"repoKey", "rclass", "packageType", "description"},
-						"remote":   {"url", "offline", "storeArtifactsLocally", "socketTimeoutMillis"},
-						"virtual":  {"repositories", "defaultDeploymentRepo"},
-						"patterns": {"includesPattern", "excludesPattern"},
-						"maven":    {"handleReleases", "handleSnapshots", "snapshotVersionBehavior"},
-					},
-					SmartDefaults: map[string]string{
-						"includesPattern": "**/*",
-						"rclass":          "local",
-						"packageType":     "generic",
-						"offline":         "false",
-					},
-					ConditionalRequirements: []providers.ConditionalRequirement{
-						{If: "rclass=remote", Then: "url is required"},
-						{If: "rclass=virtual", Then: "repositories is required"},
-						{If: "action=create", Then: "repoKey,rclass are required"},
-						{If: "action=update", Then: "repoKey is required"},
-						{If: "action=delete", Then: "repoKey is required"},
-					},
-				},
-			},
-			Capabilities: &providers.ToolCapabilities{
-				Capabilities: []providers.Capability{
-					{Action: "create", Resource: "repository", Constraints: []string{"local", "remote", "virtual"}},
-					{Action: "list", Resource: "repositories"},
-					{Action: "update", Resource: "repository"},
-					{Action: "delete", Resource: "repository"},
-					{Action: "proxy", Resource: "external_artifacts"},
-					{Action: "aggregate", Resource: "virtual_repository"},
-				},
-				Limitations: []providers.Limitation{
-					{Description: "Federated repositories require Enterprise license"},
-					{Description: "Cannot change package type after creation"},
-					{Description: "Remote URLs must be accessible during creation"},
-				},
-			},
-		},
-
 		// Artifact Management
 		{
 			Name:        "artifactory_artifacts",
 			DisplayName: "Artifact and Package Management",
 			Category:    "artifact_management",
 			Subcategory: "storage",
-			Description: "Complete artifact lifecycle management including upload, download, copy, move, delete, and property management",
+			Description: "Upload, download, copy, move artifacts (JAR, npm, Docker layers). Use when: publishing builds, fetching dependencies, promoting releases.",
 			DetailedHelp: `Manage individual artifacts and entire directory structures in Artifactory:
 - Upload artifacts with automatic checksums and metadata extraction
 - Download artifacts with optional property-based filtering
@@ -345,7 +133,7 @@ Each repository type supports specific package formats (Maven, npm, Docker, PyPI
 			DisplayName: "Advanced Artifact Search",
 			Category:    "search",
 			Subcategory: "query",
-			Description: "Powerful search capabilities using AQL, GAVC, properties, checksums, and patterns to find artifacts across repositories",
+			Description: "Search artifacts by name, checksum, properties, or Maven coordinates. Use when: finding dependencies, troubleshooting missing artifacts.",
 			DetailedHelp: `Search for artifacts using multiple methods:
 - AQL (Artifactory Query Language): Most powerful, supports complex queries with multiple criteria
 - GAVC: Search Maven artifacts by Group, Artifact, Version, Classifier
@@ -495,7 +283,7 @@ Each repository type supports specific package formats (Maven, npm, Docker, PyPI
 			DisplayName: "CI/CD Build Management",
 			Category:    "ci_cd",
 			Subcategory: "build_info",
-			Description: "Manage build information, artifacts, dependencies, and promotions for complete build lifecycle traceability",
+			Description: "Publish build metadata, promote builds between environments. Use when: CI/CD pipeline publishing, release promotion.",
 			DetailedHelp: `Integrate with CI/CD pipelines to track build artifacts and dependencies:
 - Store comprehensive build information including environment, tools, and dependencies
 - Promote builds through environments (dev → staging → production)
@@ -606,145 +394,13 @@ Each repository type supports specific package formats (Maven, npm, Docker, PyPI
 			},
 		},
 
-		// Security Management
-		{
-			Name:        "artifactory_security",
-			DisplayName: "Security and Access Management",
-			Category:    "security",
-			Subcategory: "access_control",
-			Description: "Comprehensive security management including users, groups, permissions, and access tokens for RBAC and authentication",
-			DetailedHelp: `Manage all security aspects of Artifactory:
-- Users: Create and manage user accounts, passwords, and profiles
-- Groups: Organize users for simplified permission management
-- Permissions: Fine-grained access control for repositories and paths
-- Tokens: Generate and manage API tokens for automation and integrations
-- LDAP/SAML/OAuth: Configure external authentication (admin only)
-- Password policies, session management, and audit logs`,
-			UsageExamples: []providers.Example{
-				{
-					Scenario: "Create developer user with group membership",
-					Input: map[string]interface{}{
-						"action": "users/create",
-						"parameters": map[string]interface{}{
-							"userName":         "john.doe",
-							"email":            "john.doe@company.com",
-							"password":         "SecurePass123!",
-							"admin":            false,
-							"profileUpdatable": true,
-							"disableUIAccess":  false,
-							"groups":           []string{"developers", "readers"},
-							"watcherEnabled":   true,
-						},
-					},
-					Explanation: "Creates a developer user with appropriate group memberships and UI access",
-				},
-				{
-					Scenario: "Create repository permission for team",
-					Input: map[string]interface{}{
-						"action": "permissions/create",
-						"parameters": map[string]interface{}{
-							"name": "dev-team-maven-access",
-							"repositories": map[string]interface{}{
-								"libs-snapshot-local": map[string]interface{}{
-									"actions":         []string{"read", "write", "delete", "annotate"},
-									"includePatterns": []string{"com/mycompany/**"},
-									"excludePatterns": []string{"com/mycompany/internal/**"},
-								},
-								"libs-release-local": map[string]interface{}{
-									"actions": []string{"read", "annotate"},
-								},
-							},
-							"principals": map[string]interface{}{
-								"groups": map[string][]string{
-									"developers": {"manage", "read", "write"},
-									"qa-team":    {"read", "annotate"},
-								},
-								"users": map[string][]string{
-									"lead-dev": {"manage", "read", "write", "delete"},
-								},
-							},
-						},
-					},
-					Explanation: "Creates granular permissions for repositories with path-based filtering and role assignments",
-				},
-				{
-					Scenario: "Generate CI/CD access token",
-					Input: map[string]interface{}{
-						"action": "tokens/create",
-						"parameters": map[string]interface{}{
-							"username":                "ci-pipeline",
-							"scope":                   "applied-permissions/user",
-							"expires_in":              2592000, // 30 days
-							"refreshable":             true,
-							"description":             "Token for Jenkins pipeline",
-							"audience":                "jfrt@*",
-							"include_reference_token": true,
-						},
-					},
-					Explanation: "Creates a refreshable access token for CI/CD automation with appropriate scope and expiry",
-				},
-			},
-			SemanticTags: []string{
-				"security", "user", "users", "group", "groups", "permission", "permissions",
-				"access", "token", "authentication", "authorization", "rbac", "acl",
-				"password", "credential", "admin", "role", "principal",
-				"read", "write", "delete", "manage", "annotate",
-			},
-			InputSchema: providers.AIParameterSchema{
-				Type: "object",
-				Properties: map[string]providers.AIPropertySchema{
-					"action": {
-						Type:        "string",
-						Description: "Security operation to perform",
-						Examples:    []interface{}{"users/create", "groups/create", "permissions/create", "tokens/create"},
-					},
-					"parameters": {
-						Type:        "object",
-						Description: "Security-specific parameters",
-						Properties: map[string]providers.AIPropertySchema{
-							"userName": {
-								Type:        "string",
-								Description: "Username (alphanumeric, dots, hyphens, underscores)",
-								Template:    "^[a-zA-Z0-9._-]+$",
-							},
-							"email": {
-								Type:        "string",
-								Description: "User email address",
-								Template:    "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
-							},
-							"password": {
-								Type:        "string",
-								Description: "User password (must meet policy requirements)",
-								MinLength:   8,
-							},
-							"groups": {
-								Type:        "array",
-								Description: "Group memberships",
-								ItemType:    "string",
-							},
-							"scope": {
-								Type:        "string",
-								Description: "Token scope",
-								Examples:    []interface{}{"applied-permissions/user", "system:admin", "applied-permissions/groups:readers"},
-							},
-							"expires_in": {
-								Type:        "integer",
-								Description: "Token expiry in seconds",
-								Examples:    []interface{}{3600, 86400, 2592000},
-							},
-						},
-					},
-				},
-			},
-		},
-
 		// Docker Registry Operations
 		{
 			Name:        "artifactory_docker",
 			DisplayName: "Docker Registry Operations",
 			Category:    "container_management",
 			Subcategory: "docker",
-			Description: "Docker registry operations for managing container images, tags, and layers in Artifactory",
+			Description: "List Docker images and tags in registry. Use when: checking available images, finding image versions.",
 			DetailedHelp: `Artifactory as a Docker Registry:
 - Host private Docker images with enterprise security
 - Proxy Docker Hub and other registries with intelligent caching
@@ -815,68 +471,13 @@ Each repository type supports specific package formats (Maven, npm, Docker, PyPI
 			},
 		},
 
-		// System Operations
-		{
-			Name:        "artifactory_system",
-			DisplayName: "System Information and Health",
-			Category:    "system",
-			Subcategory: "monitoring",
-			Description: "System health, version, configuration, and storage information for monitoring and administration",
-			DetailedHelp: `Monitor and manage Artifactory system:
-- Health checks and readiness probes for load balancers
-- Version information for compatibility checks
-- Storage metrics and cleanup operations
-- Configuration export/import (admin only)
-- License information and limits
-- System performance metrics`,
-			UsageExamples: []providers.Example{
-				{
-					Scenario: "Check system health",
-					Input: map[string]interface{}{
-						"action": "ping",
-					},
-					ExpectedOutput: "OK",
-					Explanation:    "Simple health check returning OK when system is healthy",
-				},
-				{
-					Scenario: "Get detailed system information",
-					Input: map[string]interface{}{
-						"action": "info",
-					},
-					Explanation: "Returns comprehensive system information including version, license, and configuration",
-				},
-				{
-					Scenario: "Get storage summary",
-					Input: map[string]interface{}{
-						"action": "storage",
-					},
-					Explanation: "Returns storage usage statistics for repositories and filestore",
-				},
-			},
-			SemanticTags: []string{
-				"system", "health", "ping", "version", "info", "configuration",
-				"storage", "metrics", "monitoring", "status", "license",
-			},
-			InputSchema: providers.AIParameterSchema{
-				Type: "object",
-				Properties: map[string]providers.AIPropertySchema{
-					"action": {
-						Type:        "string",
-						Description: "System operation to perform",
-						Examples:    []interface{}{"ping", "info", "version", "storage", "configuration"},
-					},
-				},
-				Required: []string{"action"},
-			},
-		},
-
 		// Internal Helper Operations
 		{
 			Name:        "artifactory_helpers",
 			DisplayName: "AI-Optimized Helper Operations",
 			Category:    "internal",
 			Subcategory: "helpers",
-			Description: "Simplified operations that handle complex multi-step processes for AI agents",
+			Description: "Get current user identity and available features. Use when: checking permissions.",
 			DetailedHelp: `Helper operations that simplify complex Artifactory tasks:
 - Get current user: Identifies the authenticated user (handles the 2-step API process)
 - Check available features: Probes what JFrog components are installed and accessible

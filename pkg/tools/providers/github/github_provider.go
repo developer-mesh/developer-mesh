@@ -375,17 +375,18 @@ func (p *GitHubProvider) enableDefaultToolsets() {
 	// Enable context toolset by default
 	p.enabledToolsets["context"] = true
 
-	// Enable all toolsets by default to expose full GitHub functionality
+	// Enable core developer workflow toolsets by default
 	defaultToolsets := []string{
-		"repos",
-		"issues",
-		"pull_requests",
-		"actions",
-		"security",
-		"collaboration",
-		"git",
-		"organizations",
-		"discussions", // GitHub Discussions API
+		"repos",          // Repository operations (21 tools)
+		"issues",         // Issue tracking and management (11 tools)
+		"pull_requests",  // Pull request workflows (13 tools)
+		"actions",        // CI/CD pipelines (13 tools)
+		"security",       // Security scanning and alerts (12 tools)
+		// Disabled for context optimization:
+		// - collaboration: Notifications/gists (6 tools) - better managed in GitHub UI
+		// - git: Low-level Git operations (10 tools) - rarely needed by developers
+		// - organizations: User search (1 tool) - limited value
+		// - discussions: GitHub Discussions (4 tools) - better managed in GitHub UI
 	}
 	for _, name := range defaultToolsets {
 		if err := p.EnableToolset(name); err != nil {
