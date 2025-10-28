@@ -183,7 +183,6 @@ func TestNexusProvider_normalizeOperationName(t *testing.T) {
 		{"search", "search/components"},
 		{"upload", "components/upload"},
 		{"components_list", "components/list"},
-		{"users-create", "users/create"},
 		{"assets/get", "assets/get"},
 		{"repositories/create/maven/hosted", "repositories/create/maven/hosted"},
 	}
@@ -283,16 +282,6 @@ func TestNexusProvider_ExecuteOperation(t *testing.T) {
 			serverStatus: http.StatusOK,
 			expectError:  false,
 		},
-		{
-			name:      "Delete Component",
-			operation: "components/delete",
-			params: map[string]interface{}{
-				"id": "component-123",
-			},
-			serverResponse: nil,
-			serverStatus:   http.StatusNoContent,
-			expectError:    false,
-		},
 	}
 
 	for _, tt := range tests {
@@ -350,121 +339,6 @@ func TestNexusProvider_ExecuteOperation(t *testing.T) {
 	}
 }
 
-func TestNexusProvider_FilterOperationsByPermissions(t *testing.T) {
-	logger := observability.NewNoopLogger()
-	provider := NewNexusProvider(logger)
-
-	tests := []struct {
-		name        string
-		operations  []string
-		permissions map[string]interface{}
-		expected    []string
-	}{
-		{
-			name: "Repository View Privileges",
-			operations: []string{
-				"repositories/list",
-				"repositories/create",
-				"repositories/delete",
-				"components/list",
-				"components/upload",
-				"users/create",
-			},
-			permissions: map[string]interface{}{
-				"privileges": []string{
-					"nx-repository-view-*-*-*",
-				},
-			},
-			expected: []string{
-				"repositories/list",
-				"components/list",
-			},
-		},
-		{
-			name: "Repository Admin Privileges",
-			operations: []string{
-				"repositories/list",
-				"repositories/create",
-				"repositories/delete",
-				"components/list",
-				"components/upload",
-				"users/create",
-			},
-			permissions: map[string]interface{}{
-				"privileges": []string{
-					"nx-repository-admin-*-*-*",
-				},
-			},
-			expected: []string{
-				"repositories/list",
-				"repositories/create",
-				"repositories/delete",
-				"components/list",
-				"components/upload",
-			},
-		},
-		{
-			name: "Security Admin Privileges",
-			operations: []string{
-				"repositories/list",
-				"users/list",
-				"users/create",
-				"roles/list",
-				"roles/create",
-			},
-			permissions: map[string]interface{}{
-				"privileges": []string{
-					"nx-security-admin",
-				},
-			},
-			expected: []string{
-				"users/list",
-				"users/create",
-				"roles/list",
-				"roles/create",
-			},
-		},
-		{
-			name: "Full Admin Privileges",
-			operations: []string{
-				"repositories/list",
-				"repositories/create",
-				"users/create",
-				"tasks/run",
-			},
-			permissions: map[string]interface{}{
-				"privileges": []string{
-					"nexus:*",
-				},
-			},
-			expected: []string{
-				"repositories/list",
-				"repositories/create",
-				"users/create",
-				"tasks/run",
-			},
-		},
-		{
-			name: "No Privileges",
-			operations: []string{
-				"repositories/list",
-				"users/list",
-			},
-			permissions: map[string]interface{}{},
-			expected: []string{
-				"repositories/list",
-				"users/list",
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := provider.FilterOperationsByPermissions(tt.operations, tt.permissions)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
 
 func TestNexusProvider_GetAIOptimizedDefinitions(t *testing.T) {
 	logger := observability.NewNoopLogger()

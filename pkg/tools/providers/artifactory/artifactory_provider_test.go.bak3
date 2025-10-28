@@ -239,15 +239,37 @@ func TestGetAIOptimizedDefinitions(t *testing.T) {
 	provider := NewArtifactoryProvider(logger)
 
 	definitions := provider.GetAIOptimizedDefinitions()
-	assert.GreaterOrEqual(t, len(definitions), 5, "Should have at least 5 category definitions")
+	assert.GreaterOrEqual(t, len(definitions), 7, "Should have at least 7 category definitions")
 
-	// Check that all definitions have required fields
+	// Check repositories definition
+	reposDef := definitions[0]
+	assert.Equal(t, "artifactory_repositories", reposDef.Name)
+	assert.NotEmpty(t, reposDef.Description)
+	assert.NotEmpty(t, reposDef.UsageExamples)
+	assert.Contains(t, reposDef.SemanticTags, "repository")
+	assert.Contains(t, reposDef.SemanticTags, "maven")
+
+	// Check search definition
+	var searchDef providers.AIOptimizedToolDefinition
 	for _, def := range definitions {
-		assert.NotEmpty(t, def.Name, "Definition should have a name")
-		assert.NotEmpty(t, def.Description, "Definition should have a description")
-		assert.NotEmpty(t, def.UsageExamples, "Definition should have usage examples")
-		assert.NotEmpty(t, def.SemanticTags, "Definition should have semantic tags")
+		if def.Name == "artifactory_search" {
+			searchDef = def
+			break
+		}
 	}
+	assert.Contains(t, searchDef.SemanticTags, "aql")
+	assert.Contains(t, searchDef.SemanticTags, "checksum")
+
+	// Check security definition
+	var securityDef providers.AIOptimizedToolDefinition
+	for _, def := range definitions {
+		if def.Name == "artifactory_security" {
+			securityDef = def
+			break
+		}
+	}
+	assert.Contains(t, securityDef.SemanticTags, "rbac")
+	assert.Contains(t, securityDef.SemanticTags, "token")
 }
 
 func TestHealthCheck(t *testing.T) {
@@ -344,6 +366,58 @@ func TestExecuteOperation_ListRepos(t *testing.T) {
 	assert.Len(t, repos, 2)
 }
 
+func TestExecuteOperation_CreateUser(t *testing.T) {
+	// Create a mock server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Handle common discovery endpoints
+		if handleCommonDiscoveryEndpointsForTests(t, w, r) {
+			return
+		}
+
+		assert.Equal(t, "/api/security/users/john.doe", r.URL.Path)
+		assert.Equal(t, "PUT", r.Method)
+
+		// Check request body
+		var body map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		assert.Equal(t, "john.doe", body["userName"])
+		assert.Equal(t, "john.doe@example.com", body["email"])
+
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"name":"john.doe","email":"john.doe@example.com","admin":false}`))
+	}))
+	defer server.Close()
+
+	logger := &observability.NoopLogger{}
+	provider := NewArtifactoryProvider(logger)
+
+	// Override the base URL
+	config := provider.GetDefaultConfiguration()
+	config.BaseURL = server.URL
+	provider.SetConfiguration(config)
+
+	// Create context with credentials
+	ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
+		Credentials: &providers.ProviderCredentials{
+			Token: "test-token",
+		},
+	})
+
+	// Execute operation
+	params := map[string]interface{}{
+		"userName": "john.doe",
+		"email":    "john.doe@example.com",
+		"password": "SecurePass123!",
+		"admin":    false,
+	}
+
+	result, err := provider.ExecuteOperation(ctx, "users/create", params)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+}
 
 func TestExecuteOperation_SearchArtifacts(t *testing.T) {
 	// Mock search results

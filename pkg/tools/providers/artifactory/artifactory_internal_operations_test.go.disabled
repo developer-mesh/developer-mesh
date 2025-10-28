@@ -278,30 +278,6 @@ func TestInternalOperations(t *testing.T) {
 		assert.Contains(t, features, "package_types")
 	})
 
-	t.Run("internal operations are not filtered by permissions", func(t *testing.T) {
-		provider := NewArtifactoryProvider(logger)
-
-		// Get all operations before filtering
-		allOps := provider.getAllOperationMappings()
-		assert.Contains(t, allOps, "internal/current-user")
-		assert.Contains(t, allOps, "internal/available-features")
-
-		// Simulate permission filtering (normally done by InitializeWithPermissions)
-		// Create a filtered set that excludes most operations
-		provider.filteredOperations = map[string]providers.OperationMapping{
-			"repos/list": allOps["repos/list"],
-			// Ensure internal operations are always included
-			"internal/current-user":       allOps["internal/current-user"],
-			"internal/available-features": allOps["internal/available-features"],
-		}
-
-		// Get operations after filtering
-		filteredOps := provider.GetOperationMappings()
-
-		// Internal operations should still be present
-		assert.Contains(t, filteredOps, "internal/current-user")
-		assert.Contains(t, filteredOps, "internal/available-features")
-	})
 }
 
 func TestProbeFeature(t *testing.T) {

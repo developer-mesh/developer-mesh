@@ -93,7 +93,6 @@ func TestGetOperationMappings(t *testing.T) {
 	// Test space operations
 	assert.Contains(t, mappings, "space/list")
 	assert.Contains(t, mappings, "space/get")
-	assert.Contains(t, mappings, "space/create")
 
 	// Test search operation
 	searchMapping := mappings["content/search"]

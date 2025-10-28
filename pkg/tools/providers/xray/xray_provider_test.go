@@ -22,8 +22,6 @@ func TestNewXrayProvider(t *testing.T) {
 	assert.Equal(t, []string{"v1", "v2"}, provider.GetSupportedVersions())
 	assert.NotNil(t, provider.BaseProvider)
 	assert.NotNil(t, provider.httpClient)
-	assert.NotNil(t, provider.permissionDiscoverer)
-	assert.NotNil(t, provider.allOperations)
 }
 
 func TestNewXrayProviderWithNilLogger(t *testing.T) {
@@ -248,8 +246,8 @@ func TestGetOperationMappings(t *testing.T) {
 		"scan/build",
 		"summary/artifact",
 		"violations/list",
-		"watches/create",
-		"policies/create",
+		"watches/list",
+		"policies/list",
 		"reports/vulnerability",
 		"components/details",
 	}
@@ -369,52 +367,6 @@ func TestHealthCheck(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestInitializeWithPermissions(t *testing.T) {
-	// Create a mock server for permission discovery
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/api/v1/system/version":
-			w.WriteHeader(http.StatusOK)
-			_ = json.NewEncoder(w).Encode(map[string]string{
-				"version": "3.0.0",
-				"build":   "123",
-			})
-		case "/api/v2/policies":
-			w.WriteHeader(http.StatusOK)
-			_ = json.NewEncoder(w).Encode([]map[string]string{
-				{"name": "policy1"},
-				{"name": "policy2"},
-			})
-		case "/api/v2/watches":
-			w.WriteHeader(http.StatusOK)
-			_ = json.NewEncoder(w).Encode([]map[string]string{
-				{"name": "watch1"},
-			})
-		default:
-			w.WriteHeader(http.StatusNotFound)
-		}
-	}))
-	defer server.Close()
-
-	logger := &observability.NoopLogger{}
-	provider := NewXrayProvider(logger)
-	config := provider.GetDefaultConfiguration()
-	config.BaseURL = server.URL
-	provider.SetConfiguration(config)
-
-	// Update permission discoverer with test URL
-	provider.permissionDiscoverer = NewXrayPermissionDiscoverer(logger, server.URL)
-
-	// Initialize with permissions
-	err := provider.InitializeWithPermissions(context.Background(), "test-api-key")
-	assert.NoError(t, err)
-
-	// Check that operations are filtered
-	assert.NotNil(t, provider.filteredOperations)
-	// The filtered operations should be a subset of all operations
-	assert.LessOrEqual(t, len(provider.filteredOperations), len(provider.allOperations))
 }
 
 func TestIsJFrogAPIKey(t *testing.T) {

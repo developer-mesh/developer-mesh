@@ -20,8 +20,10 @@ type ArtifactoryProvider struct {
 	*providers.BaseProvider
 	specCache            repository.OpenAPICacheRepository // For caching the OpenAPI spec
 	httpClient           *http.Client
-	permissionDiscoverer *ArtifactoryPermissionDiscoverer // Permission discovery integration
-	capabilityDiscoverer *CapabilityDiscoverer            // Capability reporting
+	permissionDiscoverer *ArtifactoryPermissionDiscoverer      // Permission discovery integration
+	filteredOperations   map[string]providers.OperationMapping // Filtered operations based on permissions
+	allOperations        map[string]providers.OperationMapping // Cache of all operations
+	capabilityDiscoverer *CapabilityDiscoverer                 // Capability reporting
 }
 
 // NewArtifactoryProvider creates a new Artifactory provider instance
@@ -42,10 +44,14 @@ func NewArtifactoryProvider(logger observability.Logger) *ArtifactoryProvider {
 		},
 		permissionDiscoverer: NewArtifactoryPermissionDiscoverer(logger, base.GetDefaultConfiguration().BaseURL),
 		capabilityDiscoverer: NewCapabilityDiscoverer(logger),
+		allOperations:        nil, // Will be initialized when first accessed
 	}
 
-	// Set operation mappings in base provider
-	provider.SetOperationMappings(provider.getAllOperationMappings())
+	// Store all operations for later filtering
+	provider.allOperations = provider.getAllOperationMappings()
+
+	// Set operation mappings in base provider (initially all operations)
+	provider.SetOperationMappings(provider.allOperations)
 	// Set configuration to ensure auth type is configured
 	provider.SetConfiguration(provider.GetDefaultConfiguration())
 	return provider
@@ -105,14 +111,24 @@ func (p *ArtifactoryProvider) GetToolDefinitions() []providers.ToolDefinition {
 	}
 }
 
-// GetOperationMappings returns Artifactory-specific operation mappings
+// GetOperationMappings returns Artifactory-specific operation mappings (may be filtered by permissions)
 func (p *ArtifactoryProvider) GetOperationMappings() map[string]providers.OperationMapping {
 	// Defensive nil check
 	if p == nil {
 		return nil
 	}
 
-	// Return all operations
+	// Return filtered operations if available
+	if p.filteredOperations != nil {
+		return p.filteredOperations
+	}
+
+	// Otherwise return all operations (backward compatibility)
+	if p.allOperations != nil {
+		return p.allOperations
+	}
+
+	// Fallback to getting all operations
 	return p.getAllOperationMappings()
 }
 
@@ -262,24 +278,295 @@ func (p *ArtifactoryProvider) getAllOperationMappings() map[string]providers.Ope
 		},
 
 		// User operations
+		"users/list": {
+			OperationID:    "listUsers",
+			Method:         "GET",
+			PathTemplate:   "/api/security/users",
+			RequiredParams: []string{},
+		},
+		"users/get": {
+			OperationID:    "getUser",
+			Method:         "GET",
+			PathTemplate:   "/api/security/users/{userName}",
+			RequiredParams: []string{"userName"},
+		},
+		"users/create": {
+			OperationID:    "createUser",
+			Method:         "PUT",
+			PathTemplate:   "/api/security/users/{userName}",
+			RequiredParams: []string{"userName", "email"},
+			OptionalParams: []string{"password", "admin", "profileUpdatable", "disableUIAccess", "internalPasswordDisabled", "groups"},
+		},
+		"users/update": {
+			OperationID:    "updateUser",
+			Method:         "POST",
+			PathTemplate:   "/api/security/users/{userName}",
+			RequiredParams: []string{"userName"},
+			OptionalParams: []string{"email", "admin", "profileUpdatable", "disableUIAccess", "groups"},
+		},
+		"users/delete": {
+			OperationID:    "deleteUser",
+			Method:         "DELETE",
+			PathTemplate:   "/api/security/users/{userName}",
+			RequiredParams: []string{"userName"},
+		},
+		"users/unlock": {
+			OperationID:    "unlockUser",
+			Method:         "POST",
+			PathTemplate:   "/api/security/unlockUsers/{userName}",
+			RequiredParams: []string{"userName"},
+		},
 
 		// Group operations
+		"groups/list": {
+			OperationID:    "listGroups",
+			Method:         "GET",
+			PathTemplate:   "/api/security/groups",
+			RequiredParams: []string{},
+		},
+		"groups/get": {
+			OperationID:    "getGroup",
+			Method:         "GET",
+			PathTemplate:   "/api/security/groups/{groupName}",
+			RequiredParams: []string{"groupName"},
+		},
+		"groups/create": {
+			OperationID:    "createGroup",
+			Method:         "PUT",
+			PathTemplate:   "/api/security/groups/{groupName}",
+			RequiredParams: []string{"groupName"},
+			OptionalParams: []string{"description", "autoJoin", "adminPrivileges", "realm", "realmAttributes"},
+		},
+		"groups/update": {
+			OperationID:    "updateGroup",
+			Method:         "POST",
+			PathTemplate:   "/api/security/groups/{groupName}",
+			RequiredParams: []string{"groupName"},
+			OptionalParams: []string{"description", "autoJoin", "adminPrivileges"},
+		},
+		"groups/delete": {
+			OperationID:    "deleteGroup",
+			Method:         "DELETE",
+			PathTemplate:   "/api/security/groups/{groupName}",
+			RequiredParams: []string{"groupName"},
+		},
 
 		// Permission operations
+		"permissions/list": {
+			OperationID:    "listPermissions",
+			Method:         "GET",
+			PathTemplate:   "/api/v2/security/permissions",
+			RequiredParams: []string{},
+		},
+		"permissions/get": {
+			OperationID:    "getPermission",
+			Method:         "GET",
+			PathTemplate:   "/api/v2/security/permissions/{permissionName}",
+			RequiredParams: []string{"permissionName"},
+		},
+		"permissions/create": {
+			OperationID:    "createPermission",
+			Method:         "POST",
+			PathTemplate:   "/api/v2/security/permissions",
+			RequiredParams: []string{"name"},
+			OptionalParams: []string{"repositories", "users", "groups", "actions"},
+		},
+		"permissions/update": {
+			OperationID:    "updatePermission",
+			Method:         "PUT",
+			PathTemplate:   "/api/v2/security/permissions/{permissionName}",
+			RequiredParams: []string{"permissionName"},
+			OptionalParams: []string{"repositories", "users", "groups", "actions"},
+		},
+		"permissions/delete": {
+			OperationID:    "deletePermission",
+			Method:         "DELETE",
+			PathTemplate:   "/api/v2/security/permissions/{permissionName}",
+			RequiredParams: []string{"permissionName"},
+		},
 
 		// Token operations
+		"tokens/create": {
+			OperationID:    "createAccessToken",
+			Method:         "POST",
+			PathTemplate:   "/api/security/token",
+			RequiredParams: []string{"username"},
+			OptionalParams: []string{"scope", "expires_in", "refreshable", "audience"},
+		},
+		"tokens/revoke": {
+			OperationID:    "revokeToken",
+			Method:         "POST",
+			PathTemplate:   "/api/security/token/revoke",
+			RequiredParams: []string{"token"},
+		},
+		"tokens/refresh": {
+			OperationID:    "refreshToken",
+			Method:         "POST",
+			PathTemplate:   "/api/security/token/refresh",
+			RequiredParams: []string{"grant_type", "refresh_token"},
+			OptionalParams: []string{"access_token"},
+		},
 
 		// Project operations - Enterprise/Pro feature
 		// Note: Projects API is available at /access/api/v1/projects
 		// Requires Platform Pro or Enterprise license
+		"projects/list": {
+			OperationID:    "listProjects",
+			Method:         "GET",
+			PathTemplate:   "/access/api/v1/projects",
+			RequiredParams: []string{},
+			OptionalParams: []string{"pageNum", "numOfRows", "orderBy"},
+		},
+		"projects/get": {
+			OperationID:    "getProject",
+			Method:         "GET",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}",
+			RequiredParams: []string{"projectKey"},
+		},
+		"projects/create": {
+			OperationID:    "createProject",
+			Method:         "POST",
+			PathTemplate:   "/access/api/v1/projects",
+			RequiredParams: []string{"projectKey", "displayName"},
+			OptionalParams: []string{"description", "adminPrivileges", "storageQuotaBytes", "softLimit"},
+		},
+		"projects/update": {
+			OperationID:    "updateProject",
+			Method:         "PUT",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}",
+			RequiredParams: []string{"projectKey"},
+			OptionalParams: []string{"displayName", "description", "adminPrivileges", "storageQuotaBytes", "softLimit"},
+		},
+		"projects/delete": {
+			OperationID:    "deleteProject",
+			Method:         "DELETE",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}",
+			RequiredParams: []string{"projectKey"},
+		},
 
 		// Project membership operations
+		"projects/users/list": {
+			OperationID:    "listProjectUsers",
+			Method:         "GET",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}/users",
+			RequiredParams: []string{"projectKey"},
+			OptionalParams: []string{"pageNum", "numOfRows"},
+		},
+		"projects/users/get": {
+			OperationID:    "getProjectUser",
+			Method:         "GET",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}/users/{username}",
+			RequiredParams: []string{"projectKey", "username"},
+		},
+		"projects/users/add": {
+			OperationID:    "addProjectUser",
+			Method:         "PUT",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}/users/{username}",
+			RequiredParams: []string{"projectKey", "username"},
+			OptionalParams: []string{"roles"},
+		},
+		"projects/users/update": {
+			OperationID:    "updateProjectUser",
+			Method:         "PUT",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}/users/{username}",
+			RequiredParams: []string{"projectKey", "username", "roles"},
+		},
+		"projects/users/remove": {
+			OperationID:    "removeProjectUser",
+			Method:         "DELETE",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}/users/{username}",
+			RequiredParams: []string{"projectKey", "username"},
+		},
 
 		// Project group operations
+		"projects/groups/list": {
+			OperationID:    "listProjectGroups",
+			Method:         "GET",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}/groups",
+			RequiredParams: []string{"projectKey"},
+			OptionalParams: []string{"pageNum", "numOfRows"},
+		},
+		"projects/groups/get": {
+			OperationID:    "getProjectGroup",
+			Method:         "GET",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}/groups/{groupName}",
+			RequiredParams: []string{"projectKey", "groupName"},
+		},
+		"projects/groups/add": {
+			OperationID:    "addProjectGroup",
+			Method:         "PUT",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}/groups/{groupName}",
+			RequiredParams: []string{"projectKey", "groupName"},
+			OptionalParams: []string{"roles"},
+		},
+		"projects/groups/update": {
+			OperationID:    "updateProjectGroup",
+			Method:         "PUT",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}/groups/{groupName}",
+			RequiredParams: []string{"projectKey", "groupName", "roles"},
+		},
+		"projects/groups/remove": {
+			OperationID:    "removeProjectGroup",
+			Method:         "DELETE",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}/groups/{groupName}",
+			RequiredParams: []string{"projectKey", "groupName"},
+		},
 
 		// Project roles operations
+		"projects/roles/list": {
+			OperationID:    "listProjectRoles",
+			Method:         "GET",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}/roles",
+			RequiredParams: []string{"projectKey"},
+		},
+		"projects/roles/get": {
+			OperationID:    "getProjectRole",
+			Method:         "GET",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}/roles/{roleName}",
+			RequiredParams: []string{"projectKey", "roleName"},
+		},
+		"projects/roles/create": {
+			OperationID:    "createProjectRole",
+			Method:         "POST",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}/roles",
+			RequiredParams: []string{"projectKey", "name", "type"},
+			OptionalParams: []string{"environments", "actions", "description"},
+		},
+		"projects/roles/update": {
+			OperationID:    "updateProjectRole",
+			Method:         "PUT",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}/roles/{roleName}",
+			RequiredParams: []string{"projectKey", "roleName"},
+			OptionalParams: []string{"environments", "actions", "description"},
+		},
+		"projects/roles/delete": {
+			OperationID:    "deleteProjectRole",
+			Method:         "DELETE",
+			PathTemplate:   "/access/api/v1/projects/{projectKey}/roles/{roleName}",
+			RequiredParams: []string{"projectKey", "roleName"},
+		},
 
 		// Project-scoped repository operations
+		"projects/repos/assign": {
+			OperationID:    "assignRepoToProject",
+			Method:         "PUT",
+			PathTemplate:   "/access/api/v1/projects/_/attach/repositories/{repoKey}/{projectKey}",
+			RequiredParams: []string{"repoKey", "projectKey"},
+			OptionalParams: []string{"force"},
+		},
+		"projects/repos/unassign": {
+			OperationID:    "unassignRepoFromProject",
+			Method:         "DELETE",
+			PathTemplate:   "/access/api/v1/projects/_/attach/repositories/{repoKey}",
+			RequiredParams: []string{"repoKey"},
+		},
+		"projects/repos/list": {
+			OperationID:    "listProjectRepositories",
+			Method:         "GET",
+			PathTemplate:   "/api/repositories?project={projectKey}",
+			RequiredParams: []string{"projectKey"},
+			OptionalParams: []string{"type", "packageType"},
+		},
 
 		// System operations
 		"system/info": {
@@ -428,6 +715,29 @@ func (p *ArtifactoryProvider) GetDefaultConfiguration() providers.ProviderConfig
 				Operations: []string{
 					"builds/list", "builds/get", "builds/runs",
 					"builds/upload", "builds/promote", "builds/delete",
+				},
+			},
+			{
+				Name:        "projects",
+				DisplayName: "Project Management",
+				Description: "Project-based access control and organization (Pro/Enterprise feature)",
+				Operations: []string{
+					"projects/list", "projects/get", "projects/create", "projects/update", "projects/delete",
+					"projects/users/list", "projects/users/get", "projects/users/add", "projects/users/update", "projects/users/remove",
+					"projects/groups/list", "projects/groups/get", "projects/groups/add", "projects/groups/update", "projects/groups/remove",
+					"projects/roles/list", "projects/roles/get", "projects/roles/create", "projects/roles/update", "projects/roles/delete",
+					"projects/repos/assign", "projects/repos/unassign", "projects/repos/list",
+				},
+			},
+			{
+				Name:        "security",
+				DisplayName: "Security Management",
+				Description: "User, group, and permission management",
+				Operations: []string{
+					"users/list", "users/get", "users/create", "users/update", "users/delete", "users/unlock",
+					"groups/list", "groups/get", "groups/create", "groups/update", "groups/delete",
+					"permissions/list", "permissions/get", "permissions/create", "permissions/update", "permissions/delete",
+					"tokens/create", "tokens/revoke", "tokens/refresh",
 				},
 			},
 			{
@@ -580,6 +890,7 @@ func (p *ArtifactoryProvider) GetAIOptimizedDefinitionsLegacy() []providers.AIOp
 						"parameters": map[string]interface{}{
 							"query": `items.find({
 								"repo": "libs-release-local",
+								"created": {"$gt": "2025-01-01"},
 								"size": {"$gt": 10000}
 							})`,
 						},
@@ -1152,6 +1463,50 @@ func (p *ArtifactoryProvider) ValidateCredentials(ctx context.Context, creds map
 	return nil
 }
 
+// InitializeWithPermissions triggers permission discovery and operation filtering
+func (p *ArtifactoryProvider) InitializeWithPermissions(ctx context.Context, apiKey string) error {
+	// Defensive nil checks
+	if ctx == nil {
+		return fmt.Errorf("artifactory InitializeWithPermissions: context cannot be nil")
+	}
+	if p == nil {
+		return fmt.Errorf("artifactory InitializeWithPermissions: provider not initialized")
+	}
+	if apiKey == "" {
+		return fmt.Errorf("artifactory InitializeWithPermissions: API key cannot be empty")
+	}
+	if p.permissionDiscoverer == nil {
+		return fmt.Errorf("artifactory InitializeWithPermissions: permission discoverer not initialized")
+	}
+
+	// Discover permissions for the given API key
+	permissions, err := p.permissionDiscoverer.DiscoverPermissions(ctx, apiKey)
+	if err != nil {
+		return fmt.Errorf("failed to discover permissions: %w", err)
+	}
+
+	// Filter operations based on discovered permissions
+	p.filteredOperations = p.permissionDiscoverer.FilterOperationsByPermissions(
+		p.allOperations,
+		permissions,
+	)
+
+	// Update base provider with filtered operations
+	p.SetOperationMappings(p.filteredOperations)
+
+	// Log the initialization results
+	if p.BaseProvider != nil && p.GetLogger() != nil {
+		p.GetLogger().Info("Initialized Artifactory provider with filtered operations", map[string]interface{}{
+			"total_operations":   len(p.allOperations),
+			"allowed_operations": len(p.filteredOperations),
+			"is_admin":           permissions.IsAdmin,
+			"feature_count":      len(permissions.EnabledFeatures),
+			"repo_count":         len(permissions.Repositories),
+		})
+	}
+
+	return nil
+}
 
 // handleGetCurrentUser handles the internal/current-user operation
 // This encapsulates the complex 2-step process of getting user details
@@ -1265,6 +1620,7 @@ func (p *ArtifactoryProvider) handleGetAvailableFeatures(ctx context.Context, pa
 	// Include information about operations available
 	operations := p.GetOperationMappings()
 	features["operations_count"] = len(operations)
+	features["filtered_operations"] = p.filteredOperations != nil
 
 	return features, nil
 }

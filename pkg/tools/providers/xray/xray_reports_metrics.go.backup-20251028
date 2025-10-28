@@ -156,6 +156,43 @@ func (p *XrayProvider) AddReportsAndMetricsOperations() map[string]providers.Ope
 			PathTemplate:   "/api/v2/reports/{report_id}",
 			RequiredParams: []string{"report_id"},
 		},
+		"reports/delete": {
+			OperationID:    "DeleteReport",
+			Method:         "DELETE",
+			PathTemplate:   "/api/v2/reports/{report_id}",
+			RequiredParams: []string{"report_id"},
+		},
+		"reports/schedule": {
+			OperationID:    "ScheduleReport",
+			Method:         "POST",
+			PathTemplate:   "/api/v2/reports/schedule",
+			RequiredParams: []string{"name", "report_type", "schedule"},
+			OptionalParams: []string{
+				"description",      // Report description
+				"filters",          // Report filters
+				"repositories",     // Repositories to include
+				"format",           // Output format
+				"email_recipients", // Email addresses for delivery
+				"webhook_url",      // Webhook for notifications
+				"retention_days",   // How long to keep reports
+			},
+		},
+		"reports/schedule/list": {
+			OperationID:  "ListScheduledReports",
+			Method:       "GET",
+			PathTemplate: "/api/v2/reports/schedules",
+			OptionalParams: []string{
+				"active", // Filter by active status
+				"limit",  // Pagination
+				"offset", // Pagination
+			},
+		},
+		"reports/schedule/delete": {
+			OperationID:    "DeleteScheduledReport",
+			Method:         "DELETE",
+			PathTemplate:   "/api/v2/reports/schedules/{schedule_id}",
+			RequiredParams: []string{"schedule_id"},
+		},
 
 		// Metrics and Analytics Operations
 		"metrics/violations": {

@@ -292,6 +292,78 @@ func TestArtifactoryPermissionDiscoverer_FilterOperationsByPermissions(t *testin
 	}
 }
 
+func TestArtifactoryProvider_InitializeWithPermissions(t *testing.T) {
+	logger := &observability.NoopLogger{}
+
+	// Create test server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/security/apiKey":
+			w.WriteHeader(http.StatusOK)
+			if err := json.NewEncoder(w).Encode(map[string]interface{}{
+				"username": "testuser",
+			}); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+		case "/api/security/users/testuser":
+			w.WriteHeader(http.StatusOK)
+			if err := json.NewEncoder(w).Encode(map[string]interface{}{
+				"name":   "Test User",
+				"email":  "test@example.com",
+				"admin":  false,
+				"groups": []string{"developers"},
+			}); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+		case "/api/repositories":
+			w.WriteHeader(http.StatusOK)
+			if err := json.NewEncoder(w).Encode([]map[string]interface{}{
+				{"key": "test-repo", "type": "LOCAL"},
+			}); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+		case "/api/system/configuration":
+			w.WriteHeader(http.StatusForbidden)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	// Create provider
+	provider := NewArtifactoryProvider(logger)
+
+	// Update base URL to use test server
+	config := provider.GetDefaultConfiguration()
+	config.BaseURL = server.URL
+	provider.SetConfiguration(config)
+
+	// Update permission discoverer to use test server
+	provider.permissionDiscoverer = NewArtifactoryPermissionDiscoverer(logger, server.URL)
+
+	// Test initialization with permissions
+	ctx := context.Background()
+	err := provider.InitializeWithPermissions(ctx, "test-api-key")
+	require.NoError(t, err)
+
+	// Verify operations are filtered
+	operations := provider.GetOperationMappings()
+	assert.NotNil(t, operations)
+
+	// Should have filtered operations
+	assert.NotNil(t, provider.filteredOperations)
+	assert.Greater(t, len(provider.allOperations), len(provider.filteredOperations),
+		"Filtered operations should be less than all operations for non-admin user")
+
+	// Verify specific operations
+	// Read operations should be allowed
+	_, hasReposList := operations["repos/list"]
+	assert.True(t, hasReposList, "repos/list should be allowed")
+
+	// Admin operations should be blocked
+	_, hasReposCreate := operations["repos/create"]
+	assert.False(t, hasReposCreate, "repos/create should not be allowed for non-admin")
+}
 
 func TestArtifactoryProvider_GetOperationMappings(t *testing.T) {
 	logger := &observability.NoopLogger{}
@@ -308,6 +380,25 @@ func TestArtifactoryProvider_GetOperationMappings(t *testing.T) {
 		assert.Contains(t, operations, "artifacts/upload")
 	})
 
+	t.Run("returns filtered operations after initialization", func(t *testing.T) {
+		// Simulate filtered operations
+		provider.filteredOperations = map[string]providers.OperationMapping{
+			"repos/list": {
+				OperationID: "listRepositories",
+				Method:      "GET",
+			},
+			"artifacts/download": {
+				OperationID: "downloadArtifact",
+				Method:      "GET",
+			},
+		}
+
+		operations := provider.GetOperationMappings()
+		assert.Equal(t, 2, len(operations), "Should return only filtered operations")
+		assert.Contains(t, operations, "repos/list")
+		assert.Contains(t, operations, "artifacts/download")
+		assert.NotContains(t, operations, "repos/create", "Create operation should be filtered out")
+	})
 }
 
 // Helper type for mock responses

@@ -308,6 +308,25 @@ func TestArtifactoryProvider_GetOperationMappings(t *testing.T) {
 		assert.Contains(t, operations, "artifacts/upload")
 	})
 
+	t.Run("returns filtered operations after initialization", func(t *testing.T) {
+		// Simulate filtered operations
+		provider.filteredOperations = map[string]providers.OperationMapping{
+			"repos/list": {
+				OperationID: "listRepositories",
+				Method:      "GET",
+			},
+			"artifacts/download": {
+				OperationID: "downloadArtifact",
+				Method:      "GET",
+			},
+		}
+
+		operations := provider.GetOperationMappings()
+		assert.Equal(t, 2, len(operations), "Should return only filtered operations")
+		assert.Contains(t, operations, "repos/list")
+		assert.Contains(t, operations, "artifacts/download")
+		assert.NotContains(t, operations, "repos/create", "Create operation should be filtered out")
+	})
 }
 
 // Helper type for mock responses

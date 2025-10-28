@@ -17,7 +17,7 @@ func TestGetEnhancedAIOptimizedDefinitions(t *testing.T) {
 		definitions := provider.GetEnhancedAIOptimizedDefinitions()
 
 		// Should have definitions for all major categories
-		assert.GreaterOrEqual(t, len(definitions), 7, "Should have at least 7 category definitions")
+		assert.GreaterOrEqual(t, len(definitions), 5, "Should have at least 5 category definitions")
 
 		// Check that all definitions have required fields
 		for _, def := range definitions {

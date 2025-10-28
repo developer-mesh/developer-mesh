@@ -9,8 +9,6 @@ func GetOperationDescription(operationName string) string {
 		"get_repository":      "Retrieve detailed information about a GitHub repository including stats, settings, and metadata",
 		"list_repositories":   "List repositories for a user or organization with filtering and pagination options",
 		"create_repository":   "Create a new GitHub repository with specified settings and configuration",
-		"update_repository":   "Update repository settings including description, visibility, and features",
-		"delete_repository":   "Permanently delete a GitHub repository (requires admin permissions)",
 		"fork_repository":     "Create a fork of a repository to your account or organization",
 		"watch_repository":    "Subscribe to notifications for all repository activity",
 		"unwatch_repository":  "Unsubscribe from repository notifications",
@@ -155,7 +153,6 @@ func GetOperationMetadata(operationName string) map[string]interface{} {
 
 	// Mark destructive operations
 	destructiveOps := []string{
-		"delete_repository",
 		"delete_file",
 		"delete_ref",
 		"delete_gist",
@@ -171,7 +168,7 @@ func GetOperationMetadata(operationName string) map[string]interface{} {
 
 	// Add required scopes based on operation type
 	switch operationName {
-	case "create_repository", "delete_repository", "update_repository":
+	case "create_repository":
 		metadata["scopes"] = []string{"repo"}
 	case "create_issue", "update_issue", "add_issue_comment":
 		metadata["scopes"] = []string{"repo", "public_repo"}

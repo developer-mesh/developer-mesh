@@ -114,12 +114,6 @@ func TestSearchComponentsByCVEs(t *testing.T) {
 		"cves": []string{"CVE-2021-44228"},
 	}
 
-	// Add the operations to the provider
-	componentOps := provider.AddComponentIntelligenceOperations()
-	for key, op := range componentOps {
-		provider.allOperations[key] = op
-	}
-
 	result, err := provider.ExecuteOperation(ctx, "components/searchByCves", params)
 	require.NoError(t, err)
 	assert.NotNil(t, result)
@@ -202,12 +196,6 @@ func TestGetDependencyGraph(t *testing.T) {
 		"artifact_path": "npm-local/express/-/express-4.17.1.tgz",
 	}
 
-	// Add the operations to the provider
-	componentOps := provider.AddComponentIntelligenceOperations()
-	for key, op := range componentOps {
-		provider.allOperations[key] = op
-	}
-
 	result, err := provider.ExecuteOperation(ctx, "graph/artifact", params)
 	require.NoError(t, err)
 	assert.NotNil(t, result)
@@ -274,12 +262,6 @@ func TestExportComponentDetails(t *testing.T) {
 		"violations":     true,
 		"license":        true,
 		"security":       true,
-	}
-
-	// Add the operations to the provider
-	componentOps := provider.AddComponentIntelligenceOperations()
-	for key, op := range componentOps {
-		provider.allOperations[key] = op
 	}
 
 	result, err := provider.ExecuteOperation(ctx, "components/exportDetails", params)
@@ -584,13 +566,7 @@ func TestComponentIntelligenceIntegration(t *testing.T) {
 	logger := &observability.NoopLogger{}
 	provider := NewXrayProvider(logger)
 
-	// Add component intelligence operations
-	componentOps := provider.AddComponentIntelligenceOperations()
-	for key, op := range componentOps {
-		provider.allOperations[key] = op
-	}
-
-	// Verify all operations are accessible
+	// Verify all operations are accessible (component intelligence operations are automatically included)
 	allOps := provider.GetOperationMappings()
 
 	// Check that component intelligence operations are included

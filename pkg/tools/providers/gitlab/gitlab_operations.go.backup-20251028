@@ -11,6 +11,26 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 
 	// === PROJECT OPERATIONS ===
 
+	// Update project
+	mappings["projects/update"] = providers.OperationMapping{
+		OperationID:    "updateProject",
+		Method:         "PUT",
+		PathTemplate:   "/projects/{id}",
+		RequiredParams: []string{"id"},
+		OptionalParams: []string{"name", "path", "description", "visibility", "default_branch",
+			"issues_enabled", "merge_requests_enabled", "wiki_enabled", "snippets_enabled",
+			"container_registry_enabled", "shared_runners_enabled", "public_builds"},
+	}
+
+	// Delete project
+	mappings["projects/delete"] = providers.OperationMapping{
+		OperationID:    "deleteProject",
+		Method:         "DELETE",
+		PathTemplate:   "/projects/{id}",
+		RequiredParams: []string{"id"},
+		OptionalParams: []string{},
+	}
+
 	// Fork project
 	mappings["projects/fork"] = providers.OperationMapping{
 		OperationID:    "forkProject",
@@ -38,6 +58,24 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		OptionalParams: []string{},
 	}
 
+	// Archive project
+	mappings["projects/archive"] = providers.OperationMapping{
+		OperationID:    "archiveProject",
+		Method:         "POST",
+		PathTemplate:   "/projects/{id}/archive",
+		RequiredParams: []string{"id"},
+		OptionalParams: []string{},
+	}
+
+	// Unarchive project
+	mappings["projects/unarchive"] = providers.OperationMapping{
+		OperationID:    "unarchiveProject",
+		Method:         "POST",
+		PathTemplate:   "/projects/{id}/unarchive",
+		RequiredParams: []string{"id"},
+		OptionalParams: []string{},
+	}
+
 	// === ISSUE OPERATIONS ===
 
 	// Update issue
@@ -48,6 +86,15 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		RequiredParams: []string{"id", "issue_iid"},
 		OptionalParams: []string{"title", "description", "state_event", "assignee_ids",
 			"milestone_id", "labels", "due_date", "weight", "confidential"},
+	}
+
+	// Delete issue
+	mappings["issues/delete"] = providers.OperationMapping{
+		OperationID:    "deleteIssue",
+		Method:         "DELETE",
+		PathTemplate:   "/projects/{id}/issues/{issue_iid}",
+		RequiredParams: []string{"id", "issue_iid"},
+		OptionalParams: []string{},
 	}
 
 	// Close issue (convenience operation)
@@ -129,6 +176,15 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		OptionalParams: []string{"skip_ci"},
 	}
 
+	// Delete merge request
+	mappings["merge_requests/delete"] = providers.OperationMapping{
+		OperationID:    "deleteMergeRequest",
+		Method:         "DELETE",
+		PathTemplate:   "/projects/{id}/merge_requests/{merge_request_iid}",
+		RequiredParams: []string{"id", "merge_request_iid"},
+		OptionalParams: []string{},
+	}
+
 	// === PIPELINE OPERATIONS ===
 
 	// Cancel pipeline
@@ -145,6 +201,15 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		OperationID:    "retryPipeline",
 		Method:         "POST",
 		PathTemplate:   "/projects/{id}/pipelines/{pipeline_id}/retry",
+		RequiredParams: []string{"id", "pipeline_id"},
+		OptionalParams: []string{},
+	}
+
+	// Delete pipeline
+	mappings["pipelines/delete"] = providers.OperationMapping{
+		OperationID:    "deletePipeline",
+		Method:         "DELETE",
+		PathTemplate:   "/projects/{id}/pipelines/{pipeline_id}",
 		RequiredParams: []string{"id", "pipeline_id"},
 		OptionalParams: []string{},
 	}
@@ -192,6 +257,15 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		OperationID:    "getJobArtifacts",
 		Method:         "GET",
 		PathTemplate:   "/projects/{id}/jobs/{job_id}/artifacts",
+		RequiredParams: []string{"id", "job_id"},
+		OptionalParams: []string{},
+	}
+
+	// Erase job
+	mappings["jobs/erase"] = providers.OperationMapping{
+		OperationID:    "eraseJob",
+		Method:         "POST",
+		PathTemplate:   "/projects/{id}/jobs/{job_id}/erase",
 		RequiredParams: []string{"id", "job_id"},
 		OptionalParams: []string{},
 	}
@@ -264,6 +338,34 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		OptionalParams: []string{},
 	}
 
+	// Delete branch
+	mappings["branches/delete"] = providers.OperationMapping{
+		OperationID:    "deleteBranch",
+		Method:         "DELETE",
+		PathTemplate:   "/projects/{id}/repository/branches/{branch}",
+		RequiredParams: []string{"id", "branch"},
+		OptionalParams: []string{},
+	}
+
+	// Protect branch
+	mappings["branches/protect"] = providers.OperationMapping{
+		OperationID:    "protectBranch",
+		Method:         "POST",
+		PathTemplate:   "/projects/{id}/protected_branches",
+		RequiredParams: []string{"id", "name"},
+		OptionalParams: []string{"push_access_level", "merge_access_level",
+			"unprotect_access_level", "allow_force_push", "code_owner_approval_required"},
+	}
+
+	// Unprotect branch
+	mappings["branches/unprotect"] = providers.OperationMapping{
+		OperationID:    "unprotectBranch",
+		Method:         "DELETE",
+		PathTemplate:   "/projects/{id}/protected_branches/{name}",
+		RequiredParams: []string{"id", "name"},
+		OptionalParams: []string{},
+	}
+
 	// === TAG OPERATIONS ===
 
 	// Get tag
@@ -282,6 +384,15 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		PathTemplate:   "/projects/{id}/repository/tags",
 		RequiredParams: []string{"id", "tag_name", "ref"},
 		OptionalParams: []string{"message", "release_description"},
+	}
+
+	// Delete tag
+	mappings["tags/delete"] = providers.OperationMapping{
+		OperationID:    "deleteTag",
+		Method:         "DELETE",
+		PathTemplate:   "/projects/{id}/repository/tags/{tag_name}",
+		RequiredParams: []string{"id", "tag_name"},
+		OptionalParams: []string{},
 	}
 
 	// === COMMIT OPERATIONS ===
@@ -330,6 +441,37 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		PathTemplate:   "/projects/{id}/repository/commits/{sha}/comments",
 		RequiredParams: []string{"id", "sha", "note"},
 		OptionalParams: []string{"path", "line", "line_type"},
+	}
+
+	// === GROUP OPERATIONS ===
+
+	// Create group
+	mappings["groups/create"] = providers.OperationMapping{
+		OperationID:    "createGroup",
+		Method:         "POST",
+		PathTemplate:   "/groups",
+		RequiredParams: []string{"name", "path"},
+		OptionalParams: []string{"description", "visibility", "parent_id",
+			"auto_devops_enabled", "emails_disabled"},
+	}
+
+	// Update group
+	mappings["groups/update"] = providers.OperationMapping{
+		OperationID:    "updateGroup",
+		Method:         "PUT",
+		PathTemplate:   "/groups/{id}",
+		RequiredParams: []string{"id"},
+		OptionalParams: []string{"name", "path", "description", "visibility",
+			"auto_devops_enabled", "emails_disabled"},
+	}
+
+	// Delete group
+	mappings["groups/delete"] = providers.OperationMapping{
+		OperationID:    "deleteGroup",
+		Method:         "DELETE",
+		PathTemplate:   "/groups/{id}",
+		RequiredParams: []string{"id"},
+		OptionalParams: []string{},
 	}
 
 	// === WIKI OPERATIONS ===
@@ -443,6 +585,71 @@ func getExtendedOperationMappings() map[string]providers.OperationMapping {
 		Method:         "GET",
 		PathTemplate:   "/projects/{id}/deployments/{deployment_id}",
 		RequiredParams: []string{"id", "deployment_id"},
+		OptionalParams: []string{},
+	}
+
+	// Create deployment
+	mappings["deployments/create"] = providers.OperationMapping{
+		OperationID:    "createDeployment",
+		Method:         "POST",
+		PathTemplate:   "/projects/{id}/deployments",
+		RequiredParams: []string{"id", "environment", "sha", "ref"},
+		OptionalParams: []string{"tag", "status"},
+	}
+
+	// Update deployment
+	mappings["deployments/update"] = providers.OperationMapping{
+		OperationID:    "updateDeployment",
+		Method:         "PUT",
+		PathTemplate:   "/projects/{id}/deployments/{deployment_id}",
+		RequiredParams: []string{"id", "deployment_id"},
+		OptionalParams: []string{"status"},
+	}
+
+	// === MEMBER OPERATIONS ===
+
+	// List project members
+	mappings["members/list"] = providers.OperationMapping{
+		OperationID:    "listProjectMembers",
+		Method:         "GET",
+		PathTemplate:   "/projects/{id}/members",
+		RequiredParams: []string{"id"},
+		OptionalParams: []string{"query", "user_ids"},
+	}
+
+	// Get project member
+	mappings["members/get"] = providers.OperationMapping{
+		OperationID:    "getProjectMember",
+		Method:         "GET",
+		PathTemplate:   "/projects/{id}/members/{user_id}",
+		RequiredParams: []string{"id", "user_id"},
+		OptionalParams: []string{},
+	}
+
+	// Add project member
+	mappings["members/add"] = providers.OperationMapping{
+		OperationID:    "addProjectMember",
+		Method:         "POST",
+		PathTemplate:   "/projects/{id}/members",
+		RequiredParams: []string{"id", "user_id", "access_level"},
+		OptionalParams: []string{"expires_at"},
+	}
+
+	// Update project member
+	mappings["members/update"] = providers.OperationMapping{
+		OperationID:    "updateProjectMember",
+		Method:         "PUT",
+		PathTemplate:   "/projects/{id}/members/{user_id}",
+		RequiredParams: []string{"id", "user_id", "access_level"},
+		OptionalParams: []string{"expires_at"},
+	}
+
+	// Remove project member
+	mappings["members/remove"] = providers.OperationMapping{
+		OperationID:    "removeProjectMember",
+		Method:         "DELETE",
+		PathTemplate:   "/projects/{id}/members/{user_id}",
+		RequiredParams: []string{"id", "user_id"},
 		OptionalParams: []string{},
 	}
 

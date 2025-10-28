@@ -178,8 +178,8 @@ func (p *ConfluenceProvider) GetDefaultConfiguration() providers.ProviderConfig 
 			{
 				Name:        "space",
 				DisplayName: "Space Management",
-				Description: "View Confluence spaces",
-				Operations:  []string{"space/list", "space/get"},
+				Description: "Manage Confluence spaces",
+				Operations:  []string{"space/list", "space/get", "space/create", "space/update"},
 			},
 			{
 				Name:        "attachment",

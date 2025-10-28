@@ -94,6 +94,26 @@ func (p *ConfluenceProvider) GetOperationMappings() map[string]providers.Operati
 			RequiredParams: []string{"spaceKey"},
 			OptionalParams: []string{"expand"},
 		},
+		"space/create": {
+			OperationID:    "createSpace",
+			Method:         "POST",
+			PathTemplate:   "/space",
+			RequiredParams: []string{"key", "name"},
+			OptionalParams: []string{"description", "permissions", "icon", "theme"},
+		},
+		"space/update": {
+			OperationID:    "updateSpace",
+			Method:         "PUT",
+			PathTemplate:   "/space/{spaceKey}",
+			RequiredParams: []string{"spaceKey", "name"},
+			OptionalParams: []string{"description", "homepage"},
+		},
+		"space/delete": {
+			OperationID:    "deleteSpace",
+			Method:         "DELETE",
+			PathTemplate:   "/space/{spaceKey}",
+			RequiredParams: []string{"spaceKey"},
+		},
 		"space/content": {
 			OperationID:    "getSpaceContent",
 			Method:         "GET",
@@ -239,6 +259,13 @@ func (p *ConfluenceProvider) GetOperationMappings() map[string]providers.Operati
 			RequiredParams: []string{},
 			OptionalParams: []string{"expand"},
 		},
+		"user/groups": {
+			OperationID:    "getUserGroups",
+			Method:         "GET",
+			PathTemplate:   "/user/memberof",
+			RequiredParams: []string{"accountId"},
+			OptionalParams: []string{"limit", "start"},
+		},
 		"user/watch": {
 			OperationID:    "watchContent",
 			Method:         "POST",
@@ -250,6 +277,29 @@ func (p *ConfluenceProvider) GetOperationMappings() map[string]providers.Operati
 			Method:         "DELETE",
 			PathTemplate:   "/user/watch/content/{contentId}",
 			RequiredParams: []string{"contentId", "accountId"},
+		},
+
+		// Group operations
+		"group/list": {
+			OperationID:    "getGroups",
+			Method:         "GET",
+			PathTemplate:   "/group",
+			RequiredParams: []string{},
+			OptionalParams: []string{"limit", "start"},
+		},
+		"group/get": {
+			OperationID:    "getGroup",
+			Method:         "GET",
+			PathTemplate:   "/group/{groupName}",
+			RequiredParams: []string{"groupName"},
+			OptionalParams: []string{"expand"},
+		},
+		"group/members": {
+			OperationID:    "getGroupMembers",
+			Method:         "GET",
+			PathTemplate:   "/group/{groupName}/member",
+			RequiredParams: []string{"groupName"},
+			OptionalParams: []string{"limit", "start", "expand"},
 		},
 
 		// Permissions operations
@@ -267,6 +317,20 @@ func (p *ConfluenceProvider) GetOperationMappings() map[string]providers.Operati
 			RequiredParams: []string{"id"},
 			OptionalParams: []string{"expand", "limit", "start"},
 		},
+		"permission/add": {
+			OperationID:    "addContentRestriction",
+			Method:         "POST",
+			PathTemplate:   "/content/{id}/restriction",
+			RequiredParams: []string{"id", "operation", "restrictions"},
+			OptionalParams: []string{},
+		},
+		"permission/remove": {
+			OperationID:    "deleteContentRestriction",
+			Method:         "DELETE",
+			PathTemplate:   "/content/{id}/restriction",
+			RequiredParams: []string{"id"},
+			OptionalParams: []string{"expand"},
+		},
 
 		// Template operations
 		"template/list": {
@@ -282,6 +346,26 @@ func (p *ConfluenceProvider) GetOperationMappings() map[string]providers.Operati
 			PathTemplate:   "/template/{contentTemplateId}",
 			RequiredParams: []string{"contentTemplateId"},
 			OptionalParams: []string{},
+		},
+		"template/create": {
+			OperationID:    "createContentTemplate",
+			Method:         "POST",
+			PathTemplate:   "/template",
+			RequiredParams: []string{"name", "templateType", "body"},
+			OptionalParams: []string{"description", "labels", "space"},
+		},
+		"template/update": {
+			OperationID:    "updateContentTemplate",
+			Method:         "PUT",
+			PathTemplate:   "/template/{contentTemplateId}",
+			RequiredParams: []string{"contentTemplateId", "name", "templateType", "body"},
+			OptionalParams: []string{"description", "labels", "space"},
+		},
+		"template/delete": {
+			OperationID:    "deleteContentTemplate",
+			Method:         "DELETE",
+			PathTemplate:   "/template/{contentTemplateId}",
+			RequiredParams: []string{"contentTemplateId"},
 		},
 
 		// Macro operations
@@ -305,6 +389,12 @@ func (p *ConfluenceProvider) GetOperationMappings() map[string]providers.Operati
 			PathTemplate:   "/space/{spaceKey}/theme",
 			RequiredParams: []string{"spaceKey"},
 		},
+		"settings/update-theme": {
+			OperationID:    "setSpaceTheme",
+			Method:         "PUT",
+			PathTemplate:   "/space/{spaceKey}/theme",
+			RequiredParams: []string{"spaceKey", "themeKey"},
+		},
 		"settings/lookandfeel": {
 			OperationID:    "getLookAndFeel",
 			Method:         "GET",
@@ -321,11 +411,24 @@ func (p *ConfluenceProvider) GetOperationMappings() map[string]providers.Operati
 			RequiredParams: []string{},
 			OptionalParams: []string{"startDate", "endDate", "searchString", "limit", "start"},
 		},
+		"audit/create": {
+			OperationID:    "createAuditRecord",
+			Method:         "POST",
+			PathTemplate:   "/audit",
+			RequiredParams: []string{"author", "remoteAddress", "summary"},
+			OptionalParams: []string{"category", "sysAdmin", "affectedObject", "changedValues", "associatedObjects"},
+		},
 		"audit/retention": {
 			OperationID:    "getAuditRetention",
 			Method:         "GET",
 			PathTemplate:   "/audit/retention",
 			RequiredParams: []string{},
+		},
+		"audit/set-retention": {
+			OperationID:    "setAuditRetention",
+			Method:         "PUT",
+			PathTemplate:   "/audit/retention",
+			RequiredParams: []string{"number", "units"},
 		},
 	}
 }
@@ -339,6 +442,7 @@ func (p *ConfluenceProvider) GetEnabledModules() []string {
 		"comment",    // Comments and discussions
 		"label",      // Content labeling
 		"user",       // User management
+		"group",      // Group management
 		"permission", // Permission and restriction management
 		"template",   // Content templates
 		"macro",      // Macro management
