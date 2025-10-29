@@ -175,26 +175,9 @@ func (h *Handler) HandleConnection(conn *websocket.Conn, r *http.Request) {
 	sessionID := uuid.New().String()
 
 	// Extract passthrough authentication from headers
+	// Only use credentials provided directly by the client (IDE, Claude Code with env vars)
+	// Do NOT fetch stored credentials - let REST API handle them internally for security
 	passthroughAuth := h.extractPassthroughAuth(r)
-
-	// Fetch stored credentials from REST API
-	apiKey := os.Getenv("DEV_MESH_API_KEY")
-	if apiKey != "" {
-		storedCreds := h.fetchStoredCredentials(context.Background(), apiKey)
-		if storedCreds != nil {
-			// Merge stored credentials with header credentials
-			if passthroughAuth == nil {
-				passthroughAuth = storedCreds
-			} else {
-				// Merge credentials maps (header credentials take precedence)
-				for service, cred := range storedCreds.Credentials {
-					if _, exists := passthroughAuth.Credentials[service]; !exists {
-						passthroughAuth.Credentials[service] = cred
-					}
-				}
-			}
-		}
-	}
 
 	// Extract API key and get tenant ID from authenticator
 	var tenantID string
@@ -490,26 +473,9 @@ func (h *Handler) HandleStdio() {
 	})
 
 	// Extract passthrough authentication from environment variables
+	// Only use credentials provided directly by the client via environment
+	// Do NOT fetch stored credentials - let REST API handle them internally for security
 	passthroughAuth := h.extractPassthroughAuthFromEnv()
-
-	// Fetch stored credentials from REST API
-	apiKey := os.Getenv("DEV_MESH_API_KEY")
-	if apiKey != "" {
-		storedCreds := h.fetchStoredCredentials(context.Background(), apiKey)
-		if storedCreds != nil {
-			// Merge stored credentials with environment credentials
-			if passthroughAuth == nil {
-				passthroughAuth = storedCreds
-			} else {
-				// Merge credentials maps (environment credentials take precedence)
-				for service, cred := range storedCreds.Credentials {
-					if _, exists := passthroughAuth.Credentials[service]; !exists {
-						passthroughAuth.Credentials[service] = cred
-					}
-				}
-			}
-		}
-	}
 
 	session := &Session{
 		ID:              sessionID,
