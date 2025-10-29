@@ -518,10 +518,11 @@ func (c *Client) createProxyHandler(toolName string, toolID string) tools.ToolHa
 		var action string
 		var parameters map[string]interface{}
 
-		// Handle Harness tools specially
+		// Handle provider-specific tools (Harness, GitHub, GitLab, Jira, Slack, etc.)
+		// Extract action from tool name based on provider prefix
 		if strings.HasPrefix(toolName, "harness_") {
 			// Extract the operation from Harness tool name
-			// e.g., "harness_pipelines_list" -> "pipelines/list"
+			// e.g., "harness_pipelines_list" -> "pipelines_list"
 			operationName := strings.TrimPrefix(toolName, "harness_")
 
 			// The REST API will handle the conversion to OpenAPI operation IDs
@@ -532,31 +533,57 @@ func (c *Client) createProxyHandler(toolName string, toolID string) tools.ToolHa
 				"tool_name": toolName,
 				"operation": action,
 			})
-		} else if strings.Contains(toolName, "_") || strings.Contains(toolName, "-") {
-			// Try to extract the operation part from the tool name
-			// Look for common operation prefixes (GitHub tools)
-			operationPrefixes := []string{"repos_", "issues_", "pulls_", "actions_", "releases_", "repos-", "issues-", "pulls-", "actions-", "releases-"}
-			for _, prefix := range operationPrefixes {
-				if idx := strings.LastIndex(toolName, prefix); idx != -1 {
-					action = toolName[idx:]
-					// For GitHub Actions operations, preserve the full action with prefix
-					// The provider will handle the normalization
-					if strings.HasPrefix(action, "actions-") || strings.HasPrefix(action, "actions_") {
-						// Keep the full action including the "actions-" prefix
-						// Just normalize underscores to hyphens if present
-						if strings.HasPrefix(action, "actions_") {
-							action = strings.Replace(action, "actions_", "actions-", 1)
-						}
-						// Keep action as-is: "actions-list-workflows" or "actions-trigger-workflow"
-					} else {
-						// For other operations, convert to slash format
-						// e.g., "repos-list" -> "repos/list"
-						action = strings.Replace(action, "-", "/", 1)
-						action = strings.Replace(action, "_", "/", 1)
-					}
-					break
-				}
-			}
+		} else if strings.HasPrefix(toolName, "github_") {
+			// Extract the operation from GitHub tool name
+			// e.g., "github_create_pull_request" -> "create_pull_request"
+			// e.g., "github_repos_list" -> "repos_list"
+			// e.g., "github_search_issues" -> "search_issues"
+			operationName := strings.TrimPrefix(toolName, "github_")
+
+			// The REST API will handle the conversion to OpenAPI operation IDs
+			// We send it in the format the REST API expects
+			action = operationName
+
+			c.logger.Debug("Extracted GitHub operation", map[string]interface{}{
+				"tool_name": toolName,
+				"operation": action,
+			})
+		} else if strings.HasPrefix(toolName, "gitlab_") {
+			// Extract the operation from GitLab tool name
+			operationName := strings.TrimPrefix(toolName, "gitlab_")
+			action = operationName
+
+			c.logger.Debug("Extracted GitLab operation", map[string]interface{}{
+				"tool_name": toolName,
+				"operation": action,
+			})
+		} else if strings.HasPrefix(toolName, "jira_") {
+			// Extract the operation from Jira tool name
+			operationName := strings.TrimPrefix(toolName, "jira_")
+			action = operationName
+
+			c.logger.Debug("Extracted Jira operation", map[string]interface{}{
+				"tool_name": toolName,
+				"operation": action,
+			})
+		} else if strings.HasPrefix(toolName, "slack_") {
+			// Extract the operation from Slack tool name
+			operationName := strings.TrimPrefix(toolName, "slack_")
+			action = operationName
+
+			c.logger.Debug("Extracted Slack operation", map[string]interface{}{
+				"tool_name": toolName,
+				"operation": action,
+			})
+		} else if strings.HasPrefix(toolName, "bitbucket_") {
+			// Extract the operation from Bitbucket tool name
+			operationName := strings.TrimPrefix(toolName, "bitbucket_")
+			action = operationName
+
+			c.logger.Debug("Extracted Bitbucket operation", map[string]interface{}{
+				"tool_name": toolName,
+				"operation": action,
+			})
 		}
 
 		// If action wasn't extracted from tool name, check arguments
