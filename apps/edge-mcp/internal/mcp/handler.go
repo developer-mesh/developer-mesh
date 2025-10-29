@@ -174,10 +174,9 @@ func NewHandler(
 func (h *Handler) HandleConnection(conn *websocket.Conn, r *http.Request) {
 	sessionID := uuid.New().String()
 
-	// Extract passthrough authentication from headers
-	// Only use credentials provided directly by the client (IDE, Claude Code with env vars)
-	// Do NOT fetch stored credentials - let REST API handle them internally for security
-	passthroughAuth := h.extractPassthroughAuth(r)
+	// Do NOT extract passthrough authentication - let REST API handle all authentication
+	// REST API has access to stored credentials and will load them automatically
+	var passthroughAuth *models.PassthroughAuthBundle = nil
 
 	// Extract API key and get tenant ID from authenticator
 	var tenantID string
@@ -473,9 +472,9 @@ func (h *Handler) HandleStdio() {
 	})
 
 	// Extract passthrough authentication from environment variables
-	// Only use credentials provided directly by the client via environment
-	// Do NOT fetch stored credentials - let REST API handle them internally for security
-	passthroughAuth := h.extractPassthroughAuthFromEnv()
+	// Do NOT extract passthrough authentication - let REST API handle all authentication
+	// REST API has access to stored credentials and will load them automatically
+	var passthroughAuth *models.PassthroughAuthBundle = nil
 
 	session := &Session{
 		ID:              sessionID,
