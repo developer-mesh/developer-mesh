@@ -1152,7 +1152,6 @@ func (p *ArtifactoryProvider) ValidateCredentials(ctx context.Context, creds map
 	return nil
 }
 
-
 // handleGetCurrentUser handles the internal/current-user operation
 // This encapsulates the complex 2-step process of getting user details
 func (p *ArtifactoryProvider) handleGetCurrentUser(ctx context.Context, params map[string]interface{}) (interface{}, error) {

@@ -1032,10 +1032,10 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 						}
 					} else {
 						api.logger.Warn("Failed to decrypt user credentials", map[string]interface{}{
-							"provider":  providerName,
-							"user_id":   userID,
-							"tool_id":   originalToolID,
-							"error":     decryptErr.Error(),
+							"provider": providerName,
+							"user_id":  userID,
+							"tool_id":  originalToolID,
+							"error":    decryptErr.Error(),
 						})
 					}
 				}

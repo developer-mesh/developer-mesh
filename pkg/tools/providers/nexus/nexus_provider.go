@@ -1022,4 +1022,3 @@ func (p *NexusProvider) Close() error {
 	// Currently no resources to clean up
 	return nil
 }
-

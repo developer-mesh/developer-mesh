@@ -344,7 +344,6 @@ func TestExecuteOperation_ListRepos(t *testing.T) {
 	assert.Len(t, repos, 2)
 }
 
-
 func TestExecuteOperation_SearchArtifacts(t *testing.T) {
 	// Mock search results
 	mockResults := map[string]interface{}{

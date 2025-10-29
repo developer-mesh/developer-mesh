@@ -339,7 +339,6 @@ func TestNexusProvider_ExecuteOperation(t *testing.T) {
 	}
 }
 
-
 func TestNexusProvider_GetAIOptimizedDefinitions(t *testing.T) {
 	logger := observability.NewNoopLogger()
 	provider := NewNexusProvider(logger)

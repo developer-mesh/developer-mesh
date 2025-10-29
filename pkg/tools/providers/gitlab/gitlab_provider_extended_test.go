@@ -403,7 +403,6 @@ func TestGitLabProvider_SpecialOperations(t *testing.T) {
 	}
 }
 
-
 // BenchmarkGitLabProvider_GetExtendedMappings benchmarks extended mapping retrieval
 func BenchmarkGitLabProvider_GetExtendedMappings(b *testing.B) {
 	logger := &observability.NoopLogger{}

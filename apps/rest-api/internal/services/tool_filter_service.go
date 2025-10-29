@@ -11,15 +11,15 @@ import (
 
 // ToolFilterConfig represents the tool filtering configuration
 type ToolFilterConfig struct {
-	Harness HarnessFilterConfig `yaml:"harness"`
+	Harness HarnessFilterConfig  `yaml:"harness"`
 	GitHub  ProviderFilterConfig `yaml:"github"`
 }
 
 // HarnessFilterConfig represents Harness-specific filtering rules
 type HarnessFilterConfig struct {
-	ExcludedPatterns     []string              `yaml:"excluded_patterns"`
-	WorkflowOperations   []string              `yaml:"workflow_operations"`
-	KeptTools            map[string][]string   `yaml:"kept_tools"`
+	ExcludedPatterns   []string            `yaml:"excluded_patterns"`
+	WorkflowOperations []string            `yaml:"workflow_operations"`
+	KeptTools          map[string][]string `yaml:"kept_tools"`
 }
 
 // ProviderFilterConfig represents generic provider filtering rules
@@ -65,10 +65,10 @@ func NewToolFilterService(configPath string, logger observability.Logger) (*Tool
 	}
 
 	logger.Info("Loaded tool filter configuration", map[string]interface{}{
-		"config_path":            configPath,
-		"harness_patterns":       len(config.Harness.ExcludedPatterns),
-		"harness_exceptions":     len(config.Harness.WorkflowOperations),
-		"github_patterns":        len(config.GitHub.ExcludedPatterns),
+		"config_path":        configPath,
+		"harness_patterns":   len(config.Harness.ExcludedPatterns),
+		"harness_exceptions": len(config.Harness.WorkflowOperations),
+		"github_patterns":    len(config.GitHub.ExcludedPatterns),
 	})
 
 	return &ToolFilterService{

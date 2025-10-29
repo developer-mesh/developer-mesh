@@ -292,7 +292,6 @@ func TestArtifactoryPermissionDiscoverer_FilterOperationsByPermissions(t *testin
 	}
 }
 
-
 func TestArtifactoryProvider_GetOperationMappings(t *testing.T) {
 	logger := &observability.NoopLogger{}
 	provider := NewArtifactoryProvider(logger)

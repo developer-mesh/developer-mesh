@@ -12,10 +12,10 @@ import (
 
 func TestMatchesPattern(t *testing.T) {
 	tests := []struct {
-		name      string
-		toolName  string
-		pattern   string
-		expected  bool
+		name     string
+		toolName string
+		pattern  string
+		expected bool
 	}{
 		// Exact matches
 		{
@@ -71,7 +71,7 @@ func TestGetProviderFromToolName(t *testing.T) {
 	logger := observability.NewStandardLogger("test")
 	service := &ToolFilterService{logger: logger}
 
-	tests := []struct{
+	tests := []struct {
 		name     string
 		toolName string
 		expected string
@@ -215,13 +215,13 @@ harness:
 	require.NoError(t, err)
 
 	tools := []string{
-		"harness_pipelines_execute",  // Included (workflow exception)
-		"harness_pipelines_list",     // Included
-		"harness_users_list",         // Excluded (users_*)
+		"harness_pipelines_execute",     // Included (workflow exception)
+		"harness_pipelines_list",        // Included
+		"harness_users_list",            // Excluded (users_*)
 		"harness_ccm_perspectives_list", // Excluded (ccm_*)
-		"harness_services_create",    // Excluded (*_create)
-		"harness_services_list",      // Included
-		"github_list_repositories",   // Included (different provider)
+		"harness_services_create",       // Excluded (*_create)
+		"harness_services_list",         // Included
+		"github_list_repositories",      // Included (different provider)
 	}
 
 	filtered := service.FilterTools(tools)
