@@ -327,13 +327,39 @@ func (api *EnhancedToolsAPI) ExecuteOrganizationTool(c *gin.Context) {
 		return
 	}
 
-	result, err := api.toolRegistry.ExecuteTool(
-		c.Request.Context(),
-		tenantID,
-		toolID,
-		req.Action,
-		req.Parameters,
-	)
+	// Use passthrough auth if provided (user's own credentials from IDE/Claude Code)
+	// This takes priority over stored credentials
+	var result interface{}
+	var err error
+
+	if req.PassthroughAuth != nil {
+		api.logger.Info("Executing tool with passthrough auth", map[string]interface{}{
+			"tool_id":   toolID,
+			"action":    req.Action,
+			"providers": len(req.PassthroughAuth.Credentials),
+		})
+		result, err = api.toolRegistry.ExecuteToolWithPassthrough(
+			c.Request.Context(),
+			tenantID,
+			toolID,
+			req.Action,
+			req.Parameters,
+			req.PassthroughAuth,
+		)
+	} else {
+		api.logger.Debug("Executing tool with stored credentials", map[string]interface{}{
+			"tool_id": toolID,
+			"action":  req.Action,
+		})
+		result, err = api.toolRegistry.ExecuteTool(
+			c.Request.Context(),
+			tenantID,
+			toolID,
+			req.Action,
+			req.Parameters,
+		)
+	}
+
 	if err != nil {
 		api.logger.Error("Failed to execute tool", map[string]interface{}{
 			"tool_id": toolID,
