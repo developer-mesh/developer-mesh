@@ -941,6 +941,68 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 		}
 	}
 
+	// Always load user credentials for organization tools from stored credentials
+	// All authentication is now tied to the user's DevMesh API key
+	if isOrganizationTool && userID != "" {
+		// Determine provider from tool ID
+		var providerName string
+		if strings.HasPrefix(originalToolID, "github_") {
+			providerName = "github"
+		} else if strings.HasPrefix(originalToolID, "harness_") {
+			providerName = "harness"
+		} else if strings.HasPrefix(originalToolID, "gitlab_") {
+			providerName = "gitlab"
+		} else if strings.HasPrefix(originalToolID, "jira_") {
+			providerName = "jira"
+		} else if strings.HasPrefix(originalToolID, "slack_") {
+			providerName = "slack"
+		}
+
+		if providerName != "" {
+			// Load user credentials for this provider
+			userCred, credErr := api.credentialRepo.Get(c.Request.Context(), tenantID, userID, models.ServiceType(providerName))
+			if credErr == nil && userCred != nil {
+				// Decrypt credentials
+				decryptedCreds, decryptErr := api.encryptionService.DecryptCredential(userCred.EncryptedCredentials, tenantID)
+				if decryptErr == nil {
+					// Create passthrough auth bundle with user credentials
+					req.PassthroughAuth = &models.PassthroughAuthBundle{
+						Credentials: make(map[string]*models.PassthroughCredential),
+					}
+
+					// Parse decrypted credentials (they're JSON)
+					var credMap map[string]interface{}
+					if jsonErr := json.Unmarshal([]byte(decryptedCreds), &credMap); jsonErr == nil {
+						// Extract token from credentials
+						var token string
+						if t, ok := credMap["token"].(string); ok {
+							token = t
+						} else if t, ok := credMap["access_token"].(string); ok {
+							token = t
+						} else if t, ok := credMap["api_key"].(string); ok {
+							token = t
+						}
+
+						if token != "" {
+							req.PassthroughAuth.Credentials[providerName] = &models.PassthroughCredential{
+								Token: token,
+								Type:  "bearer",
+							}
+
+							api.logger.Info("Loaded user credentials for tool execution", map[string]interface{}{
+								"provider":  providerName,
+								"user_id":   userID,
+								"tool_id":   originalToolID,
+								"has_token": token != "",
+								"token_len": len(token),
+							})
+						}
+					}
+				}
+			}
+		}
+	}
+
 	// Route to appropriate execution handler
 	if isOrganizationTool && api.enhancedToolsAPI != nil {
 		// Use the extracted operation if available, otherwise use req.Action
