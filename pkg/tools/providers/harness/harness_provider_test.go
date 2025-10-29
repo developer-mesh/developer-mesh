@@ -22,9 +22,15 @@ func TestNewHarnessProvider(t *testing.T) {
 	assert.NotNil(t, provider.BaseProvider)
 	assert.NotNil(t, provider.httpClient)
 	assert.NotNil(t, provider.enabledModules)
+	// Verify default enabled modules (context-optimized set)
 	assert.True(t, provider.enabledModules[ModulePipeline])
-	assert.True(t, provider.enabledModules[ModuleProject])
-	assert.True(t, provider.enabledModules[ModuleConnector])
+	assert.True(t, provider.enabledModules[ModuleExecution])
+	assert.True(t, provider.enabledModules[ModulePullRequest])
+	assert.True(t, provider.enabledModules[ModuleSTO])
+	assert.True(t, provider.enabledModules[ModuleService])
+	// Verify disabled modules (for context optimization)
+	assert.False(t, provider.enabledModules[ModuleProject])
+	assert.False(t, provider.enabledModules[ModuleConnector])
 }
 
 func TestHarnessProvider_GetSupportedVersions(t *testing.T) {
@@ -423,9 +429,10 @@ func TestHarnessProvider_SetEnabledModules(t *testing.T) {
 	logger := &observability.NoopLogger{}
 	provider := NewHarnessProvider(logger)
 
-	// Initially all modules are enabled
+	// Initially context-optimized modules are enabled (5 core modules)
 	assert.True(t, provider.enabledModules[ModulePipeline])
-	assert.True(t, provider.enabledModules[ModuleProject])
+	assert.True(t, provider.enabledModules[ModuleExecution])
+	assert.False(t, provider.enabledModules[ModuleProject])
 
 	// Disable all modules then enable only specific ones
 	provider.SetEnabledModules([]HarnessModule{ModuleProject, ModuleGitOps})
@@ -442,8 +449,15 @@ func TestHarnessProvider_GetEnabledModules(t *testing.T) {
 
 	modules := provider.GetEnabledModules()
 	assert.NotNil(t, modules)
+	// Verify context-optimized default modules (5 core modules)
 	assert.Contains(t, modules, ModulePipeline)
-	assert.Contains(t, modules, ModuleProject)
+	assert.Contains(t, modules, ModuleExecution)
+	assert.Contains(t, modules, ModulePullRequest)
+	assert.Contains(t, modules, ModuleSTO)
+	assert.Contains(t, modules, ModuleService)
+	// Verify non-enabled modules are not included
+	assert.NotContains(t, modules, ModuleProject)
+	assert.NotContains(t, modules, ModuleConnector)
 }
 
 func TestHarnessProvider_Close(t *testing.T) {

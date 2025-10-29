@@ -12,7 +12,7 @@ func TestHarnessProvider_GetAIOptimizedDefinitions(t *testing.T) {
 	logger := &observability.NoopLogger{}
 	provider := NewHarnessProvider(logger)
 
-	// Test with all modules enabled (default)
+	// Test with context-optimized modules enabled (default: 5 core modules)
 	definitions := provider.GetAIOptimizedDefinitions()
 
 	assert.NotEmpty(t, definitions, "Should have AI definitions")
@@ -23,23 +23,18 @@ func TestHarnessProvider_GetAIOptimizedDefinitions(t *testing.T) {
 		categories = append(categories, def.Category)
 	}
 
-	// Should have pipeline definitions
+	// Verify categories for context-optimized enabled modules
 	assert.Contains(t, categories, "CI/CD", "Should have CI/CD category")
-
-	// Should have project definitions
-	assert.Contains(t, categories, "Platform", "Should have Platform category")
-
-	// Should have connector definitions
-	assert.Contains(t, categories, "Integration", "Should have Integration category")
-
-	// Should have GitOps definitions
-	assert.Contains(t, categories, "GitOps", "Should have GitOps category")
-
-	// Should have security definitions
 	assert.Contains(t, categories, "Security", "Should have Security category")
+	assert.Contains(t, categories, "Deployment", "Should have Deployment category")
+	assert.Contains(t, categories, "Development", "Should have Development category")
+	assert.Contains(t, categories, "Operations", "Should have Operations category")
 
-	// Should have cost management definitions
-	assert.Contains(t, categories, "FinOps", "Should have FinOps category")
+	// Verify disabled module categories are NOT present
+	assert.NotContains(t, categories, "Platform", "Platform category should be disabled")
+	assert.NotContains(t, categories, "Integration", "Integration category should be disabled")
+	assert.NotContains(t, categories, "GitOps", "GitOps category should be disabled")
+	assert.NotContains(t, categories, "FinOps", "FinOps category should be disabled")
 
 	// Verify structure of a definition
 	var pipelineDef *providers.AIOptimizedToolDefinition
@@ -80,30 +75,33 @@ func TestHarnessProvider_GetAIOptimizedDefinitions_WithDisabledModules(t *testin
 	logger := &observability.NoopLogger{}
 	provider := NewHarnessProvider(logger)
 
-	// Disable some modules
-	provider.SetEnabledModules([]HarnessModule{ModulePipeline, ModuleProject})
+	// Enable only specific modules (Pipeline and STO)
+	provider.SetEnabledModules([]HarnessModule{ModulePipeline, ModuleSTO})
 
 	definitions := provider.GetAIOptimizedDefinitions()
 
 	// Should still have some definitions
 	assert.NotEmpty(t, definitions)
 
-	// Check that we have pipeline and project definitions
-	var hasPipeline, hasProject, hasConnector bool
+	// Check that we have pipeline and security definitions, but not others
+	var hasPipeline, hasSTO, hasConnector, hasProject bool
 	for _, def := range definitions {
 		switch def.Name {
 		case "harness_pipelines":
 			hasPipeline = true
-		case "harness_projects":
-			hasProject = true
+		case "harness_security", "harness_sto":
+			hasSTO = true
 		case "harness_connectors":
 			hasConnector = true
+		case "harness_projects":
+			hasProject = true
 		}
 	}
 
 	assert.True(t, hasPipeline, "Should have pipeline definitions")
-	assert.True(t, hasProject, "Should have project definitions")
+	assert.True(t, hasSTO, "Should have STO/security definitions")
 	assert.False(t, hasConnector, "Should not have connector definitions when disabled")
+	assert.False(t, hasProject, "Should not have project definitions when disabled")
 }
 
 func TestHarnessProvider_GetAIOptimizedDefinitions_AllCategories(t *testing.T) {
