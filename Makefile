@@ -261,23 +261,38 @@ test-embedding: ## Run embedding-specific tests
 
 .PHONY: start-test-env
 start-test-env: ## Start test environment (Redis + PostgreSQL in Docker)
-	@echo "Starting test environment..."
-	@docker-compose -f docker-compose.test.yml up -d
-	@echo "Waiting for services to be ready..."
-	@sleep 3
-	@docker-compose -f docker-compose.test.yml ps
+	@echo "Starting test environment using docker-compose.local.yml..."
+	@$(DOCKER_COMPOSE) up -d database redis
+	@echo "Waiting for services to be healthy..."
+	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30; do \
+		if $(DOCKER_COMPOSE) ps database | grep -q "healthy" && $(DOCKER_COMPOSE) ps redis | grep -q "healthy"; then \
+			echo "Test services are ready"; \
+			$(DOCKER_COMPOSE) ps database redis; \
+			exit 0; \
+		fi; \
+		echo "Waiting for services (attempt $$i/30)..."; \
+		sleep 1; \
+	done; \
+	echo "Services failed to become healthy after 30 seconds"; \
+	$(DOCKER_COMPOSE) ps database redis; \
+	exit 1
 
 .PHONY: stop-test-env
 stop-test-env: ## Stop test environment
 	@echo "Stopping test environment..."
-	@docker-compose -f docker-compose.test.yml down -v
+	@$(DOCKER_COMPOSE) stop database redis
 
 .PHONY: test-integration test-int
 test-integration test-int: start-test-env ## Run integration tests
 	@echo "Running integration tests with Docker services..."
 	@export ENABLE_INTEGRATION_TESTS=true && \
 	export TEST_REDIS_ADDR=127.0.0.1:6379 && \
-	export TEST_DATABASE_URL="postgres://test:test@127.0.0.1:5433/test?sslmode=disable" && \
+	export TEST_DATABASE_URL="postgres://devmesh:devmesh@127.0.0.1:5432/devmesh_development?sslmode=disable" && \
+	export POSTGRES_HOST=localhost && \
+	export POSTGRES_PORT=5432 && \
+	export POSTGRES_USER=devmesh && \
+	export POSTGRES_PASSWORD=devmesh && \
+	export POSTGRES_DB=devmesh_development && \
 	echo "Running integration tests for each module..." && \
 	(cd apps/edge-mcp && $(GOTEST) -tags=integration -v ./... || exit 1) && \
 	(cd apps/rest-api && $(GOTEST) -tags=integration -v ./... || exit 1) && \
