@@ -69,9 +69,7 @@ func TestHandleCheckUpdate_Output(t *testing.T) {
 	done := make(chan bool)
 	go func() {
 		defer func() {
-			if r := recover(); r != nil {
-				// Recover from os.Exit if called
-			}
+			_ = recover() // Recover from os.Exit if called
 			done <- true
 		}()
 		// Note: We can't actually test handleCheckUpdate directly because it calls os.Exit
@@ -85,12 +83,12 @@ func TestHandleCheckUpdate_Output(t *testing.T) {
 	}
 
 	// Restore stdout
-	w.Close()
+	_ = w.Close() // Best effort close
 	os.Stdout = oldStdout
 
 	// Read captured output
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	_, _ = io.Copy(&buf, r) // Best effort read
 	output := buf.String()
 
 	// If we got any output, verify it contains expected elements
@@ -107,7 +105,7 @@ func TestUpdaterConfig_FromEnvironment(t *testing.T) {
 		validate func(t *testing.T, cfg *config.Config)
 	}{
 		{
-			name: "default configuration",
+			name:    "default configuration",
 			envVars: map[string]string{
 				// Clear all updater env vars
 			},
@@ -154,16 +152,16 @@ func TestUpdaterConfig_FromEnvironment(t *testing.T) {
 				"EDGE_MCP_UPDATE_CHANNEL",
 				"EDGE_MCP_UPDATE_CHECK_INTERVAL",
 			} {
-				os.Unsetenv(key)
+				_ = os.Unsetenv(key)
 			}
 
 			// Set test environment
 			for key, value := range tt.envVars {
-				os.Setenv(key, value)
+				_ = os.Setenv(key, value)
 			}
 			defer func() {
 				for key := range tt.envVars {
-					os.Unsetenv(key)
+					_ = os.Unsetenv(key)
 				}
 			}()
 
@@ -280,16 +278,16 @@ func TestUpdater_DevModeDetection(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Clear environment
 			for _, key := range []string{"ENVIRONMENT", "APP_ENV", "GO_ENV"} {
-				os.Unsetenv(key)
+				_ = os.Unsetenv(key)
 			}
 
 			// Set test environment
 			for key, value := range tt.envVars {
-				os.Setenv(key, value)
+				_ = os.Setenv(key, value)
 			}
 			defer func() {
 				for key := range tt.envVars {
-					os.Unsetenv(key)
+					_ = os.Unsetenv(key)
 				}
 			}()
 
@@ -332,14 +330,16 @@ func TestBackgroundChecker_StatusReporting(t *testing.T) {
 
 func TestGetEnvHelpers(t *testing.T) {
 	t.Run("getEnv returns default when not set", func(t *testing.T) {
-		os.Unsetenv("TEST_VAR")
+		_ = os.Unsetenv("TEST_VAR")
 		result := getEnv("TEST_VAR", "default")
 		assert.Equal(t, "default", result)
 	})
 
 	t.Run("getEnv returns value when set", func(t *testing.T) {
-		os.Setenv("TEST_VAR", "custom")
-		defer os.Unsetenv("TEST_VAR")
+		_ = os.Setenv("TEST_VAR", "custom")
+		defer func() {
+			_ = os.Unsetenv("TEST_VAR")
+		}()
 
 		result := getEnv("TEST_VAR", "default")
 		assert.Equal(t, "custom", result)
@@ -390,8 +390,10 @@ func TestConfigChannelValues(t *testing.T) {
 
 	for _, channel := range channels {
 		t.Run(channel, func(t *testing.T) {
-			os.Setenv("EDGE_MCP_UPDATE_CHANNEL", channel)
-			defer os.Unsetenv("EDGE_MCP_UPDATE_CHANNEL")
+			_ = os.Setenv("EDGE_MCP_UPDATE_CHANNEL", channel)
+			defer func() {
+				_ = os.Unsetenv("EDGE_MCP_UPDATE_CHANNEL")
+			}()
 
 			cfg := config.Default()
 			assert.Equal(t, channel, cfg.Updater.Channel)

@@ -50,7 +50,7 @@ func TestFindAssetByName(t *testing.T) {
 	assetName2 := "app-v1.0.0-darwin-amd64.tar.gz"
 
 	release := &github.RepositoryRelease{
-		TagName: github.String("v1.0.0"),
+		TagName: github.Ptr("v1.0.0"),
 		Assets: []*github.ReleaseAsset{
 			{
 				ID:   &assetID1,
@@ -118,7 +118,7 @@ func TestListReleaseAssets(t *testing.T) {
 	downloadURL2 := "https://github.com/test/repo/releases/download/v1.0.0/app-v1.0.0-darwin-amd64.tar.gz"
 
 	release := &github.RepositoryRelease{
-		TagName: github.String("v1.0.0"),
+		TagName: github.Ptr("v1.0.0"),
 		Assets: []*github.ReleaseAsset{
 			{
 				ID:                 &assetID1,
@@ -160,7 +160,7 @@ func TestListReleaseAssets_EmptyRelease(t *testing.T) {
 	downloader := NewReleaseDownloader(nil, logger)
 
 	release := &github.RepositoryRelease{
-		TagName: github.String("v1.0.0"),
+		TagName: github.Ptr("v1.0.0"),
 		Assets:  []*github.ReleaseAsset{},
 	}
 

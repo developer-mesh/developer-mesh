@@ -14,14 +14,13 @@ import (
 
 // BackgroundChecker manages background update checking
 type BackgroundChecker struct {
-	config    *config.UpdaterConfig
-	updater   *updater.Updater
-	logger    observability.Logger
-	stopChan  chan struct{}
-	wg        sync.WaitGroup
-	ticker    *time.Ticker
-	lastCheck time.Time
-	mu        sync.RWMutex
+	config   *config.UpdaterConfig
+	updater  *updater.Updater
+	logger   observability.Logger
+	stopChan chan struct{}
+	wg       sync.WaitGroup
+	ticker   *time.Ticker
+	mu       sync.RWMutex
 
 	// Status
 	isRunning     bool

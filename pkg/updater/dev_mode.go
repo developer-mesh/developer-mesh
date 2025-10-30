@@ -150,8 +150,10 @@ func IsWritableExecutable() bool {
 	if err != nil {
 		return false
 	}
-	f.Close()
-	os.Remove(tmpFile)
+
+	// Always cleanup, even if Close fails
+	_ = f.Close() // Explicitly ignore error - we only care if we can write
+	_ = os.Remove(tmpFile) // Explicitly ignore error - cleanup is best-effort
 
 	return true
 }

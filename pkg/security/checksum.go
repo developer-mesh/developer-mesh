@@ -16,10 +16,8 @@ func VerifyFileChecksum(filepath, expectedSHA256 string) error {
 		return fmt.Errorf("failed to open file: %w", err)
 	}
 	defer func() {
-		if closeErr := file.Close(); closeErr != nil {
-			// Log but don't mask the original error
-			// In production, use observability logger here
-		}
+		// Best effort close - we already read the file successfully
+		_ = file.Close()
 	}()
 
 	h := sha256.New()
@@ -43,9 +41,8 @@ func ComputeFileChecksum(filepath string) (string, error) {
 		return "", fmt.Errorf("failed to open file: %w", err)
 	}
 	defer func() {
-		if closeErr := file.Close(); closeErr != nil {
-			// Log but don't mask the original error
-		}
+		// Best effort close - we already read the file successfully
+		_ = file.Close()
 	}()
 
 	h := sha256.New()

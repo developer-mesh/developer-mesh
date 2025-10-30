@@ -11,13 +11,13 @@ import (
 
 func TestUpdaterConfig_Defaults(t *testing.T) {
 	// Clear any environment variables
-	os.Unsetenv("EDGE_MCP_UPDATE_ENABLED")
-	os.Unsetenv("EDGE_MCP_UPDATE_CHECK_INTERVAL")
-	os.Unsetenv("EDGE_MCP_UPDATE_CHANNEL")
-	os.Unsetenv("EDGE_MCP_UPDATE_AUTO_DOWNLOAD")
-	os.Unsetenv("EDGE_MCP_UPDATE_AUTO_APPLY")
-	os.Unsetenv("EDGE_MCP_UPDATE_GITHUB_OWNER")
-	os.Unsetenv("EDGE_MCP_UPDATE_GITHUB_REPO")
+	_ = os.Unsetenv("EDGE_MCP_UPDATE_ENABLED")
+	_ = os.Unsetenv("EDGE_MCP_UPDATE_CHECK_INTERVAL")
+	_ = os.Unsetenv("EDGE_MCP_UPDATE_CHANNEL")
+	_ = os.Unsetenv("EDGE_MCP_UPDATE_AUTO_DOWNLOAD")
+	_ = os.Unsetenv("EDGE_MCP_UPDATE_AUTO_APPLY")
+	_ = os.Unsetenv("EDGE_MCP_UPDATE_GITHUB_OWNER")
+	_ = os.Unsetenv("EDGE_MCP_UPDATE_GITHUB_REPO")
 
 	cfg := Default()
 
@@ -137,16 +137,16 @@ func TestUpdaterConfig_EnvironmentOverrides(t *testing.T) {
 				"EDGE_MCP_UPDATE_GITHUB_OWNER",
 				"EDGE_MCP_UPDATE_GITHUB_REPO",
 			} {
-				os.Unsetenv(key)
+				_ = os.Unsetenv(key)
 			}
 
 			// Set test-specific environment variables
 			for key, value := range tt.envVars {
-				os.Setenv(key, value)
+				_ = os.Setenv(key, value)
 			}
 			defer func() {
 				for key := range tt.envVars {
-					os.Unsetenv(key)
+					_ = os.Unsetenv(key)
 				}
 			}()
 
@@ -169,20 +169,22 @@ func TestUpdaterConfig_BooleanParsing(t *testing.T) {
 		{"false string", "false", false},
 		{"0 string", "0", false},
 		{"no string", "no", false},
-		{"empty string", "", true},      // Uses default (true)
+		{"empty string", "", true},        // Uses default (true)
 		{"random string", "random", true}, // Invalid value uses default (true)
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Unset first to ensure clean state
-			os.Unsetenv("EDGE_MCP_UPDATE_ENABLED")
+			_ = os.Unsetenv("EDGE_MCP_UPDATE_ENABLED")
 
 			// Set only if value is not empty
 			if tt.value != "" {
-				os.Setenv("EDGE_MCP_UPDATE_ENABLED", tt.value)
+				_ = os.Setenv("EDGE_MCP_UPDATE_ENABLED", tt.value)
 			}
-			defer os.Unsetenv("EDGE_MCP_UPDATE_ENABLED")
+			defer func() {
+				_ = os.Unsetenv("EDGE_MCP_UPDATE_ENABLED")
+			}()
 
 			cfg := Default()
 			assert.Equal(t, tt.expected, cfg.Updater.Enabled)
@@ -208,8 +210,10 @@ func TestUpdaterConfig_DurationParsing(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.value != "" {
-				os.Setenv("EDGE_MCP_UPDATE_CHECK_INTERVAL", tt.value)
-				defer os.Unsetenv("EDGE_MCP_UPDATE_CHECK_INTERVAL")
+				_ = os.Setenv("EDGE_MCP_UPDATE_CHECK_INTERVAL", tt.value)
+				defer func() {
+					_ = os.Unsetenv("EDGE_MCP_UPDATE_CHECK_INTERVAL")
+				}()
 			}
 
 			cfg := Default()
@@ -223,8 +227,10 @@ func TestUpdaterConfig_ChannelValues(t *testing.T) {
 
 	for _, channel := range channels {
 		t.Run(channel, func(t *testing.T) {
-			os.Setenv("EDGE_MCP_UPDATE_CHANNEL", channel)
-			defer os.Unsetenv("EDGE_MCP_UPDATE_CHANNEL")
+			_ = os.Setenv("EDGE_MCP_UPDATE_CHANNEL", channel)
+			defer func() {
+				_ = os.Unsetenv("EDGE_MCP_UPDATE_CHANNEL")
+			}()
 
 			cfg := Default()
 			assert.Equal(t, channel, cfg.Updater.Channel)

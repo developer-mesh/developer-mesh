@@ -366,9 +366,9 @@ func (u *Updater) ApplyUpdate(ctx context.Context, download *DownloadResult) (*R
 	u.recordMetric("update_apply_duration_seconds", time.Since(startTime).Seconds())
 
 	u.logger.Info("Update applied successfully", map[string]interface{}{
-		"backup_path":  result.BackupPath,
+		"backup_path":   result.BackupPath,
 		"needs_restart": result.NeedsRestart,
-		"duration":     time.Since(startTime).Seconds(),
+		"duration":      time.Since(startTime).Seconds(),
 	})
 
 	return result, nil

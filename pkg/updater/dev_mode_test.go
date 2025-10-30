@@ -14,9 +14,9 @@ func TestIsDevelopmentMode(t *testing.T) {
 	originalAppEnv := os.Getenv("APP_ENV")
 	originalGoEnv := os.Getenv("GO_ENV")
 	defer func() {
-		os.Setenv("ENVIRONMENT", originalEnv)
-		os.Setenv("APP_ENV", originalAppEnv)
-		os.Setenv("GO_ENV", originalGoEnv)
+		_ = os.Setenv("ENVIRONMENT", originalEnv)
+		_ = os.Setenv("APP_ENV", originalAppEnv)
+		_ = os.Setenv("GO_ENV", originalGoEnv)
 	}()
 
 	tests := []struct {
@@ -66,12 +66,12 @@ func TestIsDevelopmentMode(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Clear all env vars
-			os.Unsetenv("ENVIRONMENT")
-			os.Unsetenv("APP_ENV")
-			os.Unsetenv("GO_ENV")
+			_ = os.Unsetenv("ENVIRONMENT")
+			_ = os.Unsetenv("APP_ENV")
+			_ = os.Unsetenv("GO_ENV")
 
 			// Set the test env var
-			os.Setenv(tt.envVar, tt.envValue)
+			_ = os.Setenv(tt.envVar, tt.envValue)
 
 			result := IsDevelopmentMode()
 			assert.Equal(t, tt.expected, result)
@@ -82,7 +82,9 @@ func TestIsDevelopmentMode(t *testing.T) {
 func TestIsProductionMode(t *testing.T) {
 	// Save original env vars
 	originalEnv := os.Getenv("ENVIRONMENT")
-	defer os.Setenv("ENVIRONMENT", originalEnv)
+	defer func() {
+		_ = os.Setenv("ENVIRONMENT", originalEnv)
+	}()
 
 	tests := []struct {
 		name     string
@@ -113,7 +115,7 @@ func TestIsProductionMode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			os.Setenv("ENVIRONMENT", tt.envValue)
+			_ = os.Setenv("ENVIRONMENT", tt.envValue)
 			result := IsProductionMode()
 			assert.Equal(t, tt.expected, result)
 		})
@@ -126,9 +128,9 @@ func TestShouldEnableAutoUpdate(t *testing.T) {
 	originalDisable := os.Getenv("DISABLE_AUTO_UPDATE")
 	originalEnable := os.Getenv("ENABLE_AUTO_UPDATE")
 	defer func() {
-		os.Setenv("ENVIRONMENT", originalEnv)
-		os.Setenv("DISABLE_AUTO_UPDATE", originalDisable)
-		os.Setenv("ENABLE_AUTO_UPDATE", originalEnable)
+		_ = os.Setenv("ENVIRONMENT", originalEnv)
+		_ = os.Setenv("DISABLE_AUTO_UPDATE", originalDisable)
+		_ = os.Setenv("ENABLE_AUTO_UPDATE", originalEnable)
 	}()
 
 	tests := []struct {
@@ -177,9 +179,9 @@ func TestShouldEnableAutoUpdate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			os.Setenv("ENVIRONMENT", tt.environment)
-			os.Setenv("DISABLE_AUTO_UPDATE", tt.disable)
-			os.Setenv("ENABLE_AUTO_UPDATE", tt.enable)
+			_ = os.Setenv("ENVIRONMENT", tt.environment)
+			_ = os.Setenv("DISABLE_AUTO_UPDATE", tt.disable)
+			_ = os.Setenv("ENABLE_AUTO_UPDATE", tt.enable)
 
 			result := ShouldEnableAutoUpdate()
 			assert.Equal(t, tt.expected, result)
@@ -209,13 +211,15 @@ func TestIsWritableExecutable(t *testing.T) {
 // Test case sensitivity
 func TestIsDevelopmentMode_CaseInsensitive(t *testing.T) {
 	original := os.Getenv("ENVIRONMENT")
-	defer os.Setenv("ENVIRONMENT", original)
+	defer func() {
+		_ = os.Setenv("ENVIRONMENT", original)
+	}()
 
 	testCases := []string{"DEV", "Dev", "DEVELOPMENT", "Development", "LOCAL", "Local"}
 
 	for _, tc := range testCases {
 		t.Run(tc, func(t *testing.T) {
-			os.Setenv("ENVIRONMENT", tc)
+			_ = os.Setenv("ENVIRONMENT", tc)
 			assert.True(t, IsDevelopmentMode(), "should detect %s as development", tc)
 		})
 	}
@@ -223,13 +227,15 @@ func TestIsDevelopmentMode_CaseInsensitive(t *testing.T) {
 
 func TestIsProductionMode_CaseInsensitive(t *testing.T) {
 	original := os.Getenv("ENVIRONMENT")
-	defer os.Setenv("ENVIRONMENT", original)
+	defer func() {
+		_ = os.Setenv("ENVIRONMENT", original)
+	}()
 
 	testCases := []string{"PROD", "Prod", "PRODUCTION", "Production"}
 
 	for _, tc := range testCases {
 		t.Run(tc, func(t *testing.T) {
-			os.Setenv("ENVIRONMENT", tc)
+			_ = os.Setenv("ENVIRONMENT", tc)
 			assert.True(t, IsProductionMode(), "should detect %s as production", tc)
 		})
 	}
