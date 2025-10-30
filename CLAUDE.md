@@ -45,6 +45,112 @@ Developer Mesh is a production-ready platform for orchestrating multiple AI agen
 4. **Code style**: Follow Go idioms, use gofmt
 5. **Security**: Use parameterized queries, validate inputs
 
+## 🚨 CRITICAL: MCP Tool Usage for GitHub Operations
+
+**ALWAYS use MCP tools for GitHub operations instead of `gh` CLI, REST API, or other methods.**
+
+### Why Use MCP Tools?
+- **Integrated Authentication**: MCP tools use DevMesh's secure credential management
+- **Audit Trail**: All operations are tracked in session execution logs
+- **Consistent Interface**: Standardized parameters and responses across all GitHub operations
+- **Error Handling**: Built-in retry logic and error recovery
+- **Multi-tenant Support**: Proper isolation and resource tracking
+
+### Available GitHub MCP Tools
+
+All GitHub operations are available via `mcp__devmesh__github_*` tools. Major categories include:
+
+**Repository Management:**
+- `mcp__devmesh__github_get_repository` - Get repository details
+- `mcp__devmesh__github_list_repositories` - List repositories
+- `mcp__devmesh__github_create_repository` - Create new repository
+- `mcp__devmesh__github_fork_repository` - Fork a repository
+- `mcp__devmesh__github_search_repositories` - Search repositories
+
+**Issues & Pull Requests:**
+- `mcp__devmesh__github_create_issue` / `create_pull_request` - Create issues/PRs
+- `mcp__devmesh__github_get_issue` / `get_pull_request` - Get details
+- `mcp__devmesh__github_list_issues` / `list_pull_requests` - List items
+- `mcp__devmesh__github_update_issue` / `update_pull_request` - Update items
+- `mcp__devmesh__github_merge_pull_request` - Merge PRs
+- `mcp__devmesh__github_add_issue_comment` - Add comments
+- `mcp__devmesh__github_create_pull_request_review` - Create PR reviews
+
+**Workflows & Actions:**
+- `mcp__devmesh__github_list_workflows` - List workflow files
+- `mcp__devmesh__github_run_workflow` - Trigger workflow runs
+- `mcp__devmesh__github_list_workflow_runs` - List workflow executions
+- `mcp__devmesh__github_get_workflow_run_logs` - Download logs
+- `mcp__devmesh__github_cancel_workflow_run` - Cancel running workflows
+- `mcp__devmesh__github_rerun_workflow_run` - Re-run workflows
+
+**Branches & Commits:**
+- `mcp__devmesh__github_create_branch` - Create branches
+- `mcp__devmesh__github_list_branches` - List branches
+- `mcp__devmesh__github_list_commits` - List commits
+- `mcp__devmesh__github_get_commit` - Get commit details
+- `mcp__devmesh__github_create_commit` - Create commits
+
+**Files & Content:**
+- `mcp__devmesh__github_get_file_contents` - Read file contents
+- `mcp__devmesh__github_create_or_update_file` - Write/update files
+- `mcp__devmesh__github_delete_file` - Delete files
+- `mcp__devmesh__github_push_files` - Push multiple files
+
+**Security Scanning:**
+- `mcp__devmesh__github_list_dependabot_alerts` - Dependabot alerts
+- `mcp__devmesh__github_list_code_scanning_alerts` - Code scanning
+- `mcp__devmesh__github_list_secret_scanning_alerts` - Secret scanning
+- `mcp__devmesh__github_list_security_advisories` - Security advisories
+
+**Releases & Tags:**
+- `mcp__devmesh__github_create_release` - Create releases
+- `mcp__devmesh__github_list_releases` - List releases
+- `mcp__devmesh__github_get_latest_release` - Get latest release
+- `mcp__devmesh__github_list_tags` - List tags
+
+**Other Operations:**
+- `mcp__devmesh__github_search_code` - Search code
+- `mcp__devmesh__github_search_users` - Search users
+- `mcp__devmesh__github_list_gists` - List gists
+- `mcp__devmesh__github_create_gist` - Create gists
+
+### Usage Examples
+
+```go
+// ❌ WRONG - Don't use gh CLI
+gh pr create --title "Fix bug" --body "Description"
+
+// ✅ CORRECT - Use MCP tool
+mcp__devmesh__github_create_pull_request({
+  "owner": "developer-mesh",
+  "repo": "developer-mesh",
+  "title": "Fix bug",
+  "body": "Description",
+  "head": "feature-branch",
+  "base": "main"
+})
+
+// ❌ WRONG - Don't use REST API directly
+curl -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/repos/...
+
+// ✅ CORRECT - Use MCP tool
+mcp__devmesh__github_get_repository({
+  "owner": "developer-mesh",
+  "repo": "developer-mesh"
+})
+```
+
+### Tool Discovery
+
+To see all available GitHub MCP tools and their parameters:
+```bash
+# In MCP client session
+{"jsonrpc":"2.0","id":"1","method":"tools/list"}
+```
+
+All tools follow the naming pattern: `mcp__devmesh__github_{operation}`
+
 ## Go-Specific Patterns (This Project)
 
 ### Code Style
@@ -113,6 +219,9 @@ defer func() {
 - Don't leave TODO comments - create issues instead
 - Don't commit commented-out code
 - Don't use magic numbers - create constants
+- **Don't create new documentation files** without checking existing `/docs/` structure first
+- **Don't create standalone README.md files** - use `/docs/` directory instead
+- **Don't use `gh` CLI or direct GitHub API** - always use `mcp__devmesh__github_*` MCP tools
 
 ## Current Focus Areas
 - Redis Streams migration (completed)
@@ -502,16 +611,77 @@ DevMesh fully implements the MCP 2025-06-18 specification:
 - Error messages should be actionable
 - Avoid magic numbers, use named constants
 - Prefer dependency injection over globals
+- **NEVER create standalone README files** - add documentation to `/docs/` structure instead
+- **NEVER use proactive documentation creation** - only update when explicitly needed or when making related code changes
 
 ## Integration Points
-- **GitHub**: Via dynamic tools API
-- **AWS Bedrock**: Multiple embedding models
+- **GitHub**: Via MCP tools (`mcp__devmesh__github_*`) - NEVER use `gh` CLI or direct API calls
+- **AWS Bedrock**: Multiple embedding models via MCP tools
+- **Harness Platform**: Via MCP tools (`mcp__devmesh__harness_*`)
 - **Vector Search**: pgvector for semantic search
 - **Monitoring**: Prometheus + Grafana stack
 
+## Documentation Guidelines
+
+### User-Facing Documentation Location
+**ALL user-facing documentation MUST be added to `/docs/` directory.**
+
+The documentation follows the [Divio documentation system](https://documentation.divio.com/):
+- **Getting Started** (`/docs/getting-started/`) - Tutorials and initial setup
+- **Guides** (`/docs/guides/`) - Task-oriented how-to guides
+- **Reference** (`/docs/reference/`) - Technical reference and API docs
+- **Architecture** (`/docs/architecture/`) - System design and explanations
+- **Deployment** (`/docs/deployment/`) - Production deployment guides
+- **Examples** (`/docs/examples/`) - Working code samples
+- **Contributing** (`/docs/contributing/`) - Development and contribution guides
+- **Troubleshooting** (`/docs/troubleshooting/`) - Problem-solving guides
+
+### Documentation Best Practices
+
+**CRITICAL: Always improve existing documentation before creating new files.**
+
+1. **Search First**: Before creating new documentation
+   - Search `/docs/` for existing related content
+   - Check if the topic is already covered
+   - Review the docs structure in `/docs/README.md`
+
+2. **Improve Existing**: When information exists
+   - Add to existing documents rather than creating new ones
+   - Update outdated content
+   - Enhance examples and clarity
+   - Add missing sections
+
+3. **Create New Only When**:
+   - The topic doesn't fit in any existing document
+   - The content is substantial enough to warrant its own file
+   - It follows the Divio system categories
+   - You've confirmed with `/docs/README.md` structure
+
+4. **Documentation Standards** (from `/docs/README.md`):
+   - Use present tense ("it creates" not "it will create")
+   - Use active voice ("the server processes" not "is processed")
+   - Keep sentences short and focused
+   - Include code examples with comments
+   - Link to related documentation
+   - Test all code examples before submitting
+
+5. **Internal Developer Notes**:
+   - Keep in `CLAUDE.md` (this file) for AI assistant guidance
+   - Add to code comments for implementation details
+   - Use inline documentation for complex code sections
+
+### Documentation Update Checklist
+When making changes that affect user-facing behavior:
+- [ ] Check if existing docs need updates
+- [ ] Update relevant sections in `/docs/`
+- [ ] Add/update code examples if applicable
+- [ ] Test all code examples
+- [ ] Update `/docs/README.md` if adding new major sections
+- [ ] Link between related documentation pages
+
 ## When Making Changes
 - Update tests for modified code
-- Update documentation if behavior changes
+- **Update documentation if behavior changes** (see Documentation Guidelines above)
 - Check for security implications
 - Consider backward compatibility
 - Add metrics for new features
@@ -555,7 +725,8 @@ go test -cover -run TestName ./path/to/package
 make pre-commit && git add -A && git commit -m "feat: description"
 
 # Quick PR creation
-gh pr create --fill
+# NOTE: Use mcp__devmesh__github_create_pull_request MCP tool instead of gh CLI
+# gh pr create --fill  # ❌ DON'T USE
 
 # Update feature branch
 git stash && git checkout main && git pull && git checkout - && git rebase main && git stash pop
