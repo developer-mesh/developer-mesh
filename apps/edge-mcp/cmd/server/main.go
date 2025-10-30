@@ -546,18 +546,13 @@ func handleCheckUpdate(currentVersion string) {
 	// Create GitHub client
 	ghClient := goGithub.NewClient(nil)
 
-	// Create updater config
-	updaterConfig := &updater.Config{
-		Owner:            "developer-mesh",
-		Repo:             "developer-mesh",
-		Channel:          updater.StableChannel,
-		CurrentVersion:   currentVersion,
-		CheckInterval:    24 * time.Hour,
-		Platform:         updater.DetectPlatform(),
-		Arch:             updater.DetectArch(),
-		AssetNamePattern: "edge-mcp-{{.OS}}-{{.Arch}}{{.Ext}}",
-		Enabled:          true,
-	}
+	// Create updater config with defaults
+	updaterConfig := updater.DefaultConfig()
+	updaterConfig.Owner = "developer-mesh"
+	updaterConfig.Repo = "developer-mesh"
+	updaterConfig.Channel = updater.StableChannel
+	updaterConfig.CurrentVersion = currentVersion
+	updaterConfig.Enabled = true
 
 	// Create updater
 	u, err := updater.New(updaterConfig, ghClient, logger, nil)

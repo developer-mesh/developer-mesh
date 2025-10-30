@@ -93,6 +93,7 @@ func (bc *BackgroundChecker) Start(ctx context.Context) {
 	}
 	bc.isRunning = true
 	bc.ticker = time.NewTicker(bc.config.CheckInterval)
+	bc.stopChan = make(chan struct{}) // Recreate stop channel for restart
 	bc.mu.Unlock()
 
 	bc.wg.Add(1)
