@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
@@ -131,6 +132,7 @@ type CacheStats struct {
 
 // InMemoryJiraCacheRepository is an in-memory implementation for development/testing
 type InMemoryJiraCacheRepository struct {
+	mu      sync.RWMutex
 	entries map[string]*CacheEntry
 	stats   CacheStats
 }
@@ -145,6 +147,9 @@ func NewInMemoryJiraCacheRepository() JiraCacheRepository {
 
 // Get retrieves a cached entry
 func (r *InMemoryJiraCacheRepository) Get(ctx context.Context, key string) (*CacheEntry, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	entry, exists := r.entries[key]
 	if !exists {
 		r.stats.MissCount++
@@ -166,6 +171,9 @@ func (r *InMemoryJiraCacheRepository) Get(ctx context.Context, key string) (*Cac
 
 // Set stores a cache entry
 func (r *InMemoryJiraCacheRepository) Set(ctx context.Context, entry *CacheEntry) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	r.entries[entry.Key] = entry
 	r.stats.TotalEntries = int64(len(r.entries))
 
@@ -186,6 +194,9 @@ func (r *InMemoryJiraCacheRepository) Set(ctx context.Context, entry *CacheEntry
 
 // Invalidate removes a specific cache entry
 func (r *InMemoryJiraCacheRepository) Invalidate(ctx context.Context, key string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	delete(r.entries, key)
 	r.stats.TotalEntries = int64(len(r.entries))
 	return nil
@@ -193,6 +204,9 @@ func (r *InMemoryJiraCacheRepository) Invalidate(ctx context.Context, key string
 
 // InvalidateByPattern removes entries matching a pattern
 func (r *InMemoryJiraCacheRepository) InvalidateByPattern(ctx context.Context, pattern string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	keysToDelete := []string{}
 
 	for key := range r.entries {
@@ -211,6 +225,9 @@ func (r *InMemoryJiraCacheRepository) InvalidateByPattern(ctx context.Context, p
 
 // InvalidateByOperation removes entries for a specific operation
 func (r *InMemoryJiraCacheRepository) InvalidateByOperation(ctx context.Context, operation string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	keysToDelete := []string{}
 
 	for key, entry := range r.entries {
@@ -229,12 +246,18 @@ func (r *InMemoryJiraCacheRepository) InvalidateByOperation(ctx context.Context,
 
 // GetStats returns current cache statistics
 func (r *InMemoryJiraCacheRepository) GetStats(ctx context.Context) (CacheStats, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
 	r.updateHitRatio()
 	return r.stats, nil
 }
 
 // Clear removes all cache entries
 func (r *InMemoryJiraCacheRepository) Clear(ctx context.Context) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	r.entries = make(map[string]*CacheEntry)
 	r.stats = CacheStats{}
 	return nil

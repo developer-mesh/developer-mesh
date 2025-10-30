@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 
 // MockAtlassianAPIServer creates a comprehensive mock of the Atlassian API
 type MockAtlassianAPIServer struct {
+	mu            sync.RWMutex
 	server        *httptest.Server
 	requestCount  int
 	failNextCalls int
@@ -29,15 +31,23 @@ func NewMockAtlassianAPIServer() *MockAtlassianAPIServer {
 	mock := &MockAtlassianAPIServer{}
 
 	mock.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mock.mu.Lock()
 		mock.requestCount++
+		responseDelay := mock.responseDelay
+		rateLimited := mock.rateLimited
+		shouldFail := mock.failNextCalls > 0
+		if shouldFail {
+			mock.failNextCalls--
+		}
+		mock.mu.Unlock()
 
 		// Simulate response delay
-		if mock.responseDelay > 0 {
-			time.Sleep(mock.responseDelay)
+		if responseDelay > 0 {
+			time.Sleep(responseDelay)
 		}
 
 		// Simulate rate limiting
-		if mock.rateLimited {
+		if rateLimited {
 			w.Header().Set("X-RateLimit-Remaining", "0")
 			w.Header().Set("X-RateLimit-Reset", fmt.Sprintf("%d", time.Now().Add(time.Hour).Unix()))
 			w.WriteHeader(http.StatusTooManyRequests)
@@ -52,8 +62,7 @@ func NewMockAtlassianAPIServer() *MockAtlassianAPIServer {
 		}
 
 		// Simulate failures
-		if mock.failNextCalls > 0 {
-			mock.failNextCalls--
+		if shouldFail {
 			w.WriteHeader(http.StatusInternalServerError)
 			if err := json.NewEncoder(w).Encode(map[string]interface{}{
 				"errorMessages": []string{"Internal server error"},
@@ -306,6 +315,41 @@ func (m *MockAtlassianAPIServer) Close() {
 	m.server.Close()
 }
 
+// SetResponseDelay sets the response delay in a thread-safe manner
+func (m *MockAtlassianAPIServer) SetResponseDelay(delay time.Duration) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.responseDelay = delay
+}
+
+// SetRateLimited sets the rate limited flag in a thread-safe manner
+func (m *MockAtlassianAPIServer) SetRateLimited(limited bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.rateLimited = limited
+}
+
+// SetFailNextCalls sets the number of calls to fail in a thread-safe manner
+func (m *MockAtlassianAPIServer) SetFailNextCalls(count int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.failNextCalls = count
+}
+
+// GetRequestCount returns the request count in a thread-safe manner
+func (m *MockAtlassianAPIServer) GetRequestCount() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.requestCount
+}
+
+// ResetRequestCount resets the request count in a thread-safe manner
+func (m *MockAtlassianAPIServer) ResetRequestCount() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.requestCount = 0
+}
+
 // TestJiraProvider_ErrorScenarios tests various error conditions
 func TestJiraProvider_ErrorScenarios(t *testing.T) {
 	logger := &observability.NoopLogger{}
@@ -317,7 +361,7 @@ func TestJiraProvider_ErrorScenarios(t *testing.T) {
 
 	t.Run("Server Error Recovery", func(t *testing.T) {
 		// Simulate server error
-		mockServer.failNextCalls = 2
+		mockServer.SetFailNextCalls(2)
 
 		req, err := http.NewRequestWithContext(ctx, "GET", mockServer.server.URL+"/rest/api/3/issue/TEST-1", nil)
 		require.NoError(t, err)
@@ -355,7 +399,7 @@ func TestJiraProvider_ErrorScenarios(t *testing.T) {
 
 	t.Run("Rate Limiting", func(t *testing.T) {
 		// Enable rate limiting
-		mockServer.rateLimited = true
+		mockServer.SetRateLimited(true)
 
 		req, err := http.NewRequestWithContext(ctx, "GET", mockServer.server.URL+"/rest/api/3/issue/TEST-1", nil)
 		require.NoError(t, err)
@@ -371,12 +415,12 @@ func TestJiraProvider_ErrorScenarios(t *testing.T) {
 		}
 
 		// Disable rate limiting
-		mockServer.rateLimited = false
+		mockServer.SetRateLimited(false)
 	})
 
 	t.Run("Timeout Handling", func(t *testing.T) {
 		// Set response delay
-		mockServer.responseDelay = 100 * time.Millisecond
+		mockServer.SetResponseDelay(100 * time.Millisecond)
 
 		// Create context with short timeout
 		timeoutCtx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
@@ -395,7 +439,7 @@ func TestJiraProvider_ErrorScenarios(t *testing.T) {
 		}
 
 		// Reset delay
-		mockServer.responseDelay = 0
+		mockServer.SetResponseDelay(0)
 	})
 
 	t.Run("Invalid Endpoint", func(t *testing.T) {
@@ -573,12 +617,12 @@ func TestJiraProvider_ConcurrentRequests(t *testing.T) {
 		}
 
 		// Verify request count
-		assert.GreaterOrEqual(t, mockServer.requestCount, numRequests)
+		assert.GreaterOrEqual(t, mockServer.GetRequestCount(), numRequests)
 	})
 
 	t.Run("Mixed Read/Write Operations", func(t *testing.T) {
 		// Reset request count
-		mockServer.requestCount = 0
+		mockServer.ResetRequestCount()
 
 		// Launch mixed operations
 		numOps := 10
@@ -626,7 +670,7 @@ func TestJiraProvider_ConcurrentRequests(t *testing.T) {
 		}
 
 		// Verify requests were made
-		assert.Greater(t, mockServer.requestCount, 0)
+		assert.Greater(t, mockServer.GetRequestCount(), 0)
 	})
 }
 
