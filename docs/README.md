@@ -28,6 +28,7 @@ Step-by-step instructions for specific tasks and features:
 
 - **[Agents](guides/agents/)** - Building and managing AI agents
 - **[Authentication](guides/authentication/)** - Auth patterns and OAuth integration
+- **[Edge MCP Auto-Update](guides/edge-mcp-auto-update.md)** - Configuring and managing Edge MCP auto-updates
 - **[Embeddings](guides/embeddings/)** - Working with embeddings and semantic search
 - **[Integrations](guides/integrations/)** - Integrating with external tools and platforms
 - **[RAG](guides/rag/)** - RAG (Retrieval-Augmented Generation) setup and patterns
