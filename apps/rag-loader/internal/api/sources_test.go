@@ -32,11 +32,12 @@ import (
 // setupTestDatabase creates a test database connection
 func setupTestDatabase(t *testing.T) *sqlx.DB {
 	// Get database connection from environment or use defaults
-	host := getEnvOrDefault("DATABASE_HOST", "localhost")
-	port := getEnvOrDefault("DATABASE_PORT", "5432")
-	user := getEnvOrDefault("DATABASE_USER", "devmesh")
-	password := getEnvOrDefault("DATABASE_PASSWORD", "devmesh")
-	dbname := getEnvOrDefault("DATABASE_NAME", "devmesh_development")
+	// Check POSTGRES_* variables first (CI), then DATABASE_* (local)
+	host := getEnvOrDefault("POSTGRES_HOST", getEnvOrDefault("DATABASE_HOST", "localhost"))
+	port := getEnvOrDefault("POSTGRES_PORT", getEnvOrDefault("DATABASE_PORT", "5432"))
+	user := getEnvOrDefault("POSTGRES_USER", getEnvOrDefault("DATABASE_USER", "devmesh"))
+	password := getEnvOrDefault("POSTGRES_PASSWORD", getEnvOrDefault("DATABASE_PASSWORD", "devmesh"))
+	dbname := getEnvOrDefault("POSTGRES_DB", getEnvOrDefault("DATABASE_NAME", "devmesh_development"))
 	sslmode := getEnvOrDefault("DATABASE_SSL_MODE", "disable")
 
 	connStr := fmt.Sprintf(
