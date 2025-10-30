@@ -276,6 +276,10 @@ start-test-env: ## Start test environment (Redis + PostgreSQL in Docker)
 	echo "Services failed to become healthy after 30 seconds"; \
 	$(DOCKER_COMPOSE) ps database redis; \
 	exit 1
+	@echo "Running database migrations..."
+	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
+	@migrate -database "postgresql://devmesh:devmesh@localhost:5432/devmesh_development?sslmode=disable" -path apps/rest-api/migrations/sql up
+	@echo "Migrations completed successfully"
 
 .PHONY: stop-test-env
 stop-test-env: ## Stop test environment
