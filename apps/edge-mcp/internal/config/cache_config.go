@@ -81,6 +81,14 @@ func getEnvInt(key string, defaultValue int) int {
 
 func getEnvBool(key string, defaultValue bool) bool {
 	if value := os.Getenv(key); value != "" {
+		// Handle common yes/no strings explicitly
+		switch value {
+		case "yes", "Yes", "YES", "y", "Y":
+			return true
+		case "no", "No", "NO", "n", "N":
+			return false
+		}
+		// Fall back to ParseBool for standard boolean strings (true, false, 1, 0, etc.)
 		if boolVal, err := strconv.ParseBool(value); err == nil {
 			return boolVal
 		}

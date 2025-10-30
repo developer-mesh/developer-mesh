@@ -455,3 +455,13 @@ shutdown:
   timeout: 30s
   drain_timeout: 15s
   force_close_timeout: 5s
+
+# Auto-Update Configuration (Edge MCP)
+updater:
+  enabled: ${EDGE_MCP_UPDATE_ENABLED:true}
+  check_interval: ${EDGE_MCP_UPDATE_CHECK_INTERVAL:24h}
+  channel: ${EDGE_MCP_UPDATE_CHANNEL:stable}  # stable, beta, latest
+  auto_download: ${EDGE_MCP_UPDATE_AUTO_DOWNLOAD:true}
+  auto_apply: ${EDGE_MCP_UPDATE_AUTO_APPLY:false}  # Requires restart
+  github_owner: ${EDGE_MCP_UPDATE_GITHUB_OWNER:developer-mesh}
+  github_repo: ${EDGE_MCP_UPDATE_GITHUB_REPO:developer-mesh}

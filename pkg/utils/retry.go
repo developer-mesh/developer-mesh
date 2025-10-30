@@ -186,3 +186,30 @@ func (e HTTPError) IsRetryable() bool {
 		return e.StatusCode >= 500
 	}
 }
+
+// IsRetryableHTTPError checks if an error is a retryable HTTP error
+func IsRetryableHTTPError(err error) bool {
+	// Check if error implements RetryableError interface
+	var retryable RetryableError
+	if errors.As(err, &retryable) {
+		return retryable.IsRetryable()
+	}
+
+	// Check for specific error types
+	var httpErr HTTPError
+	if errors.As(err, &httpErr) {
+		return httpErr.IsRetryable()
+	}
+
+	var netErr NetworkError
+	if errors.As(err, &netErr) {
+		return netErr.IsRetryable()
+	}
+
+	// Check for common retryable errors
+	if errors.Is(err, ErrTimeout) || errors.Is(err, ErrRateLimit) || errors.Is(err, ErrServiceUnavailable) {
+		return true
+	}
+
+	return false
+}

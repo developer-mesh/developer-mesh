@@ -12,6 +12,7 @@ type Config struct {
 	Auth      AuthConfig      `yaml:"auth"`
 	Core      CoreConfig      `yaml:"core"`
 	RateLimit RateLimitConfig `yaml:"rate_limit"`
+	Updater   UpdaterConfig   `yaml:"updater"`
 }
 
 // ServerConfig represents server configuration
@@ -56,6 +57,17 @@ type RateLimitConfig struct {
 	MaxAge          time.Duration `yaml:"max_age"`          // Maximum age for unused limiters
 }
 
+// UpdaterConfig represents auto-update configuration
+type UpdaterConfig struct {
+	Enabled       bool          `yaml:"enabled"`        // Master switch for auto-updates
+	CheckInterval time.Duration `yaml:"check_interval"` // How often to check for updates
+	Channel       string        `yaml:"channel"`        // Update channel: stable, beta, latest
+	AutoDownload  bool          `yaml:"auto_download"`  // Automatically download updates
+	AutoApply     bool          `yaml:"auto_apply"`     // Automatically apply updates (requires restart)
+	GitHubOwner   string        `yaml:"github_owner"`   // GitHub repository owner
+	GitHubRepo    string        `yaml:"github_repo"`    // GitHub repository name
+}
+
 // Load loads configuration from file or environment
 func Load(configFile string) (*Config, error) {
 	// For Edge MCP, we primarily use environment variables and defaults
@@ -89,6 +101,15 @@ func Default() *Config {
 			DefaultQuota:       getEnvInt64("EDGE_MCP_DEFAULT_QUOTA", 10000),
 			CleanupInterval:    getEnvDuration("EDGE_MCP_CLEANUP_INTERVAL", 5*time.Minute),
 			MaxAge:             getEnvDuration("EDGE_MCP_MAX_AGE", 1*time.Hour),
+		},
+		Updater: UpdaterConfig{
+			Enabled:       getEnvBool("EDGE_MCP_UPDATE_ENABLED", true),
+			CheckInterval: getEnvDuration("EDGE_MCP_UPDATE_CHECK_INTERVAL", 24*time.Hour),
+			Channel:       getEnv("EDGE_MCP_UPDATE_CHANNEL", "stable"),
+			AutoDownload:  getEnvBool("EDGE_MCP_UPDATE_AUTO_DOWNLOAD", true),
+			AutoApply:     getEnvBool("EDGE_MCP_UPDATE_AUTO_APPLY", false), // Require manual restart for safety
+			GitHubOwner:   getEnv("EDGE_MCP_UPDATE_GITHUB_OWNER", "developer-mesh"),
+			GitHubRepo:    getEnv("EDGE_MCP_UPDATE_GITHUB_REPO", "developer-mesh"),
 		},
 	}
 }

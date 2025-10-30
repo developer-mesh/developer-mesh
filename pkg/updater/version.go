@@ -2,109 +2,97 @@ package updater
 
 import (
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 )
 
-// Version represents a semantic version with additional metadata
+// Version represents a semantic version (major.minor.patch).
 type Version struct {
 	Major      int
 	Minor      int
 	Patch      int
-	Prerelease string // beta.1, rc.2, etc.
-	Build      string // Git commit, build number
-	Dirty      bool   // Has uncommitted changes
-	Raw        string // Original version string
+	Prerelease string // e.g., "beta.1", "rc.2"
+	Build      string // e.g., "20230101.abc123"
 }
 
-// Common version patterns we need to handle:
-// - 1.0.0
-// - v1.0.0
-// - 1.0.0-beta.1
-// - 1.0.0-rc.2+build.123
-// - 0.0.9-1-gca935e4e-dirty (git describe format)
-// - dev
+// ParseVersion parses a version string into a Version struct.
+// Supports formats like: "1.2.3", "v1.2.3", "1.2.3-beta.1", "1.2.3+build.123"
+func ParseVersion(v string) (*Version, error) {
+	// Remove 'v' prefix if present
+	v = strings.TrimPrefix(v, "v")
 
-var (
-	// Semantic version regex (simplified)
-	semverRegex = regexp.MustCompile(`^v?(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9\.\-]+))?(?:\+([a-zA-Z0-9\.\-]+))?$`)
-
-	// Git describe format: tag-commits-ghash[-dirty]
-	gitDescribeRegex = regexp.MustCompile(`^v?(\d+)\.(\d+)\.(\d+)-(\d+)-g([a-f0-9]+)(?:-dirty)?$`)
-)
-
-// ParseVersion parses a version string into a Version struct
-func ParseVersion(versionString string) (*Version, error) {
-	if versionString == "" {
+	if v == "" {
 		return nil, fmt.Errorf("empty version string")
 	}
 
-	v := &Version{
-		Raw: versionString,
+	version := &Version{}
+
+	// Split on '+' to separate build metadata
+	parts := strings.SplitN(v, "+", 2)
+	if len(parts) == 2 {
+		version.Build = parts[1]
 	}
 
-	// Check for dirty flag
-	if strings.HasSuffix(versionString, "-dirty") {
-		v.Dirty = true
-		versionString = strings.TrimSuffix(versionString, "-dirty")
+	// Split on '-' to separate prerelease
+	parts = strings.SplitN(parts[0], "-", 2)
+	if len(parts) == 2 {
+		version.Prerelease = parts[1]
 	}
 
-	// Special case: dev version
-	if versionString == "dev" || versionString == "development" {
-		v.Major = 0
-		v.Minor = 0
-		v.Patch = 0
-		v.Prerelease = "dev"
-		return v, nil
+	// Parse major.minor.patch
+	numbers := strings.Split(parts[0], ".")
+	if len(numbers) < 1 {
+		return nil, fmt.Errorf("invalid version format: %s", v)
 	}
 
-	// Try git describe format first (common in development)
-	if matches := gitDescribeRegex.FindStringSubmatch(versionString); matches != nil {
-		v.Major, _ = strconv.Atoi(matches[1])
-		v.Minor, _ = strconv.Atoi(matches[2])
-		v.Patch, _ = strconv.Atoi(matches[3])
+	// Parse major
+	major, err := strconv.Atoi(numbers[0])
+	if err != nil {
+		return nil, fmt.Errorf("invalid major version: %w", err)
+	}
+	version.Major = major
 
-		// Store git metadata as prerelease
-		commits := matches[4]
-		hash := matches[5]
-		if commits != "0" {
-			v.Prerelease = fmt.Sprintf("dev.%s.g%s", commits, hash)
+	// Parse minor (default to 0 if not present)
+	if len(numbers) > 1 {
+		minor, err := strconv.Atoi(numbers[1])
+		if err != nil {
+			return nil, fmt.Errorf("invalid minor version: %w", err)
 		}
-		return v, nil
+		version.Minor = minor
 	}
 
-	// Try standard semver
-	if matches := semverRegex.FindStringSubmatch(versionString); matches != nil {
-		v.Major, _ = strconv.Atoi(matches[1])
-		v.Minor, _ = strconv.Atoi(matches[2])
-		v.Patch, _ = strconv.Atoi(matches[3])
-
-		if matches[4] != "" {
-			v.Prerelease = matches[4]
+	// Parse patch (default to 0 if not present)
+	if len(numbers) > 2 {
+		patch, err := strconv.Atoi(numbers[2])
+		if err != nil {
+			return nil, fmt.Errorf("invalid patch version: %w", err)
 		}
-		if matches[5] != "" {
-			v.Build = matches[5]
-		}
-		return v, nil
+		version.Patch = patch
 	}
 
-	// Fallback: try to extract any version numbers
-	parts := strings.Split(versionString, ".")
-	if len(parts) >= 3 {
-		v.Major, _ = strconv.Atoi(strings.TrimPrefix(parts[0], "v"))
-		v.Minor, _ = strconv.Atoi(parts[1])
-		v.Patch, _ = strconv.Atoi(parts[2])
-		return v, nil
-	}
-
-	return nil, fmt.Errorf("unable to parse version: %s", versionString)
+	return version, nil
 }
 
-// Compare compares two versions
-// Returns: -1 if v < other, 0 if v == other, 1 if v > other
+// String returns the string representation of the version.
+func (v *Version) String() string {
+	s := fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Patch)
+	if v.Prerelease != "" {
+		s += "-" + v.Prerelease
+	}
+	if v.Build != "" {
+		s += "+" + v.Build
+	}
+	return s
+}
+
+// Compare compares two versions.
+// Returns:
+//
+//	-1 if v < other
+//	 0 if v == other
+//	 1 if v > other
 func (v *Version) Compare(other *Version) int {
-	// Major version comparison
+	// Compare major
 	if v.Major != other.Major {
 		if v.Major < other.Major {
 			return -1
@@ -112,7 +100,7 @@ func (v *Version) Compare(other *Version) int {
 		return 1
 	}
 
-	// Minor version comparison
+	// Compare minor
 	if v.Minor != other.Minor {
 		if v.Minor < other.Minor {
 			return -1
@@ -120,7 +108,7 @@ func (v *Version) Compare(other *Version) int {
 		return 1
 	}
 
-	// Patch version comparison
+	// Compare patch
 	if v.Patch != other.Patch {
 		if v.Patch < other.Patch {
 			return -1
@@ -128,142 +116,72 @@ func (v *Version) Compare(other *Version) int {
 		return 1
 	}
 
-	// Prerelease comparison (absence is higher than presence)
+	// Compare prerelease
+	// A version without prerelease is greater than one with prerelease
 	if v.Prerelease == "" && other.Prerelease != "" {
-		return 1 // 1.0.0 > 1.0.0-beta
+		return 1
 	}
 	if v.Prerelease != "" && other.Prerelease == "" {
-		return -1 // 1.0.0-beta < 1.0.0
+		return -1
 	}
 	if v.Prerelease != other.Prerelease {
-		// Special handling for dev versions
-		if v.Prerelease == "dev" {
-			return -1 // dev is always older
-		}
-		if other.Prerelease == "dev" {
-			return 1
-		}
-
-		// Lexical comparison for other prereleases
+		// Lexicographic comparison for prerelease
 		if v.Prerelease < other.Prerelease {
 			return -1
 		}
 		return 1
 	}
 
-	// Dirty flag comparison (dirty is considered older)
-	if v.Dirty && !other.Dirty {
-		return -1
-	}
-	if !v.Dirty && other.Dirty {
-		return 1
-	}
-
-	return 0 // Versions are equal
+	// Versions are equal (build metadata is ignored for comparison)
+	return 0
 }
 
-// IsNewer returns true if v is newer than other
-func (v *Version) IsNewer(other *Version) bool {
+// IsNewerThan returns true if v is newer than other.
+func (v *Version) IsNewerThan(other *Version) bool {
 	return v.Compare(other) > 0
 }
 
-// IsOlder returns true if v is older than other
-func (v *Version) IsOlder(other *Version) bool {
+// IsOlderThan returns true if v is older than other.
+func (v *Version) IsOlderThan(other *Version) bool {
 	return v.Compare(other) < 0
 }
 
-// IsEqual returns true if versions are equal
-func (v *Version) IsEqual(other *Version) bool {
+// Equals returns true if v equals other.
+func (v *Version) Equals(other *Version) bool {
 	return v.Compare(other) == 0
 }
 
-// IsDevelopment returns true if this is a development version
-func (v *Version) IsDevelopment() bool {
-	return v.Dirty ||
-		v.Prerelease == "dev" ||
-		strings.HasPrefix(v.Prerelease, "dev.") ||
-		v.Major == 0 && v.Minor == 0 && v.Patch == 0
-}
-
-// IsPrerelease returns true if this is a prerelease version
-func (v *Version) IsPrerelease() bool {
-	return v.Prerelease != ""
-}
-
-// IsStable returns true if this is a stable release version
+// IsStable returns true if the version is a stable release (no prerelease).
 func (v *Version) IsStable() bool {
-	return !v.IsDevelopment() && !v.IsPrerelease() && !v.Dirty
+	return v.Prerelease == ""
 }
 
-// String returns the version as a string
-func (v *Version) String() string {
-	s := fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Patch)
-
-	if v.Prerelease != "" {
-		s += "-" + v.Prerelease
+// CompareVersionStrings is a convenience function to compare two version strings.
+// Returns:
+//
+//	-1 if v1 < v2
+//	 0 if v1 == v2
+//	 1 if v1 > v2
+//	error if either version string is invalid
+func CompareVersionStrings(v1, v2 string) (int, error) {
+	ver1, err := ParseVersion(v1)
+	if err != nil {
+		return 0, fmt.Errorf("invalid version v1: %w", err)
 	}
 
-	if v.Build != "" {
-		s += "+" + v.Build
+	ver2, err := ParseVersion(v2)
+	if err != nil {
+		return 0, fmt.Errorf("invalid version v2: %w", err)
 	}
 
-	if v.Dirty {
-		s += "-dirty"
-	}
-
-	return s
+	return ver1.Compare(ver2), nil
 }
 
-// MatchesConstraint checks if version matches a constraint
-// Examples: ">1.0.0", ">=1.0.0", "<2.0.0", "~1.2.0", "^1.0.0"
-func (v *Version) MatchesConstraint(constraint string) bool {
-	// This is a simplified implementation
-	// For production, consider using a library like github.com/Masterminds/semver
-
-	constraint = strings.TrimSpace(constraint)
-
-	// Handle exact version
-	if !strings.ContainsAny(constraint, "<>=^~") {
-		other, err := ParseVersion(constraint)
-		if err != nil {
-			return false
-		}
-		return v.IsEqual(other)
+// IsNewerVersion is a convenience function that returns true if v1 > v2.
+func IsNewerVersion(v1, v2 string) (bool, error) {
+	result, err := CompareVersionStrings(v1, v2)
+	if err != nil {
+		return false, err
 	}
-
-	// Handle simple comparisons
-	if strings.HasPrefix(constraint, ">=") {
-		other, err := ParseVersion(constraint[2:])
-		if err != nil {
-			return false
-		}
-		return v.Compare(other) >= 0
-	}
-
-	if strings.HasPrefix(constraint, ">") {
-		other, err := ParseVersion(constraint[1:])
-		if err != nil {
-			return false
-		}
-		return v.Compare(other) > 0
-	}
-
-	if strings.HasPrefix(constraint, "<=") {
-		other, err := ParseVersion(constraint[2:])
-		if err != nil {
-			return false
-		}
-		return v.Compare(other) <= 0
-	}
-
-	if strings.HasPrefix(constraint, "<") {
-		other, err := ParseVersion(constraint[1:])
-		if err != nil {
-			return false
-		}
-		return v.Compare(other) < 0
-	}
-
-	// For now, don't handle complex constraints like ~, ^
-	return false
+	return result > 0, nil
 }

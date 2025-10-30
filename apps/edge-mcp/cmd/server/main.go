@@ -22,8 +22,11 @@ import (
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tools"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tools/builtin"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tracing"
+	edgeUpdater "github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/updater"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/updater"
 	"github.com/gin-gonic/gin"
+	goGithub "github.com/google/go-github/v74/github"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -35,18 +38,26 @@ var (
 
 func main() {
 	var (
-		configFile  = flag.String("config", "configs/config.yaml", "Path to configuration file")
-		port        = flag.Int("port", 0, "Port to listen on (0 for stdio mode)")
-		apiKey      = flag.String("api-key", "", "API key for authentication")
-		coreURL     = flag.String("core-url", "", "Core Platform URL for advanced features")
-		showVersion = flag.Bool("version", false, "Show version information")
-		logLevel    = flag.String("log-level", "info", "Log level (debug, info, warn, error)")
-		stdioMode   = flag.Bool("stdio", false, "Run in stdio mode for Claude Code")
+		configFile        = flag.String("config", "configs/config.yaml", "Path to configuration file")
+		port              = flag.Int("port", 0, "Port to listen on (0 for stdio mode)")
+		apiKey            = flag.String("api-key", "", "API key for authentication")
+		coreURL           = flag.String("core-url", "", "Core Platform URL for advanced features")
+		showVersion       = flag.Bool("version", false, "Show version information")
+		logLevel          = flag.String("log-level", "info", "Log level (debug, info, warn, error)")
+		stdioMode         = flag.Bool("stdio", false, "Run in stdio mode for Claude Code")
+		checkUpdate       = flag.Bool("check-update", false, "Check for available updates and exit")
+		disableAutoUpdate = flag.Bool("disable-auto-update", false, "Disable automatic update checking")
 	)
 	flag.Parse()
 
 	if *showVersion {
 		fmt.Printf("Edge MCP v%s (commit: %s, built: %s)\n", version, commit, buildTime)
+		os.Exit(0)
+	}
+
+	// Handle check-update command
+	if *checkUpdate {
+		handleCheckUpdate(version)
 		os.Exit(0)
 	}
 
@@ -205,6 +216,34 @@ func main() {
 	metricsCollector := metrics.New()
 	logger.Info("Initialized Prometheus metrics", nil)
 
+	// Initialize background update checker (if enabled and not disabled by flag)
+	var backgroundChecker *edgeUpdater.BackgroundChecker
+	if !*disableAutoUpdate && !updater.IsDevelopmentMode() {
+		// Create GitHub client for update checking
+		ghClient := goGithub.NewClient(nil)
+		checker, err := edgeUpdater.NewBackgroundChecker(
+			&cfg.Updater,
+			version,
+			ghClient,
+			logger,
+			nil, // Metrics - use nil for now
+		)
+		if err != nil {
+			logger.Warn("Failed to initialize background update checker", map[string]interface{}{
+				"error": err.Error(),
+			})
+		} else {
+			backgroundChecker = checker
+			logger.Info("Background update checker initialized", map[string]interface{}{
+				"enabled": true,
+			})
+		}
+	} else if *disableAutoUpdate {
+		logger.Info("Auto-update disabled by command-line flag", nil)
+	} else if updater.IsDevelopmentMode() {
+		logger.Info("Auto-update disabled in development mode", nil)
+	}
+
 	// Initialize tool registry
 	toolRegistry := tools.NewRegistry()
 
@@ -273,8 +312,19 @@ func main() {
 		nil, // semanticContextMgr - Edge-MCP delegates to Core Platform instead
 	)
 
+	// Start background update checker (if initialized)
+	if backgroundChecker != nil {
+		backgroundChecker.Start(context.Background())
+	}
+
 	// Check if we should run in stdio mode
 	if isStdioMode {
+		// Defer cleanup
+		defer func() {
+			if backgroundChecker != nil {
+				backgroundChecker.Stop()
+			}
+		}()
 		// Run in stdio mode for Claude Code integration
 		// Only log if debug mode
 		if *logLevel == "debug" {
@@ -405,7 +455,13 @@ func main() {
 		}
 		serverCancel()
 
-		// Step 3: Close cache if it implements io.Closer
+		// Step 3: Stop background update checker (if running)
+		if backgroundChecker != nil {
+			logger.Info("Stopping background update checker", nil)
+			backgroundChecker.Stop()
+		}
+
+		// Step 4: Close cache if it implements io.Closer
 		logger.Info("Closing cache", nil)
 		if closer, ok := memCache.(interface{ Close() error }); ok {
 			if err := closer.Close(); err != nil {
@@ -415,7 +471,7 @@ func main() {
 			}
 		}
 
-		// Step 4: Flush metrics and shutdown tracing (5s timeout)
+		// Step 5: Flush metrics and shutdown tracing (5s timeout)
 		if tracerProvider != nil && tracingConfig.Enabled {
 			logger.Info("Flushing traces", nil)
 			tracerCtx, tracerCancel := context.WithTimeout(shutdownCtx, 5*time.Second)
@@ -478,6 +534,62 @@ func main() {
 		})
 	case <-shutdownChan:
 		// Graceful shutdown completed
+	}
+}
+
+// handleCheckUpdate performs a manual update check and prints the result
+func handleCheckUpdate(currentVersion string) {
+	logger := observability.NewStandardLogger("edge-mcp")
+
+	fmt.Printf("Edge MCP v%s - Checking for updates...\n", currentVersion)
+
+	// Create GitHub client
+	ghClient := goGithub.NewClient(nil)
+
+	// Create updater config
+	updaterConfig := &updater.Config{
+		Owner:            "developer-mesh",
+		Repo:             "developer-mesh",
+		Channel:          updater.StableChannel,
+		CurrentVersion:   currentVersion,
+		CheckInterval:    24 * time.Hour,
+		Platform:         updater.DetectPlatform(),
+		Arch:             updater.DetectArch(),
+		AssetNamePattern: "edge-mcp-{{.OS}}-{{.Arch}}{{.Ext}}",
+		Enabled:          true,
+	}
+
+	// Create updater
+	u, err := updater.New(updaterConfig, ghClient, logger, nil)
+	if err != nil {
+		fmt.Printf("Error: Failed to initialize updater: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Check for updates
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	result, err := u.CheckForUpdate(ctx)
+	if err != nil {
+		fmt.Printf("Error: Failed to check for updates: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Print result
+	fmt.Printf("\nCurrent version: %s\n", result.CurrentVersion.String())
+	fmt.Printf("Latest version:  %s\n", result.LatestVersion.String())
+
+	if result.UpdateAvailable {
+		fmt.Printf("\n✅ Update available!\n")
+		if result.Changelog != "" {
+			fmt.Printf("\nChangelog:\n%s\n", result.Changelog)
+		}
+		fmt.Printf("\nTo update:\n")
+		fmt.Printf("  1. Download from: %s\n", result.Release.HTMLURL)
+		fmt.Printf("  2. Or enable auto-update: EDGE_MCP_UPDATE_AUTO_DOWNLOAD=true\n")
+	} else {
+		fmt.Printf("\n✅ You are running the latest version\n")
 	}
 }
 

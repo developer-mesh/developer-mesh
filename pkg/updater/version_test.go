@@ -4,205 +4,130 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseVersion(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		expected *Version
-		wantErr  bool
+		name        string
+		input       string
+		expected    *Version
+		expectError bool
 	}{
 		{
 			name:  "simple version",
 			input: "1.2.3",
 			expected: &Version{
-				Major: 1, Minor: 2, Patch: 3,
-				Raw: "1.2.3",
+				Major: 1,
+				Minor: 2,
+				Patch: 3,
 			},
+			expectError: false,
 		},
 		{
 			name:  "version with v prefix",
 			input: "v1.2.3",
 			expected: &Version{
-				Major: 1, Minor: 2, Patch: 3,
-				Raw: "v1.2.3",
+				Major: 1,
+				Minor: 2,
+				Patch: 3,
 			},
+			expectError: false,
 		},
 		{
 			name:  "version with prerelease",
-			input: "1.0.0-beta.1",
+			input: "1.2.3-beta.1",
 			expected: &Version{
-				Major: 1, Minor: 0, Patch: 0,
+				Major:      1,
+				Minor:      2,
+				Patch:      3,
 				Prerelease: "beta.1",
-				Raw:        "1.0.0-beta.1",
 			},
+			expectError: false,
 		},
 		{
 			name:  "version with build metadata",
-			input: "1.0.0+build.123",
+			input: "1.2.3+build.123",
 			expected: &Version{
-				Major: 1, Minor: 0, Patch: 0,
+				Major: 1,
+				Minor: 2,
+				Patch: 3,
 				Build: "build.123",
-				Raw:   "1.0.0+build.123",
 			},
+			expectError: false,
 		},
 		{
-			name:  "git describe format",
-			input: "0.0.9-1-gca935e4e",
+			name:  "version with prerelease and build",
+			input: "1.2.3-rc.1+build.456",
 			expected: &Version{
-				Major: 0, Minor: 0, Patch: 9,
-				Prerelease: "dev.1.gca935e4e",
-				Raw:        "0.0.9-1-gca935e4e",
+				Major:      1,
+				Minor:      2,
+				Patch:      3,
+				Prerelease: "rc.1",
+				Build:      "build.456",
 			},
+			expectError: false,
 		},
 		{
-			name:  "git describe format with dirty",
-			input: "0.0.9-1-gca935e4e-dirty",
+			name:  "major only",
+			input: "1",
 			expected: &Version{
-				Major: 0, Minor: 0, Patch: 9,
-				Prerelease: "dev.1.gca935e4e",
-				Dirty:      true,
-				Raw:        "0.0.9-1-gca935e4e-dirty",
+				Major: 1,
+				Minor: 0,
+				Patch: 0,
 			},
+			expectError: false,
 		},
 		{
-			name:  "dev version",
-			input: "dev",
+			name:  "major.minor only",
+			input: "1.2",
 			expected: &Version{
-				Major: 0, Minor: 0, Patch: 0,
-				Prerelease: "dev",
-				Raw:        "dev",
+				Major: 1,
+				Minor: 2,
+				Patch: 0,
 			},
+			expectError: false,
 		},
 		{
-			name:  "version with dirty flag",
-			input: "1.0.0-dirty",
-			expected: &Version{
-				Major: 1, Minor: 0, Patch: 0,
-				Dirty: true,
-				Raw:   "1.0.0-dirty",
-			},
+			name:        "empty string",
+			input:       "",
+			expected:    nil,
+			expectError: true,
 		},
 		{
-			name:    "empty version",
-			input:   "",
-			wantErr: true,
+			name:        "invalid major",
+			input:       "x.2.3",
+			expected:    nil,
+			expectError: true,
 		},
 		{
-			name:    "invalid version",
-			input:   "not-a-version",
-			wantErr: true,
+			name:        "invalid minor",
+			input:       "1.x.3",
+			expected:    nil,
+			expectError: true,
+		},
+		{
+			name:        "invalid patch",
+			input:       "1.2.x",
+			expected:    nil,
+			expectError: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := ParseVersion(tt.input)
-
-			if tt.wantErr {
+			if tt.expectError {
 				assert.Error(t, err)
-				return
-			}
-
-			assert.NoError(t, err)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-func TestVersionCompare(t *testing.T) {
-	tests := []struct {
-		name     string
-		v1       string
-		v2       string
-		expected int // -1: v1 < v2, 0: v1 == v2, 1: v1 > v2
-	}{
-		// Basic comparisons
-		{"equal versions", "1.0.0", "1.0.0", 0},
-		{"major version difference", "2.0.0", "1.0.0", 1},
-		{"minor version difference", "1.1.0", "1.0.0", 1},
-		{"patch version difference", "1.0.1", "1.0.0", 1},
-
-		// Prerelease comparisons
-		{"stable vs prerelease", "1.0.0", "1.0.0-beta", 1},
-		{"prerelease vs stable", "1.0.0-beta", "1.0.0", -1},
-		{"beta vs alpha", "1.0.0-beta", "1.0.0-alpha", 1},
-		{"beta.1 vs beta.2", "1.0.0-beta.1", "1.0.0-beta.2", -1},
-
-		// Dev versions
-		{"dev vs stable", "dev", "1.0.0", -1},
-		{"dev vs dev", "dev", "dev", 0},
-		{"dev build vs stable", "0.0.9-1-gca935e4e", "1.0.0", -1},
-
-		// Dirty versions
-		{"dirty vs clean", "1.0.0-dirty", "1.0.0", -1},
-		{"clean vs dirty", "1.0.0", "1.0.0-dirty", 1},
-		{"dirty vs dirty", "1.0.0-dirty", "1.0.0-dirty", 0},
-
-		// Git describe format
-		{"git describe same base", "0.0.9-1-gabc", "0.0.9-2-gdef", -1},
-		{"git describe vs release", "0.0.9-1-gabc", "0.0.9", -1},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			v1, err := ParseVersion(tt.v1)
-			assert.NoError(t, err)
-
-			v2, err := ParseVersion(tt.v2)
-			assert.NoError(t, err)
-
-			result := v1.Compare(v2)
-			assert.Equal(t, tt.expected, result,
-				"Expected %s compared to %s to return %d, got %d",
-				tt.v1, tt.v2, tt.expected, result)
-
-			// Test convenience methods
-			if tt.expected > 0 {
-				assert.True(t, v1.IsNewer(v2))
-				assert.False(t, v1.IsOlder(v2))
-				assert.False(t, v1.IsEqual(v2))
-			} else if tt.expected < 0 {
-				assert.False(t, v1.IsNewer(v2))
-				assert.True(t, v1.IsOlder(v2))
-				assert.False(t, v1.IsEqual(v2))
+				assert.Nil(t, result)
 			} else {
-				assert.False(t, v1.IsNewer(v2))
-				assert.False(t, v1.IsOlder(v2))
-				assert.True(t, v1.IsEqual(v2))
+				require.NoError(t, err)
+				assert.Equal(t, tt.expected.Major, result.Major)
+				assert.Equal(t, tt.expected.Minor, result.Minor)
+				assert.Equal(t, tt.expected.Patch, result.Patch)
+				assert.Equal(t, tt.expected.Prerelease, result.Prerelease)
+				assert.Equal(t, tt.expected.Build, result.Build)
 			}
-		})
-	}
-}
-
-func TestVersionFlags(t *testing.T) {
-	tests := []struct {
-		name          string
-		version       string
-		isDev         bool
-		isPrerelease  bool
-		isStable      bool
-	}{
-		{"stable release", "1.0.0", false, false, true},
-		{"beta release", "1.0.0-beta.1", false, true, false},
-		{"dev version", "dev", true, true, false},
-		{"dirty version", "1.0.0-dirty", true, false, false},
-		{"git describe dev", "0.0.9-1-gabc", true, true, false},
-		{"zero version", "0.0.0", true, false, false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			v, err := ParseVersion(tt.version)
-			assert.NoError(t, err)
-
-			assert.Equal(t, tt.isDev, v.IsDevelopment(),
-				"IsDevelopment() for %s", tt.version)
-			assert.Equal(t, tt.isPrerelease, v.IsPrerelease(),
-				"IsPrerelease() for %s", tt.version)
-			assert.Equal(t, tt.isStable, v.IsStable(),
-				"IsStable() for %s", tt.version)
 		})
 	}
 }
@@ -216,120 +141,408 @@ func TestVersionString(t *testing.T) {
 		{
 			name: "simple version",
 			version: &Version{
-				Major: 1, Minor: 2, Patch: 3,
+				Major: 1,
+				Minor: 2,
+				Patch: 3,
 			},
 			expected: "1.2.3",
 		},
 		{
 			name: "version with prerelease",
 			version: &Version{
-				Major: 1, Minor: 0, Patch: 0,
+				Major:      1,
+				Minor:      2,
+				Patch:      3,
 				Prerelease: "beta.1",
 			},
-			expected: "1.0.0-beta.1",
+			expected: "1.2.3-beta.1",
 		},
 		{
 			name: "version with build",
 			version: &Version{
-				Major: 1, Minor: 0, Patch: 0,
+				Major: 1,
+				Minor: 2,
+				Patch: 3,
 				Build: "build.123",
 			},
-			expected: "1.0.0+build.123",
+			expected: "1.2.3+build.123",
 		},
 		{
-			name: "version with dirty flag",
+			name: "version with prerelease and build",
 			version: &Version{
-				Major: 1, Minor: 0, Patch: 0,
-				Dirty: true,
+				Major:      1,
+				Minor:      2,
+				Patch:      3,
+				Prerelease: "rc.1",
+				Build:      "build.456",
 			},
-			expected: "1.0.0-dirty",
-		},
-		{
-			name: "full version",
-			version: &Version{
-				Major: 1, Minor: 0, Patch: 0,
-				Prerelease: "beta.1",
-				Build:      "build.123",
-				Dirty:      true,
-			},
-			expected: "1.0.0-beta.1+build.123-dirty",
+			expected: "1.2.3-rc.1+build.456",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := tt.version.String()
+			assert.Equal(t, tt.expected, tt.version.String())
+		})
+	}
+}
+
+func TestVersionCompare(t *testing.T) {
+	tests := []struct {
+		name     string
+		v1       string
+		v2       string
+		expected int // -1, 0, 1
+	}{
+		{
+			name:     "equal versions",
+			v1:       "1.2.3",
+			v2:       "1.2.3",
+			expected: 0,
+		},
+		{
+			name:     "v1 > v2 (major)",
+			v1:       "2.0.0",
+			v2:       "1.9.9",
+			expected: 1,
+		},
+		{
+			name:     "v1 < v2 (major)",
+			v1:       "1.0.0",
+			v2:       "2.0.0",
+			expected: -1,
+		},
+		{
+			name:     "v1 > v2 (minor)",
+			v1:       "1.5.0",
+			v2:       "1.4.9",
+			expected: 1,
+		},
+		{
+			name:     "v1 < v2 (minor)",
+			v1:       "1.4.0",
+			v2:       "1.5.0",
+			expected: -1,
+		},
+		{
+			name:     "v1 > v2 (patch)",
+			v1:       "1.2.4",
+			v2:       "1.2.3",
+			expected: 1,
+		},
+		{
+			name:     "v1 < v2 (patch)",
+			v1:       "1.2.3",
+			v2:       "1.2.4",
+			expected: -1,
+		},
+		{
+			name:     "stable > prerelease",
+			v1:       "1.2.3",
+			v2:       "1.2.3-beta.1",
+			expected: 1,
+		},
+		{
+			name:     "prerelease < stable",
+			v1:       "1.2.3-beta.1",
+			v2:       "1.2.3",
+			expected: -1,
+		},
+		{
+			name:     "prerelease comparison",
+			v1:       "1.2.3-beta.2",
+			v2:       "1.2.3-beta.1",
+			expected: 1,
+		},
+		{
+			name:     "build metadata ignored",
+			v1:       "1.2.3+build.123",
+			v2:       "1.2.3+build.456",
+			expected: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ver1, err := ParseVersion(tt.v1)
+			require.NoError(t, err)
+
+			ver2, err := ParseVersion(tt.v2)
+			require.NoError(t, err)
+
+			result := ver1.Compare(ver2)
+			assert.Equal(t, tt.expected, result, "expected %d, got %d", tt.expected, result)
+		})
+	}
+}
+
+func TestIsNewerThan(t *testing.T) {
+	tests := []struct {
+		name     string
+		v1       string
+		v2       string
+		expected bool
+	}{
+		{
+			name:     "newer version",
+			v1:       "2.0.0",
+			v2:       "1.0.0",
+			expected: true,
+		},
+		{
+			name:     "older version",
+			v1:       "1.0.0",
+			v2:       "2.0.0",
+			expected: false,
+		},
+		{
+			name:     "equal version",
+			v1:       "1.0.0",
+			v2:       "1.0.0",
+			expected: false,
+		},
+		{
+			name:     "stable newer than prerelease",
+			v1:       "1.0.0",
+			v2:       "1.0.0-beta.1",
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ver1, err := ParseVersion(tt.v1)
+			require.NoError(t, err)
+
+			ver2, err := ParseVersion(tt.v2)
+			require.NoError(t, err)
+
+			result := ver1.IsNewerThan(ver2)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
 
-func TestMatchesConstraint(t *testing.T) {
-	v, _ := ParseVersion("1.2.3")
-
+func TestIsOlderThan(t *testing.T) {
 	tests := []struct {
-		constraint string
-		matches    bool
+		name     string
+		v1       string
+		v2       string
+		expected bool
 	}{
-		// Exact matches
-		{"1.2.3", true},
-		{"v1.2.3", true},
-		{"1.2.4", false},
-
-		// Greater than
-		{">1.0.0", true},
-		{">1.2.3", false},
-		{">2.0.0", false},
-
-		// Greater than or equal
-		{">=1.0.0", true},
-		{">=1.2.3", true},
-		{">=2.0.0", false},
-
-		// Less than
-		{"<2.0.0", true},
-		{"<1.2.3", false},
-		{"<1.0.0", false},
-
-		// Less than or equal
-		{"<=2.0.0", true},
-		{"<=1.2.3", true},
-		{"<=1.0.0", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.constraint, func(t *testing.T) {
-			result := v.MatchesConstraint(tt.constraint)
-			assert.Equal(t, tt.matches, result,
-				"Version %s matching constraint %s", v.String(), tt.constraint)
-		})
-	}
-}
-
-func TestRealWorldVersions(t *testing.T) {
-	// Test with actual version strings from the project
-	tests := []struct {
-		name        string
-		version     string
-		shouldParse bool
-	}{
-		{"current dev version", "0.0.9-1-gca935e4e-dirty", true},
-		{"release version", "0.0.9", true},
-		{"edge-mcp prefixed", "edge-mcp-v1.0.0", true},
-		{"future version", "1.0.0-beta.1", true},
-		{"nightly build", "nightly-20250101", false}, // This format would need special handling
+		{
+			name:     "older version",
+			v1:       "1.0.0",
+			v2:       "2.0.0",
+			expected: true,
+		},
+		{
+			name:     "newer version",
+			v1:       "2.0.0",
+			v2:       "1.0.0",
+			expected: false,
+		},
+		{
+			name:     "equal version",
+			v1:       "1.0.0",
+			v2:       "1.0.0",
+			expected: false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			v, err := ParseVersion(tt.version)
+			ver1, err := ParseVersion(tt.v1)
+			require.NoError(t, err)
 
-			if tt.shouldParse {
-				assert.NoError(t, err)
-				assert.NotNil(t, v)
-				t.Logf("Parsed %s -> %+v", tt.version, v)
-			} else {
+			ver2, err := ParseVersion(tt.v2)
+			require.NoError(t, err)
+
+			result := ver1.IsOlderThan(ver2)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestEquals(t *testing.T) {
+	tests := []struct {
+		name     string
+		v1       string
+		v2       string
+		expected bool
+	}{
+		{
+			name:     "equal versions",
+			v1:       "1.2.3",
+			v2:       "1.2.3",
+			expected: true,
+		},
+		{
+			name:     "different versions",
+			v1:       "1.2.3",
+			v2:       "1.2.4",
+			expected: false,
+		},
+		{
+			name:     "build metadata ignored",
+			v1:       "1.2.3+build.123",
+			v2:       "1.2.3+build.456",
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ver1, err := ParseVersion(tt.v1)
+			require.NoError(t, err)
+
+			ver2, err := ParseVersion(tt.v2)
+			require.NoError(t, err)
+
+			result := ver1.Equals(ver2)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestIsStable(t *testing.T) {
+	tests := []struct {
+		name     string
+		version  string
+		expected bool
+	}{
+		{
+			name:     "stable version",
+			version:  "1.2.3",
+			expected: true,
+		},
+		{
+			name:     "prerelease version",
+			version:  "1.2.3-beta.1",
+			expected: false,
+		},
+		{
+			name:     "stable with build",
+			version:  "1.2.3+build.123",
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ver, err := ParseVersion(tt.version)
+			require.NoError(t, err)
+
+			result := ver.IsStable()
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestCompareVersionStrings(t *testing.T) {
+	tests := []struct {
+		name        string
+		v1          string
+		v2          string
+		expected    int
+		expectError bool
+	}{
+		{
+			name:        "v1 > v2",
+			v1:          "2.0.0",
+			v2:          "1.0.0",
+			expected:    1,
+			expectError: false,
+		},
+		{
+			name:        "v1 < v2",
+			v1:          "1.0.0",
+			v2:          "2.0.0",
+			expected:    -1,
+			expectError: false,
+		},
+		{
+			name:        "v1 == v2",
+			v1:          "1.0.0",
+			v2:          "1.0.0",
+			expected:    0,
+			expectError: false,
+		},
+		{
+			name:        "invalid v1",
+			v1:          "invalid",
+			v2:          "1.0.0",
+			expected:    0,
+			expectError: true,
+		},
+		{
+			name:        "invalid v2",
+			v1:          "1.0.0",
+			v2:          "invalid",
+			expected:    0,
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := CompareVersionStrings(tt.v1, tt.v2)
+			if tt.expectError {
 				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestIsNewerVersion(t *testing.T) {
+	tests := []struct {
+		name        string
+		v1          string
+		v2          string
+		expected    bool
+		expectError bool
+	}{
+		{
+			name:        "newer version",
+			v1:          "2.0.0",
+			v2:          "1.0.0",
+			expected:    true,
+			expectError: false,
+		},
+		{
+			name:        "older version",
+			v1:          "1.0.0",
+			v2:          "2.0.0",
+			expected:    false,
+			expectError: false,
+		},
+		{
+			name:        "equal version",
+			v1:          "1.0.0",
+			v2:          "1.0.0",
+			expected:    false,
+			expectError: false,
+		},
+		{
+			name:        "invalid v1",
+			v1:          "invalid",
+			v2:          "1.0.0",
+			expected:    false,
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := IsNewerVersion(tt.v1, tt.v2)
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.expected, result)
 			}
 		})
 	}
