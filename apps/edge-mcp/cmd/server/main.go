@@ -28,8 +28,9 @@ import (
 )
 
 var (
-	version = "1.0.0"
-	commit  = "unknown"
+	version   = "1.0.0"
+	commit    = "unknown"
+	buildTime = "unknown"
 )
 
 func main() {
@@ -45,7 +46,7 @@ func main() {
 	flag.Parse()
 
 	if *showVersion {
-		fmt.Printf("Edge MCP v%s (commit: %s)\n", version, commit)
+		fmt.Printf("Edge MCP v%s (commit: %s, built: %s)\n", version, commit, buildTime)
 		os.Exit(0)
 	}
 

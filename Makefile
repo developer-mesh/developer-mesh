@@ -157,20 +157,43 @@ build: build-edge-mcp build-rest-api build-worker ## Build all applications
 .PHONY: build-edge-mcp
 build-edge-mcp: ## Build Edge MCP binary
 	@echo "Building Edge MCP..."
-	@cd apps/edge-mcp && go build -o ../../bin/edge-mcp ./cmd/server
+	@VERSION=$$(git describe --tags --always --dirty 2>/dev/null || echo "dev"); \
+	COMMIT=$$(git rev-parse --short HEAD 2>/dev/null || echo "unknown"); \
+	BUILD_TIME=$$(date -u '+%Y-%m-%d_%H:%M:%S'); \
+	cd apps/edge-mcp && go build \
+		-ldflags="-s -w \
+			-X 'main.version=$${VERSION}' \
+			-X 'main.commit=$${COMMIT}' \
+			-X 'main.buildTime=$${BUILD_TIME}'" \
+		-o ../../bin/edge-mcp ./cmd/server
 	@echo "✅ Edge MCP built: bin/edge-mcp"
 
 .PHONY: build-edge-mcp-all
 build-edge-mcp-all: ## Build Edge MCP for all platforms
 	@echo "Building Edge MCP for all platforms..."
 	@mkdir -p dist
-	@cd apps/edge-mcp && \
-		GOOS=darwin GOARCH=amd64 go build -o ../../dist/edge-mcp-darwin-amd64 ./cmd/server && \
-		GOOS=darwin GOARCH=arm64 go build -o ../../dist/edge-mcp-darwin-arm64 ./cmd/server && \
-		GOOS=linux GOARCH=amd64 go build -o ../../dist/edge-mcp-linux-amd64 ./cmd/server && \
-		GOOS=linux GOARCH=arm64 go build -o ../../dist/edge-mcp-linux-arm64 ./cmd/server && \
-		GOOS=windows GOARCH=amd64 go build -o ../../dist/edge-mcp-windows-amd64.exe ./cmd/server && \
-		GOOS=windows GOARCH=arm64 go build -o ../../dist/edge-mcp-windows-arm64.exe ./cmd/server
+	@VERSION=$$(git describe --tags --always --dirty 2>/dev/null || echo "dev"); \
+	COMMIT=$$(git rev-parse --short HEAD 2>/dev/null || echo "unknown"); \
+	BUILD_TIME=$$(date -u '+%Y-%m-%d_%H:%M:%S'); \
+	cd apps/edge-mcp && \
+		GOOS=darwin GOARCH=amd64 go build \
+			-ldflags="-s -w -X 'main.version=$${VERSION}' -X 'main.commit=$${COMMIT}' -X 'main.buildTime=$${BUILD_TIME}'" \
+			-o ../../dist/edge-mcp-darwin-amd64 ./cmd/server && \
+		GOOS=darwin GOARCH=arm64 go build \
+			-ldflags="-s -w -X 'main.version=$${VERSION}' -X 'main.commit=$${COMMIT}' -X 'main.buildTime=$${BUILD_TIME}'" \
+			-o ../../dist/edge-mcp-darwin-arm64 ./cmd/server && \
+		GOOS=linux GOARCH=amd64 go build \
+			-ldflags="-s -w -X 'main.version=$${VERSION}' -X 'main.commit=$${COMMIT}' -X 'main.buildTime=$${BUILD_TIME}'" \
+			-o ../../dist/edge-mcp-linux-amd64 ./cmd/server && \
+		GOOS=linux GOARCH=arm64 go build \
+			-ldflags="-s -w -X 'main.version=$${VERSION}' -X 'main.commit=$${COMMIT}' -X 'main.buildTime=$${BUILD_TIME}'" \
+			-o ../../dist/edge-mcp-linux-arm64 ./cmd/server && \
+		GOOS=windows GOARCH=amd64 go build \
+			-ldflags="-s -w -X 'main.version=$${VERSION}' -X 'main.commit=$${COMMIT}' -X 'main.buildTime=$${BUILD_TIME}'" \
+			-o ../../dist/edge-mcp-windows-amd64.exe ./cmd/server && \
+		GOOS=windows GOARCH=arm64 go build \
+			-ldflags="-s -w -X 'main.version=$${VERSION}' -X 'main.commit=$${COMMIT}' -X 'main.buildTime=$${BUILD_TIME}'" \
+			-o ../../dist/edge-mcp-windows-arm64.exe ./cmd/server
 	@echo "✅ Built Edge MCP for all platforms in dist/"
 
 .PHONY: install-edge-mcp
