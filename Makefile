@@ -224,17 +224,17 @@ clean: ## Clean build artifacts
 .PHONY: test
 test: ## Run all unit tests (excludes integration tests and Redis-dependent tests)
 	@echo "Running unit tests..."
-	@cd apps/edge-mcp && $(GOTEST) -v -short -timeout=60s ./... && cd ../.. && \
-	cd apps/rest-api && $(GOTEST) -v -short -timeout=60s ./... && cd ../.. && \
-	cd apps/worker && $(GOTEST) -v -short -timeout=60s ./... && cd ../.. && \
-	cd apps/mockserver && $(GOTEST) -v -short -timeout=60s ./... && cd ../.. && \
-	cd apps/rag-loader && $(GOTEST) -v -short -timeout=60s ./... && cd ../.. && \
+	@cd apps/edge-mcp && $(GOTEST) -v -timeout=60s ./... && cd ../.. && \
+	cd apps/rest-api && $(GOTEST) -v -timeout=60s ./... && cd ../.. && \
+	cd apps/worker && $(GOTEST) -v -timeout=60s ./... && cd ../.. && \
+	cd apps/mockserver && $(GOTEST) -v -timeout=60s ./... && cd ../.. && \
+	cd apps/rag-loader && $(GOTEST) -v -timeout=60s ./... && cd ../.. && \
 	cd pkg && $(GOTEST) -v -short -timeout=60s $$(go list ./... | grep -v embedding/cache) && cd ..
 
 .PHONY: test-with-services
 test-with-services: start-test-env ## Run unit tests that require Redis/PostgreSQL
 	@echo "Running unit tests with Docker services..."
-	@TEST_REDIS_ADDR=127.0.0.1:6379 $(GOTEST) -v -short ./apps/edge-mcp/... ./apps/rest-api/... ./apps/worker/... ./apps/rag-loader/... ./pkg/... || (make stop-test-env && exit 1)
+	@TEST_REDIS_ADDR=127.0.0.1:6379 $(GOTEST) -v  ./apps/edge-mcp/... ./apps/rest-api/... ./apps/worker/... ./apps/rag-loader/... ./pkg/... || (make stop-test-env && exit 1)
 	@make stop-test-env
 
 .PHONY: test-coverage
