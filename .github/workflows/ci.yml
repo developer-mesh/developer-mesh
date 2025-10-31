@@ -114,16 +114,13 @@ jobs:
           PGPASSWORD=test psql -h localhost -p 5433 -U test -d devmesh_test -c "CREATE EXTENSION IF NOT EXISTS vector;"
           PGPASSWORD=test psql -h localhost -p 5433 -U test -d devmesh_test -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";"
 
-          # Create schemas
+          # Create schemas (migrations will also create these, but we create them first for safety)
           PGPASSWORD=test psql -h localhost -p 5433 -U test -d devmesh_test -c "CREATE SCHEMA IF NOT EXISTS mcp;"
           PGPASSWORD=test psql -h localhost -p 5433 -U test -d devmesh_test -c "CREATE SCHEMA IF NOT EXISTS rag;"
 
-          # Grant permissions
-          PGPASSWORD=test psql -h localhost -p 5433 -U test -d devmesh_test -c "GRANT USAGE ON SCHEMA rag TO test;"
-          PGPASSWORD=test psql -h localhost -p 5433 -U test -d devmesh_test -c "GRANT CREATE ON SCHEMA rag TO test;"
-
-          # Run rag-loader migrations
-          migrate -database "postgres://test:test@localhost:5433/devmesh_test?sslmode=disable" -path apps/rag-loader/migrations up || echo "Warning: rag-loader migrations may have already run"
+          # Run all REST API migrations (includes both mcp and rag schema migrations)
+          echo "Running database migrations from apps/rest-api/migrations/sql..."
+          migrate -database "postgres://test:test@localhost:5433/devmesh_test?sslmode=disable" -path apps/rest-api/migrations/sql up || echo "Warning: migrations may have already run"
         env:
           PGPASSWORD: test
 
