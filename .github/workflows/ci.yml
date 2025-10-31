@@ -120,7 +120,23 @@ jobs:
 
           # Run all REST API migrations (includes both mcp and rag schema migrations)
           echo "Running database migrations from apps/rest-api/migrations/sql..."
-          migrate -database "postgres://test:test@localhost:5433/devmesh_test?sslmode=disable" -path apps/rest-api/migrations/sql up || echo "Warning: migrations may have already run"
+          echo "Available migrations:"
+          ls -1 apps/rest-api/migrations/sql/*.up.sql | tail -10
+
+          # Run migrations with error checking
+          if migrate -database "postgres://test:test@localhost:5433/devmesh_test?sslmode=disable" -path apps/rest-api/migrations/sql up; then
+            echo "✅ Migrations completed successfully"
+          else
+            MIGRATE_EXIT=$?
+            echo "❌ Migration failed with exit code $MIGRATE_EXIT"
+            echo "Checking migration status:"
+            migrate -database "postgres://test:test@localhost:5433/devmesh_test?sslmode=disable" -path apps/rest-api/migrations/sql version || true
+            echo "Checking if rag schema exists:"
+            PGPASSWORD=test psql -h localhost -p 5433 -U test -d devmesh_test -c "\dt rag.*" || true
+            echo "Checking if rag.set_current_tenant function exists:"
+            PGPASSWORD=test psql -h localhost -p 5433 -U test -d devmesh_test -c "\df rag.set_current_tenant" || true
+            exit $MIGRATE_EXIT
+          fi
         env:
           PGPASSWORD: test
 
