@@ -80,6 +80,31 @@ func setupTestDatabase(t *testing.T) *sqlx.DB {
 		return nil
 	}
 
+	// Ensure the unique constraint exists on tenant_source_credentials
+	// This is needed for ON CONFLICT operations in tests
+	addConstraint := `
+		DO $$
+		BEGIN
+			-- Check if the constraint already exists
+			IF NOT EXISTS (
+				SELECT 1
+				FROM pg_constraint
+				WHERE conname = 'tenant_source_credentials_tenant_source_type_key'
+				AND conrelid = 'rag.tenant_source_credentials'::regclass
+			) THEN
+				-- Add the unique constraint
+				ALTER TABLE rag.tenant_source_credentials
+				ADD CONSTRAINT tenant_source_credentials_tenant_source_type_key
+				UNIQUE (tenant_id, source_id, credential_type);
+			END IF;
+		END $$;
+	`
+	_, err = db.Exec(addConstraint)
+	if err != nil {
+		t.Logf("Warning: Failed to add unique constraint (table may not exist yet): %v", err)
+		// Don't fail the test if the table doesn't exist - migrations will create it with the constraint
+	}
+
 	t.Cleanup(func() {
 		if err := db.Close(); err != nil {
 			t.Logf("Failed to close database: %v", err)
@@ -289,7 +314,8 @@ func TestTenantIsolation(t *testing.T) {
 	ctx := context.Background()
 
 	// Set tenant context for tenant 2
-	_, err = db.ExecContext(ctx, "SELECT rag.set_current_tenant($1)", tenant2)
+	// Note: Convert UUID to string and cast to UUID in SQL for proper type matching
+	_, err = db.ExecContext(ctx, "SELECT rag.set_current_tenant($1::UUID)", tenant2.String())
 	require.NoError(t, err)
 
 	// Query should return 0 rows for tenant 2
@@ -302,7 +328,8 @@ func TestTenantIsolation(t *testing.T) {
 	assert.Equal(t, 0, count, "Database RLS should enforce tenant isolation for tenant 2")
 
 	// Set tenant context for tenant 1
-	_, err = db.ExecContext(ctx, "SELECT rag.set_current_tenant($1)", tenant1)
+	// Note: Convert UUID to string and cast to UUID in SQL for proper type matching
+	_, err = db.ExecContext(ctx, "SELECT rag.set_current_tenant($1::UUID)", tenant1.String())
 	require.NoError(t, err)
 
 	// Query should return 1 row for tenant 1

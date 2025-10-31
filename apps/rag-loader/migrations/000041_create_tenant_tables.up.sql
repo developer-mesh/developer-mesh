@@ -54,7 +54,8 @@ CREATE TABLE IF NOT EXISTS rag.tenant_source_credentials (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (tenant_id, source_id)
-        REFERENCES rag.tenant_sources(tenant_id, source_id) ON DELETE CASCADE
+        REFERENCES rag.tenant_sources(tenant_id, source_id) ON DELETE CASCADE,
+    UNIQUE (tenant_id, source_id, credential_type)
 );
 
 -- Document storage

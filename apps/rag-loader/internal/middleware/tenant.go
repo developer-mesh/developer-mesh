@@ -198,7 +198,9 @@ func (tm *TenantMiddleware) setTenantContext(c *gin.Context, tenantID, userID uu
 // This function calls the PostgreSQL function rag.set_current_tenant()
 // which enables Row Level Security policies to enforce tenant isolation
 func SetDatabaseTenant(db *sqlx.DB, tenantID uuid.UUID) error {
-	_, err := db.Exec("SELECT rag.set_current_tenant($1)", tenantID)
+	// Convert UUID to string to ensure proper type matching with PostgreSQL
+	// The pq driver doesn't automatically convert uuid.UUID to PostgreSQL UUID type
+	_, err := db.Exec("SELECT rag.set_current_tenant($1::UUID)", tenantID.String())
 	if err != nil {
 		return fmt.Errorf("failed to set database tenant: %w", err)
 	}
