@@ -85,7 +85,13 @@ FROM mcp.embeddings e
 LEFT JOIN rag.document_chunks dc ON dc.embedding_id = e.id
 LEFT JOIN rag.documents d ON d.id = dc.document_id;
 
--- Grant appropriate permissions
-GRANT USAGE ON SCHEMA rag TO devmesh;
-GRANT ALL ON ALL TABLES IN SCHEMA rag TO devmesh;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA rag TO devmesh;
+-- Grant appropriate permissions (if devmesh role exists)
+-- In test/CI environments, the role may be 'test' instead of 'devmesh'
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'devmesh') THEN
+        GRANT USAGE ON SCHEMA rag TO devmesh;
+        GRANT ALL ON ALL TABLES IN SCHEMA rag TO devmesh;
+        GRANT ALL ON ALL SEQUENCES IN SCHEMA rag TO devmesh;
+    END IF;
+END $$;

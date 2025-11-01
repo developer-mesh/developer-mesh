@@ -357,6 +357,12 @@ CREATE INDEX IF NOT EXISTS idx_semantic_relationships_graph
 CREATE INDEX IF NOT EXISTS idx_content_analysis_recent 
     ON mcp.content_analysis_cache(tenant_id, created_at DESC);
 
--- Grant permissions
-GRANT ALL ON ALL TABLES IN SCHEMA mcp TO devmesh;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA mcp TO devmesh;
+-- Grant permissions (if devmesh role exists)
+-- In test/CI environments, the role may be 'test' instead of 'devmesh'
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'devmesh') THEN
+        GRANT ALL ON ALL TABLES IN SCHEMA mcp TO devmesh;
+        GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA mcp TO devmesh;
+    END IF;
+END $$;

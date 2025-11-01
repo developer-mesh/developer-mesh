@@ -66,14 +66,18 @@ CREATE POLICY tenant_sync_jobs_isolation ON rag.tenant_sync_jobs
     USING (tenant_id = rag.get_current_tenant())
     WITH CHECK (tenant_id = rag.get_current_tenant());
 
--- Grant permissions to devmesh user
+-- Grant permissions to devmesh user (if role exists)
 -- Note: RLS policies still apply even with these grants
-GRANT ALL ON ALL TABLES IN SCHEMA rag TO devmesh;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA rag TO devmesh;
-
--- Grant execute permission on RLS functions
-GRANT EXECUTE ON FUNCTION rag.set_current_tenant(UUID) TO devmesh;
-GRANT EXECUTE ON FUNCTION rag.get_current_tenant() TO devmesh;
+-- In test/CI environments, the role may be 'test' instead of 'devmesh'
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'devmesh') THEN
+        GRANT ALL ON ALL TABLES IN SCHEMA rag TO devmesh;
+        GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA rag TO devmesh;
+        GRANT EXECUTE ON FUNCTION rag.set_current_tenant(UUID) TO devmesh;
+        GRANT EXECUTE ON FUNCTION rag.get_current_tenant() TO devmesh;
+    END IF;
+END $$;
 
 -- Add comment explaining RLS enforcement
 COMMENT ON POLICY tenant_sources_isolation ON rag.tenant_sources IS

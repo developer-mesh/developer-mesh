@@ -100,4 +100,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-GRANT EXECUTE ON FUNCTION mcp.get_or_create_cache_entry TO devmesh;
+-- Grant execute permission (if devmesh role exists)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'devmesh') THEN
+        GRANT EXECUTE ON FUNCTION mcp.get_or_create_cache_entry TO devmesh;
+    END IF;
+END $$;

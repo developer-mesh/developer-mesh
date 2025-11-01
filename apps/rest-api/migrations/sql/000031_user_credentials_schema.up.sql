@@ -77,9 +77,15 @@ CREATE POLICY user_credentials_tenant_isolation ON mcp.user_credentials
     FOR ALL
     USING (tenant_id = current_setting('app.tenant_id', true)::UUID);
 
--- Grant permissions (using devmesh role like other migrations)
-GRANT SELECT, INSERT, UPDATE, DELETE ON mcp.user_credentials TO devmesh;
-GRANT SELECT, INSERT ON mcp.user_credentials_audit TO devmesh;
+-- Grant permissions (if devmesh role exists)
+-- In test/CI environments, the role may be 'test' instead of 'devmesh'
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'devmesh') THEN
+        GRANT SELECT, INSERT, UPDATE, DELETE ON mcp.user_credentials TO devmesh;
+        GRANT SELECT, INSERT ON mcp.user_credentials_audit TO devmesh;
+    END IF;
+END $$;
 
 -- Add comments for documentation
 COMMENT ON TABLE mcp.user_credentials IS 'Stores encrypted user credentials for third-party service integrations with per-tenant encryption';

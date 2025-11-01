@@ -262,13 +262,19 @@ COMMENT ON FUNCTION mcp.cleanup_expired_cache() IS
 'Run this function periodically (e.g., every hour) to clean up expired cache entries. 
 Schedule with pg_cron: SELECT cron.schedule(''cleanup-cache'', ''0 * * * *'', ''SELECT mcp.cleanup_expired_cache()'');';
 
--- Grant permissions (using devmesh user which exists)
-GRANT ALL ON mcp.cache_entries TO devmesh;
-GRANT ALL ON mcp.cache_statistics TO devmesh;
-GRANT EXECUTE ON FUNCTION mcp.get_or_create_cache_entry TO devmesh;
-GRANT EXECUTE ON FUNCTION mcp.update_cache_stats TO devmesh;
-GRANT EXECUTE ON FUNCTION mcp.find_similar_cache_entries TO devmesh;
-GRANT EXECUTE ON FUNCTION mcp.cleanup_expired_cache TO devmesh;
+-- Grant permissions (if devmesh role exists)
+-- In test/CI environments, the role may be 'test' instead of 'devmesh'
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'devmesh') THEN
+        GRANT ALL ON mcp.cache_entries TO devmesh;
+        GRANT ALL ON mcp.cache_statistics TO devmesh;
+        GRANT EXECUTE ON FUNCTION mcp.get_or_create_cache_entry TO devmesh;
+        GRANT EXECUTE ON FUNCTION mcp.update_cache_stats TO devmesh;
+        GRANT EXECUTE ON FUNCTION mcp.find_similar_cache_entries TO devmesh;
+        GRANT EXECUTE ON FUNCTION mcp.cleanup_expired_cache TO devmesh;
+    END IF;
+END $$;
 
 -- Add cache hit rate to cache statistics view
 CREATE OR REPLACE VIEW mcp.cache_performance AS
@@ -291,4 +297,10 @@ SELECT
 FROM mcp.cache_statistics
 ORDER BY date DESC;
 
-GRANT SELECT ON mcp.cache_performance TO devmesh;
+-- Grant view access (if devmesh role exists)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'devmesh') THEN
+        GRANT SELECT ON mcp.cache_performance TO devmesh;
+    END IF;
+END $$;

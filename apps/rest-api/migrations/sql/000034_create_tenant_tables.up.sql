@@ -9,9 +9,15 @@ CREATE EXTENSION IF NOT EXISTS vector;
 -- Ensure rag schema exists
 CREATE SCHEMA IF NOT EXISTS rag;
 
--- Grant usage to app user
-GRANT USAGE ON SCHEMA rag TO devmesh;
-GRANT CREATE ON SCHEMA rag TO devmesh;
+-- Grant usage to app user (if devmesh role exists)
+-- In test/CI environments, the role may be 'test' instead of 'devmesh'
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'devmesh') THEN
+        GRANT USAGE ON SCHEMA rag TO devmesh;
+        GRANT CREATE ON SCHEMA rag TO devmesh;
+    END IF;
+END $$;
 
 -- Tenant sources configuration
 -- This table stores source configurations per tenant
@@ -154,6 +160,11 @@ CREATE TRIGGER update_tenant_source_credentials_updated_at
     BEFORE UPDATE ON rag.tenant_source_credentials
     FOR EACH ROW EXECUTE FUNCTION rag.update_updated_at_column();
 
--- Grant permissions
-GRANT ALL ON ALL TABLES IN SCHEMA rag TO devmesh;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA rag TO devmesh;
+-- Grant permissions (if devmesh role exists)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'devmesh') THEN
+        GRANT ALL ON ALL TABLES IN SCHEMA rag TO devmesh;
+        GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA rag TO devmesh;
+    END IF;
+END $$;
