@@ -1147,6 +1147,1303 @@ func (ar *AgentRegistry) Discover(ctx context.Context, capabilities []string) ([
 }
 ```
 
+#### 4.2 Agent Registration Mechanisms
+
+The orchestration system supports three registration approaches for maximum flexibility:
+
+##### **Approach 1: REST API Registration (Manual/Scripted)**
+
+Agents register themselves via REST API endpoints when they start up.
+
+**REST API Endpoints:**
+
+```yaml
+# Create new agent registration
+POST /api/v1/agents/register
+Content-Type: application/json
+Authorization: Bearer <agent_api_key>
+
+{
+  "agent_id": "github-pr-reviewer-001",
+  "name": "GitHub PR Reviewer",
+  "type": "code_reviewer",
+  "domain": "code",
+  "capabilities": [
+    "code_review",
+    "security_scan",
+    "style_check",
+    "test_coverage_analysis"
+  ],
+  "health_check_url": "http://github-pr-reviewer-001:8080/health",
+  "metadata": {
+    "version": "1.2.3",
+    "supported_languages": ["go", "python", "typescript"],
+    "max_concurrent_tasks": 5
+  }
+}
+
+# Response
+{
+  "agent_id": "github-pr-reviewer-001",
+  "status": "registered",
+  "assigned_coordinator": "code_coordinator",
+  "heartbeat_interval": "30s"
+}
+```
+
+```yaml
+# Update agent status
+PUT /api/v1/agents/{agent_id}/status
+Content-Type: application/json
+
+{
+  "status": "active",  # or "busy", "draining", "offline"
+  "current_load": 3,
+  "available_capacity": 2
+}
+
+# Deregister agent (graceful shutdown)
+DELETE /api/v1/agents/{agent_id}
+```
+
+**Agent Startup Script Example:**
+
+```bash
+#!/bin/bash
+# Agent startup script
+
+# 1. Start the agent service
+./my-agent-service --port 8080 &
+AGENT_PID=$!
+
+# 2. Wait for health check to pass
+until curl -f http://localhost:8080/health; do
+  sleep 1
+done
+
+# 3. Register with orchestrator
+curl -X POST https://orchestrator.devmesh.io/api/v1/agents/register \
+  -H "Authorization: Bearer ${AGENT_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent_id": "'"${AGENT_ID}"'",
+    "name": "'"${AGENT_NAME}"'",
+    "type": "'"${AGENT_TYPE}"'",
+    "domain": "'"${DOMAIN}"'",
+    "capabilities": '"${CAPABILITIES_JSON}"',
+    "health_check_url": "http://'"${POD_IP}"':8080/health"
+  }'
+
+# 4. Handle shutdown
+trap "curl -X DELETE https://orchestrator.devmesh.io/api/v1/agents/${AGENT_ID}" EXIT
+
+wait $AGENT_PID
+```
+
+##### **Approach 2: Kubernetes Service Discovery (Automatic)**
+
+For agents running in Kubernetes, use automatic service discovery via labels and annotations.
+
+**Agent Deployment with Auto-Discovery:**
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: github-pr-reviewer
+  namespace: devmesh-agents
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: github-pr-reviewer
+  template:
+    metadata:
+      labels:
+        app: github-pr-reviewer
+        # Agent discovery labels
+        devmesh.io/agent: "true"
+        devmesh.io/domain: "code"
+        devmesh.io/type: "code_reviewer"
+      annotations:
+        # Agent capabilities
+        devmesh.io/capabilities: "code_review,security_scan,style_check"
+        devmesh.io/max-concurrent-tasks: "5"
+        devmesh.io/health-check-path: "/health"
+    spec:
+      containers:
+      - name: reviewer
+        image: devmesh/github-pr-reviewer:1.2.3
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: AGENT_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 30
+```
+
+**Orchestrator Service Discovery Controller:**
+
+```go
+// pkg/discovery/k8s_discovery.go
+package discovery
+
+import (
+    "context"
+    metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+    "k8s.io/client-go/kubernetes"
+)
+
+type K8sDiscoveryController struct {
+    clientset    *kubernetes.Clientset
+    registry     *services.AgentRegistry
+    namespace    string
+    resyncPeriod time.Duration
+}
+
+func (k *K8sDiscoveryController) DiscoverAgents(ctx context.Context) error {
+    // List pods with agent label
+    pods, err := k.clientset.CoreV1().Pods(k.namespace).List(ctx, metav1.ListOptions{
+        LabelSelector: "devmesh.io/agent=true",
+    })
+    if err != nil {
+        return fmt.Errorf("failed to list agent pods: %w", err)
+    }
+
+    for _, pod := range pods.Items {
+        if pod.Status.Phase != corev1.PodRunning {
+            continue
+        }
+
+        // Extract agent metadata from labels/annotations
+        agentReg := &AgentRegistration{
+            AgentID:      pod.Name,
+            Name:         pod.Labels["app"],
+            Type:         pod.Labels["devmesh.io/type"],
+            Domain:       pod.Labels["devmesh.io/domain"],
+            Capabilities: strings.Split(pod.Annotations["devmesh.io/capabilities"], ","),
+            HealthCheck:  fmt.Sprintf("http://%s:8080%s",
+                pod.Status.PodIP,
+                pod.Annotations["devmesh.io/health-check-path"]),
+        }
+
+        // Register if not already registered
+        if err := k.registry.Register(ctx, agentReg); err != nil {
+            k.logger.Error("Failed to register discovered agent", map[string]interface{}{
+                "agent_id": agentReg.AgentID,
+                "error":    err.Error(),
+            })
+        }
+    }
+
+    return nil
+}
+
+// Start continuous discovery
+func (k *K8sDiscoveryController) Run(ctx context.Context) {
+    ticker := time.NewTicker(k.resyncPeriod)
+    defer ticker.Stop()
+
+    for {
+        select {
+        case <-ctx.Done():
+            return
+        case <-ticker.C:
+            if err := k.DiscoverAgents(ctx); err != nil {
+                k.logger.Error("Discovery cycle failed", map[string]interface{}{
+                    "error": err.Error(),
+                })
+            }
+        }
+    }
+}
+```
+
+##### **Approach 3: Consul Service Discovery (Cloud-Agnostic)**
+
+For multi-cloud or hybrid environments, use Consul for service discovery.
+
+**Agent Registration with Consul:**
+
+```go
+// Agent registers itself with Consul on startup
+package main
+
+import (
+    consulapi "github.com/hashicorp/consul/api"
+)
+
+func registerWithConsul(agentID, serviceName string, port int) error {
+    config := consulapi.DefaultConfig()
+    client, err := consulapi.NewClient(config)
+    if err != nil {
+        return err
+    }
+
+    registration := &consulapi.AgentServiceRegistration{
+        ID:   agentID,
+        Name: serviceName,
+        Port: port,
+        Tags: []string{
+            "devmesh-agent",
+            "domain:code",
+            "type:code_reviewer",
+        },
+        Meta: map[string]string{
+            "capabilities":       "code_review,security_scan",
+            "max_concurrent_tasks": "5",
+            "version":           "1.2.3",
+        },
+        Check: &consulapi.AgentServiceCheck{
+            HTTP:     fmt.Sprintf("http://localhost:%d/health", port),
+            Interval: "30s",
+            Timeout:  "5s",
+        },
+    }
+
+    return client.Agent().ServiceRegister(registration)
+}
+```
+
+**Orchestrator Consul Discovery:**
+
+```go
+// pkg/discovery/consul_discovery.go
+package discovery
+
+func (c *ConsulDiscoveryController) DiscoverAgents(ctx context.Context) error {
+    // Query Consul for all devmesh-agent services
+    services, _, err := c.client.Health().Service("devmesh-agent", "", true, nil)
+    if err != nil {
+        return err
+    }
+
+    for _, service := range services {
+        agentReg := &AgentRegistration{
+            AgentID:      service.Service.ID,
+            Name:         service.Service.Service,
+            Type:         service.Service.Meta["type"],
+            Domain:       service.Service.Meta["domain"],
+            Capabilities: strings.Split(service.Service.Meta["capabilities"], ","),
+            HealthCheck:  fmt.Sprintf("http://%s:%d/health",
+                service.Service.Address,
+                service.Service.Port),
+        }
+
+        c.registry.Register(ctx, agentReg)
+    }
+
+    return nil
+}
+```
+
+#### 4.3 Agent Lifecycle Management
+
+**Health Monitoring:**
+
+```go
+// pkg/services/agent_health.go
+package services
+
+type HealthChecker struct {
+    registry     *AgentRegistry
+    httpClient   *http.Client
+    checkInterval time.Duration
+}
+
+func (h *HealthChecker) monitorHealth(agentID string) {
+    ticker := time.NewTicker(h.checkInterval)
+    defer ticker.Stop()
+
+    for range ticker.C {
+        agent := h.registry.GetAgent(agentID)
+        if agent == nil {
+            return // Agent deregistered
+        }
+
+        resp, err := h.httpClient.Get(agent.HealthURL)
+        if err != nil || resp.StatusCode != http.StatusOK {
+            h.handleUnhealthyAgent(agentID)
+            continue
+        }
+
+        // Update last ping
+        h.registry.UpdateLastPing(agentID, time.Now())
+    }
+}
+
+func (h *HealthChecker) handleUnhealthyAgent(agentID string) {
+    h.registry.MarkUnhealthy(agentID)
+
+    // After grace period, deregister
+    time.AfterFunc(5*time.Minute, func() {
+        if h.registry.IsUnhealthy(agentID) {
+            h.registry.Deregister(agentID)
+        }
+    })
+}
+```
+
+**Capacity Management:**
+
+```go
+// Agents report their current capacity
+func (ar *AgentRegistry) UpdateCapacity(agentID string, current, available int) {
+    ar.mu.Lock()
+    defer ar.mu.Unlock()
+
+    if agent, ok := ar.agents[agentID]; ok {
+        agent.CurrentLoad = current
+        agent.AvailableCapacity = available
+
+        // Update status based on capacity
+        if available == 0 {
+            agent.Status = AgentStatusBusy
+        } else {
+            agent.Status = AgentStatusActive
+        }
+    }
+}
+```
+
+#### 4.4 Agent Registration Strategies by Scale
+
+| Agent Count | Recommended Approach | Rationale |
+|-------------|---------------------|-----------|
+| **1-10 agents** | Manual REST API | Simple, explicit control |
+| **10-50 agents** | REST API + Scripts | Automated via deployment scripts |
+| **50-100 agents** | Kubernetes Discovery | Automatic discovery, scales with K8s |
+| **100+ agents** | Consul/Kubernetes + Auto-discovery | Multi-environment support, robust |
+
+#### 4.5 Multi-Tenancy Considerations
+
+**Tenant-Specific Agents:**
+
+```go
+type AgentRegistration struct {
+    AgentID      string
+    TenantID     uuid.UUID  // Agents belong to specific tenants
+    Name         string
+    Type         string
+    Domain       string
+    Capabilities []string
+    Isolation    AgentIsolation  // "shared" or "dedicated"
+}
+
+// Only discover agents for specific tenant
+func (ar *AgentRegistry) DiscoverForTenant(ctx context.Context, tenantID string, capabilities []string) ([]*models.Agent, error) {
+    matches := make([]*models.Agent, 0)
+
+    for _, registered := range ar.agents {
+        // Filter by tenant
+        if registered.Agent.TenantID.String() != tenantID {
+            continue
+        }
+
+        if ar.hasCapabilities(registered.Capabilities, capabilities) {
+            matches = append(matches, registered.Agent)
+        }
+    }
+
+    return matches, nil
+}
+```
+
+#### 4.6 Agent Registration Examples
+
+**Example 1: Simple Linter Agent**
+
+```bash
+# Docker container with registration
+docker run -d \
+  --name eslint-agent-001 \
+  -e AGENT_ID=eslint-agent-001 \
+  -e AGENT_TYPE=linter \
+  -e DOMAIN=code \
+  -e CAPABILITIES=javascript_lint,typescript_lint \
+  -e ORCHESTRATOR_URL=https://orchestrator.devmesh.io \
+  -e ORCHESTRATOR_API_KEY=${API_KEY} \
+  devmesh/eslint-agent:latest
+```
+
+**Example 2: Kubernetes Deployment (Auto-Discovered)**
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: security-scanner
+spec:
+  replicas: 5
+  template:
+    metadata:
+      labels:
+        devmesh.io/agent: "true"
+        devmesh.io/domain: "security"
+        devmesh.io/type: "security_scanner"
+      annotations:
+        devmesh.io/capabilities: "sast,secrets_scan,dependency_check"
+    spec:
+      containers:
+      - name: scanner
+        image: devmesh/security-scanner:2.0.0
+```
+
+**Example 3: Lambda Function Agent (Serverless)**
+
+```typescript
+// Lambda function that registers on cold start
+import { BedrockRuntime } from '@aws-sdk/client-bedrock-runtime';
+
+let agentRegistered = false;
+
+export const handler = async (event: any) => {
+  // Register on cold start
+  if (!agentRegistered) {
+    await registerAgent({
+      agent_id: process.env.AWS_LAMBDA_FUNCTION_NAME,
+      type: 'serverless_processor',
+      domain: 'processing',
+      capabilities: ['batch_processing', 'data_transformation'],
+      health_check_url: null, // Serverless, no health check
+      metadata: {
+        runtime: 'nodejs20.x',
+        memory: '1024MB',
+        timeout: '300s'
+      }
+    });
+    agentRegistered = true;
+  }
+
+  // Process task
+  return processTask(event);
+};
+```
+
+### Phase 4.5: Agent Intelligence & Contract Management 🔴 CRITICAL PRIORITY
+
+This phase addresses **how the orchestrator learns to properly use agents** after they register. Moving beyond simple capability tags, we define structured contracts, validation, and learning mechanisms.
+
+#### 4.7 Agent Capability Schemas
+
+**Problem**: Simple capability tags like `["code_review", "security_scan"]` don't tell the orchestrator:
+- What inputs the agent expects
+- What outputs it produces
+- What parameters are required vs optional
+- What versions/variants exist
+- What quality/performance guarantees it offers
+
+**Solution**: Structured capability schemas using JSON Schema.
+
+**Enhanced Agent Registration Structure:**
+
+```go
+// pkg/models/agent_contract.go
+package models
+
+type AgentContract struct {
+    AgentID          string                    `json:"agent_id"`
+    Version          string                    `json:"version"`  // Semantic versioning
+    Capabilities     []CapabilityDefinition    `json:"capabilities"`
+    HealthCheckURL   string                    `json:"health_check_url"`
+    PerformanceSpecs PerformanceSpecification `json:"performance_specs"`
+    Metadata         map[string]interface{}    `json:"metadata"`
+}
+
+type CapabilityDefinition struct {
+    Name         string                 `json:"name"`          // "code_review"
+    DisplayName  string                 `json:"display_name"`  // "Code Review & Analysis"
+    Description  string                 `json:"description"`   // Human-readable
+    InputSchema  *JSONSchema            `json:"input_schema"`  // What agent accepts
+    OutputSchema *JSONSchema            `json:"output_schema"` // What agent returns
+    Tags         []string               `json:"tags"`          // ["security", "python", "async"]
+    SkillLevel   SkillLevel             `json:"skill_level"`   // novice/intermediate/expert
+    Examples     []CapabilityExample    `json:"examples"`      // Sample inputs/outputs
+}
+
+type JSONSchema struct {
+    Type       string                 `json:"type"`        // "object"
+    Properties map[string]Property    `json:"properties"`  // Field definitions
+    Required   []string               `json:"required"`    // Required fields
+    Schema     string                 `json:"$schema"`     // JSON Schema version
+}
+
+type Property struct {
+    Type        string   `json:"type"`        // "string", "integer", "array"
+    Description string   `json:"description"` // Field purpose
+    Enum        []string `json:"enum,omitempty"` // Allowed values
+    Format      string   `json:"format,omitempty"` // "uri", "email", "date-time"
+    MinLength   *int     `json:"minLength,omitempty"`
+    MaxLength   *int     `json:"maxLength,omitempty"`
+}
+
+type SkillLevel string
+
+const (
+    SkillLevelNovice       SkillLevel = "novice"       // Basic tasks, simple inputs
+    SkillLevelIntermediate SkillLevel = "intermediate" // Moderate complexity
+    SkillLevelExpert       SkillLevel = "expert"       // Complex, nuanced tasks
+)
+
+type PerformanceSpecification struct {
+    AvgLatencyMS     int     `json:"avg_latency_ms"`      // Expected latency
+    MaxConcurrent    int     `json:"max_concurrent"`      // Max parallel tasks
+    ThroughputPerMin int     `json:"throughput_per_min"`  // Tasks/minute capacity
+    SuccessRate      float64 `json:"success_rate"`        // Historical success %
+    CostPerTask      float64 `json:"cost_per_task"`       // In USD cents
+}
+
+type CapabilityExample struct {
+    Description string                 `json:"description"`
+    Input       map[string]interface{} `json:"input"`  // Sample input
+    Output      map[string]interface{} `json:"output"` // Expected output
+}
+```
+
+**Example: GitHub PR Reviewer Agent Contract:**
+
+```json
+{
+  "agent_id": "github-pr-reviewer-v2",
+  "version": "2.1.0",
+  "capabilities": [
+    {
+      "name": "code_review",
+      "display_name": "Pull Request Code Review",
+      "description": "Analyzes pull requests for code quality, security issues, and best practices",
+      "input_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "repository": {
+            "type": "string",
+            "description": "GitHub repository in format owner/repo",
+            "pattern": "^[\\w-]+/[\\w-]+$"
+          },
+          "pull_number": {
+            "type": "integer",
+            "description": "Pull request number",
+            "minimum": 1
+          },
+          "review_scope": {
+            "type": "array",
+            "description": "Aspects to review",
+            "items": {
+              "type": "string",
+              "enum": ["security", "performance", "style", "testing", "documentation"]
+            },
+            "default": ["security", "style"]
+          },
+          "severity_threshold": {
+            "type": "string",
+            "description": "Minimum severity to report",
+            "enum": ["info", "warning", "error", "critical"],
+            "default": "warning"
+          }
+        },
+        "required": ["repository", "pull_number"]
+      },
+      "output_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "review_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "file": {"type": "string"},
+                "line": {"type": "integer"},
+                "severity": {"type": "string", "enum": ["info", "warning", "error", "critical"]},
+                "category": {"type": "string"},
+                "message": {"type": "string"},
+                "suggestion": {"type": "string"}
+              },
+              "required": ["file", "severity", "category", "message"]
+            }
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "total_files_reviewed": {"type": "integer"},
+              "issues_found": {"type": "integer"},
+              "critical_count": {"type": "integer"},
+              "approval_recommended": {"type": "boolean"}
+            }
+          }
+        },
+        "required": ["review_id", "findings", "summary"]
+      },
+      "tags": ["github", "security", "python", "javascript", "go"],
+      "skill_level": "expert",
+      "examples": [
+        {
+          "description": "Security-focused review",
+          "input": {
+            "repository": "developer-mesh/backend",
+            "pull_number": 123,
+            "review_scope": ["security"],
+            "severity_threshold": "warning"
+          },
+          "output": {
+            "review_id": "a1b2c3d4-...",
+            "findings": [
+              {
+                "file": "auth/handler.go",
+                "line": 45,
+                "severity": "critical",
+                "category": "security",
+                "message": "SQL injection vulnerability detected",
+                "suggestion": "Use parameterized queries with $1, $2 placeholders"
+              }
+            ],
+            "summary": {
+              "total_files_reviewed": 8,
+              "issues_found": 3,
+              "critical_count": 1,
+              "approval_recommended": false
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "health_check_url": "http://github-pr-reviewer-v2:8080/health",
+  "performance_specs": {
+    "avg_latency_ms": 5000,
+    "max_concurrent": 10,
+    "throughput_per_min": 12,
+    "success_rate": 0.987,
+    "cost_per_task": 0.05
+  },
+  "metadata": {
+    "maintainer": "security-team@devmesh.io",
+    "source_repo": "https://github.com/devmesh/agents/tree/main/github-pr-reviewer",
+    "documentation": "https://docs.devmesh.io/agents/github-pr-reviewer",
+    "changelog_url": "https://github.com/devmesh/agents/blob/main/github-pr-reviewer/CHANGELOG.md"
+  }
+}
+```
+
+#### 4.8 Agent Discovery & Validation Service
+
+**Location**: `/pkg/services/agent_validation_service.go` (NEW FILE)
+
+```go
+package services
+
+import (
+    "context"
+    "fmt"
+    "github.com/xeipuuv/gojsonschema"
+)
+
+type AgentValidationService struct {
+    registry     *AgentRegistry
+    schemaCache  map[string]*gojsonschema.Schema
+    testRunner   *AgentTestRunner
+    logger       observability.Logger
+}
+
+// ValidateAgentContract validates agent registration against schema requirements
+func (avs *AgentValidationService) ValidateAgentContract(ctx context.Context, contract *AgentContract) error {
+    // 1. Validate contract structure
+    if contract.Version == "" {
+        return fmt.Errorf("agent version required")
+    }
+
+    if len(contract.Capabilities) == 0 {
+        return fmt.Errorf("at least one capability required")
+    }
+
+    // 2. Validate each capability definition
+    for _, cap := range contract.Capabilities {
+        if err := avs.validateCapability(&cap); err != nil {
+            return fmt.Errorf("invalid capability %s: %w", cap.Name, err)
+        }
+    }
+
+    // 3. Validate JSON schemas are well-formed
+    for _, cap := range contract.Capabilities {
+        if cap.InputSchema != nil {
+            if err := avs.validateJSONSchema(cap.InputSchema); err != nil {
+                return fmt.Errorf("invalid input schema for %s: %w", cap.Name, err)
+            }
+        }
+        if cap.OutputSchema != nil {
+            if err := avs.validateJSONSchema(cap.OutputSchema); err != nil {
+                return fmt.Errorf("invalid output schema for %s: %w", cap.Name, err)
+            }
+        }
+    }
+
+    // 4. Run test suite if examples provided
+    if err := avs.testRunner.RunContractTests(ctx, contract); err != nil {
+        return fmt.Errorf("contract tests failed: %w", err)
+    }
+
+    return nil
+}
+
+func (avs *AgentValidationService) validateCapability(cap *CapabilityDefinition) error {
+    if cap.Name == "" {
+        return fmt.Errorf("capability name required")
+    }
+
+    if cap.InputSchema == nil && cap.OutputSchema == nil {
+        return fmt.Errorf("at least one of input_schema or output_schema required")
+    }
+
+    // Validate skill level
+    validSkillLevels := map[SkillLevel]bool{
+        SkillLevelNovice:       true,
+        SkillLevelIntermediate: true,
+        SkillLevelExpert:       true,
+    }
+    if !validSkillLevels[cap.SkillLevel] {
+        return fmt.Errorf("invalid skill_level: %s", cap.SkillLevel)
+    }
+
+    return nil
+}
+
+func (avs *AgentValidationService) validateJSONSchema(schema *JSONSchema) error {
+    // Convert to JSON and validate using gojsonschema
+    schemaJSON, err := json.Marshal(schema)
+    if err != nil {
+        return fmt.Errorf("failed to marshal schema: %w", err)
+    }
+
+    schemaLoader := gojsonschema.NewBytesLoader(schemaJSON)
+    _, err = gojsonschema.NewSchema(schemaLoader)
+    if err != nil {
+        return fmt.Errorf("invalid JSON schema: %w", err)
+    }
+
+    return nil
+}
+```
+
+#### 4.9 Agent Testing Framework
+
+**Location**: `/pkg/services/agent_test_runner.go` (NEW FILE)
+
+```go
+package services
+
+type AgentTestRunner struct {
+    httpClient *http.Client
+    logger     observability.Logger
+}
+
+// RunContractTests validates agent works as advertised using provided examples
+func (atr *AgentTestRunner) RunContractTests(ctx context.Context, contract *AgentContract) error {
+    for _, cap := range contract.Capabilities {
+        if len(cap.Examples) == 0 {
+            continue // No examples, skip testing
+        }
+
+        for i, example := range cap.Examples {
+            if err := atr.testCapabilityExample(ctx, contract, &cap, &example, i); err != nil {
+                return fmt.Errorf("example %d for capability %s failed: %w", i, cap.Name, err)
+            }
+        }
+    }
+
+    return nil
+}
+
+func (atr *AgentTestRunner) testCapabilityExample(
+    ctx context.Context,
+    contract *AgentContract,
+    cap *CapabilityDefinition,
+    example *CapabilityExample,
+    exampleIdx int,
+) error {
+    // 1. Validate example input against input schema
+    if cap.InputSchema != nil {
+        if err := atr.validateAgainstSchema(example.Input, cap.InputSchema); err != nil {
+            return fmt.Errorf("example input invalid: %w", err)
+        }
+    }
+
+    // 2. Call agent with example input (dry-run mode)
+    taskReq := &TaskExecutionRequest{
+        AgentID:    contract.AgentID,
+        Capability: cap.Name,
+        Input:      example.Input,
+        DryRun:     true, // Don't perform actual work
+    }
+
+    result, err := atr.executeTask(ctx, contract, taskReq)
+    if err != nil {
+        return fmt.Errorf("task execution failed: %w", err)
+    }
+
+    // 3. Validate output against output schema
+    if cap.OutputSchema != nil {
+        if err := atr.validateAgainstSchema(result, cap.OutputSchema); err != nil {
+            return fmt.Errorf("agent output doesn't match schema: %w", err)
+        }
+    }
+
+    // 4. If example includes expected output, compare
+    if example.Output != nil {
+        if !atr.outputMatches(result, example.Output) {
+            atr.logger.Warn("Agent output differs from example", map[string]interface{}{
+                "capability":   cap.Name,
+                "example_idx":  exampleIdx,
+                "expected":     example.Output,
+                "actual":       result,
+            })
+            // Note: This is a warning, not failure - examples may be aspirational
+        }
+    }
+
+    return nil
+}
+
+func (atr *AgentTestRunner) validateAgainstSchema(data interface{}, schema *JSONSchema) error {
+    schemaJSON, _ := json.Marshal(schema)
+    dataJSON, _ := json.Marshal(data)
+
+    schemaLoader := gojsonschema.NewBytesLoader(schemaJSON)
+    dataLoader := gojsonschema.NewBytesLoader(dataJSON)
+
+    result, err := gojsonschema.Validate(schemaLoader, dataLoader)
+    if err != nil {
+        return fmt.Errorf("validation error: %w", err)
+    }
+
+    if !result.Valid() {
+        errors := make([]string, len(result.Errors()))
+        for i, err := range result.Errors() {
+            errors[i] = err.String()
+        }
+        return fmt.Errorf("schema validation failed: %s", strings.Join(errors, "; "))
+    }
+
+    return nil
+}
+
+func (atr *AgentTestRunner) executeTask(ctx context.Context, contract *AgentContract, req *TaskExecutionRequest) (map[string]interface{}, error) {
+    // Make HTTP request to agent
+    // This would integrate with the agent's actual API
+    // For now, simplified version:
+
+    reqBody, _ := json.Marshal(req)
+    httpReq, err := http.NewRequestWithContext(
+        ctx,
+        "POST",
+        fmt.Sprintf("%s/execute", contract.HealthCheckURL),
+        bytes.NewReader(reqBody),
+    )
+    if err != nil {
+        return nil, err
+    }
+
+    resp, err := atr.httpClient.Do(httpReq)
+    if err != nil {
+        return nil, fmt.Errorf("agent request failed: %w", err)
+    }
+    defer resp.Body.Close()
+
+    var result map[string]interface{}
+    if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+        return nil, fmt.Errorf("failed to decode response: %w", err)
+    }
+
+    return result, nil
+}
+```
+
+#### 4.10 Intelligent Task Routing with Contracts
+
+**Enhanced Assignment Engine:**
+
+```go
+// pkg/services/assignment_engine.go (ENHANCED)
+package services
+
+func (ae *AssignmentEngine) FindBestAgentWithContracts(
+    ctx context.Context,
+    task *models.Task,
+    strategyName string,
+) (*models.Agent, *CapabilityDefinition, error) {
+    // 1. Extract required capabilities from task
+    requiredCaps := task.Parameters["required_capabilities"].([]string)
+
+    // 2. Find agents with matching capabilities
+    candidates := make([]*agentCandidate, 0)
+
+    for _, capName := range requiredCaps {
+        agents, err := ae.registry.DiscoverByCapability(ctx, capName)
+        if err != nil {
+            continue
+        }
+
+        for _, agent := range agents {
+            contract, err := ae.contractStore.GetContract(ctx, agent.ID)
+            if err != nil {
+                continue
+            }
+
+            // Find specific capability definition
+            capDef := ae.findCapabilityInContract(contract, capName)
+            if capDef == nil {
+                continue
+            }
+
+            // Validate task parameters against capability input schema
+            if err := ae.validateTaskInput(task.Parameters, capDef.InputSchema); err != nil {
+                ae.logger.Warn("Task parameters don't match agent schema", map[string]interface{}{
+                    "agent_id":    agent.ID,
+                    "capability":  capName,
+                    "error":       err.Error(),
+                })
+                continue
+            }
+
+            // Calculate match score
+            score := ae.calculateMatchScore(task, agent, capDef, contract)
+
+            candidates = append(candidates, &agentCandidate{
+                Agent:      agent,
+                Capability: capDef,
+                Contract:   contract,
+                Score:      score,
+            })
+        }
+    }
+
+    if len(candidates) == 0 {
+        return nil, nil, ErrNoAgentAvailable
+    }
+
+    // 3. Apply routing strategy with enriched candidate info
+    strategy := ae.strategies[strategyName]
+    selected := strategy.Select(ctx, candidates, task)
+
+    return selected.Agent, selected.Capability, nil
+}
+
+func (ae *AssignmentEngine) calculateMatchScore(
+    task *models.Task,
+    agent *models.Agent,
+    capDef *CapabilityDefinition,
+    contract *AgentContract,
+) float64 {
+    score := 0.0
+
+    // Skill level match
+    requiredSkill := task.Parameters["required_skill_level"].(SkillLevel)
+    if capDef.SkillLevel == requiredSkill {
+        score += 0.4
+    } else if capDef.SkillLevel > requiredSkill {
+        score += 0.2 // Over-qualified
+    }
+
+    // Performance match
+    maxLatency := task.Parameters["max_latency_ms"].(int)
+    if contract.PerformanceSpecs.AvgLatencyMS <= maxLatency {
+        score += 0.3
+    }
+
+    // Success rate
+    score += contract.PerformanceSpecs.SuccessRate * 0.2
+
+    // Tag overlap (bonus)
+    taskTags := task.Parameters["tags"].([]string)
+    overlapCount := ae.countTagOverlap(taskTags, capDef.Tags)
+    score += float64(overlapCount) * 0.01
+
+    return score
+}
+
+func (ae *AssignmentEngine) validateTaskInput(params map[string]interface{}, schema *JSONSchema) error {
+    schemaJSON, _ := json.Marshal(schema)
+    paramsJSON, _ := json.Marshal(params)
+
+    schemaLoader := gojsonschema.NewBytesLoader(schemaJSON)
+    dataLoader := gojsonschema.NewBytesLoader(paramsJSON)
+
+    result, err := gojsonschema.Validate(schemaLoader, dataLoader)
+    if err != nil {
+        return err
+    }
+
+    if !result.Valid() {
+        return fmt.Errorf("task parameters don't match agent input schema")
+    }
+
+    return nil
+}
+```
+
+#### 4.11 Learning from Execution History
+
+**Location**: `/pkg/services/orchestration_learner.go` (NEW FILE)
+
+```go
+package services
+
+type OrchestrationLearner struct {
+    metricsRepo  repository.MetricsRepository
+    contractRepo repository.AgentContractRepository
+    logger       observability.Logger
+}
+
+// AnalyzeAgentPerformance updates agent contracts based on execution history
+func (ol *OrchestrationLearner) AnalyzeAgentPerformance(ctx context.Context, agentID string) error {
+    // Retrieve last 30 days of execution metrics
+    executions, err := ol.metricsRepo.GetExecutionHistory(ctx, agentID, 30)
+    if err != nil {
+        return err
+    }
+
+    // Calculate actual performance metrics
+    actualMetrics := ol.calculateActualMetrics(executions)
+
+    // Update agent contract with real-world performance
+    contract, err := ol.contractRepo.GetContract(ctx, agentID)
+    if err != nil {
+        return err
+    }
+
+    contract.PerformanceSpecs = actualMetrics
+
+    // Save updated contract
+    if err := ol.contractRepo.UpdateContract(ctx, contract); err != nil {
+        return err
+    }
+
+    ol.logger.Info("Updated agent performance specs", map[string]interface{}{
+        "agent_id":    agentID,
+        "success_rate": actualMetrics.SuccessRate,
+        "avg_latency":  actualMetrics.AvgLatencyMS,
+    })
+
+    return nil
+}
+
+func (ol *OrchestrationLearner) calculateActualMetrics(executions []*TaskExecution) PerformanceSpecification {
+    totalLatency := 0
+    successCount := 0
+    totalCost := 0.0
+
+    for _, exec := range executions {
+        totalLatency += exec.LatencyMS
+        if exec.Status == "completed" {
+            successCount++
+        }
+        totalCost += exec.Cost
+    }
+
+    return PerformanceSpecification{
+        AvgLatencyMS:     totalLatency / len(executions),
+        MaxConcurrent:    ol.calculateMaxConcurrency(executions),
+        ThroughputPerMin: ol.calculateThroughput(executions),
+        SuccessRate:      float64(successCount) / float64(len(executions)),
+        CostPerTask:      totalCost / float64(len(executions)),
+    }
+}
+
+// RefineRoutingStrategy adjusts routing based on historical success
+func (ol *OrchestrationLearner) RefineRoutingStrategy(ctx context.Context, capability string) error {
+    // Analyze which agents perform best for specific capability
+    agents, err := ol.metricsRepo.GetAgentsByCapability(ctx, capability)
+    if err != nil {
+        return err
+    }
+
+    rankings := make([]agentRanking, len(agents))
+    for i, agent := range agents {
+        metrics := ol.metricsRepo.GetCapabilityMetrics(ctx, agent.ID, capability)
+        rankings[i] = agentRanking{
+            AgentID:     agent.ID,
+            SuccessRate: metrics.SuccessRate,
+            AvgLatency:  metrics.AvgLatencyMS,
+            UserRating:  metrics.AvgUserRating,
+        }
+    }
+
+    // Sort by composite score
+    sort.Slice(rankings, func(i, j int) bool {
+        return ol.calculateCompositeScore(rankings[i]) > ol.calculateCompositeScore(rankings[j])
+    })
+
+    // Update routing preferences for this capability
+    preferences := &CapabilityRoutingPreferences{
+        Capability:   capability,
+        PreferredAgents: rankings[:min(5, len(rankings))], // Top 5
+        UpdatedAt:    time.Now(),
+    }
+
+    return ol.contractRepo.SaveRoutingPreferences(ctx, preferences)
+}
+```
+
+#### 4.12 Agent Versioning & Upgrades
+
+```go
+// pkg/services/agent_version_manager.go (NEW FILE)
+package services
+
+type AgentVersionManager struct {
+    registry     *AgentRegistry
+    contractRepo repository.AgentContractRepository
+    logger       observability.Logger
+}
+
+// RegisterNewVersion handles agent upgrades
+func (avm *AgentVersionManager) RegisterNewVersion(ctx context.Context, newContract *AgentContract) error {
+    // Check if older version exists
+    existingVersions, err := avm.contractRepo.GetVersionHistory(ctx, newContract.AgentID)
+    if err != nil && err != repository.ErrNotFound {
+        return err
+    }
+
+    if len(existingVersions) > 0 {
+        latest := existingVersions[len(existingVersions)-1]
+
+        // Validate backward compatibility
+        if err := avm.validateBackwardCompatibility(latest, newContract); err != nil {
+            return fmt.Errorf("breaking change detected: %w", err)
+        }
+    }
+
+    // Register new version
+    if err := avm.contractRepo.SaveContract(ctx, newContract); err != nil {
+        return err
+    }
+
+    // Gradual rollout: Start with canary deployment
+    return avm.startCanaryDeployment(ctx, newContract)
+}
+
+func (avm *AgentVersionManager) validateBackwardCompatibility(old, new *AgentContract) error {
+    // Check if capabilities were removed
+    oldCaps := make(map[string]*CapabilityDefinition)
+    for _, cap := range old.Capabilities {
+        oldCaps[cap.Name] = &cap
+    }
+
+    for capName := range oldCaps {
+        found := false
+        for _, newCap := range new.Capabilities {
+            if newCap.Name == capName {
+                found = true
+                // Validate schema compatibility
+                if err := avm.validateSchemaCompatibility(oldCaps[capName], &newCap); err != nil {
+                    return fmt.Errorf("incompatible schema for %s: %w", capName, err)
+                }
+                break
+            }
+        }
+        if !found {
+            return fmt.Errorf("capability %s removed in new version", capName)
+        }
+    }
+
+    return nil
+}
+
+func (avm *AgentVersionManager) startCanaryDeployment(ctx context.Context, contract *AgentContract) error {
+    // Route 10% of traffic to new version initially
+    canaryConfig := &CanaryConfig{
+        AgentID:        contract.AgentID,
+        NewVersion:     contract.Version,
+        TrafficPercent: 10,
+        MonitoringWindow: 24 * time.Hour,
+        RollbackCriteria: RollbackCriteria{
+            MaxErrorRate:     0.05,
+            MinSuccessRate:   0.95,
+            MaxLatencyIncrease: 1.5, // 50% increase threshold
+        },
+    }
+
+    return avm.registry.ConfigureCanary(ctx, canaryConfig)
+}
+```
+
+#### 4.13 Agent Registration with Contract
+
+**Updated REST API Endpoint:**
+
+```go
+// apps/rest-api/internal/api/agent_api.go (ENHANCED)
+
+// POST /api/v1/agents/register-with-contract
+func (a *AgentAPI) registerAgentWithContract(c *gin.Context) {
+    var contract models.AgentContract
+    if err := c.ShouldBindJSON(&contract); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+
+    tenantID := util.GetTenantIDFromContext(c)
+    if tenantID == "" {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "missing tenant id"})
+        return
+    }
+
+    // Validate contract
+    if err := a.validationService.ValidateAgentContract(c.Request.Context(), &contract); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{
+            "error": "contract validation failed",
+            "details": err.Error(),
+        })
+        return
+    }
+
+    // Run test suite
+    if err := a.testRunner.RunContractTests(c.Request.Context(), &contract); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{
+            "error": "contract tests failed",
+            "details": err.Error(),
+        })
+        return
+    }
+
+    // Save contract
+    contract.TenantID = tenantID
+    if err := a.contractRepo.SaveContract(c.Request.Context(), &contract); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        return
+    }
+
+    // Register agent in registry
+    agent := a.contractToAgent(&contract)
+    if err := a.registry.Register(c.Request.Context(), agent); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        return
+    }
+
+    c.JSON(http.StatusCreated, gin.H{
+        "agent_id": contract.AgentID,
+        "version": contract.Version,
+        "status": "registered",
+        "message": "Agent registered and validated successfully",
+    })
+}
+```
+
 ### Phase 5: Monitoring & Observability (Week 6) 🟢 MEDIUM PRIORITY
 
 #### 5.1 Orchestration Metrics
