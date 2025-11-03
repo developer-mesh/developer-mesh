@@ -19,7 +19,7 @@ This document outlines the implementation plan for establishing a production-rea
 4. [Implementation Phases](#implementation-phases)
 5. [Detailed Implementation Guide](#detailed-implementation-guide)
 6. [Model Recommendations for Orchestrators](#model-recommendations-for-orchestrators)
-7. [Local Development Models](#local-development-models)
+7. [Development with AWS Bedrock](#development-with-aws-bedrock)
 8. [Testing Strategy](#testing-strategy)
 9. [Monitoring & Observability](#monitoring--observability)
 10. [Risk Mitigation](#risk-mitigation)
@@ -1201,67 +1201,316 @@ Models were selected based on:
 - **Cost-Performance Trade-offs**: Balancing capability with operational costs
 - **Specialization**: Domain-specific models for specialized coordinators
 - **Availability**: Preference for widely available APIs and self-hostable options
+- **AWS Integration**: Bedrock models preferred for production due to VPC-native access and IAM security
+
+### AWS Bedrock Models (Production Recommended)
+
+**Since Developer Mesh runs in AWS, production deployments should use AWS Bedrock models for optimal integration, security, and cost efficiency.**
+
+#### Why Bedrock for Production?
+
+1. **VPC-Native Access**: No internet egress required, models run within your VPC
+2. **IAM-Based Security**: No API keys to manage, rotate, or secure
+3. **Cost Optimization**: 50% cheaper for batch inference vs on-demand
+4. **Latency-Optimized**: Select models run faster on Bedrock than anywhere else
+5. **Cross-Region Inference**: Global routing for scalability
+6. **Integrated Billing**: Unified AWS billing, no separate vendor accounts
+7. **Compliance**: Data residency controls with regional endpoints
+
+#### Available Claude Models on Bedrock (2025)
+
+| Model | Bedrock Model ID | Use Case | Context Window |
+|-------|------------------|----------|----------------|
+| **Claude Opus 4.1** | `anthropic.claude-opus-4-1-20250805-v1:0` | Best for complex coding, agent workflows | 1M tokens |
+| **Claude Sonnet 4.5** | `global.anthropic.claude-sonnet-4-5-20250929-v1:0`* | Best overall coding model, complex agents | 1M tokens |
+| **Claude Sonnet 4** | `anthropic.claude-sonnet-4-20250115-v1:0` | Balanced performance and cost | 1M tokens |
+| **Claude Haiku 4.5** | `anthropic.claude-haiku-4-5-20251001-v1:0` | Fast, lightweight, high-volume | 200K tokens |
+
+*Sonnet 4.5 requires inference profiles; also available as `us.anthropic.claude-sonnet-4-5-20250929-v1:0` for regional deployment
+
+#### Available Open-Source Models on Bedrock
+
+| Model Family | Versions | Use Case |
+|--------------|----------|----------|
+| **Meta Llama** | 3.3 70B, 3.1 405B, 3.1 8B | Code generation, general purpose |
+| **Mistral** | Large, 7B, Mixtral 8x7B | Multilingual, reasoning |
+| **Amazon Nova** | Multiple variants | AWS-optimized inference |
+
+#### Bedrock Regional Inference Profiles
+
+For data residency and latency optimization, use regional profiles:
+
+```yaml
+# Production configuration for multi-region deployment
+bedrock_regions:
+  primary:
+    region: us-east-1
+    models:
+      user_orchestrator: "us.anthropic.claude-opus-4-1-20250805-v1:0"
+      webhook_orchestrator: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+      platform_orchestrator: "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+
+  europe:
+    region: eu-west-1
+    models:
+      user_orchestrator: "eu.anthropic.claude-opus-4-1-20250805-v1:0"
+      webhook_orchestrator: "eu.anthropic.claude-haiku-4-5-20251001-v1:0"
+      platform_orchestrator: "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
+
+  apac:
+    region: ap-southeast-1
+    models:
+      user_orchestrator: "apac.anthropic.claude-opus-4-1-20250805-v1:0"
+      webhook_orchestrator: "apac.anthropic.claude-haiku-4-5-20251001-v1:0"
+      platform_orchestrator: "apac.anthropic.claude-sonnet-4-5-20250929-v1:0"
+```
+
+#### Bedrock Cost Optimization
+
+```yaml
+bedrock_pricing_strategy:
+  on_demand:  # Standard inference
+    use_for: "User interactions, critical paths"
+    models: ["claude-opus-4-1", "claude-sonnet-4-5"]
+
+  batch_inference:  # 50% cheaper
+    use_for: "Background processing, non-urgent tasks"
+    models: ["claude-sonnet-4", "claude-haiku-4-5"]
+    max_latency: "24 hours"
+
+  provisioned_throughput:  # Reserved capacity
+    use_for: "High-volume predictable workloads"
+    models: ["claude-haiku-4-5"]
+    min_commitment: "1 month"
+```
+
+#### Bedrock IAM Configuration
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "bedrock:InvokeModel",
+        "bedrock:InvokeModelWithResponseStream"
+      ],
+      "Resource": [
+        "arn:aws:bedrock:*::foundation-model/anthropic.claude-opus-4-1*",
+        "arn:aws:bedrock:*::foundation-model/anthropic.claude-sonnet-4-5*",
+        "arn:aws:bedrock:*::foundation-model/anthropic.claude-haiku-4-5*"
+      ]
+    }
+  ]
+}
+```
+
+#### Bedrock SDK Integration
+
+```go
+// pkg/clients/bedrock_client.go
+package clients
+
+import (
+    "context"
+    "github.com/aws/aws-sdk-go-v2/config"
+    "github.com/aws/aws-sdk-go-v2/service/bedrockruntime"
+)
+
+type BedrockClient struct {
+    client *bedrockruntime.Client
+    region string
+}
+
+func NewBedrockClient(ctx context.Context, region string) (*BedrockClient, error) {
+    cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(region))
+    if err != nil {
+        return nil, fmt.Errorf("failed to load AWS config: %w", err)
+    }
+
+    return &BedrockClient{
+        client: bedrockruntime.NewFromConfig(cfg),
+        region: region,
+    }, nil
+}
+
+func (b *BedrockClient) InvokeModel(ctx context.Context, modelID string, prompt string) (string, error) {
+    input := &bedrockruntime.InvokeModelInput{
+        ModelId:     aws.String(modelID),
+        ContentType: aws.String("application/json"),
+        Accept:      aws.String("application/json"),
+        Body: []byte(fmt.Sprintf(`{
+            "anthropic_version": "bedrock-2023-05-31",
+            "max_tokens": 4096,
+            "messages": [{
+                "role": "user",
+                "content": "%s"
+            }]
+        }`, prompt)),
+    }
+
+    result, err := b.client.InvokeModel(ctx, input)
+    if err != nil {
+        return "", fmt.Errorf("bedrock invoke failed: %w", err)
+    }
+
+    // Parse response
+    var response map[string]interface{}
+    json.Unmarshal(result.Body, &response)
+
+    return response["content"].(string), nil
+}
+```
+
+#### Bedrock Models Summary by Orchestrator
+
+| Orchestrator Type | Primary Model (Bedrock) | Fallback Model (Bedrock) | Use Case |
+|-------------------|-------------------------|--------------------------|----------|
+| **User Orchestrator** | Claude Opus 4.1<br/>`anthropic.claude-opus-4-1-20250805-v1:0` | Claude Sonnet 4.5<br/>`global.anthropic.claude-sonnet-4-5-20250929-v1:0` | Complex coding, long sessions |
+| **Webhook Orchestrator** | Claude Haiku 4.5<br/>`anthropic.claude-haiku-4-5-20251001-v1:0` | Claude Sonnet 4<br/>`anthropic.claude-sonnet-4-20250115-v1:0` | Fast, high-volume events |
+| **Platform Orchestrator** | Claude Sonnet 4.5<br/>`global.anthropic.claude-sonnet-4-5-20250929-v1:0` | Llama 3.3 70B<br/>`meta.llama3-3-70b-instruct-v1:0` | K8s/technical specs |
+| **Code Coordinator** | Llama 3.3 70B<br/>`meta.llama3-3-70b-instruct-v1:0` | Mistral Large<br/>`mistral.mistral-large-2402-v1:0` | Code analysis |
+| **Infra Coordinator** | Mistral Large<br/>`mistral.mistral-large-2402-v1:0` | Claude Haiku 4.5<br/>`anthropic.claude-haiku-4-5-20251001-v1:0` | Infrastructure tasks |
+| **Testing Coordinator** | Claude Haiku 4.5<br/>`anthropic.claude-haiku-4-5-20251001-v1:0` | Mistral 7B<br/>`mistral.mistral-7b-instruct-v0:2` | Test generation |
 
 ### Gateway Orchestrators (Tier 1)
 
+**All environments use AWS Bedrock with different model tiers for cost optimization**
+
 #### 1. User Orchestrator (Claude Code/Cursor Interface)
-- **Primary Model**: **Claude Opus 4.1** (claude-opus-4-1-20250805)
+
+**Production (AWS Bedrock) - Premium Models**:
+- **Primary Model**: **Claude Opus 4.1**
+  - Bedrock ID: `anthropic.claude-opus-4-1-20250805-v1:0`
   - World's best coding model (72.5% on SWE-bench)
-  - Sustained performance on long-running agent workflows
-  - Extended thinking with tool usage during reasoning
-  - 1M token context window available
-- **Fallback Model**: **GPT-4.1** (gpt-4.1)
-  - 54.6% on SWE-bench Verified
-  - Superior instruction following
-  - Strong repository exploration capabilities
+  - 1M token context window
+  - Extended thinking capabilities
+- **Fallback Model**: **Claude Sonnet 4.5**
+  - Bedrock ID: `global.anthropic.claude-sonnet-4-5-20250929-v1:0`
+  - Best overall coding model
+  - Cross-region inference support
+
+**Development (AWS Bedrock) - Cost-Optimized Models**:
+- **Primary**: **Claude Sonnet 4** (cheaper than Opus/Sonnet 4.5)
+  - Bedrock ID: `anthropic.claude-sonnet-4-20250115-v1:0`
+  - Still excellent for testing orchestration logic
+- **Fallback**: **Claude Haiku 4.5** (fastest/cheapest)
+  - Bedrock ID: `anthropic.claude-haiku-4-5-20251001-v1:0`
+  - Perfect for quick iterations
 
 ```yaml
 user_orchestrator:
-  primary_model: "claude-opus-4-1-20250805"
-  fallback_model: "gpt-4.1"
-  temperature: 0.7
-  max_context: 100000
-  streaming: true
-  extended_thinking: true
+  production:
+    provider: "bedrock"
+    region: "us-east-1"
+    primary_model: "anthropic.claude-opus-4-1-20250805-v1:0"
+    fallback_model: "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
+    temperature: 0.7
+    max_context: 100000
+    streaming: true
+
+  development:
+    provider: "bedrock"
+    region: "us-east-1"  # Same infrastructure
+    primary_model: "anthropic.claude-sonnet-4-20250115-v1:0"  # Cheaper
+    fallback_model: "anthropic.claude-haiku-4-5-20251001-v1:0"  # Cheapest
+    temperature: 0.1  # More deterministic for testing
+    max_context: 50000  # Reduced for cost savings
+
+  unit_tests:
+    provider: "mock"  # Deterministic responses
+    mock_mode: true
 ```
 
 #### 2. Webhook Orchestrator (Event-Driven Automation)
+
+**Production (AWS Bedrock) - Fast Models**:
 - **Primary Model**: **Claude Haiku 4.5**
-  - Optimized for speed and efficiency
-  - Cost-effective for high-volume operations
-  - Latest improvements in structured output
-- **Fallback Model**: **GPT-4.1 nano**
-  - Fastest and cheapest OpenAI model
-  - 1M token context window
-  - 80.1% on MMLU benchmark
+  - Bedrock ID: `anthropic.claude-haiku-4-5-20251001-v1:0`
+  - Fastest Claude model on Bedrock
+  - Cost-effective for high-volume
+  - Latency-optimized inference
+- **Fallback Model**: **Claude Sonnet 4**
+  - Bedrock ID: `anthropic.claude-sonnet-4-20250115-v1:0`
+  - Balanced performance/cost
+
+**Development (AWS Bedrock) - Same Models**:
+- **Primary**: **Claude Haiku 4.5** (already cheapest/fastest)
+  - Same model ID as production
+  - Already optimized for speed and cost
+- **Fallback**: **Mistral 7B** (even cheaper)
+  - Bedrock ID: `mistral.mistral-7b-instruct-v0:2`
 
 ```yaml
 webhook_orchestrator:
-  primary_model: "claude-haiku-4-5-20251001"
-  fallback_model: "gpt-4.1-nano"
-  temperature: 0.3
-  max_tokens: 2000
-  timeout: 3000ms
+  production:
+    provider: "bedrock"
+    region: "us-east-1"
+    primary_model: "anthropic.claude-haiku-4-5-20251001-v1:0"
+    fallback_model: "anthropic.claude-sonnet-4-20250115-v1:0"
+    temperature: 0.3
+    max_tokens: 2000
+    timeout: 3000ms
+
+  development:
+    provider: "bedrock"
+    region: "us-east-1"
+    primary_model: "anthropic.claude-haiku-4-5-20251001-v1:0"  # Same as prod
+    fallback_model: "mistral.mistral-7b-instruct-v0:2"  # Even cheaper
+    temperature: 0.1  # More deterministic
+    max_tokens: 1000  # Reduced for testing
+    cache_responses: true
+
+  unit_tests:
+    provider: "mock"
+    mock_mode: true
 ```
 
 #### 3. Platform Orchestrator (K8s MCP Requests)
+
+**Production (AWS Bedrock) - Premium Models**:
 - **Primary Model**: **Claude Sonnet 4.5**
+  - Bedrock ID: `global.anthropic.claude-sonnet-4-5-20250929-v1:0`
   - Best coding model available
-  - Strongest for building complex agents
-  - Superior computer use capabilities
-  - Substantial gains in reasoning and math
-- **Fallback Model**: **DeepSeek-V3**
-  - 671B MoE architecture (37B active parameters)
-  - Self-hostable for data sovereignty
-  - Rivals frontier model performance
+  - Strongest for complex agents
+  - Cross-region inference
+- **Fallback Model**: **Llama 3.3 70B** (Bedrock)
+  - Bedrock ID: `meta.llama3-3-70b-instruct-v1:0`
+  - Good for technical specs
+  - Cost-effective alternative
+
+**Development (AWS Bedrock) - Cost-Optimized**:
+- **Primary**: **Claude Sonnet 4** (cheaper than 4.5)
+  - Bedrock ID: `anthropic.claude-sonnet-4-20250115-v1:0`
+  - Still excellent for K8s specs
+- **Fallback**: **Mistral Large**
+  - Bedrock ID: `mistral.mistral-large-2402-v1:0`
+  - Good technical reasoning
 
 ```yaml
 platform_orchestrator:
-  primary_model: "claude-sonnet-4-5-20250929"
-  fallback_model: "deepseek-v3"
-  temperature: 0.2
-  response_format: "json"
-  validation: strict
+  production:
+    provider: "bedrock"
+    region: "us-east-1"
+    primary_model: "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
+    fallback_model: "meta.llama3-3-70b-instruct-v1:0"
+    temperature: 0.2
+    response_format: "json"
+    validation: strict
+
+  development:
+    provider: "bedrock"
+    region: "us-east-1"
+    primary_model: "anthropic.claude-sonnet-4-20250115-v1:0"  # Cheaper
+    fallback_model: "mistral.mistral-large-2402-v1:0"
+    temperature: 0.1
+    response_format: "json"
+    validation: strict
+
+  unit_tests:
+    provider: "mock"
+    mock_mode: true
 ```
 
 ### Domain Coordinators (Tier 2)
@@ -1487,133 +1736,99 @@ As new models are released, follow this migration strategy:
    - Adjust temperature and parameters
    - Update cost models
 
-## Local Development Models
+## Development with AWS Bedrock
 
-This section provides specific recommendations for running the orchestration system during local development, optimizing for cost, speed, and developer experience.
+This section explains the development approach using AWS Bedrock for all environments (production, staging, development, and testing).
 
-### Why Different Models for Local Development?
+### Why Bedrock for Development?
 
-Local development has unique requirements:
-- **Cost Sensitivity**: Minimize API costs during frequent testing
-- **Speed Priority**: Fast iteration over production accuracy
-- **Resource Constraints**: Developer laptops vs production servers
-- **Offline Capability**: Work without internet connectivity
-- **Privacy**: Keep proprietary code local during development
+**Key Advantages:**
+- **No Local Compute Required**: Works on any machine without GPU/RAM requirements
+- **Consistent Environment**: Same infrastructure as production eliminates environment-specific bugs
+- **IAM Security**: No API keys to manage or secure on developer laptops
+- **Cost Control**: Use cheaper models (Haiku, Sonnet 4) vs premium (Opus 4.1, Sonnet 4.5)
+- **Real Model Testing**: Test with actual production-class models, not approximations
+- **VPC Access**: Test VPC-native workflows during development
+- **Unified Billing**: All costs in one AWS account
 
-### Local Model Deployment Options
+**Development Requirements:**
+- AWS credentials configured (`~/.aws/credentials` or IAM role)
+- Bedrock access enabled in your AWS account
+- No local GPU, RAM, or storage requirements
 
-#### Option 1: Ollama (Recommended for CLI Integration)
+### Development Model Tier Strategy
+
+Use cheaper/faster Bedrock models during development to control costs while maintaining realistic testing:
+
+| Environment | Model Tier | Example Models | Cost vs Production |
+|-------------|------------|----------------|-------------------|
+| **Production** | Premium | Claude Opus 4.1, Sonnet 4.5 | 100% (baseline) |
+| **Staging** | Mid-tier | Claude Sonnet 4, Haiku 4.5 | 30-50% |
+| **Development** | Economy | Claude Haiku 4.5, Mistral 7B | 10-20% |
+| **Unit Tests** | Mocks | Deterministic responses | ~0% |
+
+### Cost Comparison: Bedrock Development Models
+
+**Estimated costs per 1,000 development iterations:**
+
+| Orchestrator | Production Model | Dev Model | Production Cost | Dev Cost | Savings |
+|--------------|------------------|-----------|----------------|----------|---------|
+| User Orchestrator | Claude Opus 4.1 | Claude Sonnet 4 | $15.00 | $3.00 | 80% |
+| Webhook Orchestrator | Claude Haiku 4.5 | Mistral 7B | $0.25 | $0.05 | 80% |
+| Platform Orchestrator | Claude Sonnet 4.5 | Claude Sonnet 4 | $3.00 | $1.50 | 50% |
+
+**Monthly Development Estimate:**
+- Typical developer: ~10K model calls/month during active development
+- Production models: ~$150-300/month per developer
+- Development models: ~$30-60/month per developer
+- **Savings: 80%+ vs using production models for development**
+
+### AWS Setup for Development
+
 ```bash
-# Install Ollama
-curl -fsSL https://ollama.com/install.sh | sh
+# 1. Configure AWS credentials
+aws configure
+# Enter your Access Key ID and Secret Access Key
 
-# Pull recommended development models
-ollama pull mistral:7b          # Fast general purpose
-ollama pull codellama:7b        # Code-specific tasks
-ollama pull phi3:mini           # Ultra-lightweight
-ollama pull llama3.2:3b         # Balanced performance
-ollama pull deepseek-coder:1.3b # Specialized coding
+# 2. Verify Bedrock access
+aws bedrock list-foundation-models --region us-east-1
 
-# Start Ollama API server
-ollama serve  # Runs on http://localhost:11434
+# 3. Set environment for development
+export ENVIRONMENT=development
+export AWS_REGION=us-east-1
+export BEDROCK_ENABLED=true
+
+# 4. Run application with development models
+make run-orchestrator
 ```
 
-#### Option 2: LM Studio (GUI Preference)
-- Download from: https://lmstudio.ai
-- Provides graphical interface for model management
-- Built-in RAG capabilities for documentation
-- Easy model switching without code changes
+### Development Model Configuration
 
-#### Option 3: Docker Containers
-```yaml
-# docker-compose.local.yml
-services:
-  local-llm:
-    image: ghcr.io/ggerganov/llama.cpp:server
-    volumes:
-      - ./models:/models
-    command: |
-      -m /models/mistral-7b-q4.gguf
-      --port 8080
-      --host 0.0.0.0
-    ports:
-      - "8080:8080"
-```
+All orchestrators use the same Bedrock provider infrastructure, just with different model selections:
 
-### Recommended Models by Orchestrator Type
+```go
+// pkg/config/model_config.go
+func GetModelForEnvironment(orchestratorType string, env string) string {
+    configs := map[string]map[string]string{
+        "user_orchestrator": {
+            "production":  "anthropic.claude-opus-4-1-20250805-v1:0",
+            "staging":     "anthropic.claude-sonnet-4-5-20250929-v1:0",
+            "development": "anthropic.claude-sonnet-4-20250115-v1:0",  // Cheaper
+        },
+        "webhook_orchestrator": {
+            "production":  "anthropic.claude-haiku-4-5-20251001-v1:0",
+            "staging":     "anthropic.claude-haiku-4-5-20251001-v1:0",
+            "development": "mistral.mistral-7b-instruct-v0:2",  // Cheapest
+        },
+        "platform_orchestrator": {
+            "production":  "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
+            "staging":     "anthropic.claude-sonnet-4-20250115-v1:0",
+            "development": "mistral.mistral-large-2402-v1:0",
+        },
+    }
 
-#### Gateway Orchestrators (Local Development)
-
-**1. User Orchestrator Development**
-- **Primary**: **Mistral 7B** (via Ollama)
-  - 7B parameters, runs on 8GB RAM
-  - Good code understanding
-  - Fast responses (~1s on M1 Mac)
-- **Fallback**: **Llama 3.2 3B**
-  - Runs on 4GB RAM
-  - Decent quality for testing workflows
-- **Mock Mode**: Deterministic responses for unit tests
-
-```yaml
-# config.development.yaml
-user_orchestrator:
-  development:
-    primary_model: "ollama:mistral:7b"
-    fallback_model: "ollama:llama3.2:3b"
-    api_endpoint: "http://localhost:11434"
-    temperature: 0.1  # More deterministic
-    timeout: 10000ms  # Longer timeout for local
-    mock_mode: ${ENABLE_MOCK_MODELS}  # For unit tests
-```
-
-**2. Webhook Orchestrator Development**
-- **Primary**: **Phi-3 Mini** (3.8B)
-  - Microsoft's efficient small model
-  - Runs on 4GB RAM
-  - Sub-second responses
-- **Fallback**: **TinyLlama 1.1B**
-  - Ultra-fast for basic routing
-  - 2GB RAM requirement
-
-```yaml
-webhook_orchestrator:
-  development:
-    primary_model: "ollama:phi3:mini"
-    fallback_model: "ollama:tinyllama"
-    cache_responses: true  # Speed up repeated calls
-    response_timeout: 2000ms
-```
-
-**3. Platform Orchestrator Development**
-- **Primary**: **CodeLlama 7B**
-  - Specialized for technical tasks
-  - Better at YAML/JSON manipulation
-  - 8GB RAM requirement
-- **Fallback**: **Mistral 7B**
-
-```yaml
-platform_orchestrator:
-  development:
-    primary_model: "ollama:codellama:7b"
-    fallback_model: "ollama:mistral:7b"
-    structured_output: true
-```
-
-#### Domain Coordinators (Local Development)
-
-**4. Code Domain Coordinator**
-- **Primary**: **CodeLlama 7B** or **DeepSeek-Coder 1.3B**
-  - CodeLlama for quality
-  - DeepSeek for speed (runs on 2GB RAM)
-
-**5. Infrastructure Coordinator**
-- **Primary**: **Mistral 7B** with local RAG
-  - Augment with local documentation
-  - Cache infrastructure patterns
-
-**6. Testing Coordinator**
-- **Primary**: **Phi-3 Mini** or mock responses
-  - Often mock is sufficient for test generation
+    return configs[orchestratorType][env]
+}
 
 ### Development vs Production Configuration
 
