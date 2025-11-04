@@ -3410,7 +3410,7 @@ func TestOrchestration_HighLoad(t *testing.T) {
    - Saga compensation triggers
    - Step duration breakdown
 
-## Phase 6: Security & Authorization
+## Phase 6: Security & Authorization - Leveraging Existing Patterns
 
 **Duration**: Week 7-8
 **Priority**: 🔴 CRITICAL
@@ -3418,712 +3418,378 @@ func TestOrchestration_HighLoad(t *testing.T) {
 
 ### Overview
 
-Security is paramount for a multi-tenant AI orchestration platform. This phase implements comprehensive authentication, authorization, and security controls to protect against unauthorized access, data breaches, and privilege escalation.
+Security is paramount for a multi-tenant AI orchestration platform. This phase leverages the **existing Edge-MCP authentication architecture** that's already production-tested. Rather than creating new JWT/mTLS implementations, we extend the current Edge-MCP, session service, and passthrough authentication patterns to support agent orchestration.
 
-### Security Architecture
+### Existing Authentication Architecture We'll Use
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     Security Layers                          │
+│           Existing Edge-MCP Authentication Flow              │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
 │  ┌────────────────────────────────────────────────────┐    │
-│  │  Layer 1: API Gateway Authentication              │    │
-│  │  - JWT validation                                   │    │
-│  │  - API key verification                            │    │
-│  │  - mTLS for service-to-service                     │    │
+│  │  Layer 1: Edge-MCP Gateway (Deployed to K8s)       │    │
+│  │  - API key validation via REST API backend         │    │
+│  │  - 5-minute result caching                        │    │
+│  │  - Tenant isolation enforcement                    │    │
+│  │  Location: /apps/edge-mcp/internal/auth/auth.go   │    │
 │  └────────────────────────────────────────────────────┘    │
 │                         ↓                                    │
 │  ┌────────────────────────────────────────────────────┐    │
-│  │  Layer 2: Tenant Isolation                         │    │
-│  │  - Tenant ID extraction from JWT                   │    │
-│  │  - Row-level security (RLS) in PostgreSQL          │    │
-│  │  - Redis namespace isolation                       │    │
+│  │  Layer 2: Session Service                          │    │
+│  │  - Creates sessions with encrypted credentials     │    │
+│  │  - PassthroughAuthBundle for tool access          │    │
+│  │  - Session TTL management                          │    │
+│  │  Location: /pkg/services/session_service.go       │    │
 │  └────────────────────────────────────────────────────┘    │
 │                         ↓                                    │
 │  ┌────────────────────────────────────────────────────┐    │
-│  │  Layer 3: Resource Authorization                   │    │
-│  │  - RBAC (Role-Based Access Control)               │    │
-│  │  - Resource ownership validation                   │    │
-│  │  - Capability-based permissions                    │    │
+│  │  Layer 3: Passthrough Authentication               │    │
+│  │  - GitHub PAT, Harness keys, etc.                 │    │
+│  │  - Tool-specific credential mapping                │    │
+│  │  - Encrypted storage per tenant                    │    │
+│  │  Location: /pkg/models/passthrough_auth.go        │    │
 │  └────────────────────────────────────────────────────┘    │
 │                         ↓                                    │
 │  ┌────────────────────────────────────────────────────┐    │
-│  │  Layer 4: Credential Management                    │    │
-│  │  - Per-tenant encryption keys (PBKDF2)            │    │
-│  │  - Automatic credential rotation                   │    │
-│  │  - Secrets vault integration (Vault/KMS)          │    │
+│  │  Layer 4: Existing Credential Management           │    │
+│  │  - Per-tenant encryption (AES-256-GCM + PBKDF2)   │    │
+│  │  - EncryptionService with tenant isolation         │    │
+│  │  - Automatic key derivation                        │    │
+│  │  Location: /pkg/security/encryption_service.go    │    │
 │  └────────────────────────────────────────────────────┘    │
 │                         ↓                                    │
 │  ┌────────────────────────────────────────────────────┐    │
-│  │  Layer 5: Audit & Compliance                       │    │
-│  │  - Comprehensive audit logging                     │    │
-│  │  - Security event monitoring                       │    │
-│  │  - Compliance reporting (SOC2, GDPR)              │    │
+│  │  Layer 5: Existing Audit & Compliance              │    │
+│  │  - Session tool execution tracking                  │    │
+│  │  - mcp.session_tool_executions table               │    │
+│  │  - Comprehensive observability logging              │    │
+│  │  Location: /pkg/observability/logger.go            │    │
 │  └────────────────────────────────────────────────────┘    │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 6.1 Agent Authentication
+### 6.1 Agent Authentication via Edge-MCP
 
-#### JWT-Based Authentication
+#### How Agents Connect Through Edge-MCP
+
+Agents connect to the DevMesh platform through the Edge-MCP gateway deployed to Kubernetes. This provides:
+
+1. **Unified Entry Point**: All agents connect to the same Edge-MCP endpoint
+2. **Automatic Load Balancing**: K8s handles distribution across Edge-MCP pods
+3. **Tool Access**: Agents can use tools (GitHub, Harness, etc.) through passthrough auth
+4. **Session Management**: Persistent connections with automatic reconnect
 
 ```go
-// pkg/auth/agent_auth.go
-package auth
+// Example: Agent connecting to Edge-MCP
+package main
 
 import (
-    "context"
-    "fmt"
-    "time"
-
-    "github.com/golang-jwt/jwt/v5"
-    "github.com/developer-mesh/developer-mesh/pkg/models"
+    "github.com/developer-mesh/developer-mesh/pkg/clients/edgemcp"
 )
 
-type AgentClaims struct {
-    AgentID      string   `json:"agent_id"`
-    TenantID     string   `json:"tenant_id"`
-    AgentType    string   `json:"agent_type"`
-    Capabilities []string `json:"capabilities"`
-    Scopes       []string `json:"scopes"`
-    jwt.RegisteredClaims
-}
-
-type AgentAuthService struct {
-    jwtSecret     []byte
-    tokenExpiry   time.Duration
-    refreshExpiry time.Duration
-}
-
-func NewAgentAuthService(secret []byte) *AgentAuthService {
-    return &AgentAuthService{
-        jwtSecret:     secret,
-        tokenExpiry:   24 * time.Hour,      // Access token: 24 hours
-        refreshExpiry: 30 * 24 * time.Hour, // Refresh token: 30 days
-    }
-}
-
-// GenerateAgentToken creates JWT for agent authentication
-func (s *AgentAuthService) GenerateAgentToken(agent *models.Agent) (string, string, error) {
-    // Access token
-    accessClaims := &AgentClaims{
-        AgentID:      agent.ID,
-        TenantID:     agent.TenantID.String(),
-        AgentType:    agent.Type,
-        Capabilities: agent.Capabilities,
-        Scopes:       []string{"task:read", "task:execute", "metrics:write"},
-        RegisteredClaims: jwt.RegisteredClaims{
-            ExpiresAt: jwt.NewNumericDate(time.Now().Add(s.tokenExpiry)),
-            IssuedAt:  jwt.NewNumericDate(time.Now()),
-            NotBefore: jwt.NewNumericDate(time.Now()),
-            Subject:   agent.ID,
-        },
-    }
-
-    accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
-    accessString, err := accessToken.SignedString(s.jwtSecret)
-    if err != nil {
-        return "", "", fmt.Errorf("failed to sign access token: %w", err)
-    }
-
-    // Refresh token (longer expiry, fewer claims)
-    refreshClaims := &AgentClaims{
-        AgentID:  agent.ID,
-        TenantID: agent.TenantID.String(),
-        RegisteredClaims: jwt.RegisteredClaims{
-            ExpiresAt: jwt.NewNumericDate(time.Now().Add(s.refreshExpiry)),
-            IssuedAt:  jwt.NewNumericDate(time.Now()),
-        },
-    }
-
-    refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
-    refreshString, err := refreshToken.SignedString(s.jwtSecret)
-    if err != nil {
-        return "", "", fmt.Errorf("failed to sign refresh token: %w", err)
-    }
-
-    return accessString, refreshString, nil
-}
-
-// ValidateAgentToken verifies and parses JWT
-func (s *AgentAuthService) ValidateAgentToken(tokenString string) (*AgentClaims, error) {
-    token, err := jwt.ParseWithClaims(tokenString, &AgentClaims{}, func(token *jwt.Token) (interface{}, error) {
-        // Verify signing method
-        if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-            return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-        }
-        return s.jwtSecret, nil
+func main() {
+    // Agent uses API key to connect to Edge-MCP
+    client := edgemcp.NewClient(edgemcp.Config{
+        URL:    "wss://edge-mcp.devmesh.io/ws",  // K8s-deployed Edge-MCP
+        APIKey: os.Getenv("DEVMESH_API_KEY"),    // Per-agent API key
+        AgentID: "github-pr-reviewer-001",
     })
 
-    if err != nil {
-        return nil, fmt.Errorf("invalid token: %w", err)
-    }
+    // Connection automatically validated against REST API
+    session, err := client.Connect()
+    // Session includes PassthroughAuthBundle for tool access
+}
+```
 
-    if claims, ok := token.Claims.(*AgentClaims); ok && token.Valid {
-        return claims, nil
-    }
+#### Using Existing EdgeAuthenticator
 
-    return nil, fmt.Errorf("invalid token claims")
+Instead of creating new JWT authentication, agents use the existing Edge-MCP authenticator:
+
+```go
+// This already exists in /apps/edge-mcp/internal/auth/auth.go
+type EdgeAuthenticator struct {
+    restAPIURL string
+    edgeMCPID  string
+    httpClient *http.Client
+    authCache  map[string]*CachedAuth  // 5-minute cache
 }
 
-// RefreshAgentToken creates new access token from refresh token
-func (s *AgentAuthService) RefreshAgentToken(refreshToken string) (string, error) {
-    claims, err := s.ValidateAgentToken(refreshToken)
-    if err != nil {
-        return "", fmt.Errorf("invalid refresh token: %w", err)
+// Validates API key against REST API backend
+func (a *EdgeAuthenticator) AuthenticateRequest(r *http.Request) bool {
+    apiKey := a.extractAPIKey(r)
+
+    // Check cache first (5-minute TTL)
+    if cached := a.getCached(apiKey); cached != nil && cached.Valid {
+        return true
     }
 
-    // Generate new access token with same tenant/agent
-    newClaims := &AgentClaims{
-        AgentID:  claims.AgentID,
-        TenantID: claims.TenantID,
-        RegisteredClaims: jwt.RegisteredClaims{
-            ExpiresAt: jwt.NewNumericDate(time.Now().Add(s.tokenExpiry)),
-            IssuedAt:  jwt.NewNumericDate(time.Now()),
+    // Validate with REST API
+    valid, tenantID, token := a.validateWithAPI(r.Context(), apiKey)
+
+    // Cache result to reduce load
+    a.cacheMu.Lock()
+    a.authCache[apiKey] = &CachedAuth{
+        Valid:     valid,
+        TenantID:  tenantID,
+        Token:     token,
+        ExpiresAt: time.Now().Add(5 * time.Minute),
+    }
+    a.cacheMu.Unlock()
+
+    return valid
+}
+```
+
+#### Agent Registration Flow
+
+```bash
+# 1. Admin registers agent in REST API
+POST /api/v1/agents
+{
+  "name": "github-pr-reviewer",
+  "type": "code-review",
+  "tenant_id": "tenant-123"
+}
+
+# Response includes API key for agent
+{
+  "agent_id": "agent-001",
+  "api_key": "agk_1234567890..."  # Agent-specific key
+}
+
+# 2. Agent connects to Edge-MCP with API key
+wss://edge-mcp.devmesh.io/ws
+Authorization: Bearer agk_1234567890...
+
+# 3. Edge-MCP validates with REST API backend
+# 4. Session created with PassthroughAuthBundle
+# 5. Agent can now execute tools with user's credentials
+```
+
+### 6.2 Session-Based Authentication with PassthroughAuthBundle
+
+#### Using Existing Session Service
+
+The existing SessionService (`/pkg/services/session_service.go`) already handles:
+- Session creation with encrypted passthrough credentials
+- TTL management (24-hour default, configurable)
+- Tool execution tracking
+- Tenant isolation
+
+```go
+// This already exists and handles agent sessions
+type SessionService struct {
+    repo          repository.SessionRepository
+    encryption    *security.EncryptionService
+    toolRegistry  *registry.ToolRegistry
+}
+
+// CreateSession creates a session with passthrough credentials
+func (s *SessionService) CreateSession(ctx context.Context, req *CreateSessionRequest) (*Session, error) {
+    // Session includes PassthroughAuthBundle with user's credentials
+    session := &Session{
+        ID:       generateSessionID(),
+        TenantID: req.TenantID,
+        AgentID:  req.AgentID,
+        PassthroughAuth: &PassthroughAuthBundle{
+            Credentials: map[string]*PassthroughCredential{
+                "github": {
+                    Type:  "bearer",
+                    Value: encryptedGitHubPAT,
+                },
+                "harness": {
+                    Type:  "api_key",
+                    Value: encryptedHarnessKey,
+                },
+            },
         },
+        ExpiresAt: time.Now().Add(24 * time.Hour),
     }
 
-    token := jwt.NewWithClaims(jwt.SigningMethodHS256, newClaims)
-    return token.SignedString(s.jwtSecret)
+    return s.repo.Create(ctx, session)
 }
 ```
 
-#### mTLS for Service-to-Service Authentication
+#### How PassthroughAuthBundle Works
 
 ```go
-// pkg/auth/mtls.go
-package auth
+// This already exists in /pkg/models/passthrough_auth.go
+type PassthroughAuthBundle struct {
+    // Tool-specific credentials (GitHub PAT, Harness keys, etc.)
+    Credentials map[string]*PassthroughCredential `json:"credentials,omitempty"`
 
-import (
-    "crypto/tls"
-    "crypto/x509"
-    "fmt"
-    "os"
-)
+    // OAuth tokens for services that use OAuth
+    OAuthTokens map[string]*OAuthToken `json:"oauth_tokens,omitempty"`
 
-type MTLSConfig struct {
-    CertFile   string
-    KeyFile    string
-    CAFile     string
-    ServerName string
+    // Session tokens for temporary access
+    SessionTokens map[string]string `json:"session_tokens,omitempty"`
+
+    // Agent context for authorization
+    AgentContext *AgentContext `json:"agent_context,omitempty"`
 }
 
-// LoadMTLSConfig creates TLS configuration for mutual authentication
-func LoadMTLSConfig(cfg *MTLSConfig) (*tls.Config, error) {
-    // Load server certificate and key
-    cert, err := tls.LoadX509KeyPair(cfg.CertFile, cfg.KeyFile)
-    if err != nil {
-        return nil, fmt.Errorf("failed to load certificate: %w", err)
-    }
-
-    // Load CA certificate
-    caCert, err := os.ReadFile(cfg.CAFile)
-    if err != nil {
-        return nil, fmt.Errorf("failed to read CA certificate: %w", err)
-    }
-
-    caCertPool := x509.NewCertPool()
-    if !caCertPool.AppendCertsFromPEM(caCert) {
-        return nil, fmt.Errorf("failed to parse CA certificate")
-    }
-
-    return &tls.Config{
-        Certificates: []tls.Certificate{cert},
-        ClientCAs:    caCertPool,
-        ClientAuth:   tls.RequireAndVerifyClientCert,
-        ServerName:   cfg.ServerName,
-        MinVersion:   tls.VersionTLS13,
-    }, nil
-}
+// Agent uses credentials through Edge-MCP
+func (agent *Agent) ExecuteGitHubTool(ctx context.Context, params map[string]interface{}) {
+    // Edge-MCP automatically injects credentials from PassthroughAuthBundle
+    result, err := agent.mcpClient.ExecuteTool(ctx, "github.create_pull_request", params)
+    // GitHub API call uses the user's PAT from the bundle
 ```
 
-### 6.2 Tenant Isolation & Authorization
+### 6.3 Tenant Isolation Using Existing Patterns
 
-#### Middleware for Tenant Extraction
+#### Row-Level Security (Already Implemented)
+
+The platform already enforces tenant isolation at the database level. All tenant-scoped tables include:
+- `tenant_id` column with foreign key constraint
+- Row-level security policies (when needed)
+- Repository pattern with automatic tenant filtering
 
 ```go
-// pkg/auth/middleware/tenant.go
-package middleware
-
-import (
-    "context"
-    "net/http"
-
-    "github.com/gin-gonic/gin"
-    "github.com/developer-mesh/developer-mesh/pkg/auth"
-)
-
-type tenantContextKey string
-
-const TenantIDKey tenantContextKey = "tenant_id"
-
-// TenantIsolationMiddleware extracts and validates tenant ID
-func TenantIsolationMiddleware(authService *auth.AgentAuthService) gin.HandlerFunc {
-    return func(c *gin.Context) {
-        // Extract JWT from Authorization header
-        tokenString := c.GetHeader("Authorization")
-        if tokenString == "" {
-            c.JSON(http.StatusUnauthorized, gin.H{"error": "missing authorization header"})
-            c.Abort()
-            return
-        }
-
-        // Remove "Bearer " prefix
-        if len(tokenString) > 7 && tokenString[:7] == "Bearer " {
-            tokenString = tokenString[7:]
-        }
-
-        // Validate token
-        claims, err := authService.ValidateAgentToken(tokenString)
-        if err != nil {
-            c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
-            c.Abort()
-            return
-        }
-
-        // Add tenant ID to context
-        ctx := context.WithValue(c.Request.Context(), TenantIDKey, claims.TenantID)
-        c.Request = c.Request.WithContext(ctx)
-
-        // Store in Gin context for easy access
-        c.Set("tenant_id", claims.TenantID)
-        c.Set("agent_id", claims.AgentID)
-        c.Set("scopes", claims.Scopes)
-
-        c.Next()
-    }
+// All repositories already include tenant isolation
+type AgentRepository struct {
+    db *sqlx.DB
 }
 
-// RequireScope ensures request has required permission scope
-func RequireScope(requiredScope string) gin.HandlerFunc {
-    return func(c *gin.Context) {
-        scopes, exists := c.Get("scopes")
-        if !exists {
-            c.JSON(http.StatusForbidden, gin.H{"error": "no scopes found"})
-            c.Abort()
-            return
-        }
-
-        scopeList, ok := scopes.([]string)
-        if !ok {
-            c.JSON(http.StatusForbidden, gin.H{"error": "invalid scopes"})
-            c.Abort()
-            return
-        }
-
-        // Check if required scope exists
-        hasScope := false
-        for _, scope := range scopeList {
-            if scope == requiredScope || scope == "*" {
-                hasScope = true
-                break
-            }
-        }
-
-        if !hasScope {
-            c.JSON(http.StatusForbidden, gin.H{
-                "error": fmt.Sprintf("missing required scope: %s", requiredScope),
-            })
-            c.Abort()
-            return
-        }
-
-        c.Next()
-    }
+func (r *AgentRepository) GetByID(ctx context.Context, tenantID, agentID string) (*Agent, error) {
+    // Tenant ID is always part of the query
+    query := `SELECT * FROM mcp.agents WHERE tenant_id = $1 AND id = $2`
+    // Automatic enforcement - agents can't access other tenants
 }
 ```
 
-#### Row-Level Security (PostgreSQL)
+### 6.4 Using Existing Credential Management
 
-```sql
--- migrations/036_add_row_level_security.up.sql
-
--- Enable RLS on agents table
-ALTER TABLE mcp.agents ENABLE ROW LEVEL SECURITY;
-
--- Policy: Agents can only see their own tenant's data
-CREATE POLICY tenant_isolation_agents ON mcp.agents
-    FOR ALL
-    USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
-
--- Enable RLS on tasks table
-ALTER TABLE mcp.tasks ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY tenant_isolation_tasks ON mcp.tasks
-    FOR ALL
-    USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
-
--- Enable RLS on tool_configurations table
-ALTER TABLE mcp.tool_configurations ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY tenant_isolation_tools ON mcp.tool_configurations
-    FOR ALL
-    USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
-
--- Function to set tenant context
-CREATE OR REPLACE FUNCTION mcp.set_tenant_context(tenant_uuid uuid)
-RETURNS void
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    PERFORM set_config('app.current_tenant_id', tenant_uuid::text, false);
-END;
-$$;
-```
+The platform already has comprehensive credential encryption via `EncryptionService`:
 
 ```go
-// pkg/repository/tenant_aware.go
-package repository
-
-import (
-    "context"
-    "fmt"
-
-    "github.com/jmoiron/sqlx"
-)
-
-// SetTenantContext sets PostgreSQL session variable for RLS
-func SetTenantContext(ctx context.Context, db *sqlx.DB, tenantID string) error {
-    _, err := db.ExecContext(ctx, "SELECT mcp.set_tenant_context($1)", tenantID)
-    if err != nil {
-        return fmt.Errorf("failed to set tenant context: %w", err)
-    }
-    return nil
+// This already exists in /pkg/security/encryption_service.go
+type EncryptionService struct {
+    keyDerivation KeyDerivationFunc
 }
 
-// WithTenantContext wraps database operations with tenant isolation
-func WithTenantContext(ctx context.Context, db *sqlx.DB, tenantID string, fn func() error) error {
-    // Set tenant context
-    if err := SetTenantContext(ctx, db, tenantID); err != nil {
+// Per-tenant encryption with AES-256-GCM
+func (s *EncryptionService) Encrypt(ctx context.Context, tenantID, plaintext string) (string, error) {
+    // Derives tenant-specific key using PBKDF2
+    key := s.deriveKey(tenantID)
+
+    // AES-256-GCM encryption
+    encrypted := s.encryptAESGCM(key, plaintext)
+
+    return base64.StdEncoding.EncodeToString(encrypted), nil
+}
+
+// All credentials are encrypted before storage
+func StoreAgentCredentials(ctx context.Context, tenantID, agentID, apiKey string) error {
+    // Encrypt using tenant-specific key
+    encrypted, err := encryptionService.Encrypt(ctx, tenantID, apiKey)
+    if err != nil {
         return err
     }
 
-    // Execute operation
-    return fn()
-}
+    // Store encrypted credential
+    return repo.StoreCredential(ctx, agentID, encrypted)
 ```
 
-### 6.3 Credential Rotation & Management
+### 6.5 Using Existing Audit & Observability
 
-#### Automatic Credential Rotation
+The platform already has comprehensive audit logging through session tool executions and the observability package:
 
-```go
-// pkg/security/credential_rotation.go
-package security
-
-import (
-    "context"
-    "crypto/rand"
-    "encoding/base64"
-    "fmt"
-    "time"
-
-    "github.com/developer-mesh/developer-mesh/pkg/repository"
-)
-
-type CredentialRotationService struct {
-    repo           repository.CredentialRepository
-    encryption     *EncryptionService
-    rotationPeriod time.Duration
-}
-
-func NewCredentialRotationService(
-    repo repository.CredentialRepository,
-    encryption *EncryptionService,
-) *CredentialRotationService {
-    return &CredentialRotationService{
-        repo:           repo,
-        encryption:     encryption,
-        rotationPeriod: 90 * 24 * time.Hour, // Rotate every 90 days
-    }
-}
-
-// GenerateAPIKey creates cryptographically secure API key
-func (s *CredentialRotationService) GenerateAPIKey() (string, error) {
-    b := make([]byte, 32)
-    if _, err := rand.Read(b); err != nil {
-        return "", fmt.Errorf("failed to generate random bytes: %w", err)
-    }
-    return base64.URLEncoding.EncodeToString(b), nil
-}
-
-// RotateAgentCredentials generates new credentials for an agent
-func (s *CredentialRotationService) RotateAgentCredentials(
-    ctx context.Context,
-    tenantID string,
-    agentID string,
-) (string, error) {
-    // Generate new API key
-    newKey, err := s.GenerateAPIKey()
-    if err != nil {
-        return "", err
-    }
-
-    // Encrypt with tenant-specific key
-    encrypted, err := s.encryption.Encrypt(ctx, tenantID, newKey)
-    if err != nil {
-        return "", fmt.Errorf("failed to encrypt credential: %w", err)
-    }
-
-    // Store in database
-    if err := s.repo.UpdateAgentCredential(ctx, agentID, encrypted); err != nil {
-        return "", fmt.Errorf("failed to store credential: %w", err)
-    }
-
-    return newKey, nil
-}
-
-// ScheduledRotationWorker runs periodic credential rotation
-func (s *CredentialRotationService) ScheduledRotationWorker(ctx context.Context) {
-    ticker := time.NewTicker(24 * time.Hour) // Check daily
-    defer ticker.Stop()
-
-    for {
-        select {
-        case <-ctx.Done():
-            return
-        case <-ticker.C:
-            s.rotateExpiredCredentials(ctx)
-        }
-    }
-}
-
-func (s *CredentialRotationService) rotateExpiredCredentials(ctx context.Context) {
-    // Find credentials older than rotation period
-    cutoff := time.Now().Add(-s.rotationPeriod)
-    credentials, err := s.repo.FindCredentialsOlderThan(ctx, cutoff)
-    if err != nil {
-        // Log error
-        return
-    }
-
-    for _, cred := range credentials {
-        newKey, err := s.RotateAgentCredentials(ctx, cred.TenantID, cred.AgentID)
-        if err != nil {
-            // Log error, continue with others
-            continue
-        }
-
-        // Notify agent of credential rotation
-        s.notifyCredentialRotation(cred.AgentID, newKey)
-    }
-}
-
-func (s *CredentialRotationService) notifyCredentialRotation(agentID string, newKey string) {
-    // Send notification via Redis pub/sub or webhook
-    // Implementation depends on notification system
-}
-```
-
-### 6.4 Audit Logging
-
-#### Security Event Logging
-
-```go
-// pkg/observability/security_audit.go
-package observability
-
-import (
-    "context"
-    "encoding/json"
-    "time"
-
-    "github.com/developer-mesh/developer-mesh/pkg/repository"
-)
-
-type SecurityEventType string
-
-const (
-    EventAuthSuccess     SecurityEventType = "auth.success"
-    EventAuthFailure     SecurityEventType = "auth.failure"
-    EventAccessDenied    SecurityEventType = "access.denied"
-    EventCredentialUsed  SecurityEventType = "credential.used"
-    EventCredentialRotated SecurityEventType = "credential.rotated"
-    EventResourceAccessed SecurityEventType = "resource.accessed"
-    EventPermissionEscalation SecurityEventType = "permission.escalation.attempt"
-)
-
-type SecurityEvent struct {
-    ID          string            `json:"id"`
-    Timestamp   time.Time         `json:"timestamp"`
-    TenantID    string            `json:"tenant_id"`
-    AgentID     string            `json:"agent_id,omitempty"`
-    UserID      string            `json:"user_id,omitempty"`
-    EventType   SecurityEventType `json:"event_type"`
-    Severity    string            `json:"severity"`
-    IPAddress   string            `json:"ip_address"`
-    Resource    string            `json:"resource,omitempty"`
-    Action      string            `json:"action"`
-    Result      string            `json:"result"`
-    Metadata    map[string]interface{} `json:"metadata,omitempty"`
-}
-
-type SecurityAuditLogger struct {
-    repo   repository.AuditRepository
-    logger Logger
-}
-
-func NewSecurityAuditLogger(repo repository.AuditRepository, logger Logger) *SecurityAuditLogger {
-    return &SecurityAuditLogger{
-        repo:   repo,
-        logger: logger,
-    }
-}
-
-// LogSecurityEvent records a security-related event
-func (s *SecurityAuditLogger) LogSecurityEvent(ctx context.Context, event *SecurityEvent) error {
-    event.Timestamp = time.Now()
-
-    // Persist to database for compliance
-    if err := s.repo.StoreSecurityEvent(ctx, event); err != nil {
-        s.logger.Error("Failed to store security event", map[string]interface{}{
-            "error": err.Error(),
-            "event_type": event.EventType,
-        })
-        return err
-    }
-
-    // Also log to observability system
-    eventJSON, _ := json.Marshal(event)
-    s.logger.Info("Security event", map[string]interface{}{
-        "event": string(eventJSON),
-        "severity": event.Severity,
-    })
-
-    // Alert on high-severity events
-    if event.Severity == "critical" || event.Severity == "high" {
-        s.alertSecurityTeam(event)
-    }
-
-    return nil
-}
-
-func (s *SecurityAuditLogger) alertSecurityTeam(event *SecurityEvent) {
-    // Send alert via PagerDuty, Slack, etc.
-    // Implementation depends on alerting system
-}
-```
-
-### 6.5 Database Schema for Security
+#### Session Tool Execution Tracking
 
 ```sql
--- migrations/037_add_security_tables.up.sql
-
--- Audit log table (immutable)
-CREATE TABLE mcp.security_audit_log (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    timestamp timestamptz NOT NULL DEFAULT now(),
-    tenant_id uuid NOT NULL,
-    agent_id varchar(255),
-    user_id varchar(255),
-    event_type varchar(50) NOT NULL,
-    severity varchar(20) NOT NULL,
-    ip_address inet,
-    resource varchar(255),
-    action varchar(100) NOT NULL,
-    result varchar(50) NOT NULL,
-    metadata jsonb,
-
-    -- Prevent updates/deletes for compliance
-    CONSTRAINT no_updates CHECK (false)
+-- This table already exists and tracks every tool execution
+CREATE TABLE mcp.session_tool_executions (
+    id uuid PRIMARY KEY,
+    session_id varchar(255) NOT NULL,
+    tool_name varchar(255) NOT NULL,
+    parameters jsonb,
+    result jsonb,
+    error text,
+    executed_at timestamptz DEFAULT now(),
+    duration_ms int,
+    tenant_id uuid NOT NULL
 );
-
--- Index for quick tenant queries
-CREATE INDEX idx_security_audit_tenant ON mcp.security_audit_log(tenant_id, timestamp DESC);
-CREATE INDEX idx_security_audit_type ON mcp.security_audit_log(event_type, timestamp DESC);
-CREATE INDEX idx_security_audit_severity ON mcp.security_audit_log(severity, timestamp DESC) WHERE severity IN ('critical', 'high');
-
--- API key storage with rotation tracking
-CREATE TABLE mcp.agent_credentials (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    agent_id varchar(255) NOT NULL,
-    tenant_id uuid NOT NULL,
-    credential_hash bytea NOT NULL,  -- bcrypt hash
-    encrypted_value bytea NOT NULL,   -- Encrypted actual value
-    created_at timestamptz NOT NULL DEFAULT now(),
-    rotated_at timestamptz,
-    expires_at timestamptz,
-    rotation_version int NOT NULL DEFAULT 1,
-    status varchar(20) NOT NULL DEFAULT 'active',
-
-    CONSTRAINT fk_agent FOREIGN KEY (agent_id) REFERENCES mcp.agents(id) ON DELETE CASCADE,
-    CONSTRAINT valid_status CHECK (status IN ('active', 'rotated', 'revoked'))
-);
-
-CREATE INDEX idx_agent_credentials_agent ON mcp.agent_credentials(agent_id) WHERE status = 'active';
-CREATE INDEX idx_agent_credentials_rotation ON mcp.agent_credentials(rotated_at) WHERE status = 'active';
 ```
 
-### 6.6 Security Testing
+#### Existing Logger Pattern
 
 ```go
-// test/security/auth_test.go
-package security_test
+// Use existing observability.Logger (never fmt.Printf)
+logger.Info("Agent authenticated", map[string]interface{}{
+    "agent_id": agentID,
+    "tenant_id": tenantID,
+    "session_id": sessionID,
+    "ip_address": request.RemoteAddr,
+})
 
-import (
-    "testing"
-    "time"
+logger.Error("Authentication failed", map[string]interface{}{
+    "error": err.Error(),
+    "api_key_hash": hashAPIKey(apiKey),
+    "severity": "high",
+})
+```
 
-    "github.com/developer-mesh/developer-mesh/pkg/auth"
-    "github.com/stretchr/testify/assert"
-    "github.com/stretchr/testify/require"
-)
+### 6.6 Security Implementation Summary
 
-func TestAgentAuthentication(t *testing.T) {
-    secret := []byte("test-secret-key-32-bytes-long!!")
-    authService := auth.NewAgentAuthService(secret)
+Instead of building new security systems, we leverage the existing production-tested components:
 
-    agent := &models.Agent{
-        ID:           "agent-123",
-        TenantID:     uuid.MustParse("tenant-456"),
-        Type:         "code_reviewer",
-        Capabilities: []string{"code_review", "lint"},
-    }
+1. **Authentication**: Edge-MCP with API key validation
+   - Location: `/apps/edge-mcp/internal/auth/auth.go`
+   - Agents connect through K8s-deployed Edge-MCP
+   - 5-minute caching to reduce load
 
-    t.Run("generate and validate token", func(t *testing.T) {
-        accessToken, refreshToken, err := authService.GenerateAgentToken(agent)
-        require.NoError(t, err)
-        assert.NotEmpty(t, accessToken)
-        assert.NotEmpty(t, refreshToken)
+2. **Session Management**: Existing SessionService
+   - Location: `/pkg/services/session_service.go`
+   - 24-hour TTL with automatic refresh
+   - Tool execution tracking
 
-        // Validate access token
-        claims, err := authService.ValidateAgentToken(accessToken)
-        require.NoError(t, err)
-        assert.Equal(t, agent.ID, claims.AgentID)
-        assert.Equal(t, agent.TenantID.String(), claims.TenantID)
-    })
+3. **Passthrough Auth**: Existing PassthroughAuthBundle
+   - Location: `/pkg/models/passthrough_auth.go`
+   - Allows agents to use tools with user credentials
+   - GitHub PAT, Harness keys, OAuth tokens
 
-    t.Run("reject expired token", func(t *testing.T) {
-        // Create service with short expiry
-        shortService := &auth.AgentAuthService{
-            jwtSecret:   secret,
-            tokenExpiry: 1 * time.Millisecond,
-        }
+4. **Credential Encryption**: Existing EncryptionService
+   - Location: `/pkg/security/encryption_service.go`
+   - AES-256-GCM with PBKDF2 key derivation
+   - Per-tenant encryption keys
 
-        token, _, _ := shortService.GenerateAgentToken(agent)
-        time.Sleep(10 * time.Millisecond)
+5. **Audit Logging**: Existing observability patterns
+   - Location: `/pkg/observability/logger.go`
+   - Session tool executions tracked in database
+   - Structured logging with context
 
-        _, err := authService.ValidateAgentToken(token)
-        assert.Error(t, err)
-    })
+### 6.7 Agent Connection Flow (Complete)
 
-    t.Run("reject tampered token", func(t *testing.T) {
-        token, _, _ := authService.GenerateAgentToken(agent)
-        tamperedToken := token[:len(token)-10] + "TAMPERED!!"
+```mermaid
+sequenceDiagram
+    participant Agent
+    participant EdgeMCP as Edge-MCP (K8s)
+    participant RestAPI as REST API
+    participant Session as SessionService
+    participant Tool as Tool (GitHub/Harness)
 
-        _, err := authService.ValidateAgentToken(tamperedToken)
-        assert.Error(t, err)
-    })
-}
+    Agent->>EdgeMCP: Connect with API key
+    EdgeMCP->>RestAPI: Validate API key
+    RestAPI-->>EdgeMCP: Return tenant ID + token
+    EdgeMCP->>Session: Create session
+    Session-->>EdgeMCP: Session with PassthroughAuthBundle
+    EdgeMCP-->>Agent: Connected + Session ID
 
-func TestTenantIsolation(t *testing.T) {
-    // Test that tenant A cannot access tenant B's resources
-    t.Run("cross-tenant access denied", func(t *testing.T) {
-        // Implementation would test actual database queries with RLS
-    })
-}
+    Agent->>EdgeMCP: Execute tool
+    EdgeMCP->>Tool: Call with passthrough credentials
+    Tool-->>EdgeMCP: Result
+    EdgeMCP-->>Agent: Tool result
+```
+
+### Phase 6 Deliverables
+
+1. **Documentation**: How agents use existing auth (this document)
+2. **Agent SDK Enhancement**: Update to use Edge-MCP client
+3. **Testing**: Verify agent authentication flow
+4. **Monitoring**: Dashboard for agent connections
+5. **Security Review**: Validate tenant isolation
 ```
 
 ### 6.7 Implementation Checklist
@@ -4158,7 +3824,7 @@ func TestTenantIsolation(t *testing.T) {
 | Security Audit Log Gaps | 0 gaps | Any missing logs |
 | Suspicious Activity Patterns | 0 confirmed incidents | 3+ failed attempts from same IP |
 
-## Phase 7: Error Handling & Resilience
+## Phase 7: Error Handling & Resilience - Leveraging Existing Patterns
 
 **Duration**: Week 9-10
 **Priority**: 🔴 CRITICAL
@@ -4166,699 +3832,556 @@ func TestTenantIsolation(t *testing.T) {
 
 ### Overview
 
-Robust error handling and resilience patterns ensure the orchestration platform can gracefully handle failures, recover from errors, and maintain service availability even when individual components fail.
+The orchestration platform already has robust error handling and resilience patterns in place. This phase extends these existing patterns to support agent orchestration, ensuring graceful failure handling and service availability.
 
-### Resilience Architecture
+### Existing Resilience Architecture We'll Use
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│              Resilience Layers                            │
+│         Existing Resilience Components                    │
 ├──────────────────────────────────────────────────────────┤
 │                                                           │
 │  ┌────────────────────────────────────────────┐         │
-│  │  Layer 1: Circuit Breakers                │         │
-│  │  - Prevent cascade failures                │         │
-│  │  - Fast-fail on degraded services          │         │
+│  │  Layer 1: Circuit Breakers (Existing)     │         │
+│  │  - Three states: Closed, Open, Half-Open   │         │
 │  │  - Automatic recovery detection            │         │
+│  │  - Configurable thresholds                 │         │
+│  │  Location: /pkg/resilience/circuit_breaker │         │
 │  └────────────────────────────────────────────┘         │
 │                       ↓                                   │
 │  ┌────────────────────────────────────────────┐         │
-│  │  Layer 2: Retry Logic                     │         │
-│  │  - Exponential backoff                     │         │
-│  │  - Jitter to prevent thundering herd       │         │
-│  │  - Retry budgets to limit overhead         │         │
+│  │  Layer 2: Retry Logic (Existing)          │         │
+│  │  - Exponential backoff with jitter         │         │
+│  │  - Configurable retry strategies            │         │
+│  │  - RetryableError interface                │         │
+│  │  Location: /pkg/utils/retry.go            │         │
 │  └────────────────────────────────────────────┘         │
 │                       ↓                                   │
 │  ┌────────────────────────────────────────────┐         │
-│  │  Layer 3: Timeouts & Deadlines            │         │
-│  │  - Per-operation timeouts                  │         │
-│  │  - Context propagation                     │         │
-│  │  - Graceful degradation                    │         │
+│  │  Layer 3: Context & Timeouts (Go stdlib)  │         │
+│  │  - Context propagation everywhere           │         │
+│  │  - Per-operation timeouts                   │         │
+│  │  - Graceful cancellation                    │         │
 │  └────────────────────────────────────────────┘         │
 │                       ↓                                   │
 │  ┌────────────────────────────────────────────┐         │
-│  │  Layer 4: Dead Letter Queues              │         │
-│  │  - Failed message capture                  │         │
-│  │  - Manual review and retry                 │         │
-│  │  - Poison pill detection                   │         │
+│  │  Layer 4: Redis Streams DLQ (Existing)    │         │
+│  │  - Failed webhook capture                   │         │
+│  │  - Consumer group management                │         │
+│  │  - Automatic retry with backoff             │         │
+│  │  Location: /pkg/redis/streams_client.go   │         │
 │  └────────────────────────────────────────────┘         │
 │                       ↓                                   │
 │  ┌────────────────────────────────────────────┐         │
-│  │  Layer 5: Fallback Mechanisms             │         │
-│  │  - Degraded mode operation                 │         │
-│  │  - Alternative execution paths             │         │
-│  │  - Cached responses                        │         │
+│  │  Layer 5: Tool Fallbacks (Dynamic Tools)  │         │
+│  │  - Multiple tool implementations            │         │
+│  │  - Health check monitoring                  │         │
+│  │  - Automatic failover                      │         │
 │  └────────────────────────────────────────────┘         │
 │                                                           │
 └──────────────────────────────────────────────────────────┘
 ```
 
-### 7.1 Circuit Breaker Implementation
+### 7.1 Using Existing Circuit Breaker
+
+The platform already has a comprehensive circuit breaker implementation that agents can leverage:
 
 ```go
-// pkg/resilience/circuit_breaker.go
-package resilience
-
-import (
-    "context"
-    "errors"
-    "fmt"
-    "sync"
-    "time"
-)
-
-type State int
-
-const (
-    StateClosed State = iota  // Normal operation
-    StateOpen                  // Failing, reject requests
-    StateHalfOpen             // Testing recovery
-)
-
+// This already exists in /pkg/resilience/circuit_breaker.go
 type CircuitBreaker struct {
-    name           string
-    maxFailures    int
-    resetTimeout   time.Duration
-    halfOpenMax    int
-
-    mu             sync.RWMutex
-    state          State
-    failures       int
-    lastFailTime   time.Time
-    halfOpenCount  int
-
-    onStateChange  func(from, to State)
+    name            string
+    config          CircuitBreakerConfig
+    state           atomic.Value // CircuitBreakerState
+    consecutiveFailures int32
+    lastFailTime    int64
+    halfOpenSuccess int32
 }
 
-func NewCircuitBreaker(name string, maxFailures int, resetTimeout time.Duration) *CircuitBreaker {
-    return &CircuitBreaker{
-        name:         name,
-        maxFailures:  maxFailures,
-        resetTimeout: resetTimeout,
-        halfOpenMax:  3, // Allow 3 requests in half-open
-        state:        StateClosed,
+// States match industry standard
+const (
+    CircuitBreakerClosed   CircuitBreakerState = "closed"   // Normal operation
+    CircuitBreakerOpen     CircuitBreakerState = "open"     // Failing, reject requests
+    CircuitBreakerHalfOpen CircuitBreakerState = "half-open" // Testing recovery
+)
+
+// How agents use it
+func (agent *Agent) CallExternalService(ctx context.Context) error {
+    cb := agent.circuitBreaker
+
+    return cb.Execute(ctx, func() error {
+        // Call external service
+        return agent.httpClient.Do(request)
+    })
+}
+
+// Configuration for different agent types
+var AgentCircuitBreakerConfigs = map[string]CircuitBreakerConfig{
+    "github-agent": {
+        MaxConsecutiveFailures: 5,
+        OpenDuration:          30 * time.Second,
+        HalfOpenMaxSuccess:    3,
+    },
+    "harness-agent": {
+        MaxConsecutiveFailures: 3,
+        OpenDuration:          60 * time.Second,
+        HalfOpenMaxSuccess:    2,
+    },
+}
+```
+
+### 7.2 Using Existing Retry Logic
+
+The platform already has battle-tested retry logic with exponential backoff:
+
+```go
+// This already exists in /pkg/utils/retry.go
+type RetryConfig struct {
+    MaxAttempts     int              // Maximum number of attempts
+    InitialDelay    time.Duration    // Initial delay between retries
+    MaxDelay        time.Duration    // Maximum delay between retries
+    Multiplier      float64          // Multiplier for exponential backoff
+    JitterFactor    float64          // Jitter factor (0-1) to randomize delays
+    RetryableErrors []error          // Specific errors that trigger retry
+    RetryIf         func(error) bool // Custom function to determine if retry
+}
+
+// RetryableError interface for smart retry decisions
+type RetryableError interface {
+    error
+    IsRetryable() bool
+}
+
+// Common retryable errors already defined
+var (
+    ErrTimeout            = errors.New("operation timeout")
+    ErrRateLimit          = errors.New("rate limit exceeded")
+    ErrServiceUnavailable = errors.New("service temporarily unavailable")
+)
+
+// HTTPError with automatic retry logic
+type HTTPError struct {
+    StatusCode int
+    Message    string
+}
+
+func (e HTTPError) IsRetryable() bool {
+    // Automatically retries on 429, 502, 503, 504, and 5xx
+    switch e.StatusCode {
+    case 429, 502, 503, 504:
+        return true
+    default:
+        return e.StatusCode >= 500
     }
 }
 
-// Execute runs the provided function with circuit breaker protection
-func (cb *CircuitBreaker) Execute(ctx context.Context, fn func() error) error {
-    if err := cb.beforeRequest(); err != nil {
-        return err
+// How agents use the existing retry
+func (agent *Agent) ExecuteWithRetry(ctx context.Context, operation func() error) error {
+    config := &RetryConfig{
+        MaxAttempts:  3,
+        InitialDelay: 1 * time.Second,
+        MaxDelay:     30 * time.Second,
+        Multiplier:   2.0,
+        JitterFactor: 0.1,
+        RetryIf: utils.IsRetryableHTTPError,
     }
 
-    err := fn()
-
-    cb.afterRequest(err)
-
+    result, err := utils.RetryWithBackoff(ctx, config, operation)
+    if err != nil {
+        agent.logger.Error("Operation failed after retries", map[string]interface{}{
+            "attempts": result.Attempts,
+            "duration": result.TotalDuration,
+            "error":    err.Error(),
+        })
+    }
     return err
 }
-
-func (cb *CircuitBreaker) beforeRequest() error {
-    cb.mu.Lock()
-    defer cb.mu.Unlock()
-
-    switch cb.state {
-    case StateOpen:
-        // Check if we should transition to half-open
-        if time.Since(cb.lastFailTime) > cb.resetTimeout {
-            cb.setState(StateHalfOpen)
-            cb.halfOpenCount = 0
-            return nil
-        }
-        return errors.New("circuit breaker is open")
-
-    case StateHalfOpen:
-        // Limit requests in half-open state
-        if cb.halfOpenCount >= cb.halfOpenMax {
-            return errors.New("circuit breaker is testing recovery")
-        }
-        cb.halfOpenCount++
-        return nil
-
-    case StateClosed:
-        return nil
-    }
-
-    return nil
-}
-
-func (cb *CircuitBreaker) afterRequest(err error) {
-    cb.mu.Lock()
-    defer cb.mu.Unlock()
-
-    if err != nil {
-        cb.onFailure()
-    } else {
-        cb.onSuccess()
-    }
-}
-
-func (cb *CircuitBreaker) onFailure() {
-    cb.failures++
-    cb.lastFailTime = time.Now()
-
-    switch cb.state {
-    case StateHalfOpen:
-        // Failed during recovery, back to open
-        cb.setState(StateOpen)
-        cb.failures = 0
-
-    case StateClosed:
-        // Check if we should open
-        if cb.failures >= cb.maxFailures {
-            cb.setState(StateOpen)
-        }
-    }
-}
-
-func (cb *CircuitBreaker) onSuccess() {
-    switch cb.state {
-    case StateHalfOpen:
-        // Successful requests in half-open, try closing
-        if cb.halfOpenCount >= cb.halfOpenMax {
-            cb.setState(StateClosed)
-            cb.failures = 0
-        }
-
-    case StateClosed:
-        // Reset failure count on success
-        cb.failures = 0
-    }
-}
-
-func (cb *CircuitBreaker) setState(newState State) {
-    oldState := cb.state
-    cb.state = newState
-
-    if cb.onStateChange != nil {
-        cb.onStateChange(oldState, newState)
-    }
-}
-
-func (cb *CircuitBreaker) State() State {
-    cb.mu.RLock()
-    defer cb.mu.RUnlock()
-    return cb.state
-}
 ```
 
-### 7.2 Retry Logic with Exponential Backoff
+### 7.3 Context-Based Timeouts (Standard Go Pattern)
+
+The platform uses Go's standard context pattern for timeout management:
 
 ```go
-// pkg/resilience/retry.go
-package resilience
-
-import (
-    "context"
-    "fmt"
-    "math"
-    "math/rand"
-    "time"
-)
-
-type RetryConfig struct {
-    MaxAttempts     int
-    InitialDelay    time.Duration
-    MaxDelay        time.Duration
-    Multiplier      float64
-    JitterFraction  float64
-    RetryableErrors func(error) bool
-}
-
-func DefaultRetryConfig() *RetryConfig {
-    return &RetryConfig{
-        MaxAttempts:    3,
-        InitialDelay:   100 * time.Millisecond,
-        MaxDelay:       10 * time.Second,
-        Multiplier:     2.0,
-        JitterFraction: 0.1,
-        RetryableErrors: func(err error) bool {
-            // Default: retry on all errors except context cancellation
-            return err != context.Canceled && err != context.DeadlineExceeded
-        },
-    }
-}
-
-// RetryWithBackoff retries the function with exponential backoff
-func RetryWithBackoff(ctx context.Context, config *RetryConfig, fn func() error) error {
-    var lastErr error
-
-    for attempt := 0; attempt < config.MaxAttempts; attempt++ {
-        // Execute the function
-        err := fn()
-        if err == nil {
-            return nil
-        }
-
-        lastErr = err
-
-        // Check if error is retryable
-        if !config.RetryableErrors(err) {
-            return err
-        }
-
-        // Don't wait after last attempt
-        if attempt == config.MaxAttempts-1 {
-            break
-        }
-
-        // Calculate delay with exponential backoff and jitter
-        delay := config.calculateDelay(attempt)
-
-        // Wait for delay or context cancellation
-        select {
-        case <-time.After(delay):
-            // Continue to next attempt
-        case <-ctx.Done():
-            return ctx.Err()
-        }
-    }
-
-    return fmt.Errorf("max retry attempts reached: %w", lastErr)
-}
-
-func (c *RetryConfig) calculateDelay(attempt int) time.Duration {
-    // Exponential backoff: initialDelay * (multiplier ^ attempt)
-    delay := float64(c.InitialDelay) * math.Pow(c.Multiplier, float64(attempt))
-
-    // Cap at max delay
-    if delay > float64(c.MaxDelay) {
-        delay = float64(c.MaxDelay)
-    }
-
-    // Add jitter to prevent thundering herd
-    jitter := delay * c.JitterFraction * (rand.Float64()*2 - 1)
-    delay += jitter
-
-    return time.Duration(delay)
-}
-```
-
-### 7.3 Context-Based Timeouts
-
-```go
-// pkg/resilience/timeout.go
-package resilience
-
-import (
-    "context"
-    "fmt"
-    "time"
-)
-
-// WithTimeout wraps a function with timeout protection
-func WithTimeout(ctx context.Context, timeout time.Duration, fn func(context.Context) error) error {
+// All functions accept context as first parameter
+func (agent *Agent) ExecuteTask(ctx context.Context, task *Task) error {
+    // Apply timeout based on task type
+    timeout := getTaskTimeout(task.Type)
     ctx, cancel := context.WithTimeout(ctx, timeout)
     defer cancel()
 
-    done := make(chan error, 1)
-
-    go func() {
-        done <- fn(ctx)
-    }()
-
-    select {
-    case err := <-done:
-        return err
-    case <-ctx.Done():
-        return fmt.Errorf("operation timed out after %v: %w", timeout, ctx.Err())
-    }
+    // Execute with timeout
+    return agent.performTask(ctx, task)
 }
 
-// TaskTimeout returns appropriate timeout for task type
-func TaskTimeout(taskType string) time.Duration {
-    timeouts := map[string]time.Duration{
-        "code_review":    5 * time.Minute,
-        "test_execution": 10 * time.Minute,
-        "deployment":     15 * time.Minute,
-        "security_scan":  30 * time.Minute,
-        "default":        5 * time.Minute,
-    }
-
-    if timeout, ok := timeouts[taskType]; ok {
-        return timeout
-    }
-    return timeouts["default"]
+// Standard timeout configurations
+var TaskTimeouts = map[string]time.Duration{
+    "code_review":    5 * time.Minute,
+    "test_execution": 10 * time.Minute,
+    "deployment":     15 * time.Minute,
+    "security_scan":  30 * time.Minute,
+    "quick_check":    30 * time.Second,
 }
 ```
 
-### 7.4 Dead Letter Queue (Redis Streams)
+### 7.4 Using Existing Redis Streams DLQ
+
+The platform already uses Redis Streams with Dead Letter Queue for webhook processing:
 
 ```go
-// pkg/redis/dead_letter_queue.go
-package redis
+// This already exists in /pkg/redis/streams_client.go
+type StreamsClient struct {
+    client         *redis.Client
+    consumerGroup  string
+    dlqStreamName  string
+}
 
-import (
-    "context"
-    "encoding/json"
-    "fmt"
-    "time"
-
-    "github.com/redis/go-redis/v9"
+// Existing webhook_events stream with DLQ
+const (
+    WebhookStream    = "webhook_events"
+    WebhookDLQStream = "webhook_events:dlq"
+    MaxRetries       = 3
 )
 
-type DeadLetterQueue struct {
-    client     *redis.Client
-    streamName string
-    dlqName    string
-    maxRetries int
-}
+// How agents/workers handle failed messages
+func (worker *Worker) ProcessMessage(ctx context.Context, msg redis.XMessage) error {
+    // Process message
+    err := worker.handleMessage(msg)
 
-func NewDeadLetterQueue(client *redis.Client, streamName string) *DeadLetterQueue {
-    return &DeadLetterQueue{
-        client:     client,
-        streamName: streamName,
-        dlqName:    streamName + ":dlq",
-        maxRetries: 3,
-    }
-}
+    if err != nil {
+        retryCount := worker.getRetryCount(msg)
 
-type FailedMessage struct {
-    OriginalID      string                 `json:"original_id"`
-    StreamName      string                 `json:"stream_name"`
-    Data            map[string]interface{} `json:"data"`
-    FailureReason   string                 `json:"failure_reason"`
-    FailureCount    int                    `json:"failure_count"`
-    FirstFailedAt   time.Time              `json:"first_failed_at"`
-    LastFailedAt    time.Time              `json:"last_failed_at"`
-    StackTrace      string                 `json:"stack_trace,omitempty"`
-}
-
-// MoveToDeadLetter moves a failed message to DLQ
-func (dlq *DeadLetterQueue) MoveToDeadLetter(
-    ctx context.Context,
-    messageID string,
-    data map[string]interface{},
-    err error,
-    failureCount int,
-) error {
-    failed := &FailedMessage{
-        OriginalID:    messageID,
-        StreamName:    dlq.streamName,
-        Data:          data,
-        FailureReason: err.Error(),
-        FailureCount:  failureCount,
-        LastFailedAt:  time.Now(),
-    }
-
-    // Get first failed time if this is a retry
-    if failureCount > 1 {
-        if firstFailedStr, ok := data["first_failed_at"].(string); ok {
-            firstFailed, _ := time.Parse(time.RFC3339, firstFailedStr)
-            failed.FirstFailedAt = firstFailed
+        if retryCount >= MaxRetries {
+            // Move to DLQ after max retries
+            return worker.moveToDeadLetter(msg, err)
         }
-    } else {
-        failed.FirstFailedAt = time.Now()
+
+        // Retry with exponential backoff
+        return worker.requeueWithBackoff(msg, retryCount+1)
     }
 
-    // Serialize failed message
-    failedJSON, err := json.Marshal(failed)
-    if err != nil {
-        return fmt.Errorf("failed to marshal DLQ message: %w", err)
-    }
-
-    // Add to DLQ stream
-    _, err = dlq.client.XAdd(ctx, &redis.XAddArgs{
-        Stream: dlq.dlqName,
-        Values: map[string]interface{}{
-            "message": failedJSON,
-        },
-    }).Result()
-
-    if err != nil {
-        return fmt.Errorf("failed to add to DLQ: %w", err)
-    }
-
-    // Acknowledge original message (remove from pending)
-    dlq.client.XAck(ctx, dlq.streamName, "workers", messageID)
-
-    return nil
+    // Acknowledge successful processing
+    return worker.client.XAck(ctx, WebhookStream, worker.consumerGroup, msg.ID).Err()
 }
 
-// RetryFromDeadLetter attempts to reprocess a message from DLQ
-func (dlq *DeadLetterQueue) RetryFromDeadLetter(
-    ctx context.Context,
-    dlqMessageID string,
-) error {
-    // Read message from DLQ
-    messages, err := dlq.client.XRange(ctx, dlq.dlqName, dlqMessageID, dlqMessageID).Result()
-    if err != nil || len(messages) == 0 {
-        return fmt.Errorf("message not found in DLQ")
-    }
-
-    var failed FailedMessage
-    if msgJSON, ok := messages[0].Values["message"].(string); ok {
-        if err := json.Unmarshal([]byte(msgJSON), &failed); err != nil {
-            return err
-        }
-    }
-
-    // Add back to original stream
-    _, err = dlq.client.XAdd(ctx, &redis.XAddArgs{
-        Stream: dlq.streamName,
-        Values: failed.Data,
-    }).Result()
-
-    if err != nil {
-        return fmt.Errorf("failed to requeue message: %w", err)
-    }
-
-    // Remove from DLQ
-    dlq.client.XDel(ctx, dlq.dlqName, dlqMessageID)
-
-    return nil
-}
-
-// ListDeadLetters retrieves messages from DLQ for review
-func (dlq *DeadLetterQueue) ListDeadLetters(ctx context.Context, limit int64) ([]*FailedMessage, error) {
-    messages, err := dlq.client.XRevRangeN(ctx, dlq.dlqName, "+", "-", limit).Result()
-    if err != nil {
-        return nil, err
-    }
-
-    var failedMessages []*FailedMessage
-    for _, msg := range messages {
-        var failed FailedMessage
-        if msgJSON, ok := msg.Values["message"].(string); ok {
-            if err := json.Unmarshal([]byte(msgJSON), &failed); err != nil {
-                continue
-            }
-            failedMessages = append(failedMessages, &failed)
-        }
-    }
-
-    return failedMessages, nil
+// Existing DLQ monitoring
+func (monitor *DLQMonitor) GetFailedMessages(ctx context.Context) ([]FailedMessage, error) {
+    // Query DLQ stream for failed messages
+    messages, err := monitor.client.XRange(ctx, WebhookDLQStream, "-", "+").Result()
+    // Parse and return for manual review
 }
 ```
 
-### 7.5 Poison Pill Detection
+### 7.5 Comprehensive Error Handling & Logging Strategy
+
+**All error handling and logging uses existing patterns from the codebase - NO new implementations needed.**
+
+#### Using Existing Observability Package
 
 ```go
-// pkg/resilience/poison_pill.go
-package resilience
-
-import (
-    "context"
-    "crypto/sha256"
-    "encoding/hex"
-    "encoding/json"
-    "fmt"
-    "sync"
-    "time"
-
-    "github.com/redis/go-redis/v9"
-)
-
-type PoisonPillDetector struct {
-    redis          *redis.Client
-    failureWindow  time.Duration
-    failureThreshold int
-    mu             sync.RWMutex
-    cache          map[string]*failureTracker
+// This already exists in /pkg/observability/logger.go
+type Logger interface {
+    Error(message string, fields map[string]interface{})
+    Warn(message string, fields map[string]interface{})
+    Info(message string, fields map[string]interface{})
+    Debug(message string, fields map[string]interface{})
 }
 
-type failureTracker struct {
-    count      int
-    firstSeen  time.Time
-    lastSeen   time.Time
-}
+// How agents use the existing logger (NEVER use fmt.Printf or println)
+func (agent *Agent) ExecuteTask(ctx context.Context, task *Task) error {
+    // Get logger from observability package
+    logger := observability.GetLogger()
 
-func NewPoisonPillDetector(redis *redis.Client) *PoisonPillDetector {
-    return &PoisonPillDetector{
-        redis:            redis,
-        failureWindow:    1 * time.Hour,
-        failureThreshold: 5, // 5 failures in 1 hour = poison pill
-        cache:            make(map[string]*failureTracker),
-    }
-}
-
-// RecordFailure tracks a message failure
-func (ppd *PoisonPillDetector) RecordFailure(ctx context.Context, messageData interface{}) error {
-    // Create unique hash of message content
-    hash := ppd.hashMessage(messageData)
-
-    key := fmt.Sprintf("poison_pill:%s", hash)
-
-    // Increment failure count in Redis
-    count, err := ppd.redis.Incr(ctx, key).Result()
-    if err != nil {
-        return err
-    }
-
-    // Set expiry on first failure
-    if count == 1 {
-        ppd.redis.Expire(ctx, key, ppd.failureWindow)
-    }
-
-    return nil
-}
-
-// IsPoisonPill checks if a message has repeatedly failed
-func (ppd *PoisonPillDetector) IsPoisonPill(ctx context.Context, messageData interface{}) (bool, error) {
-    hash := ppd.hashMessage(messageData)
-    key := fmt.Sprintf("poison_pill:%s", hash)
-
-    count, err := ppd.redis.Get(ctx, key).Int64()
-    if err == redis.Nil {
-        return false, nil
-    }
-    if err != nil {
-        return false, err
-    }
-
-    return count >= int64(ppd.failureThreshold), nil
-}
-
-func (ppd *PoisonPillDetector) hashMessage(data interface{}) string {
-    jsonData, _ := json.Marshal(data)
-    hash := sha256.Sum256(jsonData)
-    return hex.EncodeToString(hash[:])
-}
-```
-
-### 7.6 Graceful Degradation
-
-```go
-// pkg/services/task_service_resilient.go
-package services
-
-import (
-    "context"
-    "errors"
-    "time"
-
-    "github.com/developer-mesh/developer-mesh/pkg/models"
-    "github.com/developer-mesh/developer-mesh/pkg/resilience"
-)
-
-type ResilientTaskService struct {
-    taskService    *TaskService
-    circuitBreaker *resilience.CircuitBreaker
-    cache          Cache
-}
-
-func NewResilientTaskService(taskService *TaskService, cache Cache) *ResilientTaskService {
-    cb := resilience.NewCircuitBreaker("task_service", 5, 30*time.Second)
-
-    // Log circuit breaker state changes
-    cb.onStateChange = func(from, to resilience.State) {
-        log.Printf("Circuit breaker state changed: %v -> %v", from, to)
-    }
-
-    return &ResilientTaskService{
-        taskService:    taskService,
-        circuitBreaker: cb,
-        cache:          cache,
-    }
-}
-
-// GetTaskByID with circuit breaker and fallback to cache
-func (s *ResilientTaskService) GetTaskByID(ctx context.Context, taskID string) (*models.Task, error) {
-    // Try circuit breaker protected call
-    var task *models.Task
-    var dbErr error
-
-    err := s.circuitBreaker.Execute(ctx, func() error {
-        task, dbErr = s.taskService.GetTaskByID(ctx, taskID)
-        return dbErr
+    startTime := time.Now()
+    logger.Info("Starting task execution", map[string]interface{}{
+        "task_id":     task.ID,
+        "task_type":   task.Type,
+        "agent_id":    agent.ID,
+        "tenant_id":   task.TenantID,
     })
 
-    // If circuit breaker is open or DB failed, try cache
-    if err != nil {
-        cachedTask, cacheErr := s.getFromCache(ctx, taskID)
-        if cacheErr == nil {
-            return cachedTask, nil
-        }
+    err := agent.performTask(ctx, task)
 
-        // Both DB and cache failed
-        return nil, fmt.Errorf("task retrieval failed (DB: %v, Cache: %v)", err, cacheErr)
+    if err != nil {
+        // Use existing structured logging for errors
+        logger.Error("Task execution failed", map[string]interface{}{
+            "task_id":     task.ID,
+            "agent_id":    agent.ID,
+            "error":       err.Error(),
+            "retry_count": task.RetryCount,
+            "duration":    time.Since(startTime).Milliseconds(),
+            "tenant_id":   task.TenantID,
+        })
+        return err
     }
 
-    // Success - update cache
-    s.updateCache(ctx, taskID, task)
+    logger.Info("Task completed successfully", map[string]interface{}{
+        "task_id":   task.ID,
+        "agent_id":  agent.ID,
+        "duration":  time.Since(startTime).Milliseconds(),
+        "tenant_id": task.TenantID,
+    })
+    return nil
+}
+```
 
-    return task, nil
+#### Standard Error Wrapping Pattern
+
+```go
+// ALWAYS wrap errors with context using fmt.Errorf with %w
+func (agent *Agent) connectToTool(ctx context.Context, toolID string) error {
+    tool, err := agent.toolService.GetTool(ctx, toolID)
+    if err != nil {
+        return fmt.Errorf("failed to get tool %s for agent %s: %w", toolID, agent.ID, err)
+    }
+
+    conn, err := tool.Connect(ctx)
+    if err != nil {
+        return fmt.Errorf("failed to connect to tool %s: %w", toolID, err)
+    }
+
+    return nil
 }
 
-func (s *ResilientTaskService) getFromCache(ctx context.Context, taskID string) (*models.Task, error) {
-    // Implementation depends on cache backend
-    return nil, errors.New("cache not implemented")
-}
+// Defer with error handling (existing pattern)
+func (agent *Agent) ProcessTask(ctx context.Context, task *Task) error {
+    rows, err := agent.db.QueryContext(ctx, query, task.ID)
+    if err != nil {
+        return fmt.Errorf("failed to query task data: %w", err)
+    }
 
-func (s *ResilientTaskService) updateCache(ctx context.Context, taskID string, task *models.Task) {
-    // Async cache update - don't block on errors
-    go func() {
-        // Update cache with 5 minute TTL
+    // ALWAYS handle Close() errors in defer
+    defer func() {
+        if err := rows.Close(); err != nil {
+            agent.logger.Warn("Failed to close rows", map[string]interface{}{
+                "error":   err.Error(),
+                "task_id": task.ID,
+                "context": "task_processing",
+            })
+        }
     }()
+
+    // Process rows...
+    return nil
 }
 ```
 
-### 7.7 Database Schema for Error Tracking
+#### Logging Standards (From CLAUDE.md)
 
-```sql
--- migrations/038_add_error_tracking.up.sql
+```go
+// Log Levels and When to Use Them:
+// - Error: Failures requiring attention (task failures, connection errors)
+// - Warn: Recoverable issues (retry attempts, fallbacks used)
+// - Info: Important state changes (task started, completed, agent registered)
+// - Debug: Detailed debugging info (request/response bodies, internal state)
 
--- Table to track recurring errors
-CREATE TABLE mcp.error_tracking (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    error_type varchar(100) NOT NULL,
-    error_message text NOT NULL,
-    error_hash varchar(64) NOT NULL,  -- SHA-256 hash for deduplication
-    component varchar(50) NOT NULL,
-    first_seen timestamptz NOT NULL DEFAULT now(),
-    last_seen timestamptz NOT NULL DEFAULT now(),
-    occurrence_count int NOT NULL DEFAULT 1,
-    severity varchar(20) NOT NULL,
-    stack_trace text,
-    metadata jsonb,
-    resolved boolean NOT NULL DEFAULT false,
-    resolved_at timestamptz,
+// NEVER use these anti-patterns:
+// ❌ fmt.Printf("Error: %v", err)
+// ❌ println("Debug:", data)
+// ❌ log.Println("Info:", msg)
 
-    CONSTRAINT valid_severity CHECK (severity IN ('low', 'medium', 'high', 'critical'))
-);
+// ALWAYS use structured logging:
+// ✅ logger.Error("Operation failed", map[string]interface{}{...})
 
-CREATE INDEX idx_error_tracking_hash ON mcp.error_tracking(error_hash) WHERE NOT resolved;
-CREATE INDEX idx_error_tracking_component ON mcp.error_tracking(component, last_seen DESC);
-CREATE INDEX idx_error_tracking_severity ON mcp.error_tracking(severity, last_seen DESC) WHERE NOT resolved;
+// Example of comprehensive error logging
+func (orchestrator *Orchestrator) AssignTask(ctx context.Context, task *Task) error {
+    logger := orchestrator.logger
 
--- Table for task retry history
-CREATE TABLE mcp.task_retry_history (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    task_id varchar(255) NOT NULL,
-    retry_attempt int NOT NULL,
-    failed_at timestamptz NOT NULL DEFAULT now(),
-    error_message text NOT NULL,
-    will_retry boolean NOT NULL,
-    retry_after timestamptz,
+    // Debug level for detailed tracing
+    logger.Debug("Evaluating assignment strategies", map[string]interface{}{
+        "task_id":           task.ID,
+        "required_capabilities": task.RequiredCapabilities,
+        "priority":          task.Priority,
+    })
 
-    CONSTRAINT fk_task FOREIGN KEY (task_id) REFERENCES mcp.tasks(id) ON DELETE CASCADE
-);
+    agent, strategy, err := orchestrator.selectAgent(ctx, task)
+    if err != nil {
+        // Error level for failures
+        logger.Error("Agent selection failed", map[string]interface{}{
+            "error":     err.Error(),
+            "task_id":   task.ID,
+            "task_type": task.Type,
+            "tenant_id": task.TenantID,
+        })
 
-CREATE INDEX idx_task_retry_task ON mcp.task_retry_history(task_id, retry_attempt);
-CREATE INDEX idx_task_retry_time ON mcp.task_retry_history(failed_at DESC);
+        // Check if we should retry
+        if retryableErr, ok := err.(RetryableError); ok && retryableErr.IsRetryable() {
+            // Warn level for retryable issues
+            logger.Warn("Retrying agent selection", map[string]interface{}{
+                "task_id":      task.ID,
+                "retry_reason": err.Error(),
+            })
+            // Retry logic...
+        }
+
+        return fmt.Errorf("failed to assign task %s: %w", task.ID, err)
+    }
+
+    // Info level for important state changes
+    logger.Info("Task assigned to agent", map[string]interface{}{
+        "task_id":   task.ID,
+        "agent_id":  agent.ID,
+        "strategy":  strategy,
+        "tenant_id": task.TenantID,
+    })
+
+    return nil
+}
 ```
 
-### 7.8 Implementation Checklist
+#### Existing Error Classification
+
+```go
+// Existing error types for classification (used throughout codebase)
+type ErrorCategory string
+
+const (
+    ErrorCategoryRetryable    = "retryable"
+    ErrorCategoryPermanent    = "permanent"
+    ErrorCategoryRateLimit    = "rate_limit"
+    ErrorCategoryTimeout      = "timeout"
+    ErrorCategoryValidation   = "validation"
+)
+
+// Agent error handling using existing patterns
+func (agent *Agent) HandleError(ctx context.Context, err error, task *Task) error {
+    // Check if retryable using existing utils
+    if utils.IsRetryableHTTPError(err) {
+        return agent.ExecuteWithRetry(ctx, func() error {
+            return agent.retryTask(task)
+        })
+    }
+
+    // Check for poison pill (messages that always fail)
+    if task.FailureCount > 5 {
+        // Move to DLQ using existing Redis Streams
+        return agent.moveToDeadLetter(task, err)
+    }
+
+    // Log permanent failure
+    agent.logger.Error("Permanent task failure", map[string]interface{}{
+        "task_id": task.ID,
+        "error": err.Error(),
+        "failure_count": task.FailureCount,
+    })
+
+    return err
+}
+```
+
+### 7.6 Key Decisions
+
+**Logging Strategy**: Use existing observability package
+- All logging through `/pkg/observability/logger.go` interface
+- Structured logging with field maps (NEVER fmt.Printf)
+- Four log levels: Error, Warn, Info, Debug
+- Include tenant_id, task_id, agent_id in all logs
+
+**Error Handling Pattern**: Standard Go patterns
+- Always wrap errors with `fmt.Errorf("context: %w", err)`
+- Handle defer Close() errors with logger.Warn
+- Context as first parameter in all functions
+- Use existing RetryableError interface
+
+**Resilience Components**: All existing implementations
+- Circuit breaker from `/pkg/resilience/circuit_breaker.go`
+- Retry logic from `/pkg/utils/retry.go`
+- Redis Streams DLQ from `/pkg/redis/streams_client.go`
+- Context timeouts using standard Go patterns
+
+**Anti-Patterns to Avoid**:
+- NO fmt.Printf, println, or log.Println
+- NO new logging implementations
+- NO custom retry mechanisms
+- NO string concatenation in SQL queries
+
+### 7.7 Resilience Implementation Summary
+
+Instead of creating new resilience components, we leverage the existing production-tested patterns:
+
+1. **Circuit Breaker**: `/pkg/resilience/circuit_breaker.go`
+   - Three states: Closed, Open, Half-Open
+   - Automatic recovery detection
+   - Per-service configuration
+
+2. **Retry Logic**: `/pkg/utils/retry.go`
+   - Exponential backoff with jitter
+   - RetryableError interface
+   - HTTP error auto-detection
+
+3. **Timeouts**: Standard Go context pattern
+   - Context.WithTimeout everywhere
+   - Graceful cancellation
+   - Per-operation configuration
+
+4. **Dead Letter Queue**: Redis Streams (existing)
+   - Failed message capture
+   - Consumer group management
+   - Manual retry capability
+
+5. **Error Handling**: Comprehensive patterns
+   - Error wrapping with context
+   - Structured logging
+   - Error categorization
+
+### 7.7 Agent Resilience Configuration
+
+```go
+// How agents combine all resilience patterns
+type ResilientAgent struct {
+    id              string
+    circuitBreaker  *resilience.CircuitBreaker
+    retryConfig     *utils.RetryConfig
+    logger          observability.Logger
+    redisClient     *redis.Client
+}
+
+func (agent *ResilientAgent) ExecuteTask(ctx context.Context, task *Task) error {
+    // Apply timeout
+    timeout := TaskTimeouts[task.Type]
+    ctx, cancel := context.WithTimeout(ctx, timeout)
+    defer cancel()
+
+    // Execute with circuit breaker
+    err := agent.circuitBreaker.Execute(ctx, func() error {
+        // Execute with retry
+        return utils.RetryWithBackoff(ctx, agent.retryConfig, func() error {
+            return agent.performTask(ctx, task)
+        })
+    })
+
+    if err != nil {
+        // Handle error using existing patterns
+        return agent.HandleError(ctx, err, task)
+    }
+
+    return nil
+}
+```
+
+### 7.8 Phase 7 Deliverables
+
+Instead of building new resilience systems, this phase delivers:
+
+1. **Documentation**: How agents use existing resilience patterns (this document)
+2. **Agent Configuration**: Standard configs for circuit breakers and retry
+3. **Integration Guide**: How to wire resilience into agent implementations
+4. **Monitoring Dashboard**: Visualize circuit breaker states and error rates
+5. **Testing Suite**: Chaos testing using existing patterns
+
+### Phase 7 Key Decisions
+
+✅ **USE EXISTING**: Circuit breaker in `/pkg/resilience/`
+✅ **USE EXISTING**: Retry logic in `/pkg/utils/retry.go`
+✅ **USE EXISTING**: Redis Streams DLQ for failed messages
+✅ **USE EXISTING**: Context-based timeout patterns
+✅ **USE EXISTING**: Structured error logging
+
+❌ **DON'T CREATE**: New circuit breaker implementation
+❌ **DON'T CREATE**: New retry mechanisms
+❌ **DON'T CREATE**: New DLQ systems
+❌ **DON'T CREATE**: New error tracking databases
+
+### Implementation Checklist
 
 **Week 9: Core Resilience Patterns**
 - [ ] Implement circuit breaker for all external calls
@@ -4946,22 +4469,59 @@ func TraceTaskExecution(ctx context.Context, taskID, agentID string) (context.Co
 }
 ```
 
-### 8.2 Structured Logging with Trace IDs
+### 8.2 Structured Logging with Trace IDs (Using Existing Logger)
+
+**Use existing observability package - NO new logger implementations needed.**
 
 ```go
-// pkg/observability/logger_with_trace.go
-type TracingLogger struct {
-    base Logger
-}
+// This enhancement to EXISTING logger adds trace ID support
+// Location: /pkg/observability/tracing_enhancement.go (NEW FILE)
+package observability
 
-func (l *TracingLogger) InfoWithTrace(ctx context.Context, msg string, fields map[string]interface{}) {
-    // Extract trace ID from context
+import (
+    "context"
+    "go.opentelemetry.io/otel/trace"
+)
+
+// EnhanceWithTraceID adds trace/span IDs to existing logger fields
+func EnhanceWithTraceID(ctx context.Context, fields map[string]interface{}) {
     span := trace.SpanFromContext(ctx)
     if span.SpanContext().IsValid() {
         fields["trace_id"] = span.SpanContext().TraceID().String()
         fields["span_id"] = span.SpanContext().SpanID().String()
     }
-    l.base.Info(msg, fields)
+}
+
+// How agents use the existing logger with tracing
+func (agent *Agent) ExecuteTask(ctx context.Context, task *Task) error {
+    logger := observability.GetLogger() // Existing logger
+
+    // Add trace ID to all log fields
+    fields := map[string]interface{}{
+        "task_id":   task.ID,
+        "agent_id":  agent.ID,
+        "tenant_id": task.TenantID,
+    }
+    observability.EnhanceWithTraceID(ctx, fields) // Add trace IDs
+
+    logger.Info("Task execution started", fields)
+    // ... rest of implementation
+}
+
+// Alternative: Wrapper function for convenience
+func LogWithTrace(ctx context.Context, logger Logger, level string, msg string, fields map[string]interface{}) {
+    EnhanceWithTraceID(ctx, fields)
+
+    switch level {
+    case "error":
+        logger.Error(msg, fields)
+    case "warn":
+        logger.Warn(msg, fields)
+    case "info":
+        logger.Info(msg, fields)
+    case "debug":
+        logger.Debug(msg, fields)
+    }
 }
 ```
 
@@ -4996,13 +4556,28 @@ alerts:
     severity: critical
 ```
 
+### 8.5 Key Decisions
+
+**Observability Strategy**: Enhance existing, don't replace
+- Use existing `/pkg/observability/logger.go` interface
+- Add trace ID enhancement as simple helper function
+- NO new logger implementations
+- Leverage existing structured logging patterns
+
+**Tracing Integration**: OpenTelemetry with existing tools
+- Add trace IDs to existing logger fields
+- Propagate context through all function calls
+- Use standard Go context pattern
+- Integrate with existing Prometheus metrics
+
 **Implementation Checklist:**
-- [ ] Integrate OpenTelemetry across all services
+- [ ] Add trace ID enhancement to existing logger
 - [ ] Configure Jaeger for trace collection
 - [ ] Add trace ID propagation through Redis Streams
-- [ ] Build Grafana dashboards
+- [ ] Build Grafana dashboards using existing metrics
 - [ ] Set up CloudWatch/Prometheus alerts
 - [ ] Create on-call runbooks
+- [ ] Document trace ID usage patterns
 
 ---
 
@@ -5533,7 +5108,9 @@ var CodeReviewWorkflow = &WorkflowDefinition{
 **Priority**: 🟡 MEDIUM
 **Dependencies**: Phase 13 complete
 
-### 14.1 Agent SDK
+### 14.1 Agent SDK (Using Existing Edge-MCP Client)
+
+**Key Pattern**: Agents connect through the K8s-deployed Edge-MCP gateway using the existing client patterns.
 
 ```go
 // pkg/sdk/agent_sdk.go
@@ -5541,102 +5118,338 @@ package sdk
 
 import (
     "context"
-    "github.com/developer-mesh/developer-mesh/pkg/mcp"
+    "encoding/json"
+    "fmt"
+
+    "github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/mcp"
+    "github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/websocket"
+    "github.com/developer-mesh/developer-mesh/pkg/auth"
+    "github.com/developer-mesh/developer-mesh/pkg/models"
+    "github.com/developer-mesh/developer-mesh/pkg/services"
 )
 
 type Agent struct {
     ID           string
     Type         string
     Capabilities []string
-    client       *mcp.Client
+    APIKey       string                    // Agent's API key
+    EdgeMCPURL   string                    // K8s-deployed Edge-MCP endpoint
+    client       *websocket.Client         // Existing WebSocket client
+    session      *models.MCPSession        // Session with passthrough auth
 }
 
-// NewAgent creates a new agent and registers with platform
-func NewAgent(mcpURL string, agentType string, capabilities []string) (*Agent, error) {
-    client, err := mcp.Connect(mcpURL)
+// NewAgent creates agent using existing Edge-MCP authentication
+func NewAgent(config AgentConfig) (*Agent, error) {
+    // Use existing Edge-MCP client patterns
+    wsConfig := websocket.ClientConfig{
+        URL: config.EdgeMCPURL,  // e.g., "wss://edge-mcp.devmesh.io/ws"
+        Headers: map[string]string{
+            "Authorization":  fmt.Sprintf("Bearer %s", config.APIKey),
+            "X-Agent-ID":     config.AgentID,
+            "X-Agent-Type":   config.AgentType,
+        },
+        ReconnectPolicy: websocket.DefaultReconnectPolicy(),
+    }
+
+    // Create WebSocket client (existing pattern from edge-mcp)
+    client, err := websocket.NewClient(wsConfig)
     if err != nil {
-        return nil, err
+        return nil, fmt.Errorf("failed to create Edge-MCP client: %w", err)
+    }
+
+    // Connect and establish session
+    if err := client.Connect(); err != nil {
+        return nil, fmt.Errorf("failed to connect to Edge-MCP: %w", err)
+    }
+
+    // Initialize MCP protocol session
+    session, err := client.Initialize(context.Background(), mcp.InitializeParams{
+        ProtocolVersion: "2025-06-18",
+        ClientInfo: mcp.ClientInfo{
+            Name:    fmt.Sprintf("agent-%s", config.AgentID),
+            Version: "1.0.0",
+        },
+        Capabilities: mcp.ClientCapabilities{
+            Tools: mcp.ToolsCapability{
+                CallTool: true,
+            },
+        },
+    })
+    if err != nil {
+        return nil, fmt.Errorf("failed to initialize MCP session: %w", err)
     }
 
     agent := &Agent{
-        ID:           uuid.New().String(),
-        Type:         agentType,
-        Capabilities: capabilities,
+        ID:           config.AgentID,
+        Type:         config.AgentType,
+        Capabilities: config.Capabilities,
+        APIKey:       config.APIKey,
+        EdgeMCPURL:   config.EdgeMCPURL,
         client:       client,
+        session:      session,
     }
 
-    // Register with platform
-    if err := agent.Register(); err != nil {
-        return nil, err
+    // Register agent capabilities with platform
+    if err := agent.register(); err != nil {
+        return nil, fmt.Errorf("failed to register agent: %w", err)
     }
 
     return agent, nil
 }
 
-// ListenForTasks starts listening for assigned tasks
+// register uses existing Edge-MCP tool to register agent
+func (a *Agent) register() error {
+    // Use MCP tool call to register agent
+    result, err := a.client.CallTool(context.Background(), mcp.ToolCallParams{
+        Name: "devmesh_agent_register",
+        Arguments: map[string]interface{}{
+            "agent_id":     a.ID,
+            "agent_type":   a.Type,
+            "capabilities": a.Capabilities,
+        },
+    })
+    if err != nil {
+        return fmt.Errorf("failed to register agent: %w", err)
+    }
+
+    // Parse registration response
+    var resp struct {
+        Success bool   `json:"success"`
+        Message string `json:"message"`
+    }
+    if err := json.Unmarshal([]byte(result), &resp); err != nil {
+        return fmt.Errorf("failed to parse registration response: %w", err)
+    }
+
+    if !resp.Success {
+        return fmt.Errorf("agent registration failed: %s", resp.Message)
+    }
+
+    return nil
+}
+
+// ListenForTasks uses existing Edge-MCP patterns for task reception
 func (a *Agent) ListenForTasks(ctx context.Context, handler TaskHandler) error {
+    // Subscribe to task assignments via MCP
+    subscription, err := a.client.Subscribe(ctx, mcp.SubscribeParams{
+        ResourcePattern: fmt.Sprintf("agent/%s/tasks", a.ID),
+    })
+    if err != nil {
+        return fmt.Errorf("failed to subscribe to tasks: %w", err)
+    }
+    defer subscription.Close()
+
     for {
         select {
         case <-ctx.Done():
             return ctx.Err()
-        default:
-            task, err := a.client.ReceiveTask(ctx)
-            if err != nil {
+        case notification := <-subscription.Notifications:
+            // Parse task from notification
+            var task Task
+            if err := json.Unmarshal(notification.Data, &task); err != nil {
+                a.logError("failed to parse task", err)
                 continue
             }
 
-            result := handler(ctx, task)
-            a.client.SubmitResult(ctx, task.ID, result)
+            // Process task with handler
+            result := handler(ctx, &task)
+
+            // Submit result via MCP tool
+            if err := a.submitResult(ctx, task.ID, result); err != nil {
+                a.logError("failed to submit result", err)
+            }
         }
     }
 }
 
-type TaskHandler func(context.Context, *Task) *TaskResult
+// submitResult uses Edge-MCP tool to submit task results
+func (a *Agent) submitResult(ctx context.Context, taskID string, result *TaskResult) error {
+    _, err := a.client.CallTool(ctx, mcp.ToolCallParams{
+        Name: "devmesh_task_complete",
+        Arguments: map[string]interface{}{
+            "task_id": taskID,
+            "result":  result,
+            "status":  result.Status,
+        },
+    })
+    return err
+}
+
+// ExecuteTool executes tools using passthrough authentication
+func (a *Agent) ExecuteTool(ctx context.Context, toolName string, args map[string]interface{}) (interface{}, error) {
+    // Edge-MCP handles passthrough auth automatically
+    // The session includes encrypted credentials for GitHub, Harness, etc.
+    result, err := a.client.CallTool(ctx, mcp.ToolCallParams{
+        Name:      toolName,
+        Arguments: args,
+    })
+    if err != nil {
+        return nil, fmt.Errorf("tool execution failed: %w", err)
+    }
+
+    return result, nil
+}
 ```
 
-### 14.2 Example Agent Implementation
+### 14.2 Example Agent Implementation (Using Edge-MCP)
 
 ```go
-// examples/lint-agent/main.go
+// examples/github-pr-reviewer/main.go
 package main
 
 import (
     "context"
+    "fmt"
+    "os"
+
     "github.com/developer-mesh/developer-mesh/pkg/sdk"
 )
 
 func main() {
-    agent, err := sdk.NewAgent(
-        "ws://localhost:8082/ws",
-        "linter",
-        []string{"code_analysis", "lint", "go", "typescript"},
-    )
+    // Agent connects to K8s-deployed Edge-MCP
+    agent, err := sdk.NewAgent(sdk.AgentConfig{
+        EdgeMCPURL:   getEnvOrDefault("EDGE_MCP_URL", "wss://edge-mcp.devmesh.io/ws"),
+        APIKey:       os.Getenv("DEVMESH_API_KEY"),  // Agent's API key
+        AgentID:      "github-pr-reviewer-001",
+        AgentType:    "code_reviewer",
+        Capabilities: []string{"github", "code_review", "pull_request"},
+    })
     if err != nil {
-        panic(err)
+        panic(fmt.Sprintf("Failed to create agent: %v", err))
     }
+    defer agent.Close()
 
-    agent.ListenForTasks(context.Background(), func(ctx context.Context, task *sdk.Task) *sdk.TaskResult {
-        // Implement linting logic
-        files := task.Input["files"].([]string)
-        issues := runLinter(files)
+    // Process tasks assigned by orchestrator
+    err = agent.ListenForTasks(context.Background(), func(ctx context.Context, task *sdk.Task) *sdk.TaskResult {
+        // Extract PR details from task
+        owner := task.Input["owner"].(string)
+        repo := task.Input["repo"].(string)
+        prNumber := task.Input["pr_number"].(int)
+
+        // Use Edge-MCP tools with passthrough auth (GitHub PAT from session)
+        // No need to handle credentials - Edge-MCP manages them
+        prDetails, err := agent.ExecuteTool(ctx, "mcp__devmesh__github_get_pull_request", map[string]interface{}{
+            "owner": owner,
+            "repo":  repo,
+            "pull_number": prNumber,
+        })
+        if err != nil {
+            return &sdk.TaskResult{
+                Status: "failed",
+                Error:  fmt.Sprintf("Failed to get PR: %v", err),
+            }
+        }
+
+        // Get PR diff using passthrough auth
+        diff, err := agent.ExecuteTool(ctx, "mcp__devmesh__github_get_pull_request_diff", map[string]interface{}{
+            "owner": owner,
+            "repo":  repo,
+            "pull_number": prNumber,
+        })
+        if err != nil {
+            return &sdk.TaskResult{
+                Status: "failed",
+                Error:  fmt.Sprintf("Failed to get diff: %v", err),
+            }
+        }
+
+        // Perform code review
+        review := performCodeReview(prDetails, diff)
+
+        // Submit review using passthrough auth
+        _, err = agent.ExecuteTool(ctx, "mcp__devmesh__github_create_pull_request_review", map[string]interface{}{
+            "owner": owner,
+            "repo":  repo,
+            "pull_number": prNumber,
+            "body":  review.Summary,
+            "event": review.Approval,
+            "comments": review.LineComments,
+        })
+        if err != nil {
+            return &sdk.TaskResult{
+                Status: "failed",
+                Error:  fmt.Sprintf("Failed to submit review: %v", err),
+            }
+        }
 
         return &sdk.TaskResult{
-            Success: len(issues) == 0,
+            Status:  "completed",
+            Success: true,
             Output: map[string]interface{}{
-                "issues": issues,
+                "review_submitted": true,
+                "approval_status":  review.Approval,
+                "comments_added":   len(review.LineComments),
             },
         }
     })
+
+    if err != nil {
+        panic(fmt.Sprintf("Task processing failed: %v", err))
+    }
+}
+
+func getEnvOrDefault(key, defaultValue string) string {
+    if value := os.Getenv(key); value != "" {
+        return value
+    }
+    return defaultValue
 }
 ```
 
+### 14.3 Agent Authentication Flow
+
+```mermaid
+sequenceDiagram
+    participant Agent
+    participant EdgeMCP as Edge-MCP (K8s)
+    participant RestAPI as REST API
+    participant Session as SessionService
+
+    Agent->>EdgeMCP: Connect with API Key
+    EdgeMCP->>RestAPI: Validate API Key
+    RestAPI-->>EdgeMCP: Valid + Tenant ID
+    EdgeMCP->>Session: Create Session with PassthroughAuth
+    Session-->>EdgeMCP: Session with encrypted credentials
+    EdgeMCP-->>Agent: MCP Session established
+
+    Note over Agent,EdgeMCP: Agent can now use tools with user's credentials
+
+    Agent->>EdgeMCP: Call GitHub tool
+    EdgeMCP->>EdgeMCP: Decrypt passthrough credentials
+    EdgeMCP->>GitHub: API call with user's PAT
+    GitHub-->>EdgeMCP: Response
+    EdgeMCP-->>Agent: Tool result
+```
+
+### 14.4 Key Decisions
+
+**Authentication Strategy**: Use existing Edge-MCP authentication patterns
+- Agents authenticate with API keys (validated against REST API)
+- Sessions include PassthroughAuthBundle for tool credentials
+- No new JWT or certificate management needed
+- Leverage K8s-deployed Edge-MCP as single gateway
+
+**Connection Pattern**: Direct Edge-MCP WebSocket connection
+- Agents connect to `wss://edge-mcp.devmesh.io/ws`
+- Use existing WebSocket client from `/apps/edge-mcp/internal/websocket`
+- Automatic reconnection with exponential backoff
+- Session persistence across reconnects
+
+**Tool Execution**: Passthrough authentication for all tools
+- GitHub tools use user's PAT from session
+- Harness tools use user's API keys
+- AWS tools use user's credentials
+- All credentials encrypted with EncryptionService
+
 **Implementation Checklist:**
-- [ ] Build Go SDK for agents
-- [ ] Create Python SDK
-- [ ] Add TypeScript/Node.js SDK
+- [ ] Wrap existing Edge-MCP client as Agent SDK
+- [ ] Create Python SDK using existing MCP patterns
+- [ ] Add TypeScript/Node.js SDK using existing patterns
 - [ ] Build agent scaffolding CLI
-- [ ] Create example agents (5+)
-- [ ] Write comprehensive documentation
+- [ ] Create example agents using Edge-MCP tools
+- [ ] Document Edge-MCP connection patterns
+- [ ] Add agent registration MCP tool
+- [ ] Test with K8s-deployed Edge-MCP
 
 ---
 
