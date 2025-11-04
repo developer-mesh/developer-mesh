@@ -30,6 +30,9 @@ RUN cd apps/rest-api && \
 # Final stage
 FROM gcr.io/distroless/static:nonroot
 
+# Copy CA certificates from builder stage
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+
 # Copy binary
 COPY --from=builder /tmp/rest-api /app/rest-api
 
@@ -52,7 +55,9 @@ EXPOSE 8081
 
 # Minimal environment variables
 ENV PORT=8081 \
-    GIN_MODE=release
+    GIN_MODE=release \
+    SSL_CERT_DIR=/etc/ssl/certs \
+    SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 
 # Metadata labels
 ARG VERSION

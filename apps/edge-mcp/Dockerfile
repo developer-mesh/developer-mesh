@@ -30,6 +30,9 @@ RUN cd apps/edge-mcp && \
 # Final stage
 FROM gcr.io/distroless/static:nonroot
 
+# Copy CA certificates from builder stage
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+
 # Copy binary
 COPY --from=builder /tmp/edge-mcp /app/edge-mcp
 
@@ -46,7 +49,9 @@ USER nonroot
 EXPOSE 8082
 
 # Minimal environment variables
-ENV PORT=8082
+ENV PORT=8082 \
+    SSL_CERT_DIR=/etc/ssl/certs \
+    SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 
 # Metadata labels
 ARG VERSION

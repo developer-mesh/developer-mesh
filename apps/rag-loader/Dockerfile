@@ -1,86 +1,68 @@
-# Multi-stage Dockerfile for RAG Loader
+# syntax=docker/dockerfile:1
+# RAG Loader Dockerfile following the workspace pattern
+
+# Build arguments
+ARG VERSION=dev
+ARG COMMIT_SHA=unknown
+ARG BUILD_DATE
+
+# Build stage
 FROM golang:1.24-alpine AS builder
 
 # Install build dependencies
-RUN apk add --no-cache git ca-certificates gcc musl-dev curl
+RUN apk add --no-cache git ca-certificates tzdata
 
 # Set working directory
-WORKDIR /build
+WORKDIR /workspace
 
-# Copy go workspace files
-COPY go.work go.work.sum ./
+# Copy everything
+COPY . .
 
-# Copy all modules for workspace
-COPY apps/ apps/
-COPY pkg/ pkg/
+# Explicitly set GOWORK to use workspace mode
+ENV GOWORK=/workspace/go.work
 
-# Download dependencies
-RUN go mod download
+# Build the binary
+RUN cd apps/rag-loader && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags="-w -s -X main.version=${VERSION} -X main.commit=${COMMIT_SHA}" \
+    -o /tmp/rag-loader ./cmd/loader
 
-# Build arguments for versioning
-ARG VERSION=dev
-ARG BUILD_TIME
-ARG GIT_COMMIT=unknown
+# Final stage
+FROM gcr.io/distroless/static:nonroot
 
-# Build the binary with optimizations
-WORKDIR /build/apps/rag-loader
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-    -ldflags="-w -s \
-    -X 'main.version=${VERSION}' \
-    -X 'main.buildTime=${BUILD_TIME}' \
-    -X 'main.gitCommit=${GIT_COMMIT}'" \
-    -a -installsuffix cgo \
-    -trimpath \
-    -o /build/rag-loader \
-    ./cmd/loader
+# Copy CA certificates from builder stage
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
-# Runtime stage
-FROM alpine:3.19
+# Copy binary
+COPY --from=builder /tmp/rag-loader /app/rag-loader
 
-# Install runtime dependencies
-RUN apk add --no-cache \
-    ca-certificates \
-    tzdata \
-    curl \
-    && rm -rf /var/cache/apk/*
-
-# Create non-root user
-RUN addgroup -g 1000 ragloader && \
-    adduser -D -u 1000 -G ragloader ragloader
+# Copy configuration files
+COPY --chown=nonroot:nonroot apps/rag-loader/configs /app/configs
 
 # Set working directory
 WORKDIR /app
 
-# Copy binary from builder
-COPY --from=builder /build/rag-loader /app/rag-loader
-
-# Copy configuration files
-COPY --from=builder /build/apps/rag-loader/configs/ /app/configs/
-
-# Change ownership
-RUN chown -R ragloader:ragloader /app
-
-# Create directories for runtime
-RUN mkdir -p /app/data /app/logs && \
-    chown -R ragloader:ragloader /app/data /app/logs
-
-# Switch to non-root user
-USER ragloader
+# Use non-root user
+USER nonroot
 
 # Expose ports
 # 8084: API server
 # 9094: Health and metrics
 EXPOSE 8084 9094
 
-# Health check with improved timeout
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:9094/health || exit 1
+# Minimal environment variables
+ENV PORT=8084 \
+    SSL_CERT_DIR=/etc/ssl/certs \
+    SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 
-# Labels for metadata
-LABEL maintainer="DevMesh Team"
-LABEL description="RAG Loader Service for Developer Mesh"
-LABEL version="${VERSION}"
+# Metadata labels
+ARG VERSION
+ARG COMMIT_SHA
+ARG BUILD_DATE
+LABEL org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${COMMIT_SHA}" \
+      org.opencontainers.image.created="${BUILD_DATE}"
 
-# Run the service
+# Run the application
 ENTRYPOINT ["/app/rag-loader"]
 CMD []

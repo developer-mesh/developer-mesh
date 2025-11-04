@@ -30,6 +30,9 @@ RUN cd apps/worker && \
 # Final stage
 FROM gcr.io/distroless/static:nonroot
 
+# Copy CA certificates from builder stage
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+
 # Copy binary
 COPY --from=builder /tmp/worker /app/worker
 
@@ -50,7 +53,9 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD ["/app/worker", "-health-check"]
 
 # Minimal environment variables
-ENV HEALTH_ENDPOINT=:8088
+ENV HEALTH_ENDPOINT=:8088 \
+    SSL_CERT_DIR=/etc/ssl/certs \
+    SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 
 # Metadata labels
 ARG VERSION
