@@ -243,9 +243,10 @@ func (s *Server) setupOrchestration() error {
 
 #### 1.2 Enhance Assignment Engine with New Strategies (Days 3-4)
 
-**Location**: `/pkg/services/assignment_strategies.go` (NEW FILE)
+**Location**: `/pkg/services/assignment_engine.go` (ENHANCE EXISTING)
 
 ```go
+// Add to existing assignment_engine.go file
 package services
 
 import (
@@ -769,10 +770,11 @@ func (p *TaskProviderDB) handleList(ctx context.Context, args json.RawMessage) (
 
 #### 2.1 User Orchestrator
 
-**Location**: `/pkg/orchestration/user_orchestrator.go` (NEW FILE)
+**Location**: `/pkg/services/workflow_service.go` (ENHANCE EXISTING - Add orchestration to existing workflow service)
 
 ```go
-package orchestration
+// Add to existing workflow service instead of creating new package
+package services
 
 import (
     "context"
@@ -980,10 +982,11 @@ func (uo *UserOrchestrator) cleanupSessions() {
 
 #### 2.2 Webhook Orchestrator
 
-**Location**: `/pkg/orchestration/webhook_orchestrator.go` (NEW FILE)
+**Location**: `/pkg/webhook/webhook_orchestrator.go` (ENHANCE EXISTING - Add to existing webhook package)
 
 ```go
-package orchestration
+// Add orchestration capabilities to existing webhook package
+package webhook
 
 // WebhookOrchestrator handles webhook-triggered workflows
 type WebhookOrchestrator struct {
@@ -1024,10 +1027,11 @@ func (wo *WebhookOrchestrator) ProcessWebhook(ctx context.Context, event *Webhoo
 
 #### 3.1 Code Domain Coordinator
 
-**Location**: `/pkg/orchestration/domains/code_coordinator.go` (NEW FILE)
+**Location**: `/pkg/services/domain_coordinator.go` (ENHANCE EXISTING - Add domain coordination to services)
 
 ```go
-package domains
+// Add domain-specific coordination to existing services
+package services
 
 // CodeCoordinator manages code-related agents
 type CodeCoordinator struct {
@@ -1066,7 +1070,7 @@ func (cc *CodeCoordinator) RouteTask(ctx context.Context, task *models.Task) (*m
 
 #### 4.1 Agent Registry Service
 
-**Location**: `/pkg/services/agent_registry.go` (NEW FILE)
+**Location**: `/pkg/services/enhanced_tool_registry.go` (ENHANCE EXISTING - Extend existing tool registry for agents)
 
 ```go
 package services
@@ -1843,10 +1847,11 @@ type CapabilityExample struct {
 
 #### 4.8 Agent Discovery & Validation Service
 
-**Location**: `/pkg/services/agent_validation_service.go` (NEW FILE)
+**Location**: `/pkg/middleware/validation.go` (ENHANCE EXISTING - Add agent validation to existing middleware)
 
 ```go
-package services
+// Add agent validation capabilities to existing middleware
+package middleware
 
 import (
     "context"
@@ -1942,10 +1947,11 @@ func (avs *AgentValidationService) validateJSONSchema(schema *JSONSchema) error 
 
 #### 4.9 Agent Testing Framework
 
-**Location**: `/pkg/services/agent_test_runner.go` (NEW FILE)
+**Location**: `/test/functional/agent_testing.go` (ENHANCE EXISTING - Add to existing test infrastructure)
 
 ```go
-package services
+// Add agent testing capabilities to functional tests
+package functional
 
 type AgentTestRunner struct {
     httpClient *http.Client
@@ -2642,7 +2648,7 @@ func (iol *IntelligentOrchestrationLearner) RouteTaskWithZeroError(
 #### 4.12 Agent Versioning & Upgrades
 
 ```go
-// pkg/services/agent_version_manager.go (NEW FILE)
+// Add to existing agent_service_impl.go - ENHANCE EXISTING
 package services
 
 type AgentVersionManager struct {
@@ -2788,7 +2794,7 @@ func (a *AgentAPI) registerAgentWithContract(c *gin.Context) {
 
 #### 5.1 Orchestration Metrics
 
-**Location**: `/pkg/observability/orchestration_metrics.go` (NEW FILE)
+**Location**: `/pkg/observability/prometheus_metrics.go` (ENHANCE EXISTING - Add orchestration metrics to Prometheus)
 
 ```go
 package observability
@@ -4814,8 +4820,8 @@ func TraceTaskExecution(ctx context.Context, taskID, agentID string) (context.Co
 **Use existing observability package - NO new logger implementations needed.**
 
 ```go
-// This enhancement to EXISTING logger adds trace ID support
-// Location: /pkg/observability/tracing_enhancement.go (NEW FILE)
+// Add to existing tracing.go - ENHANCE EXISTING
+// Location: /pkg/observability/tracing.go (ENHANCE EXISTING)
 package observability
 
 import (
@@ -4954,9 +4960,9 @@ graph TB
 ### 9.2 Context Window Management Strategy
 
 ```go
-// Using EXISTING SemanticContextManager for orchestrators
-// Location: /pkg/services/orchestrator_context_service.go (NEW FILE)
-package services
+// Enhance existing context manager for orchestrators
+// Location: /pkg/core/semantic_context_manager_impl.go (ENHANCE EXISTING)
+package core
 
 import (
     "context"
