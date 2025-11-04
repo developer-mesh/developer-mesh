@@ -4581,13 +4581,343 @@ alerts:
 
 ---
 
-## Phase 9: Cost Management & Optimization
+## Phase 9: Orchestrator Performance & Memory Management
 
 **Duration**: Week 12
-**Priority**: 🟠 HIGH
+**Priority**: 🔴 CRITICAL
 **Dependencies**: Phase 8 complete
 
-### 9.1 Per-Tenant Cost Tracking
+### 9.1 Orchestrator Memory Architecture (Using Existing Packages)
+
+**Key Challenge**: Orchestrators need to track many agents/tasks without 1M token context windows.
+**Solution**: Leverage existing semantic context manager, Redis cache, and PostgreSQL persistence.
+
+```mermaid
+graph TB
+    subgraph "Orchestrator Memory Layers (All Existing)"
+        A[Active Context<br/>4-50K tokens] --> B[Semantic Context Manager<br/>pkg/core]
+        B --> C[Redis Cache L1<br/>pkg/common/cache]
+        C --> D[PostgreSQL Storage<br/>pkg/repository]
+
+        B --> E[Context Compaction<br/>5 strategies]
+        E --> F[Summarization]
+        E --> G[Pruning]
+        E --> H[Semantic Dedup]
+        E --> I[Sliding Window]
+        E --> J[Tool Clear]
+
+        K[Semantic Search<br/>pkg/embedding] --> B
+        L[Redis Streams<br/>Event Buffer] --> B
+    end
+```
+
+### 9.2 Context Window Management Strategy
+
+```go
+// Using EXISTING SemanticContextManager for orchestrators
+// Location: /pkg/services/orchestrator_context_service.go (NEW FILE)
+package services
+
+import (
+    "context"
+    "fmt"
+    "time"
+
+    "github.com/developer-mesh/developer-mesh/pkg/repository"
+    "github.com/developer-mesh/developer-mesh/pkg/common/cache"
+    "github.com/developer-mesh/developer-mesh/pkg/observability"
+)
+
+type OrchestratorContextService struct {
+    // Use existing components
+    semanticMgr  repository.SemanticContextManager
+    redisCache   cache.Cache
+    logger       observability.Logger
+
+    // Configuration for orchestrators
+    activeWindowSize   int  // 4000 tokens for active context
+    warmCacheSize     int  // 20000 tokens in Redis cache
+    compactionTrigger int  // Compact at 100 items
+}
+
+// GetOptimizedContext retrieves only relevant context for decision
+func (s *OrchestratorContextService) GetOptimizedContext(
+    ctx context.Context,
+    orchestratorID string,
+    currentTask string,
+) (*WorkingMemory, error) {
+    // Step 1: Check Redis cache for recent state
+    cacheKey := fmt.Sprintf("orchestrator:%s:state", orchestratorID)
+    var recentState OrchestratorState
+    if err := s.redisCache.Get(ctx, cacheKey, &recentState); err == nil {
+        s.logger.Debug("Cache hit for orchestrator state", map[string]interface{}{
+            "orchestrator_id": orchestratorID,
+            "cached_agents":   len(recentState.ActiveAgents),
+        })
+    }
+
+    // Step 2: Semantic retrieval of relevant context
+    relevantContext, err := s.semanticMgr.GetRelevantContext(
+        ctx,
+        orchestratorID,
+        currentTask,      // Query for semantic similarity
+        s.activeWindowSize, // Token budget (4000)
+    )
+    if err != nil {
+        return nil, fmt.Errorf("failed to get relevant context: %w", err)
+    }
+
+    // Step 3: Build working memory with just what's needed
+    return &WorkingMemory{
+        CurrentTask:      currentTask,
+        RelevantContext:  relevantContext,
+        ActiveAgents:     recentState.ActiveAgents,
+        RecentDecisions:  recentState.RecentDecisions,
+        TokensUsed:       countTokens(relevantContext),
+        TokenBudget:      s.activeWindowSize,
+    }, nil
+}
+
+// UpdateWithDecision stores decision and triggers compaction if needed
+func (s *OrchestratorContextService) UpdateWithDecision(
+    ctx context.Context,
+    orchestratorID string,
+    decision *AssignmentDecision,
+) error {
+    // Step 1: Update context with decision
+    update := &repository.ContextUpdate{
+        Role:    "assistant",
+        Content: formatDecision(decision),
+        Metadata: map[string]interface{}{
+            "task_id":   decision.TaskID,
+            "agent_id":  decision.AgentID,
+            "strategy":  decision.Strategy,
+            "timestamp": time.Now().Unix(),
+        },
+    }
+
+    if err := s.semanticMgr.UpdateContext(ctx, orchestratorID, update); err != nil {
+        return fmt.Errorf("failed to update context: %w", err)
+    }
+
+    // Step 2: Update Redis cache with recent state
+    cacheKey := fmt.Sprintf("orchestrator:%s:state", orchestratorID)
+    state := OrchestratorState{
+        LastDecision:    decision,
+        UpdatedAt:       time.Now(),
+        DecisionCount:   s.incrementDecisionCount(orchestratorID),
+    }
+
+    if err := s.redisCache.Set(ctx, cacheKey, state, 5*time.Minute); err != nil {
+        s.logger.Warn("Failed to update cache", map[string]interface{}{
+            "error": err.Error(),
+        })
+    }
+
+    // Step 3: Check if compaction needed
+    if state.DecisionCount >= s.compactionTrigger {
+        go s.triggerCompaction(orchestratorID)
+    }
+
+    return nil
+}
+
+// triggerCompaction runs async compaction using existing strategies
+func (s *OrchestratorContextService) triggerCompaction(orchestratorID string) {
+    ctx := context.Background()
+
+    // Use sliding window for recent decisions, summarize for older
+    strategies := []repository.CompactionStrategy{
+        repository.CompactionToolClear,  // Clear old tool results first
+        repository.CompactionSemantic,   // Deduplicate similar context
+        repository.CompactionSliding,    // Keep recent window
+        repository.CompactionSummarize,  // Summarize oldest content
+    }
+
+    for _, strategy := range strategies {
+        if err := s.semanticMgr.CompactContext(ctx, orchestratorID, strategy); err != nil {
+            s.logger.Error("Compaction failed", map[string]interface{}{
+                "orchestrator_id": orchestratorID,
+                "strategy":        string(strategy),
+                "error":           err.Error(),
+            })
+            break
+        }
+    }
+
+    s.logger.Info("Context compaction completed", map[string]interface{}{
+        "orchestrator_id": orchestratorID,
+        "strategies":      len(strategies),
+    })
+}
+```
+
+### 9.3 Redis State Management for Orchestrators
+
+```go
+// Orchestrator state stored in Redis for fast access
+type OrchestratorState struct {
+    // Active agents and their current tasks
+    ActiveAgents map[string]*AgentStatus `json:"active_agents"`
+
+    // Recent decisions for pattern recognition
+    RecentDecisions []AssignmentDecision `json:"recent_decisions"`
+
+    // Task queue snapshot
+    PendingTasks    []string `json:"pending_tasks"`
+
+    // Performance metrics
+    LastDecision    *AssignmentDecision `json:"last_decision"`
+    DecisionCount   int                 `json:"decision_count"`
+    AvgDecisionTime float64             `json:"avg_decision_time_ms"`
+    UpdatedAt       time.Time           `json:"updated_at"`
+}
+
+// AgentStatus tracks agent state in Redis
+type AgentStatus struct {
+    AgentID      string    `json:"agent_id"`
+    Status       string    `json:"status"` // idle, busy, offline
+    CurrentTask  string    `json:"current_task,omitempty"`
+    Capabilities []string  `json:"capabilities"`
+    LastSeen     time.Time `json:"last_seen"`
+    SuccessRate  float64   `json:"success_rate"`
+}
+```
+
+### 9.4 Performance Optimization Techniques
+
+#### Technique 1: Hierarchical Memory (Existing Packages)
+```
+Active Context (4K tokens) → Redis Cache (20K) → PostgreSQL (unlimited)
+- Hot data in active context for immediate decisions
+- Warm data in Redis for quick retrieval
+- Cold data in PostgreSQL with semantic search
+```
+
+#### Technique 2: Event-Driven Updates (Redis Streams)
+```go
+// Use existing Redis Streams for async state updates
+func (s *OrchestratorContextService) ProcessAgentEvents(ctx context.Context) {
+    // Subscribe to agent events stream
+    stream := s.redisStreams.Subscribe("agent_events")
+
+    for msg := range stream {
+        // Update only affected state, not entire context
+        switch msg.Type {
+        case "agent_online":
+            s.updateAgentStatus(msg.AgentID, "idle")
+        case "task_completed":
+            s.updateTaskStatus(msg.TaskID, "completed")
+            s.freeAgent(msg.AgentID)
+        }
+    }
+}
+```
+
+#### Technique 3: Semantic Caching (Existing Embedding Cache)
+```go
+// Use existing embedding cache for similar decisions
+func (s *OrchestratorContextService) GetCachedDecision(
+    ctx context.Context,
+    task *Task,
+) (*AssignmentDecision, bool) {
+    // Generate embedding for task
+    embedding, _, err := s.embeddingClient.EmbedContent(
+        ctx,
+        task.Description,
+        "",  // Use default model
+        "orchestrator",
+    )
+    if err != nil {
+        return nil, false
+    }
+
+    // Search for similar past decisions
+    similar, err := s.embeddingCache.SearchSimilar(
+        ctx,
+        embedding,
+        0.95,  // High similarity threshold
+    )
+
+    if len(similar) > 0 {
+        // Reuse decision pattern for similar task
+        return similar[0].Decision, true
+    }
+
+    return nil, false
+}
+```
+
+### 9.5 Token Budget Management
+
+```go
+// Token allocation strategy for orchestrators
+const (
+    // Total budget: 4000-50000 tokens depending on model
+    TokenBudgetSmall  = 4000   // Haiku models
+    TokenBudgetMedium = 20000  // Sonnet models
+    TokenBudgetLarge  = 50000  // Opus models (if available)
+)
+
+// Dynamic token allocation based on task complexity
+func (s *OrchestratorContextService) AllocateTokenBudget(task *Task) TokenAllocation {
+    complexity := s.assessComplexity(task)
+
+    return TokenAllocation{
+        SystemPrompt:    500,   // Fixed orchestrator instructions
+        TaskContext:     1000,  // Current task details
+        AgentStates:     500,   // Active agent summaries
+        RecentDecisions: 500,   // Last 5-10 decisions
+        RelevantHistory: 1500,  // Semantically similar past cases
+        Total:           4000,  // Fits in smallest context
+    }
+}
+```
+
+### 9.6 Key Decisions
+
+**Memory Architecture**: Three-tier hierarchy
+- Active context (4-50K tokens) for current decisions
+- Redis cache (warm data) for recent state
+- PostgreSQL (cold storage) with semantic search
+
+**Compaction Strategy**: Multi-strategy approach
+- Tool clear: Remove old execution results
+- Semantic dedup: Remove duplicate information
+- Sliding window: Keep recent N items
+- Summarization: LLM-compress old context
+
+**State Management**: Event-driven + caching
+- Redis for real-time state updates
+- Event streams for async processing
+- Semantic cache for similar decisions
+
+**Performance Targets**:
+- Decision latency: < 500ms p95
+- Context retrieval: < 100ms from cache
+- Compaction trigger: Every 100 items
+- Cache TTL: 5 minutes for hot data
+
+### 9.7 Implementation Checklist
+
+- [ ] Configure SemanticContextManager for orchestrators
+- [ ] Set up Redis state caching layer
+- [ ] Implement hierarchical memory retrieval
+- [ ] Add event-driven state updates
+- [ ] Configure auto-compaction triggers
+- [ ] Set up semantic decision caching
+- [ ] Add token budget monitoring
+- [ ] Create performance benchmarks
+
+---
+
+## Phase 10: Cost Management & Optimization
+
+**Duration**: Week 13
+**Priority**: 🟠 HIGH
+**Dependencies**: Phase 9 complete
+
+### 10.1 Per-Tenant Cost Tracking
 
 ```go
 // pkg/services/cost_tracking_service.go
