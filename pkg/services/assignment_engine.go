@@ -62,6 +62,30 @@ func NewAssignmentEngine(ruleEngine rules.Engine, agentService AgentService, log
 		metrics: metrics,
 	})
 
+	// Register new orchestration strategies (Phase 1.2)
+	e.RegisterStrategy("affinity", NewAffinityStrategy(agentService, logger))
+	e.RegisterStrategy("hierarchical_cascade", NewHierarchicalCascadeStrategy(logger, metrics))
+	e.RegisterStrategy("priority_queue", NewPriorityQueueStrategy(agentService, logger, metrics))
+	e.RegisterStrategy("collaborative_team", NewCollaborativeTeamStrategy(logger, metrics))
+	e.RegisterStrategy("predictive", NewPredictiveLoadStrategy(agentService, logger, metrics))
+
+	logger.Info("Assignment engine initialized with 10 strategies", map[string]interface{}{
+		"legacy_strategies": []string{
+			"round_robin",
+			"least_loaded",
+			"capability_match",
+			"performance_based",
+			"cost_optimized",
+		},
+		"orchestration_strategies": []string{
+			"affinity",
+			"hierarchical_cascade",
+			"priority_queue",
+			"collaborative_team",
+			"predictive",
+		},
+	})
+
 	return e
 }
 
@@ -1130,4 +1154,504 @@ func contains(slice []string, item string) bool {
 		}
 	}
 	return false
+}
+
+// ==================== NEW STRATEGIES FOR MULTI-AGENT ORCHESTRATION (Phase 1.2) ====================
+
+// AffinityStrategy maintains context by keeping related tasks with same agent/team
+type AffinityStrategy struct {
+	sessionAffinity map[string]string // session -> preferred agent
+	taskAffinity    map[string]string // task type -> specialist agent
+	mu              sync.RWMutex
+	agentService    AgentService
+	logger          observability.Logger
+}
+
+func NewAffinityStrategy(agentService AgentService, logger observability.Logger) *AffinityStrategy {
+	return &AffinityStrategy{
+		sessionAffinity: make(map[string]string),
+		taskAffinity:    make(map[string]string),
+		agentService:    agentService,
+		logger:          logger,
+	}
+}
+
+func (s *AffinityStrategy) Assign(ctx context.Context, task *models.Task, agents []*models.Agent) (*models.Agent, error) {
+	if len(agents) == 0 {
+		return nil, ErrNoEligibleAgents
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	// Extract session from task parameters
+	var sessionID string
+	if task.Parameters != nil {
+		if sid, ok := task.Parameters["session_id"].(string); ok {
+			sessionID = sid
+		}
+	}
+
+	// Check session affinity first (highest priority)
+	if sessionID != "" {
+		if agentID, exists := s.sessionAffinity[sessionID]; exists {
+			for _, agent := range agents {
+				if agent.ID == agentID && agent.Status == string(models.AgentStatusActive) {
+					s.logger.Debug("Using session affinity", map[string]interface{}{
+						"session_id": sessionID,
+						"agent_id":   agentID,
+						"task_id":    task.ID,
+					})
+					return agent, nil
+				}
+			}
+		}
+	}
+
+	// Check task type affinity (secondary priority)
+	if specialist, exists := s.taskAffinity[task.Type]; exists {
+		for _, agent := range agents {
+			if agent.ID == specialist && agent.Status == string(models.AgentStatusActive) {
+				// Update session affinity for future tasks
+				if sessionID != "" {
+					s.mu.RUnlock()
+					s.mu.Lock()
+					s.sessionAffinity[sessionID] = agent.ID
+					s.mu.Unlock()
+					s.mu.RLock()
+				}
+				return agent, nil
+			}
+		}
+	}
+
+	// Fallback to capability match
+	capStrategy := &CapabilityMatchStrategy{logger: s.logger}
+	selected, err := capStrategy.Assign(ctx, task, agents)
+	if err == nil && selected != nil {
+		// Establish affinity for future tasks
+		if sessionID != "" {
+			s.mu.RUnlock()
+			s.mu.Lock()
+			s.sessionAffinity[sessionID] = selected.ID
+			s.mu.Unlock()
+			s.mu.RLock()
+		}
+		s.mu.RUnlock()
+		s.mu.Lock()
+		s.taskAffinity[task.Type] = selected.ID
+		s.mu.Unlock()
+		s.mu.RLock()
+	}
+
+	return selected, err
+}
+
+func (s *AffinityStrategy) GetName() string {
+	return "affinity"
+}
+
+// HierarchicalCascadeStrategy routes through domain coordinators before individual agents
+type HierarchicalCascadeStrategy struct {
+	domainMap map[string]string // task type -> domain
+	logger    observability.Logger
+	metrics   observability.MetricsClient
+}
+
+func NewHierarchicalCascadeStrategy(logger observability.Logger, metrics observability.MetricsClient) *HierarchicalCascadeStrategy {
+	return &HierarchicalCascadeStrategy{
+		domainMap: map[string]string{
+			"lint":     "code",
+			"format":   "code",
+			"refactor": "code",
+			"test":     "testing",
+			"unittest": "testing",
+			"e2e":      "testing",
+			"deploy":   "deployment",
+			"release":  "deployment",
+			"scan":     "security",
+			"audit":    "security",
+			"document": "documentation",
+			"monitor":  "monitoring",
+			"alert":    "monitoring",
+			"build":    "build",
+			"compile":  "build",
+		},
+		logger:  logger,
+		metrics: metrics,
+	}
+}
+
+func (s *HierarchicalCascadeStrategy) Assign(ctx context.Context, task *models.Task, agents []*models.Agent) (*models.Agent, error) {
+	if len(agents) == 0 {
+		return nil, ErrNoEligibleAgents
+	}
+
+	// Determine domain from task type
+	domain := s.categorizeToDomain(task)
+
+	// Filter agents by domain
+	domainAgents := s.filterByDomain(agents, domain)
+
+	if len(domainAgents) == 0 {
+		s.logger.Warn("No agents found for domain, using all agents", map[string]interface{}{
+			"task_type": task.Type,
+			"domain":    domain,
+		})
+		domainAgents = agents
+	}
+
+	// Use capability matching within domain
+	capStrategy := &CapabilityMatchStrategy{logger: s.logger, metrics: s.metrics}
+	selected, err := capStrategy.Assign(ctx, task, domainAgents)
+
+	if err == nil && selected != nil {
+		s.metrics.RecordGauge("assignment.hierarchical_cascade", 1.0, map[string]string{
+			"domain":    domain,
+			"task_type": task.Type,
+		})
+	}
+
+	return selected, err
+}
+
+func (s *HierarchicalCascadeStrategy) categorizeToDomain(task *models.Task) string {
+	if domain, exists := s.domainMap[task.Type]; exists {
+		return domain
+	}
+	return "general"
+}
+
+func (s *HierarchicalCascadeStrategy) filterByDomain(agents []*models.Agent, domain string) []*models.Agent {
+	filtered := make([]*models.Agent, 0)
+	for _, agent := range agents {
+		// Check if agent has domain in metadata
+		if agent.Metadata != nil {
+			if agentDomain, ok := agent.Metadata["domain"].(string); ok && agentDomain == domain {
+				filtered = append(filtered, agent)
+				continue
+			}
+		}
+		// Also check if domain is in Type field (e.g., "code_reviewer", "deployment_agent")
+		if agent.Type != "" {
+			// Map agent types to domains
+			var agentDomain string
+			switch {
+			case contains([]string{"code_reviewer", "refactoring"}, agent.Type):
+				agentDomain = "code"
+			case contains([]string{"test_writer", "qa_specialist"}, agent.Type):
+				agentDomain = "testing"
+			case contains([]string{"deployment_agent", "release_manager"}, agent.Type):
+				agentDomain = "deployment"
+			case contains([]string{"security_scanner", "vulnerability_checker"}, agent.Type):
+				agentDomain = "security"
+			case contains([]string{"documentation_writer"}, agent.Type):
+				agentDomain = "docs"
+			default:
+				agentDomain = "general"
+			}
+			if agentDomain == domain {
+				filtered = append(filtered, agent)
+			}
+		}
+	}
+	return filtered
+}
+
+func (s *HierarchicalCascadeStrategy) GetName() string {
+	return "hierarchical_cascade"
+}
+
+// PriorityQueueStrategy handles tasks based on priority and SLA
+type PriorityQueueStrategy struct {
+	agentService AgentService
+	logger       observability.Logger
+	metrics      observability.MetricsClient
+}
+
+func NewPriorityQueueStrategy(agentService AgentService, logger observability.Logger, metrics observability.MetricsClient) *PriorityQueueStrategy {
+	return &PriorityQueueStrategy{
+		agentService: agentService,
+		logger:       logger,
+		metrics:      metrics,
+	}
+}
+
+func (s *PriorityQueueStrategy) Assign(ctx context.Context, task *models.Task, agents []*models.Agent) (*models.Agent, error) {
+	if len(agents) == 0 {
+		return nil, ErrNoEligibleAgents
+	}
+
+	// Critical tasks get dedicated agents with lowest workload
+	if task.Priority == models.TaskPriorityCritical {
+		return s.assignDedicatedAgent(ctx, task, agents)
+	}
+
+	// High priority gets first available capable agent with low workload
+	if task.Priority == models.TaskPriorityHigh {
+		for _, agent := range agents {
+			workload, err := s.agentService.GetAgentWorkload(ctx, agent.ID)
+			if err == nil && workload.LoadScore < 0.5 { // Less than 50% loaded
+				s.logger.Info("High priority task assigned to low-load agent", map[string]interface{}{
+					"task_id":    task.ID,
+					"agent_id":   agent.ID,
+					"load_score": workload.LoadScore,
+				})
+				return agent, nil
+			}
+		}
+	}
+
+	// Normal/Low priority uses least loaded strategy
+	leastLoaded := &LeastLoadedStrategy{
+		agentService: s.agentService,
+		logger:       s.logger,
+		metrics:      s.metrics,
+	}
+	return leastLoaded.Assign(ctx, task, agents)
+}
+
+func (s *PriorityQueueStrategy) assignDedicatedAgent(ctx context.Context, task *models.Task, agents []*models.Agent) (*models.Agent, error) {
+	// Find agent with absolute lowest load
+	var bestAgent *models.Agent
+	lowestLoad := 1.0
+
+	for _, agent := range agents {
+		workload, err := s.agentService.GetAgentWorkload(ctx, agent.ID)
+		if err != nil {
+			continue
+		}
+
+		if workload.LoadScore < lowestLoad {
+			lowestLoad = workload.LoadScore
+			bestAgent = agent
+		}
+	}
+
+	if bestAgent != nil {
+		s.logger.Info("Critical task assigned to dedicated agent", map[string]interface{}{
+			"task_id":    task.ID,
+			"agent_id":   bestAgent.ID,
+			"load_score": lowestLoad,
+			"priority":   "critical",
+		})
+		return bestAgent, nil
+	}
+
+	return nil, ErrNoEligibleAgents
+}
+
+func (s *PriorityQueueStrategy) GetName() string {
+	return "priority_queue"
+}
+
+// CollaborativeTeamStrategy assigns multiple specialized agents as a coordinated team
+type CollaborativeTeamStrategy struct {
+	teamTemplates map[string][]string // task type -> required agent types
+	logger        observability.Logger
+	metrics       observability.MetricsClient
+}
+
+func NewCollaborativeTeamStrategy(logger observability.Logger, metrics observability.MetricsClient) *CollaborativeTeamStrategy {
+	return &CollaborativeTeamStrategy{
+		teamTemplates: map[string][]string{
+			"full_review": {"linter", "security_scanner", "test_runner", "documentation"},
+			"deployment":  {"builder", "tester", "deployer", "monitor"},
+			"migration":   {"analyzer", "migrator", "tester", "validator"},
+		},
+		logger:  logger,
+		metrics: metrics,
+	}
+}
+
+func (s *CollaborativeTeamStrategy) Assign(ctx context.Context, task *models.Task, agents []*models.Agent) (*models.Agent, error) {
+	// For now, return the primary agent (team lead)
+	// Full team assignment will be implemented in Phase 3
+	template, exists := s.teamTemplates[task.Type]
+	if !exists || len(template) == 0 {
+		// Fall back to capability match for non-team tasks
+		capStrategy := &CapabilityMatchStrategy{logger: s.logger, metrics: s.metrics}
+		return capStrategy.Assign(ctx, task, agents)
+	}
+
+	// Find team lead (first role in template)
+	leadRole := template[0]
+	for _, agent := range agents {
+		if s.hasRole(agent, leadRole) {
+			s.logger.Info("Team lead assigned for collaborative task", map[string]interface{}{
+				"task_id":      task.ID,
+				"agent_id":     agent.ID,
+				"role":         leadRole,
+				"team_size":    len(template),
+				"team_members": template,
+			})
+			return agent, nil
+		}
+	}
+
+	return nil, fmt.Errorf("no suitable team lead found for role: %s", leadRole)
+}
+
+func (s *CollaborativeTeamStrategy) hasRole(agent *models.Agent, role string) bool {
+	// Check agent type
+	if agent.Type == role {
+		return true
+	}
+
+	// Check capabilities
+	for _, cap := range agent.Capabilities {
+		if cap == role {
+			return true
+		}
+	}
+
+	// Check metadata
+	if agent.Metadata != nil {
+		if roles, ok := agent.Metadata["roles"].([]interface{}); ok {
+			for _, r := range roles {
+				if rStr, ok := r.(string); ok && rStr == role {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+func (s *CollaborativeTeamStrategy) GetName() string {
+	return "collaborative_team"
+}
+
+// PredictiveLoadStrategy predicts future load and pre-assigns agents
+type PredictiveLoadStrategy struct {
+	agentService AgentService
+	logger       observability.Logger
+	metrics      observability.MetricsClient
+}
+
+func NewPredictiveLoadStrategy(agentService AgentService, logger observability.Logger, metrics observability.MetricsClient) *PredictiveLoadStrategy {
+	return &PredictiveLoadStrategy{
+		agentService: agentService,
+		logger:       logger,
+		metrics:      metrics,
+	}
+}
+
+func (s *PredictiveLoadStrategy) Assign(ctx context.Context, task *models.Task, agents []*models.Agent) (*models.Agent, error) {
+	if len(agents) == 0 {
+		return nil, ErrNoEligibleAgents
+	}
+
+	// Predict task duration based on type
+	estimatedDuration := s.estimateDuration(task)
+
+	// Calculate future load for each agent
+	type agentFutureLoad struct {
+		agent       *models.Agent
+		currentLoad float64
+		futureLoad  float64
+	}
+
+	agentLoads := make([]agentFutureLoad, 0, len(agents))
+
+	for _, agent := range agents {
+		workload, err := s.agentService.GetAgentWorkload(ctx, agent.ID)
+		if err != nil {
+			continue
+		}
+
+		currentLoad := workload.LoadScore
+		// Simple prediction: current load + estimated impact of this task
+		taskImpact := s.estimateTaskImpact(task, estimatedDuration)
+		futureLoad := currentLoad + taskImpact
+
+		agentLoads = append(agentLoads, agentFutureLoad{
+			agent:       agent,
+			currentLoad: currentLoad,
+			futureLoad:  futureLoad,
+		})
+	}
+
+	if len(agentLoads) == 0 {
+		return nil, ErrNoEligibleAgents
+	}
+
+	// Sort by future load (ascending)
+	sort.Slice(agentLoads, func(i, j int) bool {
+		return agentLoads[i].futureLoad < agentLoads[j].futureLoad
+	})
+
+	selected := agentLoads[0]
+
+	s.logger.Info("Predictive load assignment", map[string]interface{}{
+		"task_id":            task.ID,
+		"agent_id":           selected.agent.ID,
+		"current_load":       selected.currentLoad,
+		"predicted_load":     selected.futureLoad,
+		"estimated_duration": estimatedDuration,
+	})
+
+	s.metrics.RecordGauge("assignment.predicted_load", selected.futureLoad, map[string]string{
+		"agent_id":  selected.agent.ID,
+		"task_type": task.Type,
+	})
+
+	return selected.agent, nil
+}
+
+func (s *PredictiveLoadStrategy) estimateDuration(task *models.Task) time.Duration {
+	// Check task parameters for explicit duration
+	if task.Parameters != nil {
+		if duration, ok := task.Parameters["estimated_duration"].(float64); ok {
+			return time.Duration(duration) * time.Second
+		}
+	}
+
+	// Default estimates by task type
+	durationMap := map[string]time.Duration{
+		"test":     5 * time.Minute,
+		"build":    10 * time.Minute,
+		"deploy":   15 * time.Minute,
+		"scan":     3 * time.Minute,
+		"lint":     1 * time.Minute,
+		"format":   30 * time.Second,
+		"document": 5 * time.Minute,
+	}
+
+	if duration, exists := durationMap[task.Type]; exists {
+		return duration
+	}
+
+	return 5 * time.Minute // Default 5 minutes
+}
+
+func (s *PredictiveLoadStrategy) estimateTaskImpact(task *models.Task, duration time.Duration) float64 {
+	// Calculate relative impact (0.0 to 1.0)
+	// Longer tasks have more impact, priority affects impact
+	baseImpact := float64(duration) / float64(30*time.Minute) // Normalize to 30-minute baseline
+
+	// Priority multiplier
+	priorityMultiplier := 1.0
+	switch task.Priority {
+	case models.TaskPriorityCritical:
+		priorityMultiplier = 1.5
+	case models.TaskPriorityHigh:
+		priorityMultiplier = 1.2
+	case models.TaskPriorityLow:
+		priorityMultiplier = 0.8
+	}
+
+	impact := baseImpact * priorityMultiplier
+
+	// Cap at 1.0
+	if impact > 1.0 {
+		impact = 1.0
+	}
+
+	return impact
+}
+
+func (s *PredictiveLoadStrategy) GetName() string {
+	return "predictive"
 }

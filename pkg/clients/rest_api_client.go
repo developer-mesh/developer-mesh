@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
@@ -42,6 +44,19 @@ type RESTAPIClient interface {
 	// GenerateEmbedding generates an embedding for the provided text
 	GenerateEmbedding(ctx context.Context, tenantID, agentID, text, model, taskType string) (*models.EmbeddingResponse, error)
 
+	// Task Management (Phase 1.4 - Option B)
+	CreateTask(ctx context.Context, tenantID string, task *models.Task) error
+	ListTasks(ctx context.Context, tenantID string, filters TaskFilters) ([]*models.Task, error)
+	GetTask(ctx context.Context, tenantID string, taskID uuid.UUID) (*models.Task, error)
+	UpdateTask(ctx context.Context, tenantID string, task *models.Task) error
+	AssignTask(ctx context.Context, tenantID string, taskID uuid.UUID, agentID string) error
+	AutoAssignTask(ctx context.Context, tenantID string, taskID uuid.UUID) (*models.Task, error)
+	CompleteTask(ctx context.Context, tenantID string, taskID uuid.UUID, result interface{}) error
+	FailTask(ctx context.Context, tenantID string, taskID uuid.UUID, errorMsg string) error
+	GetSubtasks(ctx context.Context, tenantID string, parentTaskID uuid.UUID) ([]*models.Task, error)
+	CreateBatch(ctx context.Context, tenantID string, tasks []*models.Task) error
+	GetBatch(ctx context.Context, tenantID string, taskIDs []uuid.UUID) ([]*models.Task, error)
+
 	// HealthCheck verifies the REST API is reachable and responding
 	HealthCheck(ctx context.Context) error
 
@@ -50,6 +65,17 @@ type RESTAPIClient interface {
 
 	// Close gracefully shuts down the client
 	Close() error
+}
+
+// TaskFilters holds optional filters for listing tasks
+type TaskFilters struct {
+	Status     *models.TaskStatus   `json:"status,omitempty"`
+	Priority   *models.TaskPriority `json:"priority,omitempty"`
+	Type       string               `json:"type,omitempty"`
+	AssignedTo *string              `json:"assigned_to,omitempty"`
+	CreatedBy  string               `json:"created_by,omitempty"`
+	Limit      int                  `json:"limit,omitempty"`
+	Offset     int                  `json:"offset,omitempty"`
 }
 
 // restAPIClient implements the RESTAPIClient interface
@@ -544,6 +570,493 @@ func (c *restAPIClient) GenerateEmbedding(ctx context.Context, tenantID, agentID
 	})
 
 	return &result, nil
+}
+
+// Task Management Methods (Phase 1.4 - Option B)
+
+// CreateTask creates a new task
+func (c *restAPIClient) CreateTask(ctx context.Context, tenantID string, task *models.Task) error {
+	url := fmt.Sprintf("%s/api/v1/tasks", c.baseURL)
+
+	body, err := json.Marshal(task)
+	if err != nil {
+		return fmt.Errorf("failed to marshal task: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	c.setHeaders(req, tenantID)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.doRequest(req)
+	if err != nil {
+		return fmt.Errorf("failed to create task: %w", err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			c.logger.Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
+
+	// Parse response to update task with server-generated fields
+	if err := json.NewDecoder(resp.Body).Decode(task); err != nil {
+		return fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	c.logger.Info("Created task via REST API", map[string]interface{}{
+		"tenant_id": tenantID,
+		"task_id":   task.ID.String(),
+		"task_type": task.Type,
+	})
+
+	return nil
+}
+
+// ListTasks retrieves tasks with optional filters
+func (c *restAPIClient) ListTasks(ctx context.Context, tenantID string, filters TaskFilters) ([]*models.Task, error) {
+	url := fmt.Sprintf("%s/api/v1/tasks", c.baseURL)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Add query parameters from filters
+	q := req.URL.Query()
+	if filters.Status != nil {
+		q.Add("status", string(*filters.Status))
+	}
+	if filters.Priority != nil {
+		q.Add("priority", string(*filters.Priority))
+	}
+	if filters.Type != "" {
+		q.Add("type", filters.Type)
+	}
+	if filters.AssignedTo != nil {
+		q.Add("assigned_to", *filters.AssignedTo)
+	}
+	if filters.CreatedBy != "" {
+		q.Add("created_by", filters.CreatedBy)
+	}
+	if filters.Limit > 0 {
+		q.Add("limit", fmt.Sprintf("%d", filters.Limit))
+	}
+	if filters.Offset > 0 {
+		q.Add("offset", fmt.Sprintf("%d", filters.Offset))
+	}
+	req.URL.RawQuery = q.Encode()
+
+	c.setHeaders(req, tenantID)
+
+	resp, err := c.doRequest(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list tasks: %w", err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			c.logger.Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
+
+	var response struct {
+		Tasks []*models.Task `json:"tasks"`
+		Total int            `json:"total"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	c.logger.Debug("Listed tasks via REST API", map[string]interface{}{
+		"tenant_id":  tenantID,
+		"task_count": len(response.Tasks),
+		"total":      response.Total,
+	})
+
+	return response.Tasks, nil
+}
+
+// GetTask retrieves a specific task
+func (c *restAPIClient) GetTask(ctx context.Context, tenantID string, taskID uuid.UUID) (*models.Task, error) {
+	url := fmt.Sprintf("%s/api/v1/tasks/%s", c.baseURL, taskID.String())
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	c.setHeaders(req, tenantID)
+
+	resp, err := c.doRequest(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get task: %w", err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			c.logger.Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
+
+	var task models.Task
+	if err := json.NewDecoder(resp.Body).Decode(&task); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	c.logger.Debug("Retrieved task via REST API", map[string]interface{}{
+		"tenant_id": tenantID,
+		"task_id":   taskID.String(),
+	})
+
+	return &task, nil
+}
+
+// UpdateTask updates an existing task
+func (c *restAPIClient) UpdateTask(ctx context.Context, tenantID string, task *models.Task) error {
+	url := fmt.Sprintf("%s/api/v1/tasks/%s", c.baseURL, task.ID.String())
+
+	body, err := json.Marshal(task)
+	if err != nil {
+		return fmt.Errorf("failed to marshal task: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "PUT", url, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	c.setHeaders(req, tenantID)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.doRequest(req)
+	if err != nil {
+		return fmt.Errorf("failed to update task: %w", err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			c.logger.Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
+
+	// Update task with server response
+	if err := json.NewDecoder(resp.Body).Decode(task); err != nil {
+		return fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	c.logger.Info("Updated task via REST API", map[string]interface{}{
+		"tenant_id": tenantID,
+		"task_id":   task.ID.String(),
+	})
+
+	return nil
+}
+
+// AssignTask assigns a task to a specific agent
+func (c *restAPIClient) AssignTask(ctx context.Context, tenantID string, taskID uuid.UUID, agentID string) error {
+	url := fmt.Sprintf("%s/api/v1/tasks/%s/assign", c.baseURL, taskID.String())
+
+	body, err := json.Marshal(map[string]string{
+		"agent_id": agentID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	c.setHeaders(req, tenantID)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.doRequest(req)
+	if err != nil {
+		return fmt.Errorf("failed to assign task: %w", err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			c.logger.Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
+
+	c.logger.Info("Assigned task via REST API", map[string]interface{}{
+		"tenant_id": tenantID,
+		"task_id":   taskID.String(),
+		"agent_id":  agentID,
+	})
+
+	return nil
+}
+
+// AutoAssignTask uses the assignment engine to find the best agent
+func (c *restAPIClient) AutoAssignTask(ctx context.Context, tenantID string, taskID uuid.UUID) (*models.Task, error) {
+	url := fmt.Sprintf("%s/api/v1/tasks/%s/auto-assign", c.baseURL, taskID.String())
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	c.setHeaders(req, tenantID)
+
+	resp, err := c.doRequest(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to auto-assign task: %w", err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			c.logger.Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
+
+	var task models.Task
+	if err := json.NewDecoder(resp.Body).Decode(&task); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	c.logger.Info("Auto-assigned task via REST API", map[string]interface{}{
+		"tenant_id":   tenantID,
+		"task_id":     taskID.String(),
+		"assigned_to": task.AssignedTo,
+	})
+
+	return &task, nil
+}
+
+// CompleteTask marks a task as completed with result
+func (c *restAPIClient) CompleteTask(ctx context.Context, tenantID string, taskID uuid.UUID, result interface{}) error {
+	url := fmt.Sprintf("%s/api/v1/tasks/%s/complete", c.baseURL, taskID.String())
+
+	body, err := json.Marshal(map[string]interface{}{
+		"result": result,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	c.setHeaders(req, tenantID)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.doRequest(req)
+	if err != nil {
+		return fmt.Errorf("failed to complete task: %w", err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			c.logger.Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
+
+	c.logger.Info("Completed task via REST API", map[string]interface{}{
+		"tenant_id": tenantID,
+		"task_id":   taskID.String(),
+	})
+
+	return nil
+}
+
+// FailTask marks a task as failed with error message
+func (c *restAPIClient) FailTask(ctx context.Context, tenantID string, taskID uuid.UUID, errorMsg string) error {
+	url := fmt.Sprintf("%s/api/v1/tasks/%s/fail", c.baseURL, taskID.String())
+
+	body, err := json.Marshal(map[string]string{
+		"error": errorMsg,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	c.setHeaders(req, tenantID)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.doRequest(req)
+	if err != nil {
+		return fmt.Errorf("failed to fail task: %w", err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			c.logger.Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
+
+	c.logger.Info("Marked task as failed via REST API", map[string]interface{}{
+		"tenant_id": tenantID,
+		"task_id":   taskID.String(),
+	})
+
+	return nil
+}
+
+// GetSubtasks retrieves all subtasks of a parent task
+func (c *restAPIClient) GetSubtasks(ctx context.Context, tenantID string, parentTaskID uuid.UUID) ([]*models.Task, error) {
+	url := fmt.Sprintf("%s/api/v1/tasks/%s/subtasks", c.baseURL, parentTaskID.String())
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	c.setHeaders(req, tenantID)
+
+	resp, err := c.doRequest(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get subtasks: %w", err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			c.logger.Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
+
+	var response struct {
+		Subtasks []*models.Task `json:"subtasks"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	c.logger.Debug("Retrieved subtasks via REST API", map[string]interface{}{
+		"tenant_id":      tenantID,
+		"parent_task_id": parentTaskID.String(),
+		"subtasks_count": len(response.Subtasks),
+	})
+
+	return response.Subtasks, nil
+}
+
+// CreateBatch creates multiple tasks in a single request
+func (c *restAPIClient) CreateBatch(ctx context.Context, tenantID string, tasks []*models.Task) error {
+	url := fmt.Sprintf("%s/api/v1/tasks/batch", c.baseURL)
+
+	body, err := json.Marshal(map[string]interface{}{
+		"tasks": tasks,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to marshal tasks: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	c.setHeaders(req, tenantID)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.doRequest(req)
+	if err != nil {
+		return fmt.Errorf("failed to create batch: %w", err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			c.logger.Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
+
+	var response struct {
+		Tasks []*models.Task `json:"tasks"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	// Update tasks with server-generated IDs
+	for i, task := range response.Tasks {
+		if i < len(tasks) {
+			tasks[i].ID = task.ID
+			tasks[i].CreatedAt = task.CreatedAt
+			tasks[i].UpdatedAt = task.UpdatedAt
+		}
+	}
+
+	c.logger.Info("Created batch of tasks via REST API", map[string]interface{}{
+		"tenant_id":  tenantID,
+		"task_count": len(tasks),
+	})
+
+	return nil
+}
+
+// GetBatch retrieves multiple tasks by their IDs
+func (c *restAPIClient) GetBatch(ctx context.Context, tenantID string, taskIDs []uuid.UUID) ([]*models.Task, error) {
+	url := fmt.Sprintf("%s/api/v1/tasks/batch/get", c.baseURL)
+
+	// Convert UUIDs to strings for JSON
+	ids := make([]string, len(taskIDs))
+	for i, id := range taskIDs {
+		ids[i] = id.String()
+	}
+
+	body, err := json.Marshal(map[string]interface{}{
+		"task_ids": ids,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal task IDs: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	c.setHeaders(req, tenantID)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.doRequest(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get batch: %w", err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			c.logger.Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
+
+	var response struct {
+		Tasks []*models.Task `json:"tasks"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	c.logger.Debug("Retrieved batch of tasks via REST API", map[string]interface{}{
+		"tenant_id": tenantID,
+		"requested": len(taskIDs),
+		"retrieved": len(response.Tasks),
+	})
+
+	return response.Tasks, nil
 }
 
 // getKeys returns the keys from a map for logging purposes

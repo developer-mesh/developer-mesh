@@ -23,6 +23,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tools/builtin"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tracing"
 	edgeUpdater "github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/updater"
+	"github.com/developer-mesh/developer-mesh/pkg/clients"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/updater"
 	"github.com/gin-gonic/gin"
@@ -212,6 +213,26 @@ func main() {
 	}
 	authenticator := auth.NewEdgeAuthenticator(restAPIURL, cfg.Core.EdgeMCPID)
 
+	// Initialize REST API client for task management (Phase 1.4 - Option B)
+	var restAPIClient clients.RESTAPIClient
+	if restAPIURL != "" {
+		restAPIClient = clients.NewRESTAPIClient(clients.RESTClientConfig{
+			BaseURL:             restAPIURL,
+			APIKey:              cfg.Core.APIKey,
+			Timeout:             30 * time.Second,
+			MaxIdleConns:        100,
+			MaxConnsPerHost:     10,
+			CacheTTL:            30 * time.Second,
+			Logger:              logger,
+			MetricsClient:       nil, // Metrics client is optional
+			HealthCheckInterval: 60 * time.Second,
+			HealthCheckTimeout:  10 * time.Second,
+		})
+		logger.Info("Initialized REST API client for task management", map[string]interface{}{
+			"url": restAPIURL,
+		})
+	}
+
 	// Initialize Prometheus metrics
 	metricsCollector := metrics.New()
 	logger.Info("Initialized Prometheus metrics", nil)
@@ -257,10 +278,20 @@ func main() {
 		contextProvider = builtin.NewContextProvider()
 	}
 
+	// Task provider with optional REST API client (Phase 1.4 - Option B)
+	var taskProvider interface{ GetDefinitions() []tools.ToolDefinition }
+	if restAPIClient != nil {
+		// Use default tenant ID for now - in production, this would be extracted from auth context
+		defaultTenantID := "00000000-0000-0000-0000-000000000001"
+		taskProvider = builtin.NewTaskProviderWithClient(restAPIClient, defaultTenantID)
+	} else {
+		taskProvider = builtin.NewTaskProvider()
+	}
+
 	builtinProviders := []interface{ GetDefinitions() []tools.ToolDefinition }{
 		builtin.NewAgentProvider(),
 		builtin.NewWorkflowProvider(),
-		builtin.NewTaskProvider(),
+		taskProvider,                  // Task provider with optional REST API client
 		contextProvider,               // Context provider with optional Core Platform delegation
 		builtin.NewTemplateProvider(), // Workflow templates for common patterns
 	}

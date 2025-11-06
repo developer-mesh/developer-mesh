@@ -21,9 +21,11 @@ import (
 	pkgcore "github.com/developer-mesh/developer-mesh/pkg/core"
 	"github.com/developer-mesh/developer-mesh/pkg/queue"
 	pkgrepository "github.com/developer-mesh/developer-mesh/pkg/repository"
+	"github.com/developer-mesh/developer-mesh/pkg/repository/agent"
 	"github.com/developer-mesh/developer-mesh/pkg/repository/credential"
 	"github.com/developer-mesh/developer-mesh/pkg/repository/embedding_usage"
 	"github.com/developer-mesh/developer-mesh/pkg/repository/model_catalog"
+	"github.com/developer-mesh/developer-mesh/pkg/repository/postgres"
 	"github.com/developer-mesh/developer-mesh/pkg/repository/tenant_models"
 	pkgservices "github.com/developer-mesh/developer-mesh/pkg/services"
 	"github.com/developer-mesh/developer-mesh/pkg/webhook"
@@ -68,6 +70,14 @@ func lastN(s string, n int) string {
 // Global shutdown hooks
 var shutdownHooks []func()
 
+// OrchestrationServices holds all orchestration-related services
+type OrchestrationServices struct {
+	TaskService      pkgservices.TaskService
+	AssignmentEngine *pkgservices.AssignmentEngine
+	WorkflowService  pkgservices.WorkflowService
+	AgentService     pkgservices.AgentService
+}
+
 // Server represents the API server
 type Server struct {
 	router         *gin.Engine
@@ -82,7 +92,8 @@ type Server struct {
 	healthChecker  *HealthChecker
 	cache          cache.Cache
 	webhookRepo    pkgrepository.WebhookConfigRepository
-	queueClient    *queue.Client // Queue client for event publishing (will be initialized in Initialize)
+	queueClient    *queue.Client          // Queue client for event publishing (will be initialized in Initialize)
+	orchestration  *OrchestrationServices // Orchestration services for task/agent/workflow management
 }
 
 // NewServer creates a new API server
@@ -308,12 +319,127 @@ func (s *Server) Initialize(ctx context.Context) error {
 		return fmt.Errorf("engine is nil, cannot initialize context manager")
 	}
 
+	// Initialize orchestration services (Phase 1.1)
+	if err := s.setupOrchestration(ctx); err != nil {
+		s.logger.Error("Failed to setup orchestration services", map[string]interface{}{
+			"error": err.Error(),
+		})
+		return fmt.Errorf("failed to setup orchestration: %w", err)
+	}
+
 	// Initialize routes
 	s.setupRoutes(ctx)
 
 	// Mark server as ready
 	s.healthChecker.SetReady(true)
 	s.logger.Info("Server initialization complete and ready to serve requests", nil)
+
+	return nil
+}
+
+// setupOrchestration initializes orchestration services for multi-agent coordination (Phase 1.1)
+func (s *Server) setupOrchestration(ctx context.Context) error {
+	s.logger.Info("Initializing orchestration services", map[string]interface{}{
+		"phase": "1.1",
+		"components": []string{
+			"task_repository",
+			"agent_repository",
+			"workflow_repository",
+			"task_service",
+			"assignment_engine",
+			"workflow_service",
+		},
+	})
+
+	// Initialize repositories using existing PostgreSQL implementations
+	// TaskRepository requires: writeDB, readDB, cache, logger, tracer, metrics
+	taskRepo := postgres.NewTaskRepository(s.db, s.db, s.cache, s.logger, nil, s.metrics)
+
+	// AgentRepository from agent package requires only db
+	agentRepoImpl := agent.NewRepository(s.db)
+
+	// WorkflowRepository requires: writeDB, readDB, cache, logger, tracer, metrics
+	workflowRepo := postgres.NewWorkflowRepository(s.db, s.db, s.cache, s.logger, nil, s.metrics)
+
+	s.logger.Info("Repositories initialized", map[string]interface{}{
+		"repositories": []string{"task", "agent", "workflow"},
+	})
+
+	// Create service config following existing patterns
+	serviceConfig := pkgservices.ServiceConfig{
+		Logger:     s.logger,
+		Metrics:    s.metrics,
+		Tracer:     nil, // TODO: Add tracer when OpenTelemetry is fixed
+		RuleEngine: nil, // TODO: Wire rule engine when needed
+	}
+
+	// Create agent service using the config and repository
+	agentService := pkgservices.NewAgentService(serviceConfig, agentRepoImpl)
+
+	// Initialize assignment engine with existing strategies
+	assignmentEngine := pkgservices.NewAssignmentEngine(
+		nil, // rule engine - will be wired later
+		agentService,
+		s.logger,
+		s.metrics,
+	)
+
+	s.logger.Info("Assignment engine initialized", map[string]interface{}{
+		"strategies": []string{
+			"round_robin",
+			"least_loaded",
+			"capability_match",
+			"performance_based",
+			"cost_optimized",
+		},
+	})
+
+	// Initialize task service with all dependencies
+	taskService := pkgservices.NewTaskService(
+		serviceConfig,
+		taskRepo,
+		agentService,
+		nil, // notification service - can be added later
+	)
+
+	s.logger.Info("Task service initialized", map[string]interface{}{
+		"features": []string{
+			"idempotency",
+			"auto-assignment",
+			"distributed_tasks",
+			"workflow_integration",
+		},
+	})
+
+	// Initialize workflow service with correct signature
+	workflowService := pkgservices.NewWorkflowService(
+		serviceConfig,
+		workflowRepo,
+		taskService,
+		agentService,
+		nil, // notification service - can be added later
+	)
+
+	s.logger.Info("Workflow service initialized", map[string]interface{}{
+		"features": []string{
+			"saga_pattern",
+			"compensation",
+			"task_coordination",
+		},
+	})
+
+	// Store orchestration services for dependency injection
+	s.orchestration = &OrchestrationServices{
+		TaskService:      taskService,
+		AssignmentEngine: assignmentEngine,
+		WorkflowService:  workflowService,
+		AgentService:     agentService,
+	}
+
+	s.logger.Info("Orchestration services initialization complete", map[string]interface{}{
+		"phase":  "1.1",
+		"status": "ready",
+	})
 
 	return nil
 }
@@ -665,6 +791,35 @@ func (s *Server) setupRoutes(ctx context.Context) {
 		"idle_timeout":         "30m",
 		"orchestrator_enabled": true,
 	})
+
+	// Task Management API - Multi-agent orchestration task endpoints (Phase 1.3)
+	if s.orchestration != nil {
+		taskHandler := NewTaskHandler(
+			s.orchestration.TaskService,
+			s.orchestration.AssignmentEngine,
+			s.logger,
+			s.metrics,
+		)
+		taskHandler.RegisterRoutes(v1)
+		s.logger.Info("Task Management API initialized", map[string]interface{}{
+			"phase": "1.3",
+			"endpoints": []string{
+				"POST /tasks - Create task",
+				"GET /tasks - List tasks",
+				"GET /tasks/:id - Get task",
+				"PUT /tasks/:id - Update task",
+				"POST /tasks/:id/assign - Assign to agent",
+				"POST /tasks/:id/auto-assign - Auto-assign",
+				"POST /tasks/:id/complete - Complete task",
+				"POST /tasks/:id/fail - Fail task",
+				"GET /tasks/:id/subtasks - Get subtasks",
+				"POST /tasks/batch - Batch create",
+				"POST /tasks/batch/get - Batch get",
+			},
+		})
+	} else {
+		s.logger.Warn("Orchestration services not initialized, skipping Task Management API", nil)
+	}
 
 	// Credential Management API - Encrypted credential storage (using credentialRepo created earlier)
 	credentialService := pkgservices.NewCredentialService(
