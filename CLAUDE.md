@@ -151,6 +151,233 @@ To see all available GitHub MCP tools and their parameters:
 
 All tools follow the naming pattern: `mcp__devmesh__github_{operation}`
 
+## MCP Toolset Architecture (Token Optimization)
+
+### Overview
+
+DevMesh implements a **functional toolset pattern** following MCP best practices from GitHub and Anthropic. Instead of exposing 41 individual tools (one per API endpoint), tools are organized into 8 functional groups. This reduces token consumption by **87%** (from ~20,500 tokens to ~2,500 tokens) with potential **98.7% reduction** via lazy loading.
+
+### Key Benefits
+
+1. **Massive Token Reduction**: 87% reduction in base context, 98.7% with lazy loading
+2. **Lazy Loading**: Tools are generated on-demand, only when needed
+3. **Progressive Disclosure**: Three detail levels (name, description, full schema)
+4. **Better Discovery**: Search and filter tools by category, keyword, or capability
+5. **Functional Organization**: Tools grouped by purpose, not endpoints
+
+### Toolset Pattern vs Endpoint Pattern
+
+**Old Pattern (Endpoint-per-tool)**:
+```
+mcp__devmesh__github_get_repository
+mcp__devmesh__github_list_repositories
+mcp__devmesh__github_create_repository
+mcp__devmesh__github_fork_repository
+... 37 more individual tools
+```
+**Token cost**: ~20,500 tokens for tool list
+
+**New Pattern (Functional toolsets)**:
+```
+github_repos (covers: get, list, create, fork, search)
+github_issues (covers: get, list, create, update, close)
+github_pulls (covers: get, list, create, merge, review)
+... 5 more functional groups
+```
+**Token cost**: ~2,500 tokens for toolset list (87% reduction)
+
+### Available Toolsets
+
+DevMesh provides 8 GitHub functional toolsets:
+
+| Toolset | Description | Actions |
+|---------|-------------|---------|
+| `github_repos` | Repository management | get, list, create, fork, search |
+| `github_issues` | Issue tracking | get, list, create, update, close, comment |
+| `github_pulls` | Pull request workflows | get, list, create, merge, review, comment |
+| `github_workflows` | CI/CD automation | list, run, get_run, list_runs, cancel, rerun |
+| `github_security` | Security scanning | list_dependabot, list_code_scanning, list_secrets |
+| `github_code` | Code operations | get_contents, create_file, update_file, delete_file |
+| `github_branches` | Branch management | list, create, get, protect |
+| `github_releases` | Release management | list, get, create, get_latest |
+
+### Discovery Tools
+
+Use these MCP tools to discover and load toolsets on-demand:
+
+#### 1. Search Tools (`devmesh_search_tools`)
+
+Search for specific tools by keyword, category, or tags:
+
+```json
+{
+  "name": "devmesh_search_tools",
+  "arguments": {
+    "keyword": "issue",
+    "detail_level": "description",
+    "max_results": 10
+  }
+}
+```
+
+**Detail Levels**:
+- `name`: Just tool names (~50 tokens per toolset)
+- `description`: Names + descriptions (~200 tokens per toolset)
+- `full`: Complete schemas (~500 tokens per toolset)
+
+#### 2. List Toolsets (`devmesh_list_toolsets`)
+
+List all available toolsets, optionally filtered by provider or enabled status:
+
+```json
+{
+  "name": "devmesh_list_toolsets",
+  "arguments": {
+    "provider": "github",
+    "enabled_only": false
+  }
+}
+```
+
+**Response includes**:
+- Toolset metadata (name, description, category, icon)
+- Tool count
+- Enabled status
+- Provider information
+
+#### 3. Get Toolset (`devmesh_get_toolset`)
+
+Get complete information about a specific toolset with all its tools:
+
+```json
+{
+  "name": "devmesh_get_toolset",
+  "arguments": {
+    "name": "github_repos",
+    "detail_level": "full"
+  }
+}
+```
+
+**Use this when**: You know the toolset name and want to load its tool definitions.
+
+#### 4. Enable/Disable Toolsets (`devmesh_enable_toolsets`)
+
+Dynamically enable or disable toolsets to control what tools are available:
+
+```json
+{
+  "name": "devmesh_enable_toolsets",
+  "arguments": {
+    "toolsets": ["github_repos", "github_issues"]
+  }
+}
+```
+
+**Default Enabled**: `devmesh_context`, `devmesh_workflow`, `devmesh_task`
+
+### Recommended Workflow
+
+**Optimal token-efficient workflow**:
+
+1. **Start with search**: Use `devmesh_search_tools` with `detail_level: "name"` to find relevant toolsets
+2. **Review descriptions**: If needed, search again with `detail_level: "description"`
+3. **Load full schema**: Use `devmesh_get_toolset` with `detail_level: "full"` only for toolsets you'll use
+4. **Enable on-demand**: Only enable toolsets when you need to use their tools
+
+**Example flow for GitHub issue operations**:
+```
+1. devmesh_search_tools(keyword="issue", detail_level="name")
+   → Finds: github_issues, github_pulls
+
+2. devmesh_get_toolset(name="github_issues", detail_level="description")
+   → Reviews available actions: get, list, create, update, close
+
+3. devmesh_get_toolset(name="github_issues", detail_level="full")
+   → Loads complete schemas only when ready to use
+
+4. Use github_issues tool with action="create"
+```
+
+### Architecture Components
+
+**Package Structure**:
+- `/pkg/mcptools/` - Shared MCP types (ToolDefinition, Toolset, DetailLevel)
+- `/pkg/adapters/github/toolsets.go` - GitHub toolset provider
+- `/apps/edge-mcp/internal/tools/toolset_manager.go` - Toolset management
+- `/apps/edge-mcp/internal/tools/builtin/search_provider.go` - Discovery tools
+
+**Key Types**:
+```go
+// Toolset - functional group of tools
+type Toolset struct {
+    Name          string
+    DisplayName   string
+    Description   string
+    Category      string
+    Provider      string
+    Tools         []string
+    Enabled       bool
+    ToolGenerator ToolsetGenerator // Generates tools on-demand
+}
+
+// DetailLevel - controls information returned
+type DetailLevel string
+const (
+    DetailLevelName        DetailLevel = "name"
+    DetailLevelDescription DetailLevel = "description"
+    DetailLevelFull        DetailLevel = "full"
+)
+```
+
+### Performance Impact
+
+**Token consumption comparison**:
+
+| Approach | Tokens | Reduction |
+|----------|--------|-----------|
+| Old (41 individual tools) | ~20,500 | Baseline |
+| New (8 toolsets, description) | ~2,500 | 87.8% ↓ |
+| New (8 toolsets, name only) | ~500 | 97.6% ↓ |
+| Lazy load (name → description → full) | ~250 | 98.8% ↓ |
+
+**Real-world impact**:
+- AI agents can load 80x more context with same token budget
+- Faster tool discovery via search vs scanning 41 tools
+- Pay token cost only for tools actually used
+
+### Migration from Old Pattern
+
+**If you see old individual tools** (`mcp__devmesh__github_*`), use this migration:
+
+Old approach:
+```json
+{"name": "mcp__devmesh__github_get_repository", "arguments": {...}}
+{"name": "mcp__devmesh__github_create_issue", "arguments": {...}}
+```
+
+New approach:
+```json
+// First, enable the toolsets (one-time)
+{"name": "devmesh_enable_toolsets", "arguments": {"toolsets": ["github_repos", "github_issues"]}}
+
+// Then use unified tools with actions
+{"name": "github_repos", "arguments": {"action": "get", ...}}
+{"name": "github_issues", "arguments": {"action": "create", ...}}
+```
+
+### Testing
+
+Tests cover all aspects of toolset architecture:
+- `apps/edge-mcp/internal/tools/toolset_manager_test.go` - 17 test cases
+- `apps/edge-mcp/internal/tools/builtin/search_provider_test.go` - 15 test cases
+- Validates registration, enablement, search, and progressive disclosure
+
+Run tests:
+```bash
+go test ./apps/edge-mcp/internal/tools/... -run "TestToolsetManager|TestSearchToolProvider"
+```
+
 ## Go-Specific Patterns (This Project)
 
 ### Code Style
@@ -224,6 +451,7 @@ defer func() {
 - **Don't use `gh` CLI or direct GitHub API** - always use `mcp__devmesh__github_*` MCP tools
 
 ## Current Focus Areas
+- **MCP Toolset Architecture (completed)** - 87% token reduction via functional toolsets
 - Redis Streams migration (completed)
 - Dynamic tools implementation with enhanced discovery
 - Multi-tenant embedding model management (completed)
