@@ -11,16 +11,22 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
+// CoreClient interface defines methods needed from Core Platform client
+type CoreClient interface {
+	FetchRemoteToolsets(ctx context.Context) ([]core.ToolsetInfo, error)
+	FetchRemoteTools(ctx context.Context) ([]tools.ToolDefinition, error)
+}
+
 // RemoteToolsetProvider fetches and registers toolsets from Core Platform
 type RemoteToolsetProvider struct {
-	coreClient     *core.Client
+	coreClient     CoreClient
 	toolsetManager *tools.ToolsetManager
 	logger         observability.Logger
 }
 
 // NewRemoteToolsetProvider creates a new remote toolset provider
 func NewRemoteToolsetProvider(
-	coreClient *core.Client,
+	coreClient CoreClient,
 	toolsetManager *tools.ToolsetManager,
 	logger observability.Logger,
 ) *RemoteToolsetProvider {

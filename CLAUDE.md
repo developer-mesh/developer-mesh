@@ -303,9 +303,198 @@ Dynamically enable or disable toolsets to control what tools are available:
 
 **Package Structure**:
 - `/pkg/mcptools/` - Shared MCP types (ToolDefinition, Toolset, DetailLevel)
-- `/pkg/adapters/github/toolsets.go` - GitHub toolset provider
+- `/pkg/adapters/github/toolsets.go` - GitHub toolset provider (builtin)
 - `/apps/edge-mcp/internal/tools/toolset_manager.go` - Toolset management
 - `/apps/edge-mcp/internal/tools/builtin/search_provider.go` - Discovery tools
+- `/apps/edge-mcp/internal/tools/builtin/remote_toolset_provider.go` - Remote toolset fetching
+- `/apps/rest-api/internal/services/toolset_service.go` - Auto-generation from dynamic tools
+- `/apps/rest-api/internal/api/toolset_api.go` - Toolset REST endpoints
+
+### REST API Integration
+
+The MCP toolset architecture extends across both **REST API** and **Edge MCP** components, providing end-to-end token reduction for remote tools sourced from the dynamic tools system.
+
+#### Auto-Generation from Dynamic Tools
+
+The REST API automatically generates toolsets from dynamic tools using intelligent name parsing:
+
+**ToolsetService** (`/apps/rest-api/internal/services/toolset_service.go`):
+```go
+// Parses tool names like "mcp__devmesh__github_list_repositories"
+// Expects pattern: mcp__devmesh__{provider}_{action}_{resource}
+func (s *ToolsetService) parseToolName(toolName string) (provider, resource, action string) {
+    // Action verbs: get, list, create, update, delete, run, execute, etc.
+    // Automatically groups tools by provider + normalized resource
+    // Example: github_list_repositories → toolset "github_repos"
+}
+
+// Normalizes resource variations to canonical forms
+func (s *ToolsetService) normalizeResource(raw string) string {
+    // repositories/repository → repos
+    // pull_requests/pull_request → pulls
+    // pipelines/pipeline → pipelines
+    // workflows/workflow → workflows
+    // files/file/content → code
+    // secrets/secret → security
+}
+
+// Auto-generates toolsets by grouping tools
+func (s *ToolsetService) AutoGenerateToolsets(ctx context.Context, tenantID string) ([]ToolsetInfo, error) {
+    // 1. Fetch all active dynamic tools for tenant
+    // 2. Parse tool names to extract provider, resource, action
+    // 3. Group tools by provider_resource pattern
+    // 4. Generate metadata (display name, description, category)
+    // 5. Return toolsets with tool names and action counts
+}
+```
+
+**Example Auto-Generation**:
+```
+Input: 166 dynamic tools
+  - mcp__devmesh__github_list_repositories
+  - mcp__devmesh__github_get_repository
+  - mcp__devmesh__github_create_repository
+  - mcp__devmesh__github_list_issues
+  - mcp__devmesh__github_create_issue
+  - mcp__devmesh__harness_execute_pipelines
+  - ... 160 more
+
+Output: ~15 toolsets
+  - github_repos (3 tools: list, get, create)
+  - github_issues (2 tools: list, create)
+  - harness_pipelines (1 tool: execute)
+  - ... 12 more
+```
+
+#### REST API Endpoints
+
+**Modified Endpoint** - `/api/v1/tools?edge_mcp=true`:
+- When `edge_mcp=true` query parameter is present, returns toolsets instead of individual tools
+- Response format includes toolset metadata and tool count
+- Backward compatible: without `edge_mcp=true`, returns individual tools as before
+
+**New Endpoints** - `/api/v1/toolsets`:
+```
+GET /api/v1/toolsets?tenant_id={id}&provider={provider}
+  - List all auto-generated toolsets for tenant
+  - Optional filtering by provider (github, harness, etc.)
+  - Returns: toolset names, display names, descriptions, tool counts
+
+GET /api/v1/toolsets/{name}/tools?tenant_id={id}&detail_level={level}
+  - Get tools for specific toolset
+  - Detail levels: name, description, full
+  - Returns: filtered tools based on detail level
+```
+
+#### Remote Toolset Provider
+
+**RemoteToolsetProvider** (`/apps/edge-mcp/internal/tools/builtin/remote_toolset_provider.go`) bridges REST API toolsets with Edge MCP's toolset manager:
+
+```go
+type RemoteToolsetProvider struct {
+    coreClient     CoreClient               // REST API client
+    toolsetManager *tools.ToolsetManager    // Edge MCP toolset manager
+    logger         observability.Logger
+}
+
+// Fetches toolsets from REST API and registers them
+func (p *RemoteToolsetProvider) RegisterRemoteToolsets(ctx context.Context) error {
+    // 1. Fetch toolsets from REST API via core client
+    toolsetInfos, err := p.coreClient.FetchRemoteToolsets(ctx)
+
+    // 2. Convert REST API format to MCP toolset format
+    for _, info := range toolsetInfos {
+        toolset := mcptools.Toolset{
+            Name:          info.Name,
+            DisplayName:   info.DisplayName,
+            Description:   info.Description,
+            Category:      info.Category,
+            Provider:      info.Provider,
+            Tools:         info.Tools,
+            Tags:          info.Tags,
+            Enabled:       false,  // Start disabled for lazy loading
+            ToolGenerator: p.createToolGenerator(info.Name),
+        }
+
+        // 3. Register with toolset manager
+        p.toolsetManager.RegisterToolset(toolset)
+    }
+}
+
+// Creates lazy-loading generator for remote tools
+func (p *RemoteToolsetProvider) createToolGenerator(toolsetName string) mcptools.ToolsetGenerator {
+    return func(detailLevel mcptools.DetailLevel, actions []string) ([]mcptools.ToolDefinition, error) {
+        // Only fetches full tool details when toolset is enabled
+        // Filters by toolset name using prefix matching
+        // Applies detail level filtering (name/description/full)
+        // Filters by action if specified (get, list, create, etc.)
+    }
+}
+```
+
+#### End-to-End Flow
+
+**Complete toolset flow from REST API to Edge MCP**:
+
+1. **Dynamic Tools Registration** (REST API):
+   - Admin registers tools via `/api/v1/tools` endpoint
+   - Tools stored in `tool_configurations` table
+   - Each tool has name pattern: `mcp__devmesh__{provider}_{action}_{resource}`
+
+2. **Auto-Generation** (REST API):
+   - Edge MCP requests `/api/v1/tools?edge_mcp=true`
+   - ToolsetService parses tool names and groups into toolsets
+   - Returns compact toolset list instead of individual tools
+
+3. **Toolset Registration** (Edge MCP):
+   - RemoteToolsetProvider fetches toolsets via Core Client
+   - Registers toolsets with ToolsetManager
+   - Toolsets start in disabled state for lazy loading
+
+4. **Discovery** (Edge MCP):
+   - Client calls `devmesh_list_toolsets` to see available toolsets
+   - Returns lightweight metadata (~50 tokens per toolset)
+   - Client enables only needed toolsets
+
+5. **Lazy Loading** (Edge MCP):
+   - When toolset enabled, ToolGenerator fetches full tool details
+   - Applies detail level filtering (name/description/full)
+   - Tools available for execution via MCP protocol
+
+**Token Optimization Flow**:
+```
+Without toolsets: 166 tools × 125 tokens = 20,750 tokens
+With toolsets:    15 toolsets × 50 tokens = 750 tokens (96% reduction)
+Lazy loading:     Only enabled toolsets loaded (98%+ reduction)
+```
+
+#### Integration Testing
+
+Tests validate the complete REST API → Edge MCP integration:
+
+**REST API Tests** (`/apps/rest-api/internal/services/toolset_service_test.go`):
+- `TestParseToolName` - Validates tool name parsing (8 scenarios)
+- `TestNormalizeResource` - Validates resource normalization (15 variations)
+- `TestAutoGenerateToolsets` - Validates toolset grouping (4 cases)
+- `TestToolsetMetadata` - Validates metadata generation
+
+**Edge MCP Tests** (`/apps/edge-mcp/internal/tools/builtin/remote_toolset_provider_test.go`):
+- `TestRegisterRemoteToolsets` - Validates remote registration
+- `TestToolGenerator` - Validates lazy loading with detail levels
+- `TestMatchesToolset` - Validates tool-to-toolset matching
+- `TestExtractAction` - Validates action extraction
+
+Run integration tests:
+```bash
+# Test REST API toolset service
+cd apps/rest-api && go test ./internal/services -run TestToolsetService
+
+# Test Edge MCP remote provider
+cd apps/edge-mcp && go test ./internal/tools/builtin -run TestRemoteToolsetProvider
+
+# Test end-to-end (requires services running)
+make test-integration
+```
 
 **Key Types**:
 ```go
@@ -368,14 +557,31 @@ New approach:
 
 ### Testing
 
-Tests cover all aspects of toolset architecture:
+Tests cover all aspects of toolset architecture across both REST API and Edge MCP:
+
+**Edge MCP Builtin Tests**:
 - `apps/edge-mcp/internal/tools/toolset_manager_test.go` - 17 test cases
 - `apps/edge-mcp/internal/tools/builtin/search_provider_test.go` - 15 test cases
-- Validates registration, enablement, search, and progressive disclosure
+- `apps/edge-mcp/internal/tools/builtin/remote_toolset_provider_test.go` - 9 test functions, 19 scenarios
+- Validates registration, enablement, search, progressive disclosure, and remote integration
+
+**REST API Toolset Tests**:
+- `apps/rest-api/internal/services/toolset_service_test.go` - 6 test functions covering:
+  - Tool name parsing (8 scenarios)
+  - Resource normalization (15 variations)
+  - Auto-generation and grouping (4 cases)
+  - Error handling and metadata generation
 
 Run tests:
 ```bash
-go test ./apps/edge-mcp/internal/tools/... -run "TestToolsetManager|TestSearchToolProvider"
+# Edge MCP tests
+go test ./apps/edge-mcp/internal/tools/... -run "TestToolsetManager|TestSearchToolProvider|TestRemoteToolsetProvider"
+
+# REST API tests
+cd apps/rest-api && go test ./internal/services -run TestToolsetService
+
+# All toolset tests
+make test
 ```
 
 ## Go-Specific Patterns (This Project)
