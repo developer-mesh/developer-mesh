@@ -248,7 +248,12 @@ func (a *GitHubAdapter) setupAuthProvider() (auth.AuthProvider, error) {
 	// Get or create the authentication provider using the factory
 	provider, err := a.authFactory.GetProvider(configKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create auth provider: %w", err)
+		// No default auth config exists - return NoAuthProvider
+		// This allows the adapter to work with user credentials from context only
+		a.logger.Debug("No default GitHub auth configured, will use user credentials from context", map[string]interface{}{
+			"error": err.Error(),
+		})
+		return auth.NewNoAuthProvider(a.logger), nil
 	}
 
 	return provider, nil

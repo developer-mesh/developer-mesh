@@ -252,9 +252,37 @@ func main() {
 	// This enables lazy loading and progressive disclosure of tools to reduce context consumption
 	toolsetManager := tools.NewToolsetManager(toolRegistry)
 
+	// Create GitHub adapter with NO service account credentials
+	// This adapter will use ONLY user credentials from request context (via session-scoped credential injection)
+	// See: apps/edge-mcp/internal/core/client.go (WithUserCredentials)
+	//      pkg/adapters/github/auth/passthrough_provider.go (GetAuthProviderFromContext)
+	githubConfig := &githubAdapter.Config{
+		BaseURL:             "https://api.github.com",
+		RequestTimeout:      30 * time.Second,
+		MaxIdleConns:        100,
+		MaxConnsPerHost:     10,
+		MaxIdleConnsPerHost: 10,
+		IdleConnTimeout:     90 * time.Second,
+		RateLimit:           5000.0, // GitHub's default rate limit
+		RateLimitBurst:      100,
+		RateLimitWait:       1 * time.Second,
+		WebhookQueueSize:    1000,
+		DefaultPageSize:     30,
+		MaxPageSize:         100,
+		// Auth is intentionally empty - will use user credentials from context
+		Auth: githubAdapter.AuthConfig{},
+	}
+
+	ghAdapter, err := githubAdapter.New(githubConfig, logger, nil, nil)
+	if err != nil {
+		logger.Fatal("Failed to create GitHub adapter", map[string]interface{}{
+			"error": err.Error(),
+		})
+	}
+
 	// Register GitHub toolset provider (8 functional toolsets vs 41 individual tools)
 	// This reduces token consumption by ~87% while maintaining full functionality
-	githubProvider := githubAdapter.NewGitHubToolsetProvider(nil) // adapter will be set when available
+	githubProvider := githubAdapter.NewGitHubToolsetProvider(ghAdapter)
 	if err := toolsetManager.RegisterProvider(githubProvider); err != nil {
 		logger.Warn("Failed to register GitHub toolset provider", map[string]interface{}{
 			"error": err.Error(),
@@ -289,6 +317,20 @@ func main() {
 	// These are automatically enabled on startup for immediate availability
 	if err := toolsetManager.EnableToolsets(context.Background(), []string{"devmesh_context", "devmesh_workflow", "devmesh_task"}); err != nil {
 		logger.Warn("Failed to enable default toolsets", map[string]interface{}{
+			"error": err.Error(),
+		})
+	}
+
+	// Pre-enable common GitHub toolsets to eliminate lazy loading latency
+	// Tools will use user credentials from context (session-scoped credential injection)
+	commonGitHubToolsets := []string{
+		"github_pulls",  // Pull request operations (most commonly used)
+		"github_repos",  // Repository management
+		"github_issues", // Issue tracking
+		"github_code",   // File operations
+	}
+	if err := toolsetManager.EnableToolsets(context.Background(), commonGitHubToolsets); err != nil {
+		logger.Warn("Failed to pre-enable common GitHub toolsets", map[string]interface{}{
 			"error": err.Error(),
 		})
 	}

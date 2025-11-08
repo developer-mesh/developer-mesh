@@ -202,8 +202,8 @@ type AuthResponse struct {
 	Success     bool              `json:"success"`
 	Token       string            `json:"token,omitempty"`
 	Message     string            `json:"message,omitempty"`
-	TenantID    string            `json:"tenant_id,omitempty"`    // Core Platform returns the tenant_id
-	UserID      string            `json:"user_id,omitempty"`      // User ID for this session
+	TenantID    string            `json:"tenant_id,omitempty"`   // Core Platform returns the tenant_id
+	UserID      string            `json:"user_id,omitempty"`     // User ID for this session
 	Credentials map[string]string `json:"credentials,omitempty"` // provider → decrypted token
 }
 

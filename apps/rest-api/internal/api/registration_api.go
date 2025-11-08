@@ -370,8 +370,8 @@ func (api *RegistrationAPI) AuthenticateEdgeMCP(c *gin.Context) {
 
 	// Log successful authentication
 	api.logger.Info("Edge MCP authenticated successfully", map[string]interface{}{
-		"edge_mcp_id":      req.EdgeMCPID,
-		"tenant_id":        user.TenantID.String(),
+		"edge_mcp_id":       req.EdgeMCPID,
+		"tenant_id":         user.TenantID.String(),
 		"credentials_count": len(credentials),
 	})
 
