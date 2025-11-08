@@ -130,16 +130,17 @@ func (p *RemoteToolsetProvider) createToolGenerator(toolsetName string) mcptools
 				}
 
 				// Apply detail level filtering
-				// For "name" level, only include name
-				if detailLevel == mcptools.DetailLevelName {
+				switch detailLevel {
+				case mcptools.DetailLevelName:
+					// For "name" level, only include name
 					mcpTool.Description = ""
 					mcpTool.InputSchema = nil
-				} else if detailLevel == mcptools.DetailLevelDescription {
+				case mcptools.DetailLevelDescription:
 					// Include name and description, but not full schema
 					mcpTool.InputSchema = nil
+				case mcptools.DetailLevelFull:
+					// For "full" level, include everything (no filtering needed)
 				}
-				// For "full" level, include everything (no filtering needed)
-
 				// Filter by actions if specified
 				if len(actions) > 0 {
 					// Extract action from tool name

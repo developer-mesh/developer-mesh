@@ -275,10 +275,10 @@ func main() {
 		builtin.NewAgentProvider(),
 		builtin.NewWorkflowProvider(),
 		builtin.NewTaskProvider(),
-		contextProvider,                                         // Context provider with optional Core Platform delegation
-		builtin.NewTemplateProvider(),                           // Workflow templates for common patterns
+		contextProvider,                                             // Context provider with optional Core Platform delegation
+		builtin.NewTemplateProvider(),                               // Workflow templates for common patterns
 		builtin.NewSearchToolProvider(toolRegistry, toolsetManager), // Tool discovery and search
-		builtin.NewToolsetManagementProvider(toolsetManager),    // Toolset enablement/disablement
+		builtin.NewToolsetManagementProvider(toolsetManager),        // Toolset enablement/disablement
 	}
 
 	for _, provider := range builtinProviders {
@@ -298,12 +298,12 @@ func main() {
 	totalToolsets := toolsetManager.ListToolsets()
 
 	logger.Info("Registered built-in tools and toolsets", map[string]interface{}{
-		"tool_count":            toolRegistry.Count(),
-		"enabled_toolsets":      len(enabledToolsets),
-		"total_toolsets":        len(totalToolsets),
-		"context_mode":          map[bool]string{true: "core_platform", false: "standalone"}[coreClient != nil],
-		"toolset_architecture":  "enabled",
-		"token_optimization":    "87% reduction via functional groups",
+		"tool_count":           toolRegistry.Count(),
+		"enabled_toolsets":     len(enabledToolsets),
+		"total_toolsets":       len(totalToolsets),
+		"context_mode":         map[bool]string{true: "core_platform", false: "standalone"}[coreClient != nil],
+		"toolset_architecture": "enabled",
+		"token_optimization":   "87% reduction via functional groups",
 	})
 
 	// Command executor no longer needed since we're not using local tools

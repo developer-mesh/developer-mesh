@@ -255,10 +255,10 @@ func TestAutoGenerateToolsets(t *testing.T) {
 	service := NewToolsetService(mockRepo, logger)
 
 	tests := []struct {
-		name                string
-		tools               []*models.DynamicTool
+		name                 string
+		tools                []*models.DynamicTool
 		expectedToolsetCount int
-		expectedToolsets    map[string]int // toolset name -> expected tool count
+		expectedToolsets     map[string]int // toolset name -> expected tool count
 	}{
 		{
 			name: "GitHub tools grouped correctly",

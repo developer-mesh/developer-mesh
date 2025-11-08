@@ -29,7 +29,7 @@ func (p *ToolsetManagementProvider) GetDefinitions() []tools.ToolDefinition {
 			Category:    string(tools.CategoryConfiguration),
 			Tags:        []string{"write", "configuration"},
 			InputSchema: map[string]interface{}{
-				"type": "object",
+				"type":     "object",
 				"required": []string{"toolsets"},
 				"properties": map[string]interface{}{
 					"toolsets": map[string]interface{}{
@@ -50,7 +50,7 @@ func (p *ToolsetManagementProvider) GetDefinitions() []tools.ToolDefinition {
 			Category:    string(tools.CategoryConfiguration),
 			Tags:        []string{"write", "configuration"},
 			InputSchema: map[string]interface{}{
-				"type": "object",
+				"type":     "object",
 				"required": []string{"toolsets"},
 				"properties": map[string]interface{}{
 					"toolsets": map[string]interface{}{

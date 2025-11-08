@@ -129,7 +129,7 @@ func (p *GitHubToolsetProvider) GetToolsetByName(name string) (mcptools.Toolset,
 func (p *GitHubToolsetProvider) generateReposTools(detailLevel mcptools.DetailLevel, actions []string) ([]mcptools.ToolDefinition, error) {
 	// Full schema for the unified repos tool
 	fullSchema := map[string]interface{}{
-		"type": "object",
+		"type":     "object",
 		"required": []string{"action"},
 		"properties": map[string]interface{}{
 			"action": map[string]interface{}{
@@ -179,7 +179,7 @@ func (p *GitHubToolsetProvider) generateReposTools(detailLevel mcptools.DetailLe
 	case mcptools.DetailLevelDescription:
 		// Return minimal schema
 		tool.InputSchema = map[string]interface{}{
-			"type": "object",
+			"type":     "object",
 			"required": []string{"action"},
 			"properties": map[string]interface{}{
 				"action": fullSchema["properties"].(map[string]interface{})["action"],
@@ -195,7 +195,7 @@ func (p *GitHubToolsetProvider) generateReposTools(detailLevel mcptools.DetailLe
 // generateIssuesTools generates issue toolset tools
 func (p *GitHubToolsetProvider) generateIssuesTools(detailLevel mcptools.DetailLevel, actions []string) ([]mcptools.ToolDefinition, error) {
 	fullSchema := map[string]interface{}{
-		"type": "object",
+		"type":     "object",
 		"required": []string{"action", "owner", "repo"},
 		"properties": map[string]interface{}{
 			"action": map[string]interface{}{
@@ -248,7 +248,7 @@ func (p *GitHubToolsetProvider) generateIssuesTools(detailLevel mcptools.DetailL
 		tool.InputSchema = fullSchema
 	case mcptools.DetailLevelDescription:
 		tool.InputSchema = map[string]interface{}{
-			"type": "object",
+			"type":     "object",
 			"required": []string{"action"},
 			"properties": map[string]interface{}{
 				"action": fullSchema["properties"].(map[string]interface{})["action"],
@@ -262,7 +262,7 @@ func (p *GitHubToolsetProvider) generateIssuesTools(detailLevel mcptools.DetailL
 // generatePullsTools generates pull request toolset tools
 func (p *GitHubToolsetProvider) generatePullsTools(detailLevel mcptools.DetailLevel, actions []string) ([]mcptools.ToolDefinition, error) {
 	fullSchema := map[string]interface{}{
-		"type": "object",
+		"type":     "object",
 		"required": []string{"action", "owner", "repo"},
 		"properties": map[string]interface{}{
 			"action": map[string]interface{}{
@@ -314,7 +314,7 @@ func (p *GitHubToolsetProvider) generatePullsTools(detailLevel mcptools.DetailLe
 		tool.InputSchema = fullSchema
 	case mcptools.DetailLevelDescription:
 		tool.InputSchema = map[string]interface{}{
-			"type": "object",
+			"type":     "object",
 			"required": []string{"action"},
 			"properties": map[string]interface{}{
 				"action": fullSchema["properties"].(map[string]interface{})["action"],
@@ -328,7 +328,7 @@ func (p *GitHubToolsetProvider) generatePullsTools(detailLevel mcptools.DetailLe
 // generateWorkflowsTools generates workflow toolset tools
 func (p *GitHubToolsetProvider) generateWorkflowsTools(detailLevel mcptools.DetailLevel, actions []string) ([]mcptools.ToolDefinition, error) {
 	fullSchema := map[string]interface{}{
-		"type": "object",
+		"type":     "object",
 		"required": []string{"action", "owner", "repo"},
 		"properties": map[string]interface{}{
 			"action": map[string]interface{}{
@@ -372,7 +372,7 @@ func (p *GitHubToolsetProvider) generateWorkflowsTools(detailLevel mcptools.Deta
 		tool.InputSchema = fullSchema
 	case mcptools.DetailLevelDescription:
 		tool.InputSchema = map[string]interface{}{
-			"type": "object",
+			"type":     "object",
 			"required": []string{"action"},
 			"properties": map[string]interface{}{
 				"action": fullSchema["properties"].(map[string]interface{})["action"],
@@ -386,7 +386,7 @@ func (p *GitHubToolsetProvider) generateWorkflowsTools(detailLevel mcptools.Deta
 // generateSecurityTools generates security toolset tools
 func (p *GitHubToolsetProvider) generateSecurityTools(detailLevel mcptools.DetailLevel, actions []string) ([]mcptools.ToolDefinition, error) {
 	fullSchema := map[string]interface{}{
-		"type": "object",
+		"type":     "object",
 		"required": []string{"action", "owner", "repo"},
 		"properties": map[string]interface{}{
 			"action": map[string]interface{}{
@@ -422,7 +422,7 @@ func (p *GitHubToolsetProvider) generateSecurityTools(detailLevel mcptools.Detai
 		tool.InputSchema = fullSchema
 	case mcptools.DetailLevelDescription:
 		tool.InputSchema = map[string]interface{}{
-			"type": "object",
+			"type":     "object",
 			"required": []string{"action"},
 			"properties": map[string]interface{}{
 				"action": fullSchema["properties"].(map[string]interface{})["action"],
@@ -436,7 +436,7 @@ func (p *GitHubToolsetProvider) generateSecurityTools(detailLevel mcptools.Detai
 // generateCodeTools generates code/file toolset tools
 func (p *GitHubToolsetProvider) generateCodeTools(detailLevel mcptools.DetailLevel, actions []string) ([]mcptools.ToolDefinition, error) {
 	fullSchema := map[string]interface{}{
-		"type": "object",
+		"type":     "object",
 		"required": []string{"action", "owner", "repo"},
 		"properties": map[string]interface{}{
 			"action": map[string]interface{}{
@@ -488,7 +488,7 @@ func (p *GitHubToolsetProvider) generateCodeTools(detailLevel mcptools.DetailLev
 		tool.InputSchema = fullSchema
 	case mcptools.DetailLevelDescription:
 		tool.InputSchema = map[string]interface{}{
-			"type": "object",
+			"type":     "object",
 			"required": []string{"action"},
 			"properties": map[string]interface{}{
 				"action": fullSchema["properties"].(map[string]interface{})["action"],
@@ -502,7 +502,7 @@ func (p *GitHubToolsetProvider) generateCodeTools(detailLevel mcptools.DetailLev
 // generateBranchesTools generates branch toolset tools
 func (p *GitHubToolsetProvider) generateBranchesTools(detailLevel mcptools.DetailLevel, actions []string) ([]mcptools.ToolDefinition, error) {
 	fullSchema := map[string]interface{}{
-		"type": "object",
+		"type":     "object",
 		"required": []string{"action", "owner", "repo"},
 		"properties": map[string]interface{}{
 			"action": map[string]interface{}{
@@ -542,7 +542,7 @@ func (p *GitHubToolsetProvider) generateBranchesTools(detailLevel mcptools.Detai
 		tool.InputSchema = fullSchema
 	case mcptools.DetailLevelDescription:
 		tool.InputSchema = map[string]interface{}{
-			"type": "object",
+			"type":     "object",
 			"required": []string{"action"},
 			"properties": map[string]interface{}{
 				"action": fullSchema["properties"].(map[string]interface{})["action"],
@@ -556,7 +556,7 @@ func (p *GitHubToolsetProvider) generateBranchesTools(detailLevel mcptools.Detai
 // generateReleasesTools generates release toolset tools
 func (p *GitHubToolsetProvider) generateReleasesTools(detailLevel mcptools.DetailLevel, actions []string) ([]mcptools.ToolDefinition, error) {
 	fullSchema := map[string]interface{}{
-		"type": "object",
+		"type":     "object",
 		"required": []string{"action", "owner", "repo"},
 		"properties": map[string]interface{}{
 			"action": map[string]interface{}{
@@ -600,7 +600,7 @@ func (p *GitHubToolsetProvider) generateReleasesTools(detailLevel mcptools.Detai
 		tool.InputSchema = fullSchema
 	case mcptools.DetailLevelDescription:
 		tool.InputSchema = map[string]interface{}{
-			"type": "object",
+			"type":     "object",
 			"required": []string{"action"},
 			"properties": map[string]interface{}{
 				"action": fullSchema["properties"].(map[string]interface{})["action"],

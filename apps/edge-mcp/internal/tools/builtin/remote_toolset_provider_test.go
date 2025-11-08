@@ -44,10 +44,10 @@ func TestNewRemoteToolsetProvider(t *testing.T) {
 
 func TestRegisterRemoteToolsets(t *testing.T) {
 	tests := []struct {
-		name              string
-		toolsets          []core.ToolsetInfo
-		expectedToolsets  int
-		expectError       bool
+		name             string
+		toolsets         []core.ToolsetInfo
+		expectedToolsets int
+		expectError      bool
 	}{
 		{
 			name: "successful registration of multiple toolsets",

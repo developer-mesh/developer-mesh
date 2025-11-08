@@ -25,7 +25,7 @@ import (
 // DynamicToolsAPI handles dynamic tool management endpoints
 type DynamicToolsAPI struct {
 	toolService       services.DynamicToolsServiceInterface
-	toolsetService    *services.ToolsetService                 // For toolset generation
+	toolsetService    *services.ToolsetService // For toolset generation
 	logger            observability.Logger
 	metricsClient     observability.MetricsClient
 	auditLogger       *auth.AuditLogger

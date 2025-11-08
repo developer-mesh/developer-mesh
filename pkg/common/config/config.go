@@ -157,10 +157,10 @@ func Load() (*Config, error) {
 
 	// Bind specific environment variables that don't follow the MCP_ prefix
 	// These are commonly used in Docker environments
-	_ = v.BindEnv("cache.address", "REDIS_ADDR")       // Best effort - viper handles errors internally
-	_ = v.BindEnv("cache.address", "CACHE_ADDRESS")    // Best effort - viper handles errors internally
-	_ = v.BindEnv("cache.username", "REDIS_USERNAME")  // Redis 6.0+ ACL username
-	_ = v.BindEnv("cache.password", "REDIS_PASSWORD")  // Redis password
+	_ = v.BindEnv("cache.address", "REDIS_ADDR")      // Best effort - viper handles errors internally
+	_ = v.BindEnv("cache.address", "CACHE_ADDRESS")   // Best effort - viper handles errors internally
+	_ = v.BindEnv("cache.username", "REDIS_USERNAME") // Redis 6.0+ ACL username
+	_ = v.BindEnv("cache.password", "REDIS_PASSWORD") // Redis password
 
 	// Bind database environment variables used by Docker
 	_ = v.BindEnv("database.host", "DATABASE_HOST")

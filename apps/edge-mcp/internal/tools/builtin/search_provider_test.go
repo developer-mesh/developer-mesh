@@ -89,11 +89,11 @@ func TestSearchToolProvider_HandleSearchTools(t *testing.T) {
 	provider := NewSearchToolProvider(registry, manager)
 
 	tests := []struct {
-		name        string
-		input       map[string]interface{}
-		wantCount   int
-		wantErr     bool
-		validateFn  func(t *testing.T, result interface{})
+		name       string
+		input      map[string]interface{}
+		wantCount  int
+		wantErr    bool
+		validateFn func(t *testing.T, result interface{})
 	}{
 		{
 			name: "search by keyword",

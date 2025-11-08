@@ -9,16 +9,16 @@ import (
 // Toolset represents a logical grouping of related tools
 // This follows GitHub's MCP server pattern of organizing tools into functional groups
 type Toolset struct {
-	Name        string   `json:"name"`                  // Unique toolset identifier (e.g., "github_repos")
-	DisplayName string   `json:"display_name"`          // Human-readable name (e.g., "GitHub Repositories")
-	Description string   `json:"description"`           // What this toolset does
-	Category    string   `json:"category"`              // Primary category
-	Icon        string   `json:"icon,omitempty"`        // Optional emoji icon
-	Enabled     bool     `json:"enabled"`               // Whether this toolset is currently enabled
-	Tools       []string `json:"tools"`                 // List of tool names in this toolset
-	Tags        []string `json:"tags,omitempty"`        // Capability tags
-	Version     string   `json:"version,omitempty"`     // Toolset version
-	Provider    string   `json:"provider,omitempty"`    // Provider name (e.g., "github", "harness")
+	Name        string   `json:"name"`               // Unique toolset identifier (e.g., "github_repos")
+	DisplayName string   `json:"display_name"`       // Human-readable name (e.g., "GitHub Repositories")
+	Description string   `json:"description"`        // What this toolset does
+	Category    string   `json:"category"`           // Primary category
+	Icon        string   `json:"icon,omitempty"`     // Optional emoji icon
+	Enabled     bool     `json:"enabled"`            // Whether this toolset is currently enabled
+	Tools       []string `json:"tools"`              // List of tool names in this toolset
+	Tags        []string `json:"tags,omitempty"`     // Capability tags
+	Version     string   `json:"version,omitempty"`  // Toolset version
+	Provider    string   `json:"provider,omitempty"` // Provider name (e.g., "github", "harness")
 
 	// Tool generation function - generates tool definitions on demand
 	// This enables lazy loading: only generate tool definitions when needed

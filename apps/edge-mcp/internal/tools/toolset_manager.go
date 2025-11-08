@@ -11,7 +11,7 @@ import (
 // This bridges between pkg/mcptools types and the internal Registry
 type ToolsetManager struct {
 	toolsets map[string]mcptools.Toolset // All registered toolsets
-	registry *Registry                    // Reference to the main tool registry
+	registry *Registry                   // Reference to the main tool registry
 
 	// Default toolsets that are enabled by default
 	defaultToolsets []string

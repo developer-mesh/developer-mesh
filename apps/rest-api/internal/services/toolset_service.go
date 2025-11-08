@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"strings"
 
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+
 	"github.com/developer-mesh/developer-mesh/pkg/mcptools"
 	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
@@ -62,9 +65,9 @@ func (s *ToolsetService) AutoGenerateToolsets(ctx context.Context, tenantID stri
 	toolsets := s.groupToolsIntoToolsets(activeTools)
 
 	s.logger.Info("Generated toolsets", map[string]interface{}{
-		"tenant_id":      tenantID,
-		"toolset_count":  len(toolsets),
-		"tools_grouped":  len(activeTools),
+		"tenant_id":     tenantID,
+		"toolset_count": len(toolsets),
+		"tools_grouped": len(activeTools),
 	})
 
 	return toolsets, nil
@@ -193,35 +196,35 @@ func (s *ToolsetService) parseToolName(toolName string) (provider, resource, act
 func (s *ToolsetService) normalizeResource(raw string) string {
 	// Normalize common plurals and variations
 	normalizations := map[string]string{
-		"repositories": "repos",
-		"repository":   "repos",
-		"repos":        "repos",
-		"issues":       "issues",
-		"issue":        "issues",
-		"pulls":        "pulls",
-		"pull_requests": "pulls",
-		"pull_request":  "pulls",
-		"workflows":    "workflows",
-		"workflow":     "workflows",
-		"pipelines":    "pipelines",
-		"pipeline":     "pipelines",
-		"branches":     "branches",
-		"branch":       "branches",
-		"releases":     "releases",
-		"release":      "releases",
-		"tags":         "tags",
-		"tag":          "tags",
-		"commits":      "commits",
-		"commit":       "commits",
-		"files":        "code",
-		"file":         "code",
-		"contents":     "code",
-		"content":      "code",
-		"secrets":      "security",
-		"secret":       "security",
+		"repositories":    "repos",
+		"repository":      "repos",
+		"repos":           "repos",
+		"issues":          "issues",
+		"issue":           "issues",
+		"pulls":           "pulls",
+		"pull_requests":   "pulls",
+		"pull_request":    "pulls",
+		"workflows":       "workflows",
+		"workflow":        "workflows",
+		"pipelines":       "pipelines",
+		"pipeline":        "pipelines",
+		"branches":        "branches",
+		"branch":          "branches",
+		"releases":        "releases",
+		"release":         "releases",
+		"tags":            "tags",
+		"tag":             "tags",
+		"commits":         "commits",
+		"commit":          "commits",
+		"files":           "code",
+		"file":            "code",
+		"contents":        "code",
+		"content":         "code",
+		"secrets":         "security",
+		"secret":          "security",
 		"vulnerabilities": "security",
-		"alerts":       "security",
-		"dependabot":   "security",
+		"alerts":          "security",
+		"dependabot":      "security",
 	}
 
 	if normalized, exists := normalizations[raw]; exists {
@@ -256,7 +259,7 @@ func (s *ToolsetService) generateDisplayName(provider, resource string) string {
 
 	providerDisplay := providerNames[provider]
 	if providerDisplay == "" {
-		providerDisplay = strings.Title(provider)
+		providerDisplay = cases.Title(language.English).String(provider)
 	}
 
 	if resource == "" {
@@ -265,7 +268,7 @@ func (s *ToolsetService) generateDisplayName(provider, resource string) string {
 
 	resourceDisplay := resourceNames[resource]
 	if resourceDisplay == "" {
-		resourceDisplay = strings.Title(resource)
+		resourceDisplay = cases.Title(language.English).String(resource)
 	}
 
 	return fmt.Sprintf("%s %s", providerDisplay, resourceDisplay)
@@ -295,7 +298,7 @@ func (s *ToolsetService) generateDescription(provider, resource string) string {
 		return desc
 	}
 
-	return fmt.Sprintf("%s operations for %s", strings.Title(resource), provider)
+	return fmt.Sprintf("%s operations for %s", cases.Title(language.English).String(resource), provider)
 }
 
 // inferCategory maps resources to categories

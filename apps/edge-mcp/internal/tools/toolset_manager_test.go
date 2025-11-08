@@ -30,12 +30,12 @@ func TestToolsetManager_RegisterToolset(t *testing.T) {
 		{
 			name: "valid toolset",
 			toolset: mcptools.Toolset{
-				Name:          "test_toolset",
-				DisplayName:   "Test Toolset",
-				Description:   "A test toolset",
-				Category:      string(CategoryGeneral),
-				Enabled:       false,
-				Tools:         []string{"tool1", "tool2"},
+				Name:        "test_toolset",
+				DisplayName: "Test Toolset",
+				Description: "A test toolset",
+				Category:    string(CategoryGeneral),
+				Enabled:     false,
+				Tools:       []string{"tool1", "tool2"},
 				ToolGenerator: func(detailLevel mcptools.DetailLevel, actions []string) ([]mcptools.ToolDefinition, error) {
 					return []mcptools.ToolDefinition{}, nil
 				},
@@ -62,11 +62,11 @@ func TestToolsetManager_RegisterToolset(t *testing.T) {
 		{
 			name: "default toolset auto-enabled",
 			toolset: mcptools.Toolset{
-				Name:          "devmesh_context",
-				DisplayName:   "Context Management",
-				Description:   "Context operations",
-				Category:      string(CategoryGeneral),
-				Enabled:       false, // Will be auto-enabled
+				Name:        "devmesh_context",
+				DisplayName: "Context Management",
+				Description: "Context operations",
+				Category:    string(CategoryGeneral),
+				Enabled:     false, // Will be auto-enabled
 				ToolGenerator: func(detailLevel mcptools.DetailLevel, actions []string) ([]mcptools.ToolDefinition, error) {
 					return []mcptools.ToolDefinition{}, nil
 				},

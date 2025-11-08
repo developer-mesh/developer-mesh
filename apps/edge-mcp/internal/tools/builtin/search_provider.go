@@ -99,7 +99,7 @@ func (p *SearchToolProvider) GetDefinitions() []tools.ToolDefinition {
 			Category:    string(tools.CategoryGeneral),
 			Tags:        []string{"read", "discovery"},
 			InputSchema: map[string]interface{}{
-				"type": "object",
+				"type":     "object",
 				"required": []string{"name"},
 				"properties": map[string]interface{}{
 					"name": map[string]interface{}{
@@ -290,8 +290,8 @@ func (p *SearchToolProvider) formatSearchResults(results []tools.SearchResult, d
 	}
 
 	return map[string]interface{}{
-		"results": formatted,
-		"count":   len(formatted),
+		"results":      formatted,
+		"count":        len(formatted),
 		"detail_level": string(detailLevel),
 	}
 }
