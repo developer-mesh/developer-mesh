@@ -6,18 +6,19 @@ import (
 	"testing"
 
 	"github.com/developer-mesh/developer-mesh/pkg/mcptools"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestNewToolsetManager(t *testing.T) {
 	registry := NewRegistry()
-	manager := NewToolsetManager(registry)
+	manager := NewToolsetManager(registry, observability.NewNoopLogger())
 
 	assert.NotNil(t, manager)
 	assert.NotNil(t, manager.toolsets)
 	assert.NotNil(t, manager.registry)
-	assert.Equal(t, 3, len(manager.defaultToolsets), "should have 3 default toolsets")
+	assert.Equal(t, 0, len(manager.defaultToolsets), "should have 0 default toolsets (devmesh tools are individual tools, not toolsets)")
 }
 
 func TestToolsetManager_RegisterToolset(t *testing.T) {
@@ -78,7 +79,7 @@ func TestToolsetManager_RegisterToolset(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			registry := NewRegistry()
-			manager := NewToolsetManager(registry)
+			manager := NewToolsetManager(registry, observability.NewNoopLogger())
 
 			err := manager.RegisterToolset(tt.toolset)
 
@@ -95,10 +96,8 @@ func TestToolsetManager_RegisterToolset(t *testing.T) {
 				assert.True(t, exists)
 				assert.Equal(t, tt.toolset.Name, toolset.Name)
 
-				// Check if default toolsets are auto-enabled
-				if tt.toolset.Name == "devmesh_context" || tt.toolset.Name == "devmesh_workflow" || tt.toolset.Name == "devmesh_task" {
-					assert.True(t, toolset.Enabled, "default toolset should be auto-enabled")
-				}
+				// Note: Default toolsets no longer exist - devmesh tools are individual tools,
+				// not toolsets, so they don't need to be auto-enabled
 			}
 		})
 	}
@@ -134,7 +133,7 @@ func TestToolsetManager_EnableToolset(t *testing.T) {
 
 	t.Run("enable non-existent toolset", func(t *testing.T) {
 		registry := NewRegistry()
-		manager := NewToolsetManager(registry)
+		manager := NewToolsetManager(registry, observability.NewNoopLogger())
 
 		err := manager.EnableToolset(ctx, "nonexistent")
 		assert.Error(t, err)
@@ -143,7 +142,7 @@ func TestToolsetManager_EnableToolset(t *testing.T) {
 
 	t.Run("enable toolset successfully", func(t *testing.T) {
 		registry := NewRegistry()
-		manager := NewToolsetManager(registry)
+		manager := NewToolsetManager(registry, observability.NewNoopLogger())
 
 		// Register toolset
 		err := manager.RegisterToolset(testToolset)
@@ -166,7 +165,7 @@ func TestToolsetManager_EnableToolset(t *testing.T) {
 
 	t.Run("enable already enabled toolset", func(t *testing.T) {
 		registry := NewRegistry()
-		manager := NewToolsetManager(registry)
+		manager := NewToolsetManager(registry, observability.NewNoopLogger())
 
 		// Register and enable toolset
 		err := manager.RegisterToolset(testToolset)
@@ -196,7 +195,7 @@ func TestToolsetManager_DisableToolset(t *testing.T) {
 
 	t.Run("disable non-existent toolset", func(t *testing.T) {
 		registry := NewRegistry()
-		manager := NewToolsetManager(registry)
+		manager := NewToolsetManager(registry, observability.NewNoopLogger())
 
 		err := manager.DisableToolset(ctx, "nonexistent")
 		assert.Error(t, err)
@@ -205,7 +204,7 @@ func TestToolsetManager_DisableToolset(t *testing.T) {
 
 	t.Run("disable enabled toolset", func(t *testing.T) {
 		registry := NewRegistry()
-		manager := NewToolsetManager(registry)
+		manager := NewToolsetManager(registry, observability.NewNoopLogger())
 
 		// Register and enable toolset
 		err := manager.RegisterToolset(testToolset)
@@ -225,7 +224,7 @@ func TestToolsetManager_DisableToolset(t *testing.T) {
 
 	t.Run("disable already disabled toolset", func(t *testing.T) {
 		registry := NewRegistry()
-		manager := NewToolsetManager(registry)
+		manager := NewToolsetManager(registry, observability.NewNoopLogger())
 
 		// Register toolset (disabled by default)
 		err := manager.RegisterToolset(testToolset)
@@ -254,7 +253,7 @@ func TestToolsetManager_EnableToolsets(t *testing.T) {
 
 	t.Run("enable multiple toolsets", func(t *testing.T) {
 		registry := NewRegistry()
-		manager := NewToolsetManager(registry)
+		manager := NewToolsetManager(registry, observability.NewNoopLogger())
 
 		// Register multiple toolsets
 		require.NoError(t, manager.RegisterToolset(createTestToolset("toolset1")))
@@ -270,15 +269,30 @@ func TestToolsetManager_EnableToolsets(t *testing.T) {
 		assert.Equal(t, 3, len(enabled))
 	})
 
-	t.Run("fail on non-existent toolset", func(t *testing.T) {
+	t.Run("continue on partial failure (resilient enablement)", func(t *testing.T) {
 		registry := NewRegistry()
-		manager := NewToolsetManager(registry)
+		manager := NewToolsetManager(registry, observability.NewNoopLogger())
 
 		require.NoError(t, manager.RegisterToolset(createTestToolset("toolset1")))
 
+		// Should succeed because toolset1 exists (even though nonexistent doesn't)
 		err := manager.EnableToolsets(ctx, []string{"toolset1", "nonexistent"})
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "toolset not found")
+		assert.NoError(t, err, "should not fail when at least one toolset succeeds")
+
+		// Verify toolset1 was enabled
+		enabled := manager.ListEnabledToolsets()
+		assert.Equal(t, 1, len(enabled))
+		assert.Equal(t, "toolset1", enabled[0].Name)
+	})
+
+	t.Run("fail when all toolsets fail", func(t *testing.T) {
+		registry := NewRegistry()
+		manager := NewToolsetManager(registry, observability.NewNoopLogger())
+
+		// Try to enable only non-existent toolsets
+		err := manager.EnableToolsets(ctx, []string{"nonexistent1", "nonexistent2"})
+		assert.Error(t, err, "should fail when all toolsets fail")
+		assert.Contains(t, err.Error(), "failed to enable any toolsets")
 	})
 }
 
@@ -300,7 +314,7 @@ func TestToolsetManager_List_Operations(t *testing.T) {
 
 	t.Run("list all toolsets", func(t *testing.T) {
 		registry := NewRegistry()
-		manager := NewToolsetManager(registry)
+		manager := NewToolsetManager(registry, observability.NewNoopLogger())
 
 		require.NoError(t, manager.RegisterToolset(createTestToolset("toolset1", "github")))
 		require.NoError(t, manager.RegisterToolset(createTestToolset("toolset2", "harness")))
@@ -312,7 +326,7 @@ func TestToolsetManager_List_Operations(t *testing.T) {
 
 	t.Run("list enabled toolsets only", func(t *testing.T) {
 		registry := NewRegistry()
-		manager := NewToolsetManager(registry)
+		manager := NewToolsetManager(registry, observability.NewNoopLogger())
 
 		require.NoError(t, manager.RegisterToolset(createTestToolset("toolset1", "github")))
 		require.NoError(t, manager.RegisterToolset(createTestToolset("toolset2", "harness")))
@@ -328,7 +342,7 @@ func TestToolsetManager_List_Operations(t *testing.T) {
 
 	t.Run("list by provider", func(t *testing.T) {
 		registry := NewRegistry()
-		manager := NewToolsetManager(registry)
+		manager := NewToolsetManager(registry, observability.NewNoopLogger())
 
 		require.NoError(t, manager.RegisterToolset(createTestToolset("toolset1", "github")))
 		require.NoError(t, manager.RegisterToolset(createTestToolset("toolset2", "harness")))
@@ -383,7 +397,7 @@ func TestToolsetManager_GenerateToolDefinitions(t *testing.T) {
 
 	t.Run("generate with different detail levels", func(t *testing.T) {
 		registry := NewRegistry()
-		manager := NewToolsetManager(registry)
+		manager := NewToolsetManager(registry, observability.NewNoopLogger())
 
 		require.NoError(t, manager.RegisterToolset(testToolset))
 
@@ -409,7 +423,7 @@ func TestToolsetManager_GenerateToolDefinitions(t *testing.T) {
 
 	t.Run("generate for non-existent toolset", func(t *testing.T) {
 		registry := NewRegistry()
-		manager := NewToolsetManager(registry)
+		manager := NewToolsetManager(registry, observability.NewNoopLogger())
 
 		_, err := manager.GenerateToolDefinitions("nonexistent", mcptools.DetailLevelFull, nil)
 		assert.Error(t, err)
@@ -443,7 +457,7 @@ func TestToolsetManager_RegisterProvider(t *testing.T) {
 
 	t.Run("register provider successfully", func(t *testing.T) {
 		registry := NewRegistry()
-		manager := NewToolsetManager(registry)
+		manager := NewToolsetManager(registry, observability.NewNoopLogger())
 
 		err := manager.RegisterProvider(mockProvider)
 		assert.NoError(t, err)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/developer-mesh/developer-mesh/pkg/mcptools"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 // ToolsetManager manages toolset enablement and tool generation
@@ -12,21 +13,21 @@ import (
 type ToolsetManager struct {
 	toolsets map[string]mcptools.Toolset // All registered toolsets
 	registry *Registry                   // Reference to the main tool registry
+	logger   observability.Logger        // Logger for debugging
 
 	// Default toolsets that are enabled by default
 	defaultToolsets []string
 }
 
 // NewToolsetManager creates a new toolset manager
-func NewToolsetManager(registry *Registry) *ToolsetManager {
+func NewToolsetManager(registry *Registry, logger observability.Logger) *ToolsetManager {
 	return &ToolsetManager{
 		toolsets: make(map[string]mcptools.Toolset),
 		registry: registry,
-		defaultToolsets: []string{
-			"devmesh_context",
-			"devmesh_workflow",
-			"devmesh_task",
-		},
+		logger:   logger,
+		// Default toolsets are now empty - individual devmesh tools (context, workflow, task)
+		// are registered directly to the registry and don't need toolset enablement
+		defaultToolsets: []string{},
 	}
 }
 
@@ -114,13 +115,46 @@ func (tm *ToolsetManager) DisableToolset(ctx context.Context, name string) error
 }
 
 // EnableToolsets enables multiple toolsets
+// Continues trying all toolsets even if some fail, ensuring partial success
 func (tm *ToolsetManager) EnableToolsets(ctx context.Context, names []string) error {
+	var errors []error
+	successCount := 0
+
 	for _, name := range names {
 		if err := tm.EnableToolset(ctx, name); err != nil {
-			return err
+			errors = append(errors, fmt.Errorf("%s: %w", name, err))
+			// Log individual failure but continue
+			if tm.logger != nil {
+				tm.logger.Warn("Failed to enable toolset", map[string]interface{}{
+					"toolset": name,
+					"error":   err.Error(),
+				})
+			}
+		} else {
+			successCount++
+			if tm.logger != nil {
+				tm.logger.Debug("Successfully enabled toolset", map[string]interface{}{
+					"toolset": name,
+				})
+			}
 		}
 	}
-	return nil
+
+	if len(errors) > 0 && successCount == 0 {
+		// All failed - return combined error
+		return fmt.Errorf("failed to enable any toolsets: %v", errors)
+	}
+
+	if len(errors) > 0 && tm.logger != nil {
+		// Partial success - log summary but don't fail
+		tm.logger.Info("Partial toolset enablement", map[string]interface{}{
+			"requested":     len(names),
+			"success_count": successCount,
+			"failed_count":  len(errors),
+		})
+	}
+
+	return nil // Success if at least one enabled
 }
 
 // DisableToolsets disables multiple toolsets

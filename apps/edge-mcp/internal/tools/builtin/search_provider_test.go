@@ -7,13 +7,14 @@ import (
 
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tools"
 	"github.com/developer-mesh/developer-mesh/pkg/mcptools"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestNewSearchToolProvider(t *testing.T) {
 	registry := tools.NewRegistry()
-	manager := tools.NewToolsetManager(registry)
+	manager := tools.NewToolsetManager(registry, observability.NewNoopLogger())
 
 	provider := NewSearchToolProvider(registry, manager)
 
@@ -24,7 +25,7 @@ func TestNewSearchToolProvider(t *testing.T) {
 
 func TestSearchToolProvider_GetDefinitions(t *testing.T) {
 	registry := tools.NewRegistry()
-	manager := tools.NewToolsetManager(registry)
+	manager := tools.NewToolsetManager(registry, observability.NewNoopLogger())
 	provider := NewSearchToolProvider(registry, manager)
 
 	definitions := provider.GetDefinitions()
@@ -64,7 +65,7 @@ func TestSearchToolProvider_GetDefinitions(t *testing.T) {
 func TestSearchToolProvider_HandleSearchTools(t *testing.T) {
 	// Setup
 	registry := tools.NewRegistry()
-	manager := tools.NewToolsetManager(registry)
+	manager := tools.NewToolsetManager(registry, observability.NewNoopLogger())
 
 	// Register some test tools
 	registry.Register(&mockToolProvider{
@@ -229,7 +230,7 @@ func TestSearchToolProvider_HandleSearchTools(t *testing.T) {
 func TestSearchToolProvider_HandleListToolsets(t *testing.T) {
 	// Setup
 	registry := tools.NewRegistry()
-	manager := tools.NewToolsetManager(registry)
+	manager := tools.NewToolsetManager(registry, observability.NewNoopLogger())
 
 	// Register test toolsets
 	testToolsets := []mcptools.Toolset{
@@ -354,7 +355,7 @@ func TestSearchToolProvider_HandleListToolsets(t *testing.T) {
 func TestSearchToolProvider_HandleGetToolset(t *testing.T) {
 	// Setup
 	registry := tools.NewRegistry()
-	manager := tools.NewToolsetManager(registry)
+	manager := tools.NewToolsetManager(registry, observability.NewNoopLogger())
 
 	// Register test toolset
 	testToolset := mcptools.Toolset{

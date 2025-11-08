@@ -31,7 +31,7 @@ func (m *MockCoreClient) FetchRemoteTools(ctx context.Context) ([]tools.ToolDefi
 func TestNewRemoteToolsetProvider(t *testing.T) {
 	mockClient := &MockCoreClient{}
 	registry := tools.NewRegistry()
-	manager := tools.NewToolsetManager(registry)
+	manager := tools.NewToolsetManager(registry, observability.NewNoopLogger())
 	logger := observability.NewStandardLogger("test")
 
 	provider := NewRemoteToolsetProvider(mockClient, manager, logger)
@@ -92,7 +92,7 @@ func TestRegisterRemoteToolsets(t *testing.T) {
 				toolsets: tt.toolsets,
 			}
 			registry := tools.NewRegistry()
-			manager := tools.NewToolsetManager(registry)
+			manager := tools.NewToolsetManager(registry, observability.NewNoopLogger())
 			logger := observability.NewStandardLogger("test")
 
 			provider := NewRemoteToolsetProvider(mockClient, manager, logger)
@@ -124,7 +124,7 @@ func TestRegisterRemoteToolsets_Error(t *testing.T) {
 		err: assert.AnError,
 	}
 	registry := tools.NewRegistry()
-	manager := tools.NewToolsetManager(registry)
+	manager := tools.NewToolsetManager(registry, observability.NewNoopLogger())
 	logger := observability.NewStandardLogger("test")
 
 	provider := NewRemoteToolsetProvider(mockClient, manager, logger)
@@ -308,7 +308,7 @@ func TestToolGenerator(t *testing.T) {
 		tools: mockTools,
 	}
 	registry := tools.NewRegistry()
-	manager := tools.NewToolsetManager(registry)
+	manager := tools.NewToolsetManager(registry, observability.NewNoopLogger())
 	logger := observability.NewStandardLogger("test")
 
 	provider := NewRemoteToolsetProvider(mockClient, manager, logger)
@@ -406,7 +406,7 @@ func TestToolGenerator_Error(t *testing.T) {
 		err: assert.AnError,
 	}
 	registry := tools.NewRegistry()
-	manager := tools.NewToolsetManager(registry)
+	manager := tools.NewToolsetManager(registry, observability.NewNoopLogger())
 	logger := observability.NewStandardLogger("test")
 
 	provider := NewRemoteToolsetProvider(mockClient, manager, logger)

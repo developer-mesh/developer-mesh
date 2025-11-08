@@ -250,7 +250,7 @@ func main() {
 
 	// Initialize toolset manager for functional tool groups
 	// This enables lazy loading and progressive disclosure of tools to reduce context consumption
-	toolsetManager := tools.NewToolsetManager(toolRegistry)
+	toolsetManager := tools.NewToolsetManager(toolRegistry, logger)
 
 	// Create GitHub adapter with NO service account credentials
 	// This adapter will use ONLY user credentials from request context (via session-scoped credential injection)
@@ -313,13 +313,9 @@ func main() {
 		toolRegistry.Register(provider)
 	}
 
-	// Enable default toolsets (devmesh_context, devmesh_workflow, devmesh_task)
-	// These are automatically enabled on startup for immediate availability
-	if err := toolsetManager.EnableToolsets(context.Background(), []string{"devmesh_context", "devmesh_workflow", "devmesh_task"}); err != nil {
-		logger.Warn("Failed to enable default toolsets", map[string]interface{}{
-			"error": err.Error(),
-		})
-	}
+	// Note: devmesh_context, devmesh_workflow, and devmesh_task are individual tools,
+	// not toolsets. They are registered directly above via builtinProviders and are
+	// immediately available - no enablement needed.
 
 	// Pre-enable common GitHub toolsets to eliminate lazy loading latency
 	// Tools will use user credentials from context (session-scoped credential injection)
