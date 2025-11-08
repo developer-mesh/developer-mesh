@@ -587,9 +587,14 @@ func (s *Server) setupRoutes(ctx context.Context) {
 		toolFilterService = &services.ToolFilterService{}
 	}
 
+	// Create toolset service for MCP toolset architecture
+	dynamicToolRepo := pkgrepository.NewDynamicToolRepository(s.db)
+	toolsetService := services.NewToolsetService(dynamicToolRepo, s.logger)
+
 	// Create dynamic tools API with template repository and credential repo for permission discovery
 	dynamicToolsAPI := NewDynamicToolsAPI(
 		dynamicToolsService,
+		toolsetService,
 		s.logger,
 		s.metrics,
 		auth.NewAuditLogger(s.logger),
@@ -600,6 +605,10 @@ func (s *Server) setupRoutes(ctx context.Context) {
 		toolFilterService,
 	)
 	dynamicToolsAPI.RegisterRoutes(v1)
+
+	// Create and register toolset API
+	toolsetAPI := NewToolsetAPI(toolsetService, s.logger)
+	toolsetAPI.RegisterRoutes(v1)
 
 	// Create enhanced tools API
 	enhancedToolsAPI := NewEnhancedToolsAPI(

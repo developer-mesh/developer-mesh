@@ -264,6 +264,80 @@ func (c *Client) handleFailure(err error) {
 	}
 }
 
+// ToolsetInfo represents a toolset from the REST API
+type ToolsetInfo struct {
+	Name        string   `json:"name"`
+	DisplayName string   `json:"display_name"`
+	Description string   `json:"description"`
+	Category    string   `json:"category"`
+	Provider    string   `json:"provider"`
+	ToolCount   int      `json:"tool_count"`
+	Tools       []string `json:"tools"`
+	Tags        []string `json:"tags"`
+	Enabled     bool     `json:"enabled"`
+}
+
+// FetchRemoteToolsets fetches available toolsets from Core Platform
+func (c *Client) FetchRemoteToolsets(ctx context.Context) ([]ToolsetInfo, error) {
+	if !c.connected {
+		return []ToolsetInfo{}, nil // Return empty list in offline mode
+	}
+
+	var result []ToolsetInfo
+
+	// Use retry logic for fetching toolsets
+	retryResult, err := utils.RetryWithBackoff(ctx, c.retryConfig, func() error {
+		// Make request to fetch toolsets (edge_mcp=true now returns toolsets)
+		resp, err := c.doRequest(ctx, "GET", fmt.Sprintf("/api/v1/tools?tenant_id=%s&edge_mcp=true", c.tenantID), nil)
+		if err != nil {
+			return utils.NetworkError{Message: err.Error()}
+		}
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				c.logger.Warn("Failed to close response body", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+		}()
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			return utils.HTTPError{
+				StatusCode: resp.StatusCode,
+				Message:    fmt.Sprintf("Failed to fetch toolsets: %s", string(body)),
+			}
+		}
+
+		// Parse toolsets response
+		var toolsetsResp struct {
+			Toolsets []ToolsetInfo `json:"toolsets"`
+			Count    int           `json:"count"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&toolsetsResp); err != nil {
+			return fmt.Errorf("failed to decode toolsets response: %w", err)
+		}
+
+		result = toolsetsResp.Toolsets
+		return nil
+	})
+
+	if err != nil {
+		c.logger.Error("Failed to fetch remote toolsets after retries", map[string]interface{}{
+			"attempts":       retryResult.Attempts,
+			"total_duration": retryResult.TotalDuration.Seconds(),
+			"error":          err.Error(),
+		})
+		return nil, err
+	}
+
+	c.logger.Info("Successfully fetched remote toolsets", map[string]interface{}{
+		"count":    len(result),
+		"attempts": retryResult.Attempts,
+	})
+
+	return result, nil
+}
+
 // FetchRemoteTools fetches available tools from Core Platform with retry logic
 func (c *Client) FetchRemoteTools(ctx context.Context) ([]tools.ToolDefinition, error) {
 	if !c.connected {

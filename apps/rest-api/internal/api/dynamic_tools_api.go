@@ -25,6 +25,7 @@ import (
 // DynamicToolsAPI handles dynamic tool management endpoints
 type DynamicToolsAPI struct {
 	toolService       services.DynamicToolsServiceInterface
+	toolsetService    *services.ToolsetService                 // For toolset generation
 	logger            observability.Logger
 	metricsClient     observability.MetricsClient
 	auditLogger       *auth.AuditLogger
@@ -39,6 +40,7 @@ type DynamicToolsAPI struct {
 // NewDynamicToolsAPI creates a new dynamic tools API handler
 func NewDynamicToolsAPI(
 	toolService services.DynamicToolsServiceInterface,
+	toolsetService *services.ToolsetService,
 	logger observability.Logger,
 	metricsClient observability.MetricsClient,
 	auditLogger *auth.AuditLogger,
@@ -50,6 +52,7 @@ func NewDynamicToolsAPI(
 ) *DynamicToolsAPI {
 	return &DynamicToolsAPI{
 		toolService:       toolService,
+		toolsetService:    toolsetService,
 		logger:            logger,
 		metricsClient:     metricsClient,
 		auditLogger:       auditLogger,
@@ -128,6 +131,60 @@ func (api *DynamicToolsAPI) ListTools(c *gin.Context) {
 	status := c.Query("status")
 	includeHealth := c.Query("include_health") == "true"
 	isEdgeMCP := c.Query("edge_mcp") == "true"
+
+	// For Edge MCP clients, return toolsets instead of individual tools
+	if isEdgeMCP && api.toolsetService != nil {
+		toolsetInfos, err := api.toolsetService.AutoGenerateToolsets(c.Request.Context(), tenantID)
+		if err != nil {
+			api.logger.Error("Failed to generate toolsets", map[string]interface{}{
+				"tenant_id": tenantID,
+				"error":     err.Error(),
+			})
+			if api.metricsClient != nil {
+				api.metricsClient.IncrementCounterWithLabels("api.toolsets.list.error", 1, map[string]string{
+					"tenant_id": tenantID,
+				})
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate toolsets"})
+			return
+		}
+
+		// Convert toolsets to response format
+		toolsets := make([]map[string]interface{}, len(toolsetInfos))
+		for i, info := range toolsetInfos {
+			toolsets[i] = map[string]interface{}{
+				"name":         info.Toolset.Name,
+				"display_name": info.Toolset.DisplayName,
+				"description":  info.Toolset.Description,
+				"category":     info.Toolset.Category,
+				"provider":     info.Toolset.Provider,
+				"tool_count":   len(info.Tools),
+				"tools":        info.Toolset.Tools,
+				"tags":         info.Toolset.Tags,
+				"enabled":      info.Toolset.Enabled,
+			}
+		}
+
+		api.logger.Info("Returned toolsets for Edge MCP", map[string]interface{}{
+			"tenant_id":     tenantID,
+			"toolset_count": len(toolsets),
+		})
+
+		if api.metricsClient != nil {
+			api.metricsClient.IncrementCounterWithLabels("api.toolsets.list.success", 1, map[string]string{
+				"tenant_id": tenantID,
+			})
+			api.metricsClient.RecordHistogram("api.toolsets.list.duration", time.Since(start).Seconds(), map[string]string{
+				"tenant_id": tenantID,
+			})
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"toolsets": toolsets,
+			"count":    len(toolsets),
+		})
+		return
+	}
 
 	// Get dynamic tools
 	tools, err := api.toolService.ListTools(c.Request.Context(), tenantID, status)

@@ -313,19 +313,25 @@ func main() {
 	// This ensures all tools come from the REST API for consistency
 	// Removed: FileSystemTool, GitTool, DockerTool, ShellTool
 
-	// Fetch and register remote tools from Core Platform
+	// Fetch and register remote toolsets from Core Platform
+	// This replaces individual tool registration with toolset-based registration
+	// reducing token consumption by returning ~15 toolsets instead of 166 tools
 	if coreClient != nil {
-		remoteTools, err := coreClient.FetchRemoteTools(context.Background())
-		if err != nil {
-			logger.Warn("Could not fetch remote tools", map[string]interface{}{
+		remoteToolsetProvider := builtin.NewRemoteToolsetProvider(
+			coreClient,
+			toolsetManager,
+			logger,
+		)
+
+		if err := remoteToolsetProvider.RegisterRemoteToolsets(context.Background()); err != nil {
+			logger.Warn("Could not register remote toolsets", map[string]interface{}{
 				"error": err.Error(),
 			})
 		} else {
-			for _, tool := range remoteTools {
-				toolRegistry.RegisterRemote(tool)
-			}
-			logger.Info("Registered remote tools", map[string]interface{}{
-				"count": len(remoteTools),
+			// Log toolset statistics
+			allToolsets := toolsetManager.ListToolsets()
+			logger.Info("Registered remote toolsets", map[string]interface{}{
+				"total_toolsets": len(allToolsets),
 			})
 		}
 	}
