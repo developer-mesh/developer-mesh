@@ -1198,6 +1198,28 @@ func (h *Handler) handleToolCall(sessionID string, msg *MCPMessage) (*MCPMessage
 	}
 	h.sessionsMu.RUnlock()
 
+	// Add user credentials to context for tool execution (if authenticated via Core Platform)
+	if h.coreClient != nil {
+		userID := h.coreClient.GetUserID()
+		credentials := h.coreClient.GetCredentials()
+
+		if userID != "" && tenantID != "" {
+			userCreds := &core.UserCredentials{
+				TenantID:    tenantID,
+				UserID:      userID,
+				Credentials: credentials,
+			}
+			ctx = core.WithUserCredentials(ctx, userCreds)
+
+			// Log credential attachment for debugging (but don't log actual tokens)
+			h.logger.Debug("User credentials attached to context", map[string]interface{}{
+				"user_id":           userID,
+				"tenant_id":         tenantID,
+				"credentials_count": len(credentials),
+			})
+		}
+	}
+
 	// Create request-scoped logger with context fields
 	reqLogger := observability.LoggerFromContext(ctx, h.logger)
 

@@ -6,16 +6,18 @@ import (
 	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/services"
 	"github.com/developer-mesh/developer-mesh/pkg/auth"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	pkgservices "github.com/developer-mesh/developer-mesh/pkg/services"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
 // RegistrationAPI handles organization and user registration endpoints
 type RegistrationAPI struct {
-	orgService  *services.OrganizationService
-	userService *services.UserAuthService
-	authService *auth.Service
-	logger      observability.Logger
+	orgService        *services.OrganizationService
+	userService       *services.UserAuthService
+	authService       *auth.Service
+	credentialService *pkgservices.CredentialService
+	logger            observability.Logger
 }
 
 // NewRegistrationAPI creates a new registration API handler
@@ -23,13 +25,15 @@ func NewRegistrationAPI(
 	orgService *services.OrganizationService,
 	userService *services.UserAuthService,
 	authService *auth.Service,
+	credentialService *pkgservices.CredentialService,
 	logger observability.Logger,
 ) *RegistrationAPI {
 	return &RegistrationAPI{
-		orgService:  orgService,
-		userService: userService,
-		authService: authService,
-		logger:      logger,
+		orgService:        orgService,
+		userService:       userService,
+		authService:       authService,
+		credentialService: credentialService,
+		logger:            logger,
 	}
 }
 
@@ -279,11 +283,12 @@ type EdgeMCPAuthRequest struct {
 
 // EdgeMCPAuthResponse represents the authentication response to Edge MCP
 type EdgeMCPAuthResponse struct {
-	Success  bool   `json:"success"`
-	Token    string `json:"token,omitempty"`
-	Message  string `json:"message,omitempty"`
-	TenantID string `json:"tenant_id,omitempty"`
-	UserID   string `json:"user_id,omitempty"`
+	Success     bool              `json:"success"`
+	Token       string            `json:"token,omitempty"`
+	Message     string            `json:"message,omitempty"`
+	TenantID    string            `json:"tenant_id,omitempty"`
+	UserID      string            `json:"user_id,omitempty"`
+	Credentials map[string]string `json:"credentials,omitempty"` // provider → token
 }
 
 // AuthenticateEdgeMCP handles Edge MCP authentication requests
@@ -329,18 +334,54 @@ func (api *RegistrationAPI) AuthenticateEdgeMCP(c *gin.Context) {
 		return
 	}
 
+	// Fetch user credentials (all active third-party service tokens)
+	userCredsMap, err := api.credentialService.GetAllUserCredentials(
+		c.Request.Context(),
+		user.TenantID.String(),
+		user.ID.String(),
+	)
+
+	// Convert to simple string map for response
+	credentials := make(map[string]string)
+	if err != nil {
+		// Log warning but don't fail auth - user might not have credentials yet
+		api.logger.Warn("Failed to fetch user credentials", map[string]interface{}{
+			"error":     err.Error(),
+			"tenant_id": user.TenantID.String(),
+			"user_id":   user.ID.String(),
+		})
+	} else {
+		// Extract primary token from each service's credentials
+		for serviceType, decryptedCreds := range userCredsMap {
+			// Get the "token" field from credentials map, fallback to first value
+			if token, ok := decryptedCreds.Credentials["token"]; ok {
+				credentials[string(serviceType)] = token
+			} else if token, ok := decryptedCreds.Credentials["access_token"]; ok {
+				credentials[string(serviceType)] = token
+			} else {
+				// Use first available credential value
+				for _, value := range decryptedCreds.Credentials {
+					credentials[string(serviceType)] = value
+					break
+				}
+			}
+		}
+	}
+
 	// Log successful authentication
 	api.logger.Info("Edge MCP authenticated successfully", map[string]interface{}{
-		"edge_mcp_id": req.EdgeMCPID,
-		"tenant_id":   user.TenantID.String(),
+		"edge_mcp_id":      req.EdgeMCPID,
+		"tenant_id":        user.TenantID.String(),
+		"credentials_count": len(credentials),
 	})
 
-	// Send success response with tenant_id and user_id
+	// Send success response with tenant_id, user_id, and credentials
 	c.JSON(http.StatusOK, EdgeMCPAuthResponse{
-		Success:  true,
-		Token:    token,
-		TenantID: user.TenantID.String(),
-		UserID:   user.ID.String(),
+		Success:     true,
+		Token:       token,
+		TenantID:    user.TenantID.String(),
+		UserID:      user.ID.String(),
+		Credentials: credentials,
 	})
 }
 

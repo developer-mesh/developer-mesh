@@ -363,35 +363,6 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	orgService := services.NewOrganizationService(s.db, authService, emailService, s.logger)
 	userService := services.NewUserAuthService(s.db, authService, emailService, s.logger)
 
-	// Create registration API
-	s.logger.Info("Creating registration API handler", nil)
-	registrationAPI := NewRegistrationAPI(orgService, userService, authService, s.logger)
-
-	// Register PUBLIC auth routes DIRECTLY on router (no authentication required)
-	// We must register these BEFORE the authenticated v1 group to avoid middleware conflicts
-	s.logger.Info("Registering public auth routes directly on router", nil)
-	authGroup := s.router.Group("/api/v1/auth")
-	{
-		authGroup.POST("/register/organization", registrationAPI.RegisterOrganization)
-		authGroup.POST("/login", registrationAPI.Login)
-		authGroup.POST("/logout", registrationAPI.Logout)
-		authGroup.POST("/refresh", registrationAPI.RefreshToken)
-		authGroup.POST("/edge-mcp", registrationAPI.AuthenticateEdgeMCP)
-		authGroup.POST("/password/reset", registrationAPI.RequestPasswordReset)
-		authGroup.POST("/password/reset/confirm", registrationAPI.ConfirmPasswordReset)
-		authGroup.POST("/email/verify", registrationAPI.VerifyEmail)
-		authGroup.POST("/email/resend", registrationAPI.ResendVerificationEmail)
-		authGroup.GET("/invitation/:token", registrationAPI.GetInvitationDetails)
-		authGroup.POST("/invitation/accept", registrationAPI.AcceptInvitation)
-	}
-	s.logger.Info("Public auth routes registered", map[string]interface{}{
-		"endpoints": []string{
-			"/api/v1/auth/register/organization",
-			"/api/v1/auth/login",
-			"/api/v1/auth/edge-mcp",
-		},
-	})
-
 	// API v1 routes - require authentication
 	v1 := s.router.Group("/api/v1")
 
@@ -402,17 +373,7 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	// Add tenant context extraction middleware AFTER authentication
 	v1.Use(ExtractTenantContext())
 
-	// Register PROTECTED routes (authentication required)
-	v1.POST("/users/invite", registrationAPI.InviteUser)
-	v1.GET("/users", registrationAPI.ListOrganizationUsers)
-	v1.PUT("/users/:id/role", registrationAPI.UpdateUserRole)
-	v1.DELETE("/users/:id", registrationAPI.RemoveUser)
-	v1.GET("/organization", registrationAPI.GetOrganization)
-	v1.PUT("/organization", registrationAPI.UpdateOrganization)
-	v1.GET("/organization/usage", registrationAPI.GetOrganizationUsage)
-	v1.GET("/profile", registrationAPI.GetProfile)
-	v1.PUT("/profile", registrationAPI.UpdateProfile)
-	v1.POST("/profile/password", registrationAPI.ChangePassword)
+	// Note: Registration API protected routes will be registered after the API object is created (see below)
 
 	// Root endpoint to provide API entry points (HATEOAS)
 	v1.GET("/", func(c *gin.Context) {
@@ -575,6 +536,47 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	// Create credential repository for permission discovery (needed by dynamic tools API)
 	credentialRepo := credential.NewPostgresRepository(s.db)
 
+	// Create credential service for encrypted credential management
+	credentialService := pkgservices.NewCredentialService(
+		credentialRepo,
+		encryptionService,
+		s.logger,
+	)
+
+	// Create registration API with credential service for edge-mcp authentication
+	registrationAPI := NewRegistrationAPI(
+		orgService,
+		userService,
+		authService,
+		credentialService,
+		s.logger,
+	)
+
+	// Register public auth routes (no authentication required)
+	authGroup := s.router.Group("/api/v1/auth")
+	registrationAPI.RegisterPublicRoutes(authGroup)
+
+	s.logger.Info("Public auth routes registered", map[string]interface{}{
+		"endpoints": []string{
+			"/api/v1/auth/register/organization",
+			"/api/v1/auth/login",
+			"/api/v1/auth/edge-mcp",
+			"/api/v1/auth/refresh",
+			"/api/v1/auth/logout",
+		},
+	})
+
+	// Register protected routes (authentication required)
+	registrationAPI.RegisterProtectedRoutes(v1)
+	s.logger.Info("Protected auth routes registered", map[string]interface{}{
+		"endpoints": []string{
+			"/api/v1/users/invite",
+			"/api/v1/users",
+			"/api/v1/organization",
+			"/api/v1/profile",
+		},
+	})
+
 	// Initialize tool filter service for context optimization
 	configPath := services.GetToolFilterConfigPath()
 	toolFilterService, err := services.NewToolFilterService(configPath, s.logger)
@@ -675,13 +677,7 @@ func (s *Server) setupRoutes(ctx context.Context) {
 		"orchestrator_enabled": true,
 	})
 
-	// Credential Management API - Encrypted credential storage (using credentialRepo created earlier)
-	credentialService := pkgservices.NewCredentialService(
-		credentialRepo,
-		encryptionService,
-		s.logger,
-	)
-
+	// Credential Management API - Encrypted credential storage (credentialService created earlier)
 	// Add user credential loading middleware - loads user's stored credentials for tool access
 	// This middleware should be added after authentication and tenant extraction
 	v1.Use(middleware.UserCredentialMiddleware(credentialService, s.logger))

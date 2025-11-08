@@ -27,6 +27,37 @@ type contextKey string
 // PassthroughAuthKey is the context key for passthrough authentication
 const PassthroughAuthKey contextKey = "passthrough-auth"
 
+// UserCredentialsKey is the context key for user credentials
+const UserCredentialsKey contextKey = "user-credentials"
+
+// UserCredentials holds credential information for a user session
+type UserCredentials struct {
+	TenantID    string            // Tenant ID for this session
+	UserID      string            // User ID for this session
+	Credentials map[string]string // Provider name → token
+}
+
+// WithUserCredentials attaches user credentials to a context
+func WithUserCredentials(ctx context.Context, creds *UserCredentials) context.Context {
+	return context.WithValue(ctx, UserCredentialsKey, creds)
+}
+
+// GetUserCredentials extracts user credentials from a context
+func GetUserCredentials(ctx context.Context) (*UserCredentials, bool) {
+	creds, ok := ctx.Value(UserCredentialsKey).(*UserCredentials)
+	return creds, ok
+}
+
+// GetProviderCredential extracts a specific provider's credential from context
+func GetProviderCredential(ctx context.Context, provider string) (string, bool) {
+	creds, ok := GetUserCredentials(ctx)
+	if !ok || creds == nil || creds.Credentials == nil {
+		return "", false
+	}
+	token, exists := creds.Credentials[provider]
+	return token, exists
+}
+
 // getMapKeys returns the keys of a string map as a slice
 func getMapKeys(m map[string]interface{}) []string {
 	keys := make([]string, 0, len(m))
@@ -105,8 +136,10 @@ type Client struct {
 	toolIDMap map[string]string // Maps tool name to tool ID
 
 	// Session and context tracking
-	currentSessionID string // Current session ID
-	currentContextID string // Current context ID (linked to session)
+	currentSessionID string            // Current session ID
+	currentContextID string            // Current context ID (linked to session)
+	userID           string            // User ID for this session (from auth)
+	credentials      map[string]string // Provider → decrypted token (from auth)
 }
 
 // NewClient creates a new Core Platform client
@@ -166,10 +199,12 @@ type AuthRequest struct {
 
 // AuthResponse represents authentication response
 type AuthResponse struct {
-	Success  bool   `json:"success"`
-	Token    string `json:"token,omitempty"`
-	Message  string `json:"message,omitempty"`
-	TenantID string `json:"tenant_id,omitempty"` // Core Platform returns the tenant_id
+	Success     bool              `json:"success"`
+	Token       string            `json:"token,omitempty"`
+	Message     string            `json:"message,omitempty"`
+	TenantID    string            `json:"tenant_id,omitempty"`    // Core Platform returns the tenant_id
+	UserID      string            `json:"user_id,omitempty"`      // User ID for this session
+	Credentials map[string]string `json:"credentials,omitempty"` // provider → decrypted token
 }
 
 // AuthenticateWithCore authenticates with the Core Platform
@@ -230,9 +265,15 @@ func (c *Client) AuthenticateWithCore(ctx context.Context) error {
 		return err
 	}
 
-	// Authentication successful - store the tenant_id from response
+	// Authentication successful - store the tenant_id, user_id, and credentials from response
 	if authResp.TenantID != "" {
 		c.tenantID = authResp.TenantID
+	}
+	if authResp.UserID != "" {
+		c.userID = authResp.UserID
+	}
+	if authResp.Credentials != nil {
+		c.credentials = authResp.Credentials
 	}
 
 	c.connected = true
@@ -241,8 +282,10 @@ func (c *Client) AuthenticateWithCore(ctx context.Context) error {
 	c.lastHealthCheck = time.Now()
 
 	c.logger.Info("Successfully authenticated with Core Platform", map[string]interface{}{
-		"tenant_id":   c.tenantID,
-		"edge_mcp_id": c.edgeMCPID,
+		"tenant_id":         c.tenantID,
+		"user_id":           c.userID,
+		"edge_mcp_id":       c.edgeMCPID,
+		"credentials_count": len(c.credentials),
 	})
 
 	return nil
@@ -262,6 +305,43 @@ func (c *Client) handleFailure(err error) {
 			"error":       err.Error(),
 		})
 	}
+}
+
+// GetUserID returns the current user ID (from authentication)
+func (c *Client) GetUserID() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.userID
+}
+
+// GetCredentials returns a copy of the current credentials map
+func (c *Client) GetCredentials() map[string]string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	// Return a copy to prevent external modification
+	if c.credentials == nil {
+		return make(map[string]string)
+	}
+
+	credsCopy := make(map[string]string, len(c.credentials))
+	for k, v := range c.credentials {
+		credsCopy[k] = v
+	}
+	return credsCopy
+}
+
+// GetCredential returns a specific credential by provider name
+func (c *Client) GetCredential(provider string) (string, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if c.credentials == nil {
+		return "", false
+	}
+
+	token, exists := c.credentials[provider]
+	return token, exists
 }
 
 // ToolsetInfo represents a toolset from the REST API
@@ -578,6 +658,9 @@ func (c *Client) createProxyHandler(toolName string, toolID string) tools.ToolHa
 			passthroughAuth, _ = auth.(*models.PassthroughAuthBundle)
 		}
 
+		// Extract user credentials from context (added during session authentication)
+		userCreds, hasUserCreds := GetUserCredentials(ctx)
+
 		// Parse arguments to extract action and parameters
 		var parsedArgs map[string]interface{}
 		if err := json.Unmarshal(args, &parsedArgs); err != nil {
@@ -728,6 +811,18 @@ func (c *Client) createProxyHandler(toolName string, toolID string) tools.ToolHa
 			}
 
 			c.logger.Info("Including passthrough auth in tool execution", authInfo)
+		}
+
+		// Include user credentials if available (from session authentication)
+		if hasUserCreds && userCreds != nil && len(userCreds.Credentials) > 0 {
+			payload["user_credentials"] = userCreds.Credentials
+
+			c.logger.Info("Including user credentials in tool execution", map[string]interface{}{
+				"tool":              toolName,
+				"user_id":           userCreds.UserID,
+				"tenant_id":         userCreds.TenantID,
+				"credentials_count": len(userCreds.Credentials),
+			})
 		}
 
 		// Use the correct endpoint with tool ID
