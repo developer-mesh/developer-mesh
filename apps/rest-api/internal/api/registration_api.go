@@ -40,31 +40,28 @@ func NewRegistrationAPI(
 // RegisterPublicRoutes registers public auth routes (no authentication required)
 func (api *RegistrationAPI) RegisterPublicRoutes(router *gin.RouterGroup) {
 	// Public routes (no authentication required)
-	public := router.Group("/auth")
-	{
-		// Organization registration
-		public.POST("/register/organization", api.RegisterOrganization)
+	// Register directly on the router (which is already at /api/v1/auth)
+	router.POST("/register/organization", api.RegisterOrganization)
 
-		// User authentication
-		public.POST("/login", api.Login)
-		public.POST("/refresh", api.RefreshToken)
-		public.POST("/logout", api.Logout)
+	// User authentication
+	router.POST("/login", api.Login)
+	router.POST("/refresh", api.RefreshToken)
+	router.POST("/logout", api.Logout)
 
-		// Edge MCP authentication
-		public.POST("/edge-mcp", api.AuthenticateEdgeMCP)
+	// Edge MCP authentication
+	router.POST("/edge-mcp", api.AuthenticateEdgeMCP)
 
-		// Password reset
-		public.POST("/password/reset", api.RequestPasswordReset)
-		public.POST("/password/reset/confirm", api.ConfirmPasswordReset)
+	// Password reset
+	router.POST("/password/reset", api.RequestPasswordReset)
+	router.POST("/password/reset/confirm", api.ConfirmPasswordReset)
 
-		// Email verification
-		public.POST("/email/verify", api.VerifyEmail)
-		public.POST("/email/resend", api.ResendVerificationEmail)
+	// Email verification
+	router.POST("/email/verify", api.VerifyEmail)
+	router.POST("/email/resend", api.ResendVerificationEmail)
 
-		// Invitation acceptance
-		public.GET("/invitation/:token", api.GetInvitationDetails)
-		public.POST("/invitation/accept", api.AcceptInvitation)
-	}
+	// Invitation acceptance
+	router.GET("/invitation/:token", api.GetInvitationDetails)
+	router.POST("/invitation/accept", api.AcceptInvitation)
 }
 
 // RegisterProtectedRoutes registers protected routes (authentication required)
