@@ -39,7 +39,7 @@ jobs:
           # Docker metadata action creates shortened SHA tags (7 chars)
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           
-          for service in edge-mcp rest-api worker; do
+          for service in edge-mcp rest-api worker rag-loader; do
             # Try both latest and SHA-based tags
             IMAGE_BASE="ghcr.io/${OWNER}/developer-mesh-${service}"
             echo "Checking image: ${IMAGE_BASE}:latest"
@@ -392,7 +392,7 @@ jobs:
           docker ps
           
           # Show logs if any container is unhealthy
-          for container in edge-mcp rest-api worker; do
+          for container in edge-mcp rest-api worker rag-loader; do
             if docker ps | grep -q "$container"; then
               echo "✓ $container is running"
             else

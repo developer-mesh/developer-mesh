@@ -241,7 +241,7 @@ jobs:
       packages: write
     strategy:
       matrix:
-        app: [edge-mcp, rest-api, worker]
+        app: [edge-mcp, rest-api, worker, rag-loader]
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
