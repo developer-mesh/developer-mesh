@@ -125,6 +125,7 @@ type BedrockConfig struct {
 	Enabled  bool   `mapstructure:"enabled"`
 	Region   string `mapstructure:"region"`
 	Endpoint string `mapstructure:"endpoint"`
+	RoleARN  string `mapstructure:"role_arn"`
 }
 
 // GoogleConfig contains Google provider configuration
@@ -157,10 +158,10 @@ func Load() (*Config, error) {
 
 	// Bind specific environment variables that don't follow the MCP_ prefix
 	// These are commonly used in Docker environments
-	_ = v.BindEnv("cache.address", "REDIS_ADDR")       // Best effort - viper handles errors internally
-	_ = v.BindEnv("cache.address", "CACHE_ADDRESS")    // Best effort - viper handles errors internally
-	_ = v.BindEnv("cache.username", "REDIS_USERNAME")  // Redis 6.0+ ACL username
-	_ = v.BindEnv("cache.password", "REDIS_PASSWORD")  // Redis password
+	_ = v.BindEnv("cache.address", "REDIS_ADDR")      // Best effort - viper handles errors internally
+	_ = v.BindEnv("cache.address", "CACHE_ADDRESS")   // Best effort - viper handles errors internally
+	_ = v.BindEnv("cache.username", "REDIS_USERNAME") // Redis 6.0+ ACL username
+	_ = v.BindEnv("cache.password", "REDIS_PASSWORD") // Redis password
 
 	// Bind database environment variables used by Docker
 	_ = v.BindEnv("database.host", "DATABASE_HOST")
@@ -170,6 +171,12 @@ func Load() (*Config, error) {
 	_ = v.BindEnv("database.password", "DATABASE_PASSWORD")
 	_ = v.BindEnv("database.ssl_mode", "DATABASE_SSL_MODE")
 	_ = v.BindEnv("database.dsn", "DATABASE_DSN")
+
+	// Bind embedding provider environment variables
+	_ = v.BindEnv("embedding.providers.bedrock.enabled", "BEDROCK_ENABLED")
+	_ = v.BindEnv("embedding.providers.bedrock.region", "BEDROCK_REGION")
+	_ = v.BindEnv("embedding.providers.bedrock.endpoint", "BEDROCK_ENDPOINT")
+	_ = v.BindEnv("embedding.providers.bedrock.role_arn", "BEDROCK_ROLE_ARN")
 
 	// Enable environment variable interpolation in config values
 	v.AllowEmptyEnv(true)

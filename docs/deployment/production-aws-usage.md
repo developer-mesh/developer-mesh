@@ -34,10 +34,33 @@ export REDIS_ADDR=your-elasticache-endpoint:6379
 # For local development:
 # export REDIS_ADDR=localhost:6379
 
-# Bedrock Configuration
+# Bedrock Configuration (for embedding generation)
 export BEDROCK_ENABLED=true
+export BEDROCK_REGION=us-east-1
+export BEDROCK_ROLE_ARN=arn:aws:iam::ACCOUNT_ID:role/devmesh-bedrock-role
 export BEDROCK_SESSION_LIMIT=0.10
 export GLOBAL_COST_LIMIT=10.0
+```
+
+### Bedrock IAM Role (Kubernetes/IRSA)
+
+For production Kubernetes deployments, use IAM Roles for Service Accounts (IRSA) instead of static credentials:
+
+1. **Create IAM Role**: See [IAM Permissions Reference](../reference/iam-permissions.md) for complete setup
+2. **Required Permissions**: `bedrock:InvokeModel`, `bedrock:InvokeModelWithResponseStream`
+3. **Annotate ServiceAccount**:
+   ```yaml
+   apiVersion: v1
+   kind: ServiceAccount
+   metadata:
+     name: devmesh-rest-api
+     annotations:
+       eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/devmesh-bedrock-role
+   ```
+
+The `BEDROCK_ROLE_ARN` environment variable tells the application which IAM role to assume for Bedrock API calls. This provides secure, credential-free authentication for embedding generation.
+
+**Note**: When `BEDROCK_ROLE_ARN` is set, the application uses STS AssumeRole to obtain temporary credentials. The ServiceAccount must have proper trust relationship configured. See [IAM Permissions Reference](../reference/iam-permissions.md#iam-role-setup-for-kubernetes-irsa) for complete setup instructions.
 ```
 
 ## S3 Context Storage

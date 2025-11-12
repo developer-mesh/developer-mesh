@@ -331,6 +331,7 @@ func CreateEmbeddingServiceV2(cfg *config.Config, db database.Database, cache ca
 		bedrockCfg := providers.ProviderConfig{
 			Region:   cfg.Embedding.Providers.Bedrock.Region,
 			Endpoint: cfg.Embedding.Providers.Bedrock.Endpoint,
+			RoleARN:  cfg.Embedding.Providers.Bedrock.RoleARN,
 		}
 
 		bedrockProvider, err := providers.NewBedrockProvider(bedrockCfg)

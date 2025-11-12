@@ -106,6 +106,9 @@ type ProviderConfig struct {
 	Endpoint string `json:"endpoint,omitempty"`
 	Region   string `json:"region,omitempty"`
 
+	// AWS IAM Role ARN for AssumeRole authentication (for Bedrock and other AWS services)
+	RoleARN string `json:"role_arn,omitempty"`
+
 	// Rate limiting
 	MaxRequestsPerMinute int `json:"max_requests_per_minute,omitempty"`
 	MaxTokensPerMinute   int `json:"max_tokens_per_minute,omitempty"`
