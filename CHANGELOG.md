@@ -15,6 +15,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+## [0.0.15] - 2025-11-12
+
+### Fixed
+
+- **Critical: Redis Pool Timeout Configuration**
+  - Fixed pool_timeout missing time unit suffix in all configuration files
+  - Root cause: Bare numbers in YAML parsed as nanoseconds instead of seconds
+  - Production impact: Redis connections timing out after 5ns instead of 5s
+  - Fixed in: `config.production.yaml` (5 -> 5s), `config.base.yaml` (3 -> 3s), `config.docker.yaml` (3 -> 3s), `config.yaml` (multiple timeouts)
+  - Removed misleading SSH tunnel debug messages from `pkg/common/cache/redis_cache.go`
+  - Production uses direct TLS connections to ElastiCache, not SSH tunnels
+
+- **Go Build Tags Modernization**
+  - Removed deprecated `// +build` syntax from 22 test files
+  - Kept modern `//go:build` syntax (Go 1.18+ standard)
+  - Fixes golangci-lint buildtag warnings that blocked CI pipeline
+  - Affected files across `pkg/`, `apps/`, and `test/` directories
+
+### Changed
+
+- **CI/CD Pipeline Enhancement**
+  - Added rag-loader to CI build matrix for automatic Docker image builds
+  - Added rag-loader to production deployment image verification
+  - Added rag-loader to container health checks in deploy-production-v2.yml
+  - Ensures RAG Loader service is built, pushed to GHCR, and deployed consistently
+
+### Documentation
+
+- Clarified that production Redis connections use direct TLS, not SSH tunnels
+- SSH tunnel setup is only for local development with AWS services
+
 ## [0.0.14] - 2025-11-06
 
 ### Fixed
