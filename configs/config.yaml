@@ -43,10 +43,10 @@ aws:
     max_retries: 3
     min_idle_connections: 2
     pool_size: 10
-    dial_timeout: 5
-    read_timeout: 3
-    write_timeout: 3
-    pool_timeout: 4
+    dial_timeout: 5s
+    read_timeout: 3s
+    write_timeout: 3s
+    pool_timeout: 4s
     token_expiration: 900 # 15 minutes in seconds
   
   s3:

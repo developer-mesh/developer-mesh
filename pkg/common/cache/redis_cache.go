@@ -29,9 +29,6 @@ func unmarshal(data []byte, v interface{}) error {
 
 // NewRedisCache creates a new Redis cache client
 func NewRedisCache(cfg RedisConfig) (*RedisCache, error) {
-	fmt.Printf("NewRedisCache called with TLS config: %+v\n", cfg.TLS)
-	fmt.Printf("Redis config - Address: %s, Password: %s, DB: %d\n", cfg.Address, cfg.Password, cfg.Database)
-
 	// Create Redis options
 	options := &redis.Options{
 		Addr:         cfg.Address,
@@ -79,23 +76,10 @@ func NewRedisCache(cfg RedisConfig) (*RedisCache, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	fmt.Printf("Testing Redis connection to %s with TLS=%v, timeout=%v\n", cfg.Address, cfg.TLS != nil && cfg.TLS.Enabled, timeout)
-
-	// Try a simple ping first
-	start := time.Now()
+	// Test the connection with a ping
 	if err := client.Ping(ctx).Err(); err != nil {
-		elapsed := time.Since(start)
-		fmt.Printf("Ping failed after %v: %v\n", elapsed, err)
-
-		// Check if it's a network error
-		if err == context.DeadlineExceeded {
-			fmt.Printf("Connection timed out - check if SSH tunnel is working\n")
-		}
-
 		return nil, fmt.Errorf("failed to connect to redis: %w", err)
 	}
-
-	fmt.Printf("Successfully connected to Redis via TLS! Ping took %v\n", time.Since(start))
 
 	return cache, nil
 }

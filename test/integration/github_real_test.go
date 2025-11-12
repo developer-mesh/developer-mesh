@@ -1,5 +1,4 @@
 //go:build integration && github_real
-// +build integration,github_real
 
 package integration
 

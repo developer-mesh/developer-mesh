@@ -1,5 +1,4 @@
 //go:build contract
-// +build contract
 
 package api
 

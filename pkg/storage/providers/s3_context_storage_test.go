@@ -1,5 +1,4 @@
 //go:build exclude_storage_tests
-// +build exclude_storage_tests
 
 package providers
 

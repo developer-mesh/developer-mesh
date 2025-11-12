@@ -161,7 +161,7 @@ cache:
   dial_timeout: ${CACHE_DIAL_TIMEOUT:-10s}
   read_timeout: ${CACHE_READ_TIMEOUT:-5s}
   write_timeout: ${CACHE_WRITE_TIMEOUT:-5s}
-  pool_timeout: 5
+  pool_timeout: 5s
   max_retries: 3
   
   # TLS Configuration for ElastiCache

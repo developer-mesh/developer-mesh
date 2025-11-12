@@ -1,5 +1,4 @@
 //go:build integration && testcontainers
-// +build integration,testcontainers
 
 package webhook
 

@@ -123,7 +123,7 @@ cache:
   write_timeout: 3s
   pool_size: 10
   min_idle_conns: 2
-  pool_timeout: 3
+  pool_timeout: 3s
 
 # Storage Configuration for Docker
 storage:

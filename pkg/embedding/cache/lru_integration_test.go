@@ -1,5 +1,4 @@
 //go:build redis
-// +build redis
 
 package cache
 

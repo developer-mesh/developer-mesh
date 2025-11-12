@@ -1,5 +1,4 @@
 //go:build github_live
-// +build github_live
 
 package github_live
 

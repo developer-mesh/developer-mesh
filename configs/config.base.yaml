@@ -167,7 +167,7 @@ cache:
   dial_timeout: 5s
   read_timeout: 3s
   write_timeout: 3s
-  pool_timeout: 3
+  pool_timeout: 3s
   max_retries: 3
   
   # TLS Configuration for Redis/ElastiCache
