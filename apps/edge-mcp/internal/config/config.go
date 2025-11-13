@@ -1,9 +1,13 @@
 package config
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 // Config represents the Edge MCP configuration
@@ -69,10 +73,149 @@ type UpdaterConfig struct {
 }
 
 // Load loads configuration from file or environment
+// Priority: Environment variables > User config file > Specified config file > Defaults
 func Load(configFile string) (*Config, error) {
-	// For Edge MCP, we primarily use environment variables and defaults
-	// Config file is optional
-	return Default(), nil
+	cfg := Default()
+
+	// Try loading from specified config file first
+	if configFile != "" {
+		if _, err := os.Stat(configFile); err == nil {
+			if err := loadFromFile(configFile, cfg); err != nil {
+				return nil, fmt.Errorf("failed to load config file %s: %w", configFile, err)
+			}
+			fmt.Fprintf(os.Stderr, "[edge-mcp] Loaded base config from: %s\n", configFile)
+		}
+	}
+
+	// If critical values are missing, try loading from user config locations
+	if cfg.Core.URL == "" || cfg.Auth.APIKey == "" {
+		userConfigFile := findConfigFile()
+		if userConfigFile != "" {
+			// Only load non-empty values from user config
+			userCfg := &Config{}
+			if err := loadFromFile(userConfigFile, userCfg); err == nil {
+				fmt.Fprintf(os.Stderr, "[edge-mcp] Merging user config from: %s\n", userConfigFile)
+				// Merge non-empty values
+				if cfg.Core.URL == "" && userCfg.Core.URL != "" {
+					cfg.Core.URL = userCfg.Core.URL
+				}
+				if cfg.Auth.APIKey == "" && userCfg.Auth.APIKey != "" {
+					cfg.Auth.APIKey = userCfg.Auth.APIKey
+					cfg.Core.APIKey = userCfg.Auth.APIKey
+				}
+			}
+		}
+	}
+
+	// Environment variables override all file values
+	applyEnvOverrides(cfg)
+
+	// Debug: Print resolved configuration
+	fmt.Fprintf(os.Stderr, "[edge-mcp] Resolved configuration:\n")
+	fmt.Fprintf(os.Stderr, "[edge-mcp]   Core URL: %s\n", cfg.Core.URL)
+	if cfg.Auth.APIKey != "" {
+		fmt.Fprintf(os.Stderr, "[edge-mcp]   Auth API Key: %s...%s\n", cfg.Auth.APIKey[:10], cfg.Auth.APIKey[len(cfg.Auth.APIKey)-3:])
+	} else {
+		fmt.Fprintf(os.Stderr, "[edge-mcp]   Auth API Key: (empty)\n")
+	}
+
+	return cfg, nil
+}
+
+// findConfigFile searches for config file in standard locations
+func findConfigFile() string {
+	locations := []string{
+		"edge-mcp.yaml",                                    // Current directory
+		"~/.edge-mcp.yaml",                                 // Home directory
+		"~/.config/edge-mcp/config.yaml",                   // XDG config directory
+		"/etc/edge-mcp/config.yaml",                        // System-wide config
+	}
+
+	for _, loc := range locations {
+		// Expand ~ to home directory
+		if loc[0] == '~' {
+			home, err := os.UserHomeDir()
+			if err == nil {
+				loc = filepath.Join(home, loc[1:])
+			}
+		}
+
+		if _, err := os.Stat(loc); err == nil {
+			return loc
+		}
+	}
+
+	return ""
+}
+
+// loadFromFile loads configuration from YAML file
+func loadFromFile(path string, cfg *Config) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("failed to read file: %w", err)
+	}
+
+	if err := yaml.Unmarshal(data, cfg); err != nil {
+		return fmt.Errorf("failed to parse YAML: %w", err)
+	}
+
+	return nil
+}
+
+// applyEnvOverrides applies environment variable overrides
+func applyEnvOverrides(cfg *Config) {
+	// Auth configuration
+	if val := os.Getenv("DEV_MESH_API_KEY"); val != "" {
+		cfg.Auth.APIKey = val
+		cfg.Core.APIKey = val
+	}
+
+	// Core configuration
+	if val := os.Getenv("DEV_MESH_URL"); val != "" {
+		cfg.Core.URL = val
+	}
+	if val := os.Getenv("EDGE_MCP_ID"); val != "" {
+		cfg.Core.EdgeMCPID = val
+	}
+
+	// Server configuration
+	if val := getEnvInt("EDGE_MCP_PORT", 0); val != 0 {
+		cfg.Server.Port = val
+	}
+
+	// Rate limit configuration
+	if val := getEnvInt("EDGE_MCP_GLOBAL_RPS", 0); val != 0 {
+		cfg.RateLimit.GlobalRPS = val
+	}
+	if val := getEnvInt("EDGE_MCP_GLOBAL_BURST", 0); val != 0 {
+		cfg.RateLimit.GlobalBurst = val
+	}
+	if val := getEnvInt("EDGE_MCP_TENANT_RPS", 0); val != 0 {
+		cfg.RateLimit.TenantRPS = val
+	}
+	if val := getEnvInt("EDGE_MCP_TENANT_BURST", 0); val != 0 {
+		cfg.RateLimit.TenantBurst = val
+	}
+	if val := getEnvInt("EDGE_MCP_TOOL_RPS", 0); val != 0 {
+		cfg.RateLimit.ToolRPS = val
+	}
+	if val := getEnvInt("EDGE_MCP_TOOL_BURST", 0); val != 0 {
+		cfg.RateLimit.ToolBurst = val
+	}
+
+	// Updater configuration
+	if val, ok := getEnvBoolOpt("EDGE_MCP_UPDATE_ENABLED"); ok {
+		cfg.Updater.Enabled = val
+	}
+	if val := os.Getenv("EDGE_MCP_UPDATE_CHANNEL"); val != "" {
+		cfg.Updater.Channel = val
+	}
+	if val, ok := getEnvBoolOpt("EDGE_MCP_UPDATE_AUTO_DOWNLOAD"); ok {
+		cfg.Updater.AutoDownload = val
+	}
+	if val, ok := getEnvBoolOpt("EDGE_MCP_UPDATE_AUTO_APPLY"); ok {
+		cfg.Updater.AutoApply = val
+	}
 }
 
 // Default returns default configuration
@@ -82,7 +225,7 @@ func Default() *Config {
 			Port: 8082,
 		},
 		Auth: AuthConfig{
-			APIKey: getEnv("EDGE_MCP_API_KEY", ""),
+			APIKey: getEnv("DEV_MESH_API_KEY", ""),
 		},
 		Core: CoreConfig{
 			URL:       getEnv("DEV_MESH_URL", ""),
@@ -133,4 +276,14 @@ func getEnvInt64(key string, defaultValue int64) int64 {
 func generateEdgeMCPID() string {
 	hostname, _ := os.Hostname()
 	return "edge-" + hostname + "-" + time.Now().Format("20060102")
+}
+
+// getEnvBoolOpt returns bool value from env and whether it was set
+func getEnvBoolOpt(key string) (bool, bool) {
+	if value := os.Getenv(key); value != "" {
+		if boolValue, err := strconv.ParseBool(value); err == nil {
+			return boolValue, true
+		}
+	}
+	return false, false
 }

@@ -29,7 +29,7 @@ type RedisConfig struct {
 	WriteTimeout time.Duration `mapstructure:"write_timeout"`  // Write timeout
 	PoolSize     int           `mapstructure:"pool_size"`      // Connection pool size
 	MinIdleConns int           `mapstructure:"min_idle_conns"` // Min idle connections
-	PoolTimeout  int           `mapstructure:"pool_timeout"`   // Pool timeout in seconds
+	PoolTimeout  time.Duration `mapstructure:"pool_timeout"`   // Pool timeout
 	UseIAMAuth   bool          `mapstructure:"use_iam_auth"`   // Use IAM authentication for Redis
 
 	// AWS ElastiCache specific configuration
@@ -103,7 +103,7 @@ func newRedisClusterClient(config RedisConfig) (Cache, error) {
 		DialTimeout:    config.DialTimeout,
 		ReadTimeout:    config.ReadTimeout,
 		WriteTimeout:   config.WriteTimeout,
-		PoolTimeout:    time.Duration(config.PoolTimeout) * time.Second,
+		PoolTimeout:    config.PoolTimeout,
 		RouteRandomly:  true,
 		RouteByLatency: true,
 	}
@@ -150,7 +150,7 @@ func newAWSElastiCacheClient(ctx context.Context, config RedisConfig) (Cache, er
 			DialTimeout:    config.DialTimeout,
 			ReadTimeout:    config.ReadTimeout,
 			WriteTimeout:   config.WriteTimeout,
-			PoolTimeout:    time.Duration(config.PoolTimeout) * time.Second,
+			PoolTimeout:    config.PoolTimeout,
 			RouteRandomly:  true,
 			RouteByLatency: true,
 		}

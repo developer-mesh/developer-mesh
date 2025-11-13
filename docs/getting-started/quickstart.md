@@ -57,31 +57,44 @@ docker-compose -f docker-compose.local.yml logs -f edge-mcp
 
 Choose your preferred AI coding assistant:
 
-#### Option A: Claude Code
+#### Option A: Claude Code (stdio mode - Recommended)
 
-Create `~/.claude/mcp.json`:
+**1. Install edge-mcp binary:**
+```bash
+cd apps/edge-mcp
+go build -o ~/.local/bin/edge-mcp ./cmd/server
+```
 
+**2. Create `~/.claude/mcp_servers.json`:**
 ```json
 {
   "mcpServers": {
-    "edge-mcp": {
-      "transport": "websocket",
-      "url": "ws://localhost:8085/ws",
-      "headers": {
-        "Authorization": "Bearer dev-admin-key-1234567890"
-      },
-      "description": "Edge MCP - DevOps Automation",
-      "supportsStreaming": true
+    "devmesh": {
+      "command": "edge-mcp",
+      "args": ["--stdio"],
+      "description": "Developer Mesh - DevOps Automation"
     }
   }
 }
 ```
 
-Verify connection:
+**3. Create `~/.edge-mcp.yaml` with credentials:**
+```yaml
+core:
+  url: "http://localhost:8081"
+  api_key: "dev-admin-key-1234567890"
+auth:
+  api_key: "dev-admin-key-1234567890"
+```
+
+**4. Verify connection:**
 ```bash
 claude
-# Then type: /tools list
+# Then type: /mcp
+# Should show: "Connected to devmesh" with 169+ tools
 ```
+
+> **Note:** stdio mode is recommended for Claude Code due to better reliability. For remote deployments, see [WebSocket mode guide](../guides/integrations/claude-code.md#alternative-websocket-mode).
 
 #### Option B: Cursor IDE
 

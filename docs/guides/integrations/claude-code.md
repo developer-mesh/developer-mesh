@@ -38,29 +38,94 @@ Claude Code automatically detects Edge MCP as an MCP server when properly config
 
 ## Quick Start
 
-### 1. Start Edge MCP Server
+### 1. Install Edge MCP Binary
 
-**Local Development:**
+**Install via Go:**
 ```bash
 cd apps/edge-mcp
+go build -o ~/.local/bin/edge-mcp ./cmd/server
+```
+
+**Or download pre-built binary:**
+```bash
+# Download from releases (replace VERSION)
+curl -L -o ~/.local/bin/edge-mcp \
+  https://github.com/developer-mesh/developer-mesh/releases/download/VERSION/edge-mcp
+chmod +x ~/.local/bin/edge-mcp
+```
+
+### 2. Configure Edge MCP for Claude Code (stdio mode)
+
+Claude Code communicates with Edge MCP using stdio mode. Configure it using `~/.claude/mcp_servers.json`:
+
+**Location:** `~/.claude/mcp_servers.json` (Linux/macOS) or `%APPDATA%\.claude\mcp_servers.json` (Windows)
+
+```json
+{
+  "mcpServers": {
+    "devmesh": {
+      "command": "edge-mcp",
+      "args": ["--stdio"],
+      "description": "Developer Mesh - DevOps Tool Integration"
+    }
+  }
+}
+```
+
+**⚠️ Important:** Due to a Claude Code bug ([Issue #1254](https://github.com/anthropics/claude-code/issues/1254)), environment variables in `mcp_servers.json` are not passed to MCP servers. Use the config file workaround below instead.
+
+### 3. Create Edge MCP Configuration File
+
+Since environment variables don't work in stdio mode, create a configuration file with your credentials:
+
+**Location:** `~/.edge-mcp.yaml`
+
+```yaml
+# Edge MCP Configuration for Claude Code
+core:
+  url: "http://localhost:8081"      # REST API URL
+  api_key: "your-api-key-here"      # Your DevMesh API key
+
+auth:
+  api_key: "your-api-key-here"      # Same as core.api_key
+
+server:
+  port: 8082
+```
+
+**Configuration priority:**
+1. Environment variables (highest) - Used by Docker/K8s deployments
+2. `~/.edge-mcp.yaml` - Local development (Claude Code workaround)
+3. `configs/config.yaml` - Base configuration
+4. Defaults (lowest)
+
+### 4. Start Required Services
+
+Edge MCP needs the REST API running to fetch dynamic tools:
+
+**Using Docker Compose (Recommended for local development):**
+```bash
+docker-compose -f docker-compose.local.yml up rest-api database redis
+```
+
+**Or start services individually:**
+```bash
+# Start PostgreSQL
+docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=devmesh postgres:14
+
+# Start Redis
+docker run -d -p 6379:6379 redis:7
+
+# Start REST API
+cd apps/rest-api
 go run cmd/server/main.go
 ```
 
-**Using Docker:**
-```bash
-docker-compose -f docker-compose.local.yml up edge-mcp
-```
+### 5. Verify Connection (Alternative: WebSocket Mode)
 
-**Kubernetes:**
-```bash
-helm install edge-mcp deployments/k8s/helm/edge-mcp/
-```
+If you prefer WebSocket mode for remote deployments, you can also configure Claude Code to connect via WebSocket:
 
-### 2. Configure MCP Server in Claude Code
-
-Claude Code uses MCP configuration files to discover servers. Create or update your MCP configuration file:
-
-**Location:** `~/.claude/mcp.json` (Linux/macOS) or `%APPDATA%\Claude\mcp.json` (Windows)
+**WebSocket Configuration** (`~/.claude/mcp.json`):
 
 ```json
 {
@@ -69,7 +134,7 @@ Claude Code uses MCP configuration files to discover servers. Create or update y
       "transport": "websocket",
       "url": "ws://localhost:8082/ws",
       "headers": {
-        "Authorization": "Bearer dev-admin-key-1234567890"
+        "Authorization": "Bearer your-api-key-here"
       },
       "description": "Edge MCP - DevOps Tool Integration",
       "supportsStreaming": true,
@@ -83,7 +148,12 @@ Claude Code uses MCP configuration files to discover servers. Create or update y
 }
 ```
 
-### 3. Verify Connection
+For WebSocket mode, start Edge MCP in server mode:
+```bash
+edge-mcp --port 8082
+```
+
+### 6. Verify Connection
 
 Start Claude Code and verify the connection:
 
@@ -91,33 +161,82 @@ Start Claude Code and verify the connection:
 claude
 ```
 
-In Claude Code, list available tools:
+In Claude Code, use the `/mcp` command to verify the connection:
 ```
-/tools list
+/mcp
+```
+
+You should see:
+- `Connected to devmesh` - Indicates successful connection
+- 169+ tools available (27 built-in tools + 140+ dynamic tools from REST API)
+
+List available tools:
+```
+/tools
 ```
 
 You should see tools like:
-- `github_get_repository`
-- `github_list_issues`
-- `harness_pipelines_list`
-- `devmesh_agent_assign`
+- `mcp__devmesh__github_*` (140+ GitHub operations)
+- `mcp__devmesh__harness_*` (Harness Platform operations)
+- `devmesh_agent_assign`, `devmesh_task_create`, etc. (Built-in orchestration)
 - And many more...
 
 ## Configuration
 
+### Configuration File (`~/.edge-mcp.yaml`)
+
+**Primary method for Claude Code stdio mode.** Create this file with your settings:
+
+```yaml
+# Core Platform connection (required for dynamic tools)
+core:
+  url: "http://localhost:8081"
+  api_key: "your-api-key-here"
+  edge_mcp_id: "edge-local-dev"  # Optional: instance identifier
+
+# Authentication (should match core.api_key)
+auth:
+  api_key: "your-api-key-here"
+
+# Server configuration
+server:
+  port: 8082
+
+# Rate limiting (optional - defaults shown)
+rate_limit:
+  global_rps: 1000
+  global_burst: 2000
+  tenant_rps: 100
+  tenant_burst: 200
+  tool_rps: 50
+  tool_burst: 100
+
+# Auto-updater (optional)
+updater:
+  enabled: true
+  channel: "stable"
+  auto_download: true
+  auto_apply: false
+```
+
+**Config file search locations** (checked in order):
+1. `./edge-mcp.yaml` - Current directory
+2. `~/.edge-mcp.yaml` - Home directory (recommended)
+3. `~/.config/edge-mcp/config.yaml` - XDG config
+4. `/etc/edge-mcp/config.yaml` - System-wide
+
 ### Environment Variables
 
-Edge MCP can be configured via environment variables:
+**For Docker/Kubernetes deployments only.** Environment variables override config file values:
 
 ```bash
-# Server configuration
-export EDGE_MCP_PORT=8082                    # Server port (default: 8082)
-export EDGE_MCP_API_KEY=your-api-key-here    # Authentication key
-
-# Core Platform integration (optional)
+# Core Platform integration (required for dynamic tools)
 export DEV_MESH_URL=http://localhost:8081    # Core Platform URL
 export DEV_MESH_API_KEY=your-core-api-key    # Core Platform API key
 export EDGE_MCP_ID=edge-mcp-01              # Unique Edge MCP instance ID
+
+# Server configuration
+export EDGE_MCP_PORT=8082                    # Server port (default: 8082)
 
 # Rate limiting
 export EDGE_MCP_GLOBAL_RPS=1000             # Global requests/sec
@@ -132,6 +251,8 @@ export REDIS_URL=redis://localhost:6379
 export TRACING_ENABLED=true
 export OTLP_ENDPOINT=localhost:4317         # Jaeger OTLP endpoint
 ```
+
+**⚠️ Note:** Environment variables in `mcp_servers.json` are **not passed** to edge-mcp due to Claude Code bug [#1254](https://github.com/anthropics/claude-code/issues/1254). Use the config file instead for Claude Code stdio mode.
 
 ### API Key Authentication
 
@@ -306,25 +427,117 @@ For production deployments with TLS:
 
 ## Troubleshooting
 
-### Connection Issues
+### Only Seeing 27 Tools (Missing Dynamic Tools)
 
-**Problem:** Claude Code cannot connect to Edge MCP
+**Problem:** Claude Code only shows 27 built-in tools instead of 169+ tools
+
+**Root Cause:** Edge MCP is not connecting to REST API to fetch dynamic tools (GitHub, Harness, etc.)
 
 **Solutions:**
-1. Verify Edge MCP is running:
+
+1. **Verify config file exists and has credentials:**
+   ```bash
+   cat ~/.edge-mcp.yaml
+   ```
+   Should show your `core.url` and `auth.api_key`
+
+2. **Check edge-mcp debug output:**
+
+   Restart Claude Code's MCP connection (`/mcp` command) and check the debug output.
+
+   You should see:
+   ```
+   [edge-mcp] Loaded base config from: configs/config.yaml
+   [edge-mcp] Merging user config from: /Users/you/.edge-mcp.yaml
+   [edge-mcp] Resolved configuration:
+   [edge-mcp]   Core URL: http://localhost:8081
+   [edge-mcp]   Auth API Key: adm_...KaQ
+   ```
+
+   If you see empty URL or API key, the config file is not being loaded.
+
+3. **Verify REST API is running and healthy:**
+   ```bash
+   curl http://localhost:8081/health
+   ```
+   Should return: `{"status":"healthy",...}`
+
+4. **Check REST API has tools:**
+   ```bash
+   curl -H "Authorization: Bearer your-api-key" \
+     http://localhost:8081/api/v1/tools | jq '.count'
+   ```
+   Should show 169 or more tools
+
+5. **Common config file issues:**
+   - **Wrong location**: Must be `~/.edge-mcp.yaml` (not `~/.edge-mcp.yml`)
+   - **YAML syntax error**: Validate with `yamllint ~/.edge-mcp.yaml`
+   - **Wrong API key format**: Must match the format `adm_...` or configured format
+   - **Wrong URL**: Must include http:// or https:// protocol
+
+### Connection Issues (stdio mode)
+
+**Problem:** Claude Code shows "Failed to connect to devmesh"
+
+**Solutions:**
+
+1. **Verify edge-mcp binary is in PATH:**
+   ```bash
+   which edge-mcp
+   ```
+   Should show: `/Users/you/.local/bin/edge-mcp` or similar
+
+2. **Check mcp_servers.json configuration:**
+   ```bash
+   cat ~/.claude/mcp_servers.json
+   ```
+   Should have:
+   ```json
+   {
+     "mcpServers": {
+       "devmesh": {
+         "command": "edge-mcp",
+         "args": ["--stdio"]
+       }
+     }
+   }
+   ```
+
+3. **Test edge-mcp manually:**
+   ```bash
+   edge-mcp --stdio
+   ```
+   Should start and wait for stdin input (Ctrl+C to exit)
+
+4. **Check Claude Code MCP logs:**
+   Look for error messages in Claude Code's developer console
+
+### Connection Issues (WebSocket mode)
+
+**Problem:** Claude Code cannot connect to Edge MCP via WebSocket
+
+**Solutions:**
+
+1. **Verify Edge MCP is running in WebSocket mode:**
+   ```bash
+   edge-mcp --port 8082
+   ```
+
+2. **Check WebSocket endpoint:**
    ```bash
    curl http://localhost:8082/health/ready
    ```
    Should return: `{"status":"healthy",...}`
 
-2. Check WebSocket connectivity:
+3. **Test WebSocket connectivity:**
    ```bash
    websocat ws://localhost:8082/ws
    ```
 
-3. Verify API key is correct in configuration
+4. **Verify API key in headers:**
+   Check `~/.claude/mcp.json` has correct Bearer token
 
-4. Check Edge MCP logs:
+5. **Check Edge MCP logs:**
    ```bash
    # If running locally
    docker-compose logs edge-mcp

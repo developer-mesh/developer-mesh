@@ -30,7 +30,7 @@ type ElastiCacheConfig struct {
 	DialTimeout        time.Duration       `mapstructure:"dial_timeout"`
 	ReadTimeout        time.Duration       `mapstructure:"read_timeout"`
 	WriteTimeout       time.Duration       `mapstructure:"write_timeout"`
-	PoolTimeout        int                 `mapstructure:"pool_timeout"`
+	PoolTimeout        time.Duration       `mapstructure:"pool_timeout"`
 	TokenExpiration    int                 `mapstructure:"token_expiration"`
 }
 
@@ -191,7 +191,7 @@ func (c *ElastiCacheClient) BuildRedisOptions(ctx context.Context) (map[string]a
 	options["dialTimeout"] = c.config.DialTimeout
 	options["readTimeout"] = c.config.ReadTimeout
 	options["writeTimeout"] = c.config.WriteTimeout
-	options["poolTimeout"] = time.Duration(c.config.PoolTimeout) * time.Second
+	options["poolTimeout"] = c.config.PoolTimeout
 
 	return options, nil
 }

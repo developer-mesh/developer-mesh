@@ -50,6 +50,13 @@ func main() {
 	)
 	flag.Parse()
 
+	// Debug: Print environment variables to stderr for troubleshooting
+	fmt.Fprintf(os.Stderr, "[edge-mcp] Checking environment variables:\n")
+	fmt.Fprintf(os.Stderr, "[edge-mcp]   DEV_MESH_URL=%s\n", os.Getenv("DEV_MESH_URL"))
+	fmt.Fprintf(os.Stderr, "[edge-mcp]   DEV_MESH_API_KEY=%s\n", os.Getenv("DEV_MESH_API_KEY"))
+	fmt.Fprintf(os.Stderr, "[edge-mcp]   --api-key flag=%s\n", *apiKey)
+	fmt.Fprintf(os.Stderr, "[edge-mcp]   --core-url flag=%s\n", *coreURL)
+
 	if *showVersion {
 		fmt.Printf("Edge MCP v%s (commit: %s, built: %s)\n", version, commit, buildTime)
 		os.Exit(0)
@@ -124,12 +131,7 @@ func main() {
 		}
 	}
 
-	// Use DEV_MESH_API_KEY environment variable if Core.APIKey not set
-	if cfg.Core.APIKey == "" {
-		if devMeshAPIKey := os.Getenv("DEV_MESH_API_KEY"); devMeshAPIKey != "" {
-			cfg.Core.APIKey = devMeshAPIKey
-		}
-	}
+	// Note: DEV_MESH_API_KEY is now handled by cfg.Auth.APIKey in config/config.go
 
 	// Use DEV_MESH_EDGE_ID or EDGE_MCP_ID environment variable if Core.EdgeMCPID not set
 	if cfg.Core.EdgeMCPID == "" {
@@ -189,7 +191,7 @@ func main() {
 	if cfg.Core.URL != "" {
 		coreClient = core.NewClient(
 			cfg.Core.URL,
-			cfg.Core.APIKey,
+			cfg.Auth.APIKey,
 			cfg.Core.EdgeMCPID,
 			logger,
 			tracerProvider,
