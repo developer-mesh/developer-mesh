@@ -15,6 +15,119 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+## [0.0.16] - 2025-11-13
+
+### Added
+
+- **Edge MCP: Config File Support for Claude Code stdio Mode**
+  - Added YAML config file loading with multi-location search (./edge-mcp.yaml, ~/.edge-mcp.yaml, ~/.config/edge-mcp/config.yaml, /etc/edge-mcp/config.yaml)
+  - Implemented config merging: env vars > user config > base config > defaults
+  - Enables all 169+ tools (27 built-in + 140+ dynamic) in Claude Code despite stdio mode limitations
+  - Works around Claude Code bug #1254 where environment variables aren't passed to stdio-mode MCP servers
+  - Config priority ensures Docker/K8s deployments continue working unchanged
+
+- **AWS Bedrock: IAM Role Assumption Support**
+  - Added `BEDROCK_ROLE_ARN` environment variable for IAM role assumption
+  - Enables secure credential-free access via Kubernetes IRSA (IAM Roles for Service Accounts)
+  - Production Kubernetes deployments can now use STS AssumeRole for temporary credentials
+  - Added comprehensive IAM permissions reference documentation
+
+- **MCP Toolset Architecture for 87% Token Reduction**
+  - Implemented toolset filtering to expose only relevant tools per context
+  - Reduced tool exposure from 169 to ~22 tools based on user permissions and needs
+  - Extended architecture to REST API for end-to-end token reduction
+  - Added toolset enablement configuration and resilient error handling
+  - Supports 8 toolsets: repos, issues, pull_requests, actions, security, search, comments, workflow
+
+- **Session-Scoped Credential Injection**
+  - Automatic tool authentication using stored user credentials
+  - Credentials loaded per session and injected into tool execution
+  - Eliminates need for manual credential passing in MCP tool calls
+  - Comprehensive authentication support across all 14 providers
+
+- **Edge MCP: Self-Updating Mechanism**
+  - Phase 4 auto-update integration with CLI, config, and background checker
+  - Automatic version checking against GitHub releases
+  - Configurable update channels (stable, beta, latest)
+  - Auto-download and auto-apply capabilities with safety controls
+  - Background checker runs on configurable intervals
+
+- **Multi-Agent Orchestration (Phase 1)**
+  - Initial implementation of multi-agent orchestration system
+  - Agent registration, discovery, and intelligence management
+  - Intelligent Agent Learning System for zero-error tool discovery
+  - Performance and memory management for orchestrator
+
+- **Context Optimization Across Providers**
+  - GitHub: Removed 17 redundant tools, updated descriptions
+  - Harness: Optimized tool exposure for context reduction
+  - Comprehensive optimization across all 8 providers (GitHub, Harness, Artifactory, Xray, GitLab, Nexus, Jira, Confluence)
+  - Eliminated dead code to reduce MCP tool count by 60%
+
+### Fixed
+
+- **Edge MCP Authentication**
+  - Fixed auth endpoint path from `/auth/auth` to `/auth`
+  - Corrected Edge MCP auth endpoint in configuration
+
+- **Tool Initialization**
+  - Fixed resilient toolset enablement to handle missing/invalid configurations
+  - Initialized GitHub adapter to enable fast user-credential-based tool execution
+  - Always load user credentials - removed passthrough auth dependency
+  - Fixed comprehensive action extraction for all provider tools
+
+- **Build and Tests**
+  - Added CA certificates to distroless images for AWS TLS verification
+  - Resolved all staticcheck lint issues in toolset architecture
+  - Fixed RAG loader integration test failures
+  - Fixed Harness provider tests for context-optimized configuration
+  - Added thread-safety to Jira cache and test mocks
+  - Fixed integration tests to use centralized migrations
+  - Added rag-loader to CI integration tests
+
+- **Database Migrations**
+  - Renumbered all migrations to eliminate sequence gaps (011-035, 037-039)
+  - Made GRANT statements conditional on devmesh role existence
+  - Added mcp schema prefix to all custom type references
+  - Improved CI migration error diagnostics
+
+- **Redis Configuration**
+  - Fixed Redis pool_timeout type from int to time.Duration
+  - Corrected configuration handling across all applications
+
+### Changed
+
+- **Documentation Restructuring**
+  - Complete documentation restructure following Divio system
+  - Fixed 100+ inaccuracies across all documentation sections
+  - Fixed 21 broken file references in getting-started docs
+  - Updated service name references from mcp-server to edge-mcp
+  - Fixed API endpoints and port references throughout docs
+  - Added comprehensive MCP toolset architecture documentation
+
+- **Dependency Updates**
+  - Bumped golang from 1.24 to 1.25 in worker
+  - Updated github.com/aws/aws-sdk-go-v2 across multiple modules
+  - Updated github.com/redis/go-redis/v9 across all services
+  - Updated GitHub Actions: setup-go (4→6), cache (3→4), build-push-action (5→6)
+  - Updated multiple other dependencies for security and compatibility
+
+### Documentation
+
+- **New Documentation**
+  - IAM permissions reference for AWS Bedrock authentication
+  - Comprehensive Edge MCP auto-update user guide
+  - MCP toolset architecture and implementation guide
+  - Multi-agent orchestration implementation plan
+  - GitHub MCP tools complete reference
+
+- **Updated Documentation**
+  - Claude Code integration guide with stdio mode setup
+  - Quickstart guide with config file approach
+  - Production deployment guide with IRSA setup instructions
+  - Getting-started guides with corrected endpoints and ports
+  - Architecture documentation with system accuracy fixes
+
 ## [0.0.15] - 2025-11-12
 
 ### Fixed
