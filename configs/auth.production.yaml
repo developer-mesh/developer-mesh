@@ -1,4 +1,0 @@
-auth:
-  # Production loads API keys from environment variables
-  # Keys are automatically stored in database for persistence
-  production_key_source: env  # Load from environment variables

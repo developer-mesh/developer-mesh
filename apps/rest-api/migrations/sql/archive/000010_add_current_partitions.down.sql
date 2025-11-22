@@ -1,5 +1,0 @@
--- Drop the added partitions
-DROP TABLE IF EXISTS tasks_2025_06;
-DROP TABLE IF EXISTS tasks_2025_07;
-DROP TABLE IF EXISTS audit_log_2025_06;
-DROP TABLE IF EXISTS audit_log_2025_07;

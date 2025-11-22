@@ -1,9 +1,0 @@
-BEGIN;
-
-SET search_path TO mcp, public;
-
-DROP TABLE IF EXISTS api_key_usage CASCADE;
-DROP TABLE IF EXISTS api_keys CASCADE;
-DROP TABLE IF EXISTS users CASCADE;
-
-COMMIT;

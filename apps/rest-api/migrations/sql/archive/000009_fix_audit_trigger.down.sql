@@ -1,2 +1,0 @@
--- Rollback not needed since we're just fixing the function
--- The original function will be preserved in migration history
